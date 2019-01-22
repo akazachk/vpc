@@ -57,8 +57,8 @@ void setupClpForCbc(OsiClpSolverInterface* const solver,
  * Set parameters for Cbc used for VPCs, as well as the custom branching decision
  */
 void setCbcParametersForPartialBB(
-		const VPCParameters& params,
-		CbcModel* const cbc_model,
+    const VPCParameters& params,
+    CbcModel* const cbc_model,
     CbcEventHandler* eventHandler,
     const int numStrong,
     const int numBeforeTrusted,
@@ -67,7 +67,7 @@ void setCbcParametersForPartialBB(
   cbc_model->solver()->setIntParam(OsiMaxNumIterationHotStart, 100);
 
   // What is the partial strategy?
-	const int strategy = std::abs(params.get(intParam::PARTIAL_BB_STRATEGY));
+  const int strategy = std::abs(params.get(intParam::PARTIAL_BB_STRATEGY));
   const int sign = (params.get(intParam::PARTIAL_BB_STRATEGY) < 0) ? -1 : 1;
   const int compare_strategy = strategy % 10; // ones digit
   const int branch_strategy = (strategy % 100 - compare_strategy) / 10; // tens digit
@@ -120,7 +120,7 @@ void setCbcParametersForPartialBB(
 
   if (branch) {
     OsiChooseStrongCustom choose;
-		if (numStrong >= 0) {
+    if (numStrong >= 0) {
       choose.setNumberStrong(numStrong);
     }
     if (numBeforeTrusted >= 0) {

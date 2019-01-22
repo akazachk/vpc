@@ -271,7 +271,7 @@ VPCEventHandler::VPCEventHandler () : CbcEventHandler() {
 
 VPCEventHandler::VPCEventHandler (const int maxNumLeafNodes, const double maxTime, const VPCParameters* params) : CbcEventHandler() {
   copyOurStuff(NULL);
-	this->params = params;
+  this->params = params;
   this->maxNumLeafNodes_ = maxNumLeafNodes;
   this->maxTime_ = maxTime;
 } /* VPCEventHandler-specific constructor */
@@ -315,7 +315,7 @@ CbcEventHandler* VPCEventHandler::clone() const {
 
 void VPCEventHandler::copyOurStuff(const VPCEventHandler* const rhs) {
   if (rhs) {
-		this->params = rhs->params;
+    this->params = rhs->params;
     this->maxNumLeafNodes_ = rhs->maxNumLeafNodes_;
     this->maxTime_ = rhs->maxTime_;
     this->numLeafNodes_ = rhs->numLeafNodes_;

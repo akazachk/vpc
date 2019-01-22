@@ -244,8 +244,8 @@ CbcBranchStrongDecision::bestBranch (CbcBranchingObject ** objects, int numberOb
         // Uncomment next to force method
         method = 1; // AMK changed here 2017-03-21; 2017-08-14: actually we never get here when a choose variable routine is specified
 
-	// FIXME This should be an enum.  It will be easier to
-	// understand in the code than numbers.
+  // FIXME This should be an enum.  It will be easier to
+  // understand in the code than numbers.
         /* Methods :
            0 - fewest infeasibilities
            1 - largest min change in objective
@@ -444,7 +444,7 @@ CbcBranchStrongDecision::bestBranch (CbcBranchingObject ** objects, int numberOb
                 bestWay = bestObject->object()->preferredWay();
             bestObject->way(bestWay);
         } else {
-	  COIN_DETAIL_PRINT(printf("debug\n"));
+    COIN_DETAIL_PRINT(printf("debug\n"));
         }
     }
     return whichObject;
