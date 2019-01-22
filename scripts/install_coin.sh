@@ -24,7 +24,7 @@ fi
 #CPLEX_LIB="-L$CPLEX_LIB_DIR -lcplex -lm -ldl -lpthread"
 
 mkdir -p $COIN_DIR
-svn co $CGL_URL $COIN_DIR
+svn co $CBC_URL $COIN_DIR
 cd $COIN_DIR
 mkdir -p build
 cd build

@@ -27,3 +27,4 @@ data/instances/coral
 data/instances/neos
 *.mps*
 test/
+lib/
