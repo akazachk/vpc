@@ -2,7 +2,6 @@
 *.svn
 ~$*
 vpc
-makefile
 .cproject
 .project
 objects.mk
