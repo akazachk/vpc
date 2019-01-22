@@ -45,8 +45,8 @@ inline void writeErrorToLog(std::string text, FILE *myfile) {
 /**
  * Checks whether a solver is optimal
  * Something that can go wrong (e.g., bc1 -64 sb5 tmp_ind = 14):
- * 	Solver is declared optimal for the scaled problem but there are primal or dual infeasibilities in the unscaled problem
- * 	In this case, secondary status will be 2 or 3
+ *  Solver is declared optimal for the scaled problem but there are primal or dual infeasibilities in the unscaled problem
+ *  In this case, secondary status will be 2 or 3
  * Sometimes cleanup helps
  * Sometimes things break after enabling factorization (e.g., secondary status = 0, but sum infeasibilities > 0)
  */
@@ -77,8 +77,8 @@ void setCompNBCoor(CoinPackedVector& vec, double& objViolation,
     const std::vector<int>& nonBasicVarIndex,
     const std::vector<double>& nonBasicReducedCost, const int deletedVar = -1);
 /**
-	* @brief Check if a file exists
-	*/
+  * @brief Check if a file exists
+  */
 bool fexists(const char* filename);
 
 /**

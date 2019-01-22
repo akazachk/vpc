@@ -19,7 +19,7 @@
 
 class CglVPC : public CglCutGenerator {
 public:
-	// Enums and static variables
+  // Enums and static variables
   enum ExitReason {
     SUCCESS_EXIT = 0,
     CUT_LIMIT_EXIT,
@@ -58,18 +58,18 @@ public:
     "GEN_CUTS_TIME"
   }; /* VPCTimeStatsName */
 
-	enum CutType {
-		ONE_SIDED_CUT, VPC, NUM_CUT_TYPE_STATS
-	}; /* CutType */
-	const std::vector<std::string> CutTypeName {
-		"ONE_SIDED_CUT", "VPC"
-	}; /* CutTypeName */
+  enum CutType {
+    ONE_SIDED_CUT, VPC, NUM_CUT_TYPE_STATS
+  }; /* CutType */
+  const std::vector<std::string> CutTypeName {
+    "ONE_SIDED_CUT", "VPC"
+  }; /* CutTypeName */
 
-	enum FailureType {
-		NUMERICAL_ISSUES_WARNING, NUM_FAILURES
-	}; /* FailureType */
+  enum FailureType {
+    NUMERICAL_ISSUES_WARNING, NUM_FAILURES
+  }; /* FailureType */
 
-	// Class variables
+  // Class variables
   VPCParameters params;
   ExitReason exitReason;
   TimeStats timer;
@@ -107,15 +107,15 @@ public:
   virtual void generateCuts(const OsiSolverInterface&, OsiCuts&, const CglTreeInfo = CglTreeInfo());
 
 protected:
-	struct ProblemData {
-		double EPS;
-//		std::vector<int> cstat, rstat;
-	  std::vector<int> NBVarIndex, rowOfVar, varBasicInRow;
-	  std::vector<int> fractionalCore;
-	  std::vector<double> NBReducedCost;
-	} probData;
+  struct ProblemData {
+    double EPS;
+//    std::vector<int> cstat, rstat;
+    std::vector<int> NBVarIndex, rowOfVar, varBasicInRow;
+    std::vector<int> fractionalCore;
+    std::vector<double> NBReducedCost;
+  } probData;
 
-	void getProblemData(OsiSolverInterface* const solver, ProblemData& probData);
+  void getProblemData(OsiSolverInterface* const solver, ProblemData& probData);
 
   ExitReason prepareDisjunction(OsiClpSolverInterface* solver, OsiCuts& cuts);
   void setupPRLP(const OsiSolverInterface& si);

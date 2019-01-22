@@ -25,8 +25,8 @@ void setupClpForCbc(OsiClpSolverInterface* const solver,
  * Set parameters for Cbc used for VPCs, as well as the custom branching decision
  */
 void setCbcParametersForPartialBB(
-		const VPCParameters& param,
-		CbcModel* const cbc_model,
+    const VPCParameters& param,
+    CbcModel* const cbc_model,
     CbcEventHandler* eventHandler = NULL, const int numStrong = 5,
     const int numBeforeTrusted = 10, const double max_time =
         std::numeric_limits<double>::max());

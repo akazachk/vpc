@@ -34,9 +34,9 @@ struct ltstr {
  */
 struct data_t {
   int id;
-	data_t() :
-			id(UNINITIALIZED_STAT) {
-	}
+  data_t() :
+      id(UNINITIALIZED_STAT) {
+  }
 };
 
 /**

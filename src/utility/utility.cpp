@@ -8,8 +8,8 @@
  * @brief Checks whether a solver is optimal
  *
  * Something that can go wrong (e.g., bc1 -64 sb5 tmp_ind = 14):
- * 	Solver is declared optimal for the scaled problem but there are primal or dual infeasibilities in the unscaled problem
- * 	In this case, secondary status will be 2 or 3
+ *  Solver is declared optimal for the scaled problem but there are primal or dual infeasibilities in the unscaled problem
+ *  In this case, secondary status will be 2 or 3
  * Sometimes cleanup helps
  * Sometimes things break after enabling factorization (e.g., secondary status = 0, but sum infeasibilities > 0)
  */
@@ -20,7 +20,7 @@ bool checkSolverOptimality(OsiSolverInterface* const solver,
   try {
     clpsolver = dynamic_cast<OsiClpSolverInterface*>(solver);
   } catch (std::exception& e) {
-  	// Disregard / catch below
+    // Disregard / catch below
   }
   if (!clpsolver) {
     return solver->isProvenOptimal();
@@ -52,7 +52,7 @@ bool checkSolverOptimality(OsiSolverInterface* const solver,
     }
     if (is_cleaned) {
       resolve_count++;
-			return checkSolverOptimality(solver, exitOnDualInfeas, timeLimit, 0);
+      return checkSolverOptimality(solver, exitOnDualInfeas, timeLimit, 0);
     }
 
     // Do some resolves, but first save whether the initial status is dual infeasible
@@ -113,7 +113,7 @@ bool checkSolverOptimality(OsiSolverInterface* const solver,
     }
     if (is_cleaned) {
       resolve_count++;
-			return checkSolverOptimality(solver, exitOnDualInfeas, timeLimit, 0);
+      return checkSolverOptimality(solver, exitOnDualInfeas, timeLimit, 0);
     }
   }
 
@@ -128,8 +128,8 @@ bool checkSolverOptimality(OsiSolverInterface* const solver,
       return false;
     } else if (solver->isProvenDualInfeasible()) {
       if (exitOnDualInfeas) {
-				error_msg(errstr,
-				    "Solver is dual infeasible. Check why this happened!\n");
+        error_msg(errstr,
+            "Solver is dual infeasible. Check why this happened!\n");
         exit(1);
       } else {
         return false;
@@ -154,9 +154,9 @@ bool enableFactorization(OsiSolverInterface* const solver, const double EPS, con
           dynamic_cast<OsiClpSolverInterface*>(solver);
 
       // After enabling factorization, things sometimes look different and it is worth resolving
-			// This is motivated by seymour-disj-10; after adding one round of GMICs, row 5077 had negative row price
-			if ((clpsolver->getModelPtr()->sumPrimalInfeasibilities() > EPS)
-			    || (clpsolver->getModelPtr()->sumDualInfeasibilities() > EPS)) {
+      // This is motivated by seymour-disj-10; after adding one round of GMICs, row 5077 had negative row price
+      if ((clpsolver->getModelPtr()->sumPrimalInfeasibilities() > EPS)
+          || (clpsolver->getModelPtr()->sumDualInfeasibilities() > EPS)) {
         if (resolveFlag == 1) {
           clpsolver->initialSolve(); // hopefully this fixes things rather than breaks things; actually it breaks things, e.g., for rd2 SICs for coral/neos17, the variable basic in row 648 changes from 164 to 23
         } else {
@@ -209,80 +209,80 @@ void setIPSolverParameters(CbcModel* const cbc_model) {
 
 /** We assume it is comma separated */
 double getObjValueFromFile(const VPCParameters& params) {
-	const char* opt_filename = params.get(stringParam::OPTFILE).c_str();
+  const char* opt_filename = params.get(stringParam::OPTFILE).c_str();
 
-	// Take the full filename of the instance and remove any directory information
-	std::string fullfilename = params.get(stringParam::FILENAME);
-	size_t slashindex = fullfilename.find_last_of("/\\");
-	std::string this_inst_name = (slashindex != std::string::npos) ? fullfilename.substr(slashindex+1) : fullfilename;
+  // Take the full filename of the instance and remove any directory information
+  std::string fullfilename = params.get(stringParam::FILENAME);
+  size_t slashindex = fullfilename.find_last_of("/\\");
+  std::string this_inst_name = (slashindex != std::string::npos) ? fullfilename.substr(slashindex+1) : fullfilename;
 
-	// Put string after last '.' into string in_file_ext (accounting for compressed files)
-	size_t found_dot = this_inst_name.find_last_of(".");
-	std::string in_file_ext(this_inst_name.substr(found_dot + 1));
-	this_inst_name = (found_dot != std::string::npos) ? this_inst_name.substr(0, found_dot) : this_inst_name;
-	if (in_file_ext.compare("gz") == 0 || in_file_ext.compare("bz2") == 0) {
-		found_dot = this_inst_name.find_last_of(".");
+  // Put string after last '.' into string in_file_ext (accounting for compressed files)
+  size_t found_dot = this_inst_name.find_last_of(".");
+  std::string in_file_ext(this_inst_name.substr(found_dot + 1));
+  this_inst_name = (found_dot != std::string::npos) ? this_inst_name.substr(0, found_dot) : this_inst_name;
+  if (in_file_ext.compare("gz") == 0 || in_file_ext.compare("bz2") == 0) {
+    found_dot = this_inst_name.find_last_of(".");
 
     if (found_dot == std::string::npos) {
-			error_msg(errorstring,
+      error_msg(errorstring,
           "Other than gz or bz2, cannot find the file extension (no '.' in input file name: %s).\n",
-					fullfilename.c_str());
-			writeErrorToLog(errorstring, params.logfile);
+          fullfilename.c_str());
+      writeErrorToLog(errorstring, params.logfile);
       exit(1);
     }
 
     in_file_ext = this_inst_name.substr(found_dot + 1);
     this_inst_name = this_inst_name.substr(0, found_dot);
-	}
-	if (in_file_ext.compare("mps") != 0 && in_file_ext.compare("lp") != 0) {
-		error_msg(errorstring, "Could not identify instance name from file %s.\n", fullfilename.c_str());
-		writeErrorToLog(errorstring, params.logfile);
-		exit(1);
-	}
+  }
+  if (in_file_ext.compare("mps") != 0 && in_file_ext.compare("lp") != 0) {
+    error_msg(errorstring, "Could not identify instance name from file %s.\n", fullfilename.c_str());
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
 
-	if (!opt_filename) {
-		return std::numeric_limits<double>::lowest();
-	}
+  if (!opt_filename) {
+    return std::numeric_limits<double>::lowest();
+  }
 
-	std::ifstream infile(opt_filename);
-	if (infile.is_open()) {
-		std::string line;
-		while (std::getline(infile, line)) {
-			std::istringstream iss(line);
-			if (line.empty()) {
-				continue;
-			}
-			std::string inst_name;
-			if (!(std::getline(iss, inst_name, ','))) {
-				warning_msg(warnstring,
-						"Could not read instance name. String is %s.\n",
-						line.c_str());
-				continue;
-			}
-			if (inst_name == this_inst_name) {
-				try {
-					std::string token;
-					if (!(std::getline(iss, token, ','))) {
-						throw;
-					}
-					return std::stod(token);
-				} catch (std::exception& e) {
-					warning_msg(warnstring,
-							"Could not read optimal value. String is %s.\n",
-							line.c_str());
-					continue;
-				}
-			}
-		}
-		infile.close();
-	} else {
-		// If we were not able to open the file, throw an error
-		error_msg(errorstring, "Not able to open obj file.\n");
-		writeErrorToLog(errorstring, params.logfile);
-		exit(1);
-	}
+  std::ifstream infile(opt_filename);
+  if (infile.is_open()) {
+    std::string line;
+    while (std::getline(infile, line)) {
+      std::istringstream iss(line);
+      if (line.empty()) {
+        continue;
+      }
+      std::string inst_name;
+      if (!(std::getline(iss, inst_name, ','))) {
+        warning_msg(warnstring,
+            "Could not read instance name. String is %s.\n",
+            line.c_str());
+        continue;
+      }
+      if (inst_name == this_inst_name) {
+        try {
+          std::string token;
+          if (!(std::getline(iss, token, ','))) {
+            throw;
+          }
+          return std::stod(token);
+        } catch (std::exception& e) {
+          warning_msg(warnstring,
+              "Could not read optimal value. String is %s.\n",
+              line.c_str());
+          continue;
+        }
+      }
+    }
+    infile.close();
+  } else {
+    // If we were not able to open the file, throw an error
+    error_msg(errorstring, "Not able to open obj file.\n");
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
 
-	return std::numeric_limits<double>::lowest();
+  return std::numeric_limits<double>::lowest();
 } /* getObjValueFromFile */
 
 /**
@@ -501,51 +501,51 @@ void setCompNBCoor(CoinPackedVector& vec, double& objViolation,
  * @brief Check if file exists
  */
 bool fexists(const char* filename) {
-	struct stat buffer;
-	return (stat (filename, &buffer) == 0);
+  struct stat buffer;
+  return (stat (filename, &buffer) == 0);
 } /* fexists */
 
 /**
  * @brief Parses int from string using strtol
  */
 bool parseInt(const char *str, int& val) {
-	long tmpval;
-	bool rc = parseLong(str, tmpval);
-	val = static_cast<int>(tmpval);
-	return rc;
+  long tmpval;
+  bool rc = parseLong(str, tmpval);
+  val = static_cast<int>(tmpval);
+  return rc;
 } /* parseInt */
 
 /**
  * @brief Parses long int from string using strtol
  */
 bool parseLong(const char *str, long& val) {
-	char *temp;
-	bool rc = true;
-	errno = 0;
-	val = strtol(str, &temp, 10);
+  char *temp;
+  bool rc = true;
+  errno = 0;
+  val = strtol(str, &temp, 10);
 
-	if (temp == str || *temp != '\0' ||
-			((val == std::numeric_limits<long>::min() || val == std::numeric_limits<long>::max()) && errno == ERANGE))
-		rc = false;
+  if (temp == str || *temp != '\0' ||
+      ((val == std::numeric_limits<long>::min() || val == std::numeric_limits<long>::max()) && errno == ERANGE))
+    rc = false;
 
-	return rc;
+  return rc;
 } /* parseLong */
 
 /**
  * @brief Parses double from string using strtod
  */
 bool parseDouble(const char *str, double& val) {
-	char *temp;
-	bool rc = true;
-	errno = 0;
-	val = strtod(str, &temp);
+  char *temp;
+  bool rc = true;
+  errno = 0;
+  val = strtod(str, &temp);
 
-	if (temp == str || *temp != '\0' ||
-			((val == std::numeric_limits<double>::min() || val == std::numeric_limits<double>::lowest()
-				|| val == std::numeric_limits<double>::max()) && errno == ERANGE))
-		rc = false;
+  if (temp == str || *temp != '\0' ||
+      ((val == std::numeric_limits<double>::min() || val == std::numeric_limits<double>::lowest()
+        || val == std::numeric_limits<double>::max()) && errno == ERANGE))
+    rc = false;
 
-	return rc;
+  return rc;
 } /* parseDouble */
 
 // Last edit: 03/27/12

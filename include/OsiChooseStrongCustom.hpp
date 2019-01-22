@@ -129,8 +129,8 @@ protected:
        
   */
   int doStrongBranching( OsiSolverInterface * solver, 
-			 OsiBranchingInformation *info,
-			 int numberToDo, int returnCriterion);
+       OsiBranchingInformation *info,
+       int numberToDo, int returnCriterion);
 
   /** Clear out the results array */
   void resetResults(int num);

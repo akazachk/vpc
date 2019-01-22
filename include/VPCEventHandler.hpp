@@ -135,7 +135,7 @@ class VPCEventHandler : public CbcEventHandler {
     //@}
     
   protected:
-		const VPCParameters* params;
+    const VPCParameters* params;
     int maxNumLeafNodes_;
     double maxTime_;
     
