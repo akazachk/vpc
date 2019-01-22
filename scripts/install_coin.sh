@@ -40,3 +40,6 @@ cd buildg
 ../configure -C --enable-debug=yes >& last_config.txt
 make
 make install
+
+echo ""
+echo "Done with installing COIN-OR files into $COIN_DIR"
