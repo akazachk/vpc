@@ -11,15 +11,15 @@
 
 #include "params.hpp"
 
-//#define error_msg(str, fmt) \
-//  char str[500]; \
-//  snprintf(str, sizeof(str) / sizeof(char), "*** ERROR: %s:%d: " fmt, __FILE__, __LINE__); \
-//  std::cerr << str
-//
-//#define warning_msg(str, fmt) \
-//  char str[500]; \
-//  snprintf(str, sizeof(str) / sizeof(char), "*** WARNING: %s:%d: " fmt, __FILE__, __LINE__); \
-//  std::cerr << str
+/* #define error_msg(str, fmt) \
+  char str[500]; \
+  snprintf(str, sizeof(str) / sizeof(char), "*** ERROR: %s:%d: " fmt, __FILE__, __LINE__); \
+  std::cerr << str
+
+#define warning_msg(str, fmt) \
+  char str[500]; \
+  snprintf(str, sizeof(str) / sizeof(char), "*** WARNING: %s:%d: " fmt, __FILE__, __LINE__); \
+  std::cerr << str */
 
 #define error_msg(str, fmt, ...) \
   char str[500]; \

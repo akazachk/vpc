@@ -61,12 +61,13 @@ void CglVPC::setParams(const VPCParameters& param) {
  * @brief Generate VPCs from a partial branch-and-bound tree
  */
 void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const CglTreeInfo info) {
-  if (params.get(intParam::NUM_DISJ_TERMS) <= 1) {
-    finish(ExitReason::SUCCESS_EXIT);
-  }
 #ifdef TRACE
-  printf("\n############### Starting VPC generation from partial branch-and-bound tree. ###############\n");
+  printf("\n############### Starting VPC generation from partial branch-and-bound tree with up to %d disjunctive terms. ###############\n", params.get(intParam::NUM_DISJ_TERMS));
 #endif
+  if (params.get(intParam::NUM_DISJ_TERMS) <= 1) {
+    finish(ExitReason::NO_DISJUNCTION_EXIT);
+    return;
+  }
 
 //  auto start_chrono = std::chrono::high_resolution_clock::now();
   timer.start_timer(VPCTimeStatsName[VPCTimeStats::TOTAL_TIME]);
@@ -108,6 +109,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     if (solver)
       delete solver;
     finish(status);
+    return;
   }
 
   // Save the V-polyhedral relaxations of each optimal basis in the terms of the PRLP
@@ -133,7 +135,7 @@ void CglVPC::getProblemData(OsiSolverInterface* const solver, ProblemData& probD
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }
-  enableFactorization(solver); // this may change the solution slightly
+  enableFactorization(solver, params.get(doubleParam::EPS)); // this may change the solution slightly
 
   int numCols = solver->getNumCols();
   int numRows = solver->getNumRows();
@@ -274,7 +276,7 @@ void CglVPC::getProblemData(OsiSolverInterface* const solver, ProblemData& probD
     }
   } // loop over rows
 
-  // TODO May also need ot save rays of C1, where the coefficients of inv(B) * A
+  // TODO May also need to save rays of C1, where the coefficients of inv(B) * A
   // are sometimes negated because we have
   // \bar x = inv(B) * b - inv(B) * A * x_N
   const int numNB = probData.NBVarIndex.size();
@@ -321,7 +323,7 @@ void CglVPC::getProblemData(OsiSolverInterface* const solver, ProblemData& probD
   // Set data-specific epsilon
   probData.EPS = CoinMin(params.get(doubleParam::EPS), minReferenceValue / maxReferenceValue);
 
-//  solver->disableFactorization();
+  solver->disableFactorization();
 } /* getProblemData */
 
 CglVPC::ExitReason CglVPC::prepareDisjunction(OsiClpSolverInterface* solver,

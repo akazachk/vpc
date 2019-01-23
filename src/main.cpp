@@ -120,10 +120,10 @@ int main(int argc, char** argv) {
   timer.start_timer(OverallTimeStats::GEN_VPC_TIME);
   CglVPC gen(params);
   OsiCuts vpcs;
-  gen.generateCuts(*solver, vpcs);
+  gen.generateCuts(*solver, vpcs); // solution may change slightly due to enable factorization called in getProblemData...
   timer.end_timer(OverallTimeStats::GEN_VPC_TIME);
 
-  printf("\n## Finished VPC generation using partial tree with %d disjunctive terms ##\n", gen.num_disj_terms);
+  printf("\n## Finished VPC generation using partial tree with %d disjunctive terms. ##\n", gen.num_disj_terms);
 
 //  // Now test creating a partial b&b tree
 //  OsiClpSolverInterface* BBSolver = dynamic_cast<OsiClpSolverInterface*>(solver->clone());

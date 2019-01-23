@@ -26,15 +26,17 @@ public:
     FAIL_LIMIT_EXIT,
     PARTIAL_BB_INTEGER_SOLUTION_FOUND_EXIT,
     TIME_LIMIT_EXIT,
+    NO_DISJUNCTION_EXIT,
     UNKNOWN,
     NUM_EXIT_REASONS
   }; /* ExitReason */
   const std::vector<std::string> ExitReasonName {
     "SUCCESS",
     "CUT_LIMIT",
-    "FAIL_LIMIT"
+    "FAIL_LIMIT",
     "PARTIAL_BB_INTEGER_SOLUTION_FOUND",
     "TIME_LIMIT",
+    "NO_DISJUNCTION",
     "UNKNOWN"
   }; /* ExitReasonName */
 
@@ -154,6 +156,9 @@ protected:
   inline void finish(ExitReason exitReason = ExitReason::UNKNOWN) {
     this->exitReason = exitReason;
     this->timer.end_all();
+#ifdef TRACE
+    printf("CglVPC: Finishing with exit reason: %s.\n", ExitReasonName[exitReason].c_str());
+#endif
   }
 
   inline void setCgsName(std::string& cgsName, const std::string& disjTermName) const {
