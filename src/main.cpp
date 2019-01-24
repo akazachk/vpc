@@ -78,9 +78,11 @@ int main(int argc, char** argv) {
   std::signal(SIGSEGV, signal_handler_with_error_msg);
 
   // Input handling
+  printf("## V-Polyhedral Disjunctive Cuts ##\n");
+  printf("Aleksandr M. Kazachkov\n");
+  printf("Based on joint work with Egon Balas\n");
   processArgs(argc, argv);
 
-  printf("## V-Polyhedral Cuts ##\n");
   printf("Instance file: %s.\n", params.get(stringParam::FILENAME).c_str());
   for (int i = 0; i < argc; i++) {
     std::cout << argv[i] << " ";
@@ -124,49 +126,6 @@ int main(int argc, char** argv) {
   timer.end_timer(OverallTimeStats::GEN_VPC_TIME);
 
   printf("\n## Finished VPC generation using partial tree with %d disjunctive terms. ##\n", gen.num_disj_terms);
-
-//  // Now test creating a partial b&b tree
-//  OsiClpSolverInterface* BBSolver = dynamic_cast<OsiClpSolverInterface*>(solver->clone());
-//  setupClpForCbc(BBSolver);
-//  CbcModel* cbc_model = new CbcModel;
-//  cbc_model->swapSolver(BBSolver);
-//  cbc_model->setModelOwnsSolver(true); // solver will be deleted with cbc object
-//  setIPSolverParameters(cbc_model);
-//  const int num_terms = params.get(intParam::NUM_DISJ_TERMS);
-//  const int num_strong = solver->getNumCols();
-//  const int num_before_trusted = std::numeric_limits<int>::max();
-//
-//#ifdef TRACE
-//  printf("\n## Generating partial branch-and-bound tree with %d terms. ##\n", num_terms);
-//#endif
-//  generatePartialBBTree(params, cbc_model, solver,
-//      num_terms, num_strong, num_before_trusted);
-//
-//  // Do stuff with the branch and bound tree
-//  VPCEventHandler* eventHandler;
-//  try {
-//    eventHandler = dynamic_cast<VPCEventHandler*>(cbc_model->getEventHandler());
-//  } catch (std::exception& e) {
-//    error_msg(errstr,
-//        "Could not get event handler.\n");
-//    writeErrorToLog(errstr, params.logfile);
-//    exit(1);
-//  }
-//
-//  std::vector<NodeStatistics> stats = eventHandler->getStatsVector();
-//#ifdef TRACE
-//  printNodeStatistics(stats, false);
-//  if (eventHandler->getPrunedStatsVector().size() > 0) {
-//    printf("\n");
-//    printNodeStatistics(eventHandler->getPrunedStatsVector(), false);
-//  }
-//#endif
-//
-//  // Free things
-//  if (cbc_model) {
-//    delete cbc_model; // frees BBSolver
-//    cbc_model = NULL;
-//  }
   return wrapUp(0);
 } /* main */
 
@@ -195,6 +154,7 @@ void processArgs(int argc, char** argv) {
     {"timelimit", required_argument, 0, 't'},
     {nullptr, no_argument, nullptr, 0}
   };
+
   int inp;
   while ((inp = getopt_long(argc, argv, short_opts, long_opts, nullptr)) != -1) {
     switch (inp) {
@@ -260,6 +220,26 @@ void processArgs(int argc, char** argv) {
       case '?':
       default: {
                  // print help
+								std::string helpstring;
+								helpstring += "\n## DESCRIPTION ##\n";
+								helpstring += "Code for generating V-polyhedral disjunctive cuts.\n";
+								helpstring += "\n## OPTIONS ##\n";
+								helpstring += "-h, --help\n\tPrint this help message.\n";
+								helpstring += "\n# Input/output #\n";
+								helpstring += "-f file, --file=file\n\tFilename.\n";
+								helpstring += "-l logfile, --logfile=logfile\n\tWhere to print log messages.\n";
+								helpstring += "-o optfile, --optfile=optfile\n\tWhere to find integer optimum value information (a csv file formatted as \"instance_name,value\" on each row).\n";
+								helpstring += "\n# General VPC options #\n";
+								helpstring += "-d num terms, --disj_terms=num terms\n\tMaximum number of disjunctive terms to generate.\n";
+								helpstring += "-R num seconds, --prlp_timelimit=num seconds\n\tNumber of seconds allotted for solving the PRLP.\n";
+								helpstring += "-t num seconds, --timelimit=num seconds\n\tTotal number of seconds allotted for cut generation.\n";
+								helpstring += "\n# Partial branch-and-bound options #\n";
+								helpstring += "-s strategy, --partial_bb_strategy=strategy\n\tPartial branch-and-bound strategy; this is a complicated parameter, and the user should check params.hpp for the description.\n";
+								helpstring += "-S num strong, --partial_bb_num_strong=num strong\n\tNumber of candidates for strong branching to consider during the creation of the partial branch-and-bound tree.\n";
+								helpstring += "-T num seconds, --partial_bb_timelimit=num seconds\n\tTotal number of seconds allotted for generating the partial branch-and-bound tree.\n";
+								helpstring += "## END OF HELP ##\n";
+								std::cout << helpstring << std::endl;
+								exit(1);
                }
     } // switch statement for input
   } // process args
