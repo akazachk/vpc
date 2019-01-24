@@ -21,8 +21,12 @@ ifeq ($(USERNAME),otherperson)
 	PROJ_DIR = enter/dir/here
 	COIN_OR = enter/dir/here
 else
-	PROJ_DIR = ${REPOS_DIR}/vpc2
-	#COIN_OR = $(PROJ_DIR)/coin-or/Cbc-2.9
+	PROJ_DIR = ${REPOS_DIR}/vpc
+  ifeq ($(UNAME),Linux)
+	  COIN_OR = $(PROJ_DIR)/lib/Cbc-2.9
+	else
+	  #COIN_OR = $(PROJ_DIR)/coin-or/Cbc-2.9
+	endif
 endif
 
 # Options for solvers
@@ -102,9 +106,9 @@ APPLLIB = -lm -lz -lbz2 -lreadline
 # Linker
 CFLAGS = -Wall -MMD -MP
 CFLAGS += -m64 $(DEBUG_FLAG) $(OPT_FLAG) $(EXTRA_FLAGS)
-CXXFLAGS = $(CFLAGS) -std=c++17
-#CXXFLAGS = $(CFLAGS) -std=c++17 -Wextra -Wpedantic
-CXXLINKFLAGS += -std=c++17
+CXXFLAGS = $(CFLAGS) -std=c++11
+#CXXFLAGS = $(CFLAGS) -std=c++11 -Wextra -Wpedantic
+CXXLINKFLAGS += -std=c++11
 ifeq ($(CC),clang++)
   CXXFLAGS += -Wno-gnu-zero-variadic-macro-arguments
   #CXXFLAGS += -stdlib=libc++ 
