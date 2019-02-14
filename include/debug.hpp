@@ -6,7 +6,7 @@
 
 #include <string>
 
-#include "params.hpp"
+#include "VPCParameters.hpp"
 #include "VPCEventHandler.hpp"
 
 std::string generateTreePlotString(const VPCEventHandler* eventHandler, const VPCParameters& params,

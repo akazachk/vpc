@@ -16,7 +16,7 @@
 #include <CbcNode.hpp>
 #include <OsiClpSolverInterface.hpp>
 
-#include "params.hpp"
+#include "VPCParameters.hpp"
 
 // Useful data structure for COIN-OR tracking
 struct NodeStatistics {

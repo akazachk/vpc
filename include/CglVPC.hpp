@@ -5,74 +5,80 @@
 
 #pragma once
 
-//#include <chrono>
 #include <vector>
 #include <string>
 
 // COIN-OR files
 #include <CglCutGenerator.hpp>
-#include <OsiClpSolverInterface.hpp>
+
+#ifdef USE_CLP
+	#include <OsiClpSolverInterface.hpp>
+  using SolverInterface = OsiClpSolverInterface;
+#else
+  #include <OsiSolverInterface.hpp>
+  using SolverInterface = OsiSolverInterface;
+#endif
 
 // Project files
-#include "params.hpp"
-#include "timestats.hpp"
+#include "VPCEventHandler.hpp"
+#include "VPCParameters.hpp"
+#include "TimeStats.hpp"
 
 class CglVPC : public CglCutGenerator {
 public:
-  // Enums and static variables
+  // Enums
+  enum VPCMode {
+    PARTIAL_BB,
+    SPLITS,
+    CROSSES,
+    NUM_VPC_MODES
+  };
+
   enum ExitReason {
     SUCCESS_EXIT = 0,
     CUT_LIMIT_EXIT,
     FAIL_LIMIT_EXIT,
-    PARTIAL_BB_INTEGER_SOLUTION_FOUND_EXIT,
+    PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT,
     TIME_LIMIT_EXIT,
     NO_DISJUNCTION_EXIT,
     UNKNOWN,
     NUM_EXIT_REASONS
   }; /* ExitReason */
-  const std::vector<std::string> ExitReasonName {
-    "SUCCESS",
-    "CUT_LIMIT",
-    "FAIL_LIMIT",
-    "PARTIAL_BB_INTEGER_SOLUTION_FOUND",
-    "TIME_LIMIT",
-    "NO_DISJUNCTION",
-    "UNKNOWN"
-  }; /* ExitReasonName */
 
   enum VPCTimeStats {
     TOTAL_TIME,
     INIT_SOLVE_TIME,
     DISJ_SETUP_TIME,
-    GEN_TREE_TIME,
+    GEN_DISJ_TIME,
     PRLP_SETUP_TIME,
     PRLP_SOLVE_TIME,
     GEN_CUTS_TIME,
     NUM_TIME_STATS
   }; /* VPCTimeStats */
-  const std::vector<std::string> VPCTimeStatsName {
-    "TOTAL_TIME",
-    "INIT_SOLVE_TIME",
-    "DISJ_SETUP_TIME",
-    "GEN_TREE_TIME",
-    "PRLP_SETUP_TIME",
-    "PRLP_SOLVE_TIME",
-    "GEN_CUTS_TIME"
-  }; /* VPCTimeStatsName */
 
   enum CutType {
-    ONE_SIDED_CUT, VPC, NUM_CUT_TYPE_STATS
+    ONE_SIDED_CUT,
+    VPC,
+    NUM_CUT_TYPES
   }; /* CutType */
-  const std::vector<std::string> CutTypeName {
-    "ONE_SIDED_CUT", "VPC"
-  }; /* CutTypeName */
 
   enum FailureType {
-    NUMERICAL_ISSUES_WARNING, NUM_FAILURES
+    PRIMAL_INFEASIBLE,
+    NUMERICAL_ISSUES_WARNING,
+    NUM_FAILURES
   }; /* FailureType */
+
+  // Static variables
+  static const std::vector<std::string> ExitReasonName;
+  static const std::vector<std::string> VPCTimeStatsName;
+  static const std::vector<std::string> CutTypeName;
+  static const std::vector<std::string> FailureTypeName;
+  static const std::string time_T1; // = "TIME_TYPE1_";
+  static const std::string time_T2; // = "TIME_TYPE2_";
 
   // Class variables
   VPCParameters params;
+  VPCMode mode;
   ExitReason exitReason;
   TimeStats timer;
 
@@ -81,8 +87,11 @@ public:
   std::vector<int> numFails;
 
   double branching_lb, branching_ub, min_nb_obj_val, ip_opt;
-  int num_cgs, num_cuts;
-  int num_disj_terms, num_partial_bb_nodes, num_pruned_nodes, num_obj_tried;
+  int num_disj_terms;
+  int num_cgs, num_cgs_actually_used, num_cgs_leading_to_cuts;
+  int num_cuts;
+  int num_partial_bb_nodes, num_pruned_nodes, min_node_depth, max_node_depth;
+  int num_obj_tried;
 
   /** Default constructor */
   CglVPC();
@@ -110,21 +119,56 @@ public:
 
 protected:
   struct ProblemData {
+    double lp_opt;
     double EPS;
-//    std::vector<int> cstat, rstat;
-    std::vector<int> NBVarIndex, rowOfVar, varBasicInRow;
-    std::vector<int> fractionalCore;
+    std::vector<int> NBVarIndex, varBasicInRow;
+    std::vector<int> rowOfVar; // row in which var is basic; if var is nonbasic, then it is (-(1 + nonbasic index))
+    std::vector<int> rowOfOrigNBVar; // row in which "original" nonbasic vars are basic; if var is still nonbasic, then it is (-(1 + new nonbasic index))
     std::vector<double> NBReducedCost;
+
+    /** Get index of variable in NBVarIndex, and -1 if it is basic */
+    int getVarNBIndex(const int var) const {
+      if (rowOfVar[var] <= -1) {
+        return -1 * (1 + rowOfVar[var]);
+      } else {
+        return -1;
+      }
+    }
   } probData;
 
-  void getProblemData(OsiSolverInterface* const solver, ProblemData& probData);
-
-  ExitReason prepareDisjunction(OsiClpSolverInterface* solver, OsiCuts& cuts);
-  void setupPRLP(const OsiSolverInterface& si);
-  void tryObjectives(const OsiSolverInterface& PRLP);
-  void addCut(const OsiRowCut& cut, const CutType& type, OsiCuts& cuts);
+  struct DisjunctionData {
+    std::vector<NodeStatistics> stats, pruned_stats;
+    int num_terms, num_fixed_vars;
+    std::vector<int> node_id;
+    std::vector<double> sol;
+    std::vector<CoinWarmStart*> bases;
+  } disjunction;
 
   void initialize(const CglVPC* const source = NULL, const VPCParameters* const param = NULL);
+  void getProblemData(SolverInterface* const solver, ProblemData& probData, const ProblemData* const origProbData = NULL);
+
+  ExitReason prepareDisjunction(SolverInterface* const solver, OsiCuts& cuts);
+	bool prepareDisjunctiveTerm(const int term_ind, const int node_id,
+	    const std::vector<NodeStatistics>& stats, const int branching_index,
+	    const int branching_variable, const int branching_way,
+	    const double branching_value, std::vector<std::vector<int> >& termIndices,
+	    std::vector<std::vector<double> >& termCoeff,
+	    std::vector<double>& termRHS, const SolverInterface* const tmpSolverBase);
+	void genDepth1PRCollection(
+	    std::vector<CoinPackedVector>& PRLP_constraints,
+	    std::vector<double>& PRLP_rhs,
+	    const SolverInterface* const vpcsolver,
+	    const SolverInterface* const tmpSolver,
+	    const ProblemData& origProbData,
+	    const ProblemData& tmpProbData,
+	    const int term_ind);
+
+  ExitReason setupPRLP(const SolverInterface* const si,
+      DisjunctionData& disjunction,
+      std::vector<CoinPackedVector>& PRLP_constraints,
+      std::vector<double>& PRLP_rhs, OsiCuts& cuts);
+  ExitReason tryObjectives(OsiSolverInterface* const prlp);
+  void addCut(const OsiRowCut& cut, const CutType& type, OsiCuts& cuts);
 
   int getCutLimit() const;
   inline bool reachedCutLimit(const int num_cuts) const {
@@ -176,7 +220,7 @@ protected:
   inline void setCgsName(std::string& cgsName, const int num_ineq_per_term,
       const std::vector<std::vector<int> >& termIndices,
       const std::vector<std::vector<double> >& termCoeff,
-      const std::vector<double>& termRHS, const bool append) const {
+      const std::vector<double>& termRHS, const bool append = false) const {
     if (num_ineq_per_term == 0) {
       return;
     }

@@ -1,211 +1,9 @@
 #include "utility.hpp"
+#include "SolverHelper.hpp"
 
 #include <fstream>
 #include <sstream>
 #include <sys/stat.h> // for fexists
-
-/**
- * @brief Checks whether a solver is optimal
- *
- * Something that can go wrong (e.g., bc1 -64 sb5 tmp_ind = 14):
- *  Solver is declared optimal for the scaled problem but there are primal or dual infeasibilities in the unscaled problem
- *  In this case, secondary status will be 2 or 3
- * Sometimes cleanup helps
- * Sometimes things break after enabling factorization (e.g., secondary status = 0, but sum infeasibilities > 0)
- */
-bool checkSolverOptimality(OsiSolverInterface* const solver,
-    const bool exitOnDualInfeas, const double timeLimit,
-    const int maxNumResolves) {
-  OsiClpSolverInterface* clpsolver = NULL;
-  try {
-    clpsolver = dynamic_cast<OsiClpSolverInterface*>(solver);
-  } catch (std::exception& e) {
-    // Disregard / catch below
-  }
-  if (!clpsolver) {
-    return solver->isProvenOptimal();
-  }
-
-  // If it is supposedly proven primal infeasible, might be good to do a resolve first
-  // This is, e.g., something that arises with miplib2003/pp08aCUTS_presolved -32
-  int resolve_count = 0;
-  if (clpsolver->isProvenPrimalInfeasible()) {
-    clpsolver->getModelPtr()->setNumberIterations(0);
-    clpsolver->getModelPtr()->setMaximumSeconds(timeLimit);
-    clpsolver->resolve();
-    resolve_count++;
-  }
-
-  // First clean
-  if (resolve_count < maxNumResolves && clpsolver) {
-    int status = clpsolver->getModelPtr()->secondaryStatus();
-    bool is_cleaned = false;
-    if (status == 2 || !isZero(clpsolver->getModelPtr()->sumPrimalInfeasibilities())) {
-      clpsolver->getModelPtr()->cleanup(1);
-      is_cleaned = true;
-    } else if (status == 3 || status == 9 || !isZero(clpsolver->getModelPtr()->sumDualInfeasibilities())) {
-      clpsolver->getModelPtr()->cleanup(2);
-      is_cleaned = true;
-    } else if (status == 4) {
-      clpsolver->getModelPtr()->cleanup(1);
-      is_cleaned = true;
-    }
-    if (is_cleaned) {
-      resolve_count++;
-      return checkSolverOptimality(solver, exitOnDualInfeas, timeLimit, 0);
-    }
-
-    // Do some resolves, but first save whether the initial status is dual infeasible
-    // The reason is that for neos15 w/str=2, we were getting a dual infeasible problem
-    // turn into a primal infeasible problem after resolves
-    // (probably the strengthening causes numerical issues)
-    const bool oldStatusDualInfeasible = (clpsolver->isProvenDualInfeasible());
-    const bool oldStatusOptimal = (clpsolver->isProvenOptimal());
-    bool resolve = true;
-    double infeas = std::numeric_limits<double>::max();
-    while (resolve && resolve_count < maxNumResolves) {
-      const double curr_infeas =
-          clpsolver->getModelPtr()->sumPrimalInfeasibilities()
-              + clpsolver->getModelPtr()->sumDualInfeasibilities();
-      resolve = (resolve_count == 0)
-          || (!isZero(curr_infeas) && (curr_infeas < infeas));
-      if (resolve) {
-        clpsolver->getModelPtr()->setNumberIterations(0);
-        clpsolver->getModelPtr()->setMaximumSeconds(timeLimit);
-        clpsolver->resolve();
-        resolve_count++;
-      }
-      infeas = curr_infeas;
-    }
-
-    // If dual infeas -> primal infeas, do a dual resolve, which should fix the issue
-    if (oldStatusDualInfeasible && clpsolver->isProvenPrimalInfeasible()) {
-      clpsolver->getModelPtr()->dual(2,0); // just do values pass
-      if (!clpsolver->isProvenDualInfeasible() && !clpsolver->isProvenOptimal()) {
-        clpsolver->getModelPtr()->setProblemStatus(2);
-        resolve_count = maxNumResolves; // stop resolving
-      }
-    }
-
-    if (oldStatusOptimal && clpsolver->isProvenPrimalInfeasible()) {
-      clpsolver->enableFactorization();
-      clpsolver->getModelPtr()->setNumberIterations(0);
-      clpsolver->getModelPtr()->setMaximumSeconds(timeLimit);
-      clpsolver->resolve();
-      resolve_count++;
-      clpsolver->disableFactorization();
-    }
-
-    // Clean once more if needed and possible
-    status = clpsolver->getModelPtr()->secondaryStatus();
-    is_cleaned = false;
-    if (status == 2
-        || !isZero(clpsolver->getModelPtr()->sumPrimalInfeasibilities())) {
-      clpsolver->getModelPtr()->cleanup(1);
-      is_cleaned = true;
-    } else if (status == 3 || status == 9
-        || !isZero(clpsolver->getModelPtr()->sumDualInfeasibilities())) {
-      clpsolver->getModelPtr()->cleanup(2);
-      is_cleaned = true;
-    } else if (status == 4) {
-      clpsolver->getModelPtr()->cleanup(1);
-      is_cleaned = true;
-    }
-    if (is_cleaned) {
-      resolve_count++;
-      return checkSolverOptimality(solver, exitOnDualInfeas, timeLimit, 0);
-    }
-  }
-
-  if (solver->isProvenPrimalInfeasible()) {
-    return false;
-  } else if (!(solver->isProvenOptimal())) {
-    // Sometimes need to resolve once more to get the correct status
-    if (resolve_count < maxNumResolves) {
-      solver->resolve();
-    }
-    if (solver->isProvenPrimalInfeasible()) {
-      return false;
-    } else if (solver->isProvenDualInfeasible()) {
-      if (exitOnDualInfeas) {
-        error_msg(errstr,
-            "Solver is dual infeasible. Check why this happened!\n");
-        exit(1);
-      } else {
-        return false;
-      }
-    } else if (!(solver->isProvenOptimal())) {
-      return false;
-    }
-  }
-
-  return true;
-} /* checkSolverOptimality */
-
-/**
- * @brief Enable factorization, and check whether some cleanup needs to be done
- */
-bool enableFactorization(OsiSolverInterface* const solver, const double EPS, const int resolveFlag) {
-  solver->enableFactorization();
-
-  if (resolveFlag > 0) {
-    try {
-      OsiClpSolverInterface* clpsolver =
-          dynamic_cast<OsiClpSolverInterface*>(solver);
-
-      // After enabling factorization, things sometimes look different and it is worth resolving
-      // This is motivated by seymour-disj-10; after adding one round of GMICs, row 5077 had negative row price
-      if ((clpsolver->getModelPtr()->sumPrimalInfeasibilities() > EPS)
-          || (clpsolver->getModelPtr()->sumDualInfeasibilities() > EPS)) {
-        if (resolveFlag == 1) {
-          clpsolver->initialSolve(); // hopefully this fixes things rather than breaks things; actually it breaks things, e.g., for rd2 SICs for coral/neos17, the variable basic in row 648 changes from 164 to 23
-        } else {
-          clpsolver->resolve();
-        }
-        clpsolver->disableFactorization();
-        clpsolver->enableFactorization(); // this will hopefully solve the neos17 problem
-      }
-    } catch (std::exception& e) {
-      // Disregard
-    }
-  }
-
-  return solver->isProvenOptimal();
-} /* enableFactorization */
-
-void setLPSolverParameters(OsiSolverInterface* const solver,
-    const double max_time) {
-#ifndef TRACE
-  solver->messageHandler()->setLogLevel(0);
-  try {
-    dynamic_cast<OsiClpSolverInterface*>(solver)->getModelPtr()->messageHandler()->setLogLevel(0);
-  } catch (std::exception& e) {
-
-  }
-#endif
-  try {
-    dynamic_cast<OsiClpSolverInterface*>(solver)->getModelPtr()->setMaximumSeconds(max_time);
-  } catch (std::exception& e) {
-
-  }
-
-  // Try turning on scaling with enableFactorization
-//  solver->setSpecialOptions(solver->specialOptions() | 512);
-} /* setLPSolverParameters (OsiClp) */
-
-void setIPSolverParameters(CbcModel* const cbc_model) {
-#ifdef TRACE
-  cbc_model->setLogLevel(3);
-  cbc_model->messagesPointer()->setDetailMessages(10, 10000, (int *) NULL);
-#else
-  cbc_model->setLogLevel(0);
-  cbc_model->messagesPointer()->setDetailMessages(10,5,5000);
-#endif
-  if (cbc_model->solver()) {
-    cbc_model->solver()->setHintParam(OsiDoReducePrint, true, OsiHintTry);
-  }
-  cbc_model->setPrintFrequency(1);
-} /* setIPSolverParameters (Cbc) */
 
 /** We assume it is comma separated */
 double getObjValueFromFile(const VPCParameters& params) {
@@ -288,7 +86,7 @@ double getObjValueFromFile(const VPCParameters& params) {
 /**
  * Assumed to be on the same set of variables
  */
-void setCompNBCoor(CoinPackedVector& vec, double& objViolation,
+void setCompNBCoorPoint(CoinPackedVector& vec, double& objViolation,
     const VPCParameters& params, const OsiSolverInterface* const tmpSolver,
     const OsiSolverInterface* const origSolver,
     const std::vector<int>& nonBasicVarIndex,
@@ -428,7 +226,224 @@ void setCompNBCoor(CoinPackedVector& vec, double& objViolation,
           objViolation, nonTinyObj);
     }
   }
-} /* setCompNBCoor */
+} /* setCompNBCoorPoint */
+
+/**
+ * Note that we may have deleted a variable to get to tmpSolver
+ * In that case, tmpNBVar is in the space of tmpSolver
+ */
+void setCompNBCoorRay(CoinPackedVector& vec, const double* ray, double& objViolation, double& scale,
+    const VPCParameters& params, const OsiSolverInterface* const tmpSolver,
+    const OsiSolverInterface* const origSolver,
+    const std::vector<int>& rowOfOrigNBVar,
+    const std::vector<int>& nonBasicVarIndex,
+    const std::vector<double>& nonBasicReducedCost,
+    const int tmpNBVar, const int deletedVar,
+    const bool rayNeedsCalculation) {
+  const int numCols = origSolver->getNumCols();
+  const int numNB = numCols; // TODO again assuming that nb fixed vars are treated as ub vars
+
+  std::vector<int> NBRayIndex;
+  std::vector<double> NBRayElem;
+
+  NBRayIndex.reserve(numNB);
+  NBRayElem.reserve(numNB);
+
+  // Adjustments for the deletedVar (if there is one)
+  const int deletedVarAdjustment = (deletedVar >= 0) ? 1 : 0;
+  const int tmpNBVarOrigIndex = (tmpNBVar < deletedVar) ? tmpNBVar : tmpNBVar + deletedVarAdjustment;
+
+  // If the variable corresponding to this ray is upper-bounded, its ray direction is negative
+  const int tmpRayMult = (isNonBasicUBVar(tmpSolver, tmpNBVar)) ? -1 : 1;
+
+  // Get objective dot product
+  if (tmpNBVar < tmpSolver->getNumCols()) {
+    objViolation = (double) tmpRayMult * tmpSolver->getReducedCost()[tmpNBVar];
+  } else {
+    const int tempIndex = tmpNBVar - tmpSolver->getNumCols();
+    objViolation = (double) -1 * tmpRayMult * tmpSolver->getRowPrice()[tempIndex];
+  }
+
+  // Perhaps we will scale the rays to get better numerics
+  int minExponent = 1000, maxExponent = 1;
+  int minExponentTiny = 0;
+
+  // Sometimes rays have tiny values
+  // These may be "necessary" for validity
+  // E.g., if the ray is (r1,r2), and c is the nb obj, we need c1 * r1 + c2 * r2 >= 0 (actually -1e-7)
+  // It may be that r1 is tiny, but c1 is very large, and c2 * r2 < 0 by that amount, roughly
+  // Other times, if the non-tiny values satisfy the objective cut on their own, let's ignore the tiny ones
+  // We will not add the tiny indices + values until the end, when we check if they are necessary
+  std::vector<int> tinyIndex;
+  std::vector<double> tinyElem;
+  double tinyObjOffset = 0.; // how much c . r changes when tiny values are ignored
+  double nonTinyObj = 0.;
+
+  // We loop through the *originally* non-basic variables (at v) to get their ray components
+  // Some of these may now be basic...
+  for (int c = 0; c < numNB; c++) {
+    const int origNBVar = nonBasicVarIndex[c];
+    const int origNBVarRow = rowOfOrigNBVar[c];
+    const int rayMult = isNonBasicUBVar(origSolver, origNBVar) ? -1 : 1;
+    const int newRayMult = tmpRayMult * rayMult;
+
+    // If the current ray, from NBVar, is the same variable as origNBVar,
+    // then we should insert at this point the ray direction and index.
+    // Though we are working in the complemented non-basic space, the ray direction may
+    // actually be -1.0 here, if the NBVar has switched to being tight at its other bound
+    if (origNBVar == tmpNBVarOrigIndex) {
+      NBRayIndex.push_back(c);
+      NBRayElem.push_back(newRayMult);
+      nonTinyObj += newRayMult * nonBasicReducedCost[c];
+      if (0 < minExponent) {
+        minExponent = 0;
+      }
+    } else if (origNBVarRow >= 0) {
+      // If we are here, then the NB var is basic currently.
+      // Thus, we need to get its component and store it.
+      // For the variables that were upper-bounded, we actually go in the negative direction.
+      const int flip = rayNeedsCalculation ? -1 : tmpRayMult; // Negate the use of tmpRayMult previously, if ray already calculated
+//      const int rowMult =
+//          (rayNeedsCalculation && (origNBVar >= origSolver->getNumCols())
+//              && (origSolver->getRowSense()[origNBVarRow] == 'G')) ? -1 : 1;
+      const double rayVal = flip * newRayMult * ray[origNBVarRow];
+      if (!isZero(rayVal, params.get(RAYEPS))) {
+        NBRayIndex.push_back(c);
+        NBRayElem.push_back(rayVal);
+        nonTinyObj += rayVal * nonBasicReducedCost[c];
+
+        // Get exponent
+        const double exp = std::log10(std::abs(rayVal));
+        const int intExponent = static_cast<int>(((exp >= 0) ? 0.046 : -0.046) + exp);
+        if (intExponent > maxExponent) {
+          maxExponent = intExponent;
+        }
+        if (intExponent < minExponent) {
+          minExponent = intExponent;
+        }
+      } // non-tiny
+      else if (!isZero(rayVal * nonBasicReducedCost[c], params.get(RAYEPS))) {
+        tinyIndex.push_back(c);
+        tinyElem.push_back(rayVal);
+        tinyObjOffset += rayVal * nonBasicReducedCost[c];
+      } // tiny
+      /*
+      else {
+        if (rayVal != 0)
+        printf("\nDEBUG: rejecting ray coeff on nb_var %d (variable %d) with value %.10e\n", c, origNBVar, rayVal);
+      }
+      */
+    }
+  } /* end iterating over non-basic elements from original basis */
+
+  // Check whether tiny elements are needed
+  bool useTinyElements = lessThanVal(nonTinyObj, 0., params.get(EPS))
+          || !isVal(nonTinyObj, objViolation, params.get(EPS));
+  const int numNonTiny = NBRayIndex.size();
+  if (useTinyElements) {
+    // We may not need all of the tiny elements
+    // Sort the tiny elements in decreasing order and keep adding them until the criterion is reached
+    const int numTinyTotal = tinyIndex.size();
+    CoinPackedVector tinyVec(numTinyTotal, tinyIndex.data(), tinyElem.data());
+    tinyVec.sortDecrElement();
+    int numTiny = 0;
+    for (int i = 0; i < numTinyTotal && useTinyElements; i++) {
+      const double val = tinyVec.getElements()[i];
+      numTiny++;
+      nonTinyObj += val * nonBasicReducedCost[tinyVec.getIndices()[i]];
+      useTinyElements = lessThanVal(nonTinyObj, 0., params.get(EPS))
+          || !isVal(nonTinyObj, objViolation, params.get(EPS));
+
+      // Get exponent
+      const double exp = std::log10(std::abs(val));
+      const int intExponent =
+          static_cast<int>(((exp >= 0) ? 0.046 : -0.046) + exp);
+      if (intExponent < minExponentTiny) {
+        minExponentTiny = intExponent;
+      }
+    }
+
+    int scale_exp = 0;
+    const double avgExponentsTiny = 0.5 * (minExponentTiny + maxExponent);
+    if (avgExponentsTiny < -0.25) {
+      scale_exp = 1 - static_cast<int>(avgExponentsTiny + 0.25);
+    }
+    scale = std::pow(10., static_cast<double>(scale_exp));
+
+    std::vector<int> newNBRayIndex(numNonTiny + numTiny, 0);
+    std::vector<double> newNBRayElem(numNonTiny + numTiny, 0);
+    int ind = 0, ind1 = 0, ind2 = 0;
+    while (ind1 < numNonTiny) {
+      while (ind2 < numTiny && tinyIndex[ind2] < NBRayIndex[ind1]) {
+        newNBRayIndex[ind] = tinyVec.getIndices()[ind2];
+        newNBRayElem[ind] = tinyVec.getElements()[ind2] * scale;
+        ind++;
+        ind2++;
+      }
+      newNBRayIndex[ind] = NBRayIndex[ind1];
+      newNBRayElem[ind] = NBRayElem[ind1] * scale;
+      ind++;
+      ind1++;
+    }
+    while (ind2 < numTiny) {
+      newNBRayIndex[ind] = tinyVec.getIndices()[ind2];
+      newNBRayElem[ind] = tinyVec.getElements()[ind2] * scale;
+      ind++;
+      ind2++;
+    }
+
+    vec.setVector((int) newNBRayIndex.size(),
+        newNBRayIndex.data(), newNBRayElem.data(), false);
+  } else {
+    // Get exponent for scaling
+    // We will only scale if it is up, not down, by the heuristic that small values are bad
+    int scale_exp = 0;
+    const double avgExponents = 0.5 * (minExponent + maxExponent);
+    if (avgExponents < -0.25) {
+      scale_exp = 1 - static_cast<int>(avgExponents + 0.25);
+    } else if (minExponent > 0) {
+      scale_exp = -1 * minExponent;
+    }
+    scale = std::pow(10., static_cast<double>(scale_exp));
+
+    if (!isVal(scale, 1.)) {
+      for (int i = 0; i < numNonTiny; i++) {
+        NBRayElem[i] *= scale;
+      }
+    }
+
+    vec.setVector(numNonTiny, NBRayIndex.data(), NBRayElem.data(),
+        false);
+  }
+
+  if (lessThanVal(nonTinyObj, 0., params.get(EPS))) {
+    if (lessThanVal(nonTinyObj, 0., params.get(DIFFEPS))) {
+      error_msg(errorstring,
+          "Ray %d: dot product with obj < 0. Obj viol from solver: %.8f. Calculated: %.8f.\n",
+          tmpNBVar, objViolation, nonTinyObj);
+      writeErrorToLog(errorstring, params.logfile);
+      exit(1);
+    } else {
+      warning_msg(warnstring,
+          "Ray %d: dot product with obj < 0. Obj viol from solver: %.8f. Calculated: %.8f.\n",
+          tmpNBVar, objViolation, nonTinyObj);
+    }
+  }
+
+  if (!isVal(nonTinyObj, objViolation, params.get(EPS))) {
+    if (!isVal(nonTinyObj, objViolation, params.get(DIFFEPS))) {
+      error_msg(errorstring,
+          "Ray %d: Calculated dot product with obj differs from solver's. Obj viol from solver: %.8f. Calculated: %.8f.\n",
+          tmpNBVar, objViolation, nonTinyObj);
+      writeErrorToLog(errorstring, params.logfile);
+      exit(1);
+    } else {
+      warning_msg(warnstring,
+          "Ray %d: Calculated dot product with obj differs from solver's. Obj viol from solver: %.8f. Calculated: %.8f.\n",
+          tmpNBVar, objViolation, nonTinyObj);
+    }
+  }
+} /* setCompNBCoor (Ray) */
 
 void setCompNBCoor(CoinPackedVector& vec, double& objViolation,
     const VPCParameters& params, const double* const currColValue,
@@ -495,7 +510,7 @@ void setCompNBCoor(CoinPackedVector& vec, double& objViolation,
   }
   vec.setVector((int) packedIndex.size(), packedIndex.data(),
       packedElem.data(), false);
-} /* setCompNBCoor */
+} /* setCompNBCoor (generic) */
 
 /**
  * @brief Check if file exists

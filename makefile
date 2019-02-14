@@ -1,4 +1,5 @@
 ### Shell type ###
+# REMEMBER: use hard tabs only in a makefile
 UNAME := $(shell uname)
 ifeq ($(UNAME),Linux)
   CC = g++
@@ -31,6 +32,7 @@ endif
 
 # Options for solvers
 USE_COIN=1
+USE_CLP=1
 USE_CBC=1
 USE_GUROBI=0
 USE_CPLEX=0
@@ -50,16 +52,10 @@ SOURCES += \
 		branch/CbcBranchStrongDecision.cpp \
 		branch/CbcCompareBFS.cpp \
 		branch/OsiChooseStrongCustom.cpp \
+    utility/SolverHelper.cpp \
 		utility/utility.cpp \
 		branch/VPCEventHandler.cpp \
 		cut/CglVPC.cpp
-
-ifeq ($(USE_GUROBI),1)
-  GUROBI_DEFS = -DSHOULD_USE_GUROBI
-endif
-ifeq ($(USE_CPLEX),1)
-  CPLEX_DEFS = -DIL_STD -DSHOULD_USE_CPLEX
-endif
 
 ### Set build values based on user variables ###
 ifeq ($(BUILD_CONFIG),debug)
@@ -68,7 +64,7 @@ ifeq ($(BUILD_CONFIG),debug)
   OUT_DIR = Debug
   DEBUG_FLAG = -g3
   OPT_FLAG = -O0
-  DEFS = -DTRACE $(GUROBI_DEFS) $(CPLEX_DEFS)
+  DEFS = -DTRACE
   # message-length sets line wrapping for error messages; 0 = no line wrapping
   EXTRA_FLAGS = -fmessage-length=0
   ifeq ($(CC),g++)
@@ -82,8 +78,21 @@ ifeq ($(BUILD_CONFIG),release)
   OUT_DIR = Release
   DEBUG_FLAG = 
   OPT_FLAG = -O3
-  DEFS = $(GUROBI_DEFS) $(CPLEX_DEFS)
+  DEFS = 
   EXTRA_FLAGS = -fmessage-length=0 -ffast-math
+endif
+
+ifeq ($(USE_CLP),1)
+  DEFS += -DUSE_CLP
+endif
+ifeq ($(USE_CBC),1)
+  DEFS += -DUSE_CBC
+endif
+ifeq ($(USE_GUROBI),1)
+  DEFS += -DUSE_GUROBI
+endif
+ifeq ($(USE_CPLEX),1)
+  DEFS += -DIL_STD -DUSE_CPLEX
 endif
 
 EXECUTABLE = $(OUT_DIR)/$(EXECUTABLE_STUB)
@@ -143,14 +152,15 @@ ifeq ($(USE_COIN),1)
 										-lCbcSolver \
 										-lCbc
 	endif
-	APPLLIB += -lOsiClp
-	ifeq ($(USE_CBC),1)
-		APPLLIB += -lCgl
-	endif
-	APPLLIB += \
-			-lOsi \
-			-lClp \
-			-lCoinUtils
+  ifeq ($(USE_CLP),1)
+    APPLLIB += -lOsiClp
+  endif
+  APPLLIB += -lCgl
+  APPLLIB += -lOsi
+  ifeq ($(USE_CLP),1)
+    APPLLIB += -lClp
+  endif
+  APPLLIB += -lCoinUtils
 endif
 ifeq ($(USE_GUROBI),1)
   APPLINCLS += -I${GUROBI_INC}

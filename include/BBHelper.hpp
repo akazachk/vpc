@@ -8,11 +8,12 @@
 //============================================================================
 
 #pragma once
-// COIN-OR
-#include "CbcModel.hpp"
-
 // Project files
-#include "params.hpp"
+#include "VPCParameters.hpp"
+
+// COIN-OR
+#ifdef USE_CBC
+#include "CbcModel.hpp"
 
 /**
  * Sets message handler and special options when using solver as part of B&B
@@ -34,4 +35,4 @@ void setCbcParametersForPartialBB(
 void generatePartialBBTree(const VPCParameters& param, CbcModel* cbc_model,
     const OsiSolverInterface* const solver, const int max_nodes,
     const int num_strong, const int num_before_trusted);
-
+#endif // USE_CBC

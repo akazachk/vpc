@@ -11,6 +11,7 @@
 
 // Project files 
 #include "BBHelper.hpp"
+#include "SolverHelper.hpp"
 #include "VPCEventHandler.hpp"
 #include "utility.hpp"
 

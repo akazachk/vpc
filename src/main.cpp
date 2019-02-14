@@ -3,9 +3,10 @@
 // Date:     2018-Dec-24
 //-----------------------------------------------------------------------------
 
+#include <iostream>
 #include <cstdio>
 #include <string>
-#include <iostream>
+#include <vector>
 #include <chrono> // for timing
 
 // For option handling
@@ -15,7 +16,6 @@
 #define optional_argument 2
 
 // COIN-OR
-#include <OsiClpSolverInterface.hpp>
 #include <OsiCuts.hpp>
 //#include <CoinPackedMatrix.hpp>
 //#include <CglGomory.hpp>
@@ -26,9 +26,10 @@
 // Project files
 //#include "BBHelper.hpp"
 //#include "VPCEventHandler.hpp"
-#include "CglVPC.hpp"
-#include "params.hpp"
-#include "timestats.hpp"
+#include "CglVPC.hpp" // defines SolverInterface
+#include "SolverHelper.hpp"
+#include "VPCParameters.hpp"
+#include "TimeStats.hpp"
 #include "utility.hpp"
 
 // Main file variables
@@ -91,7 +92,7 @@ int main(int argc, char** argv) {
 
 #ifdef TRACE
   // Print parameters
-  printf("\n## Printing parameters ##\n");
+  printf("\n## Parameter values ##\n");
   printParams(params, stdout);
 #endif
 
@@ -125,7 +126,7 @@ int main(int argc, char** argv) {
   gen.generateCuts(*solver, vpcs); // solution may change slightly due to enable factorization called in getProblemData...
   timer.end_timer(OverallTimeStats::GEN_VPC_TIME);
 
-  printf("\n## Finished VPC generation using partial tree with %d disjunctive terms. ##\n", gen.num_disj_terms);
+  printf("\n## Finished VPC generation using partial tree with %d disjunctive terms, generating %d cuts. ##\n", gen.num_disj_terms, vpcs.sizeCuts());
   return wrapUp(0);
 } /* main */
 
@@ -287,7 +288,7 @@ void initializeSolver(OsiSolverInterface* &solver) {
   instname = (slashindex != std::string::npos) ? filename.substr(slashindex+1) : filename;
 
   // Generate cuts
-  solver = new OsiClpSolverInterface;
+  solver = new SolverInterface;
   setLPSolverParameters(solver);
 
   if (in_file_ext.compare("lp") == 0) {
