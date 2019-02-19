@@ -3,14 +3,15 @@
 
 #include <limits> // numeric_limits
 
-#include <OsiSolverInterface.hpp>
+#ifdef USE_CLP
+  #include <OsiClpSolverInterface.hpp>
+#else
+  #include <OsiSolverInterface.hpp>
+#endif
 
 #ifdef USE_CBC
 #include <CbcModel.hpp>
 void setIPSolverParameters(CbcModel* const cbc_model);
-#endif
-#ifdef USE_CLP
-#include <OsiClpSolverInterface.hpp>
 #endif
 
 void setLPSolverParameters(OsiSolverInterface* const solver,

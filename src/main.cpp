@@ -24,8 +24,6 @@
 //#include <OsiCuts.hpp>
 
 // Project files
-//#include "BBHelper.hpp"
-//#include "VPCEventHandler.hpp"
 #include "CglVPC.hpp" // defines SolverInterface
 #include "SolverHelper.hpp"
 #include "VPCParameters.hpp"

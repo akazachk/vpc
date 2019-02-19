@@ -14,6 +14,46 @@
 // VPC includes
 #include "VPCParameters.hpp"
 
+/**
+ * NOTE: the below sorting functions will only work when the index list given is {0,...,size}
+ * (not necessarily in that order)
+ * because the index list is used to access elements of arr
+ *
+ * If you want to, say, sort [10,1,2] by [0.5,20.5,10.0], the below would not work
+ * Typically you need to use a struct then combining the data together
+ */
+template<class T> struct index_cmp_dsc {
+
+  const T arr; // array used to be sorted
+
+  // Constructor
+  index_cmp_dsc(const T _arr) :
+      arr(_arr) {
+  }
+
+  // Comparator
+  bool operator()(const size_t a, const size_t b) const {
+    //return arr[a] > arr[b] + param.getEPS();
+    return arr[a] > arr[b];
+  }
+};
+
+template<class T> struct index_cmp_asc {
+
+  const T arr; // array used to be sorted
+
+  // Constructor
+  index_cmp_asc(const T _arr) :
+      arr(_arr) {
+  }
+
+  // Comparator
+  bool operator()(const size_t a, const size_t b) const {
+    //return arr[a] < arr[b] - param.getEPS();
+    return arr[a] < arr[b];
+  }
+};
+
 /* #define error_msg(str, fmt) \
   char str[500]; \
   snprintf(str, sizeof(str) / sizeof(char), "*** ERROR: %s:%d: " fmt, __FILE__, __LINE__); \
@@ -102,8 +142,16 @@ inline bool greaterThanVal(const double val1, const double val2, const double ep
   return (val1 > (val2 + eps));
 } /* greaterThanVal */
 
+inline double getInfinity() {
+  return std::numeric_limits<double>::max();
+}
+
 inline bool isInfinity(const double val, const double infinity = __DBL_MAX__, const double eps = 1e-7) {
   return (val >= (infinity - eps));
+} /* isInfinity */
+
+inline bool isNegInfinity(const double val, const double infinity = -__DBL_MAX__, const double eps = 1e-7) {
+  return (val <= (infinity + eps));
 } /* isInfinity */
 
 inline const std::string stringValue(const int value,

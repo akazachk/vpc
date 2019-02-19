@@ -55,7 +55,8 @@ SOURCES += \
     utility/SolverHelper.cpp \
 		utility/utility.cpp \
 		branch/VPCEventHandler.cpp \
-		cut/CglVPC.cpp
+		cut/CglVPC.cpp \
+    cut/PRLP.cpp
 
 ### Set build values based on user variables ###
 ifeq ($(BUILD_CONFIG),debug)

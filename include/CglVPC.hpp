@@ -11,14 +11,6 @@
 // COIN-OR files
 #include <CglCutGenerator.hpp>
 
-#ifdef USE_CLP
-	#include <OsiClpSolverInterface.hpp>
-  using SolverInterface = OsiClpSolverInterface;
-#else
-  #include <OsiSolverInterface.hpp>
-  using SolverInterface = OsiSolverInterface;
-#endif
-
 // Project files
 #include "VPCEventHandler.hpp"
 #include "VPCParameters.hpp"
@@ -26,15 +18,17 @@
 
 class CglVPC : public CglCutGenerator {
 public:
+  friend class PRLP;
+
   // Enums
-  enum VPCMode {
+  enum class VPCMode {
     PARTIAL_BB,
     SPLITS,
     CROSSES,
     NUM_VPC_MODES
   };
 
-  enum ExitReason {
+  enum class ExitReason {
     SUCCESS_EXIT = 0,
     CUT_LIMIT_EXIT,
     FAIL_LIMIT_EXIT,
@@ -45,7 +39,7 @@ public:
     NUM_EXIT_REASONS
   }; /* ExitReason */
 
-  enum VPCTimeStats {
+  enum class VPCTimeStats {
     TOTAL_TIME,
     INIT_SOLVE_TIME,
     DISJ_SETUP_TIME,
@@ -56,15 +50,19 @@ public:
     NUM_TIME_STATS
   }; /* VPCTimeStats */
 
-  enum CutType {
+  enum class CutType {
     ONE_SIDED_CUT,
+    OPTIMALITY_CUT,
     VPC,
     NUM_CUT_TYPES
   }; /* CutType */
 
-  enum FailureType {
+  enum class FailureType {
     PRIMAL_INFEASIBLE,
     NUMERICAL_ISSUES_WARNING,
+    PRIMAL_INFEASIBLE_NO_OBJ,
+    NUMERICAL_ISSUES_NO_OBJ,
+    UNKNOWN,
     NUM_FAILURES
   }; /* FailureType */
 
@@ -119,6 +117,7 @@ public:
 
 protected:
   struct ProblemData {
+    int num_cols;
     double lp_opt;
     double EPS;
     std::vector<int> NBVarIndex, varBasicInRow;
@@ -138,36 +137,45 @@ protected:
 
   struct DisjunctionData {
     std::vector<NodeStatistics> stats, pruned_stats;
-    int num_terms, num_fixed_vars;
+    int num_nodes_on_tree, num_fixed_vars;
     std::vector<int> node_id;
     std::vector<double> sol;
     std::vector<CoinWarmStart*> bases;
   } disjunction;
 
+  struct PRLPData {
+    std::vector<CoinPackedVector> constraints;
+    std::vector<double> rhs;
+    std::vector<int> term;
+    std::vector<double> objViolation;
+    void addConstraint(const CoinPackedVector& vec, const double rhs, const int term, const double viol) {
+      this->constraints.push_back(vec);
+      this->rhs.push_back(rhs);
+      this->term.push_back(term);
+      this->objViolation.push_back(viol);
+    }
+  } prlpData;
+
   void initialize(const CglVPC* const source = NULL, const VPCParameters* const param = NULL);
-  void getProblemData(SolverInterface* const solver, ProblemData& probData, const ProblemData* const origProbData = NULL);
+  void getProblemData(SolverInterface* const solver, ProblemData& probData,
+      const ProblemData* const origProbData = NULL,
+      const bool enable_factorization = true);
 
   ExitReason prepareDisjunction(SolverInterface* const solver, OsiCuts& cuts);
-	bool prepareDisjunctiveTerm(const int term_ind, const int node_id,
-	    const std::vector<NodeStatistics>& stats, const int branching_index,
-	    const int branching_variable, const int branching_way,
-	    const double branching_value, std::vector<std::vector<int> >& termIndices,
-	    std::vector<std::vector<double> >& termCoeff,
-	    std::vector<double>& termRHS, const SolverInterface* const tmpSolverBase);
-	void genDepth1PRCollection(
-	    std::vector<CoinPackedVector>& PRLP_constraints,
-	    std::vector<double>& PRLP_rhs,
-	    const SolverInterface* const vpcsolver,
-	    const SolverInterface* const tmpSolver,
-	    const ProblemData& origProbData,
-	    const ProblemData& tmpProbData,
-	    const int term_ind);
+  void genDepth1PRCollection(const SolverInterface* const vpcsolver,
+      const SolverInterface* const tmpSolver, const ProblemData& origProbData,
+      const ProblemData& tmpProbData, const int term_ind);
 
-  ExitReason setupPRLP(const SolverInterface* const si,
-      DisjunctionData& disjunction,
-      std::vector<CoinPackedVector>& PRLP_constraints,
-      std::vector<double>& PRLP_rhs, OsiCuts& cuts);
-  ExitReason tryObjectives(OsiSolverInterface* const prlp);
+  ExitReason setupConstraints(const SolverInterface* const si, OsiCuts& cuts);
+  bool setupDisjunctiveTerm(const int term_ind, const int node_id,
+      const std::vector<NodeStatistics>& stats, const int branching_index,
+      const int branching_variable, const int branching_way,
+      const double branching_value, std::vector<std::vector<int> >& termIndices,
+      std::vector<std::vector<double> >& termCoeff,
+      std::vector<double>& termRHS,
+      const SolverInterface* const vpcsolver,
+      const SolverInterface* const tmpSolverBase);
+  ExitReason tryObjectives();
   void addCut(const OsiRowCut& cut, const CutType& type, OsiCuts& cuts);
 
   int getCutLimit() const;
@@ -201,7 +209,7 @@ protected:
     this->exitReason = exitReason;
     this->timer.end_all();
 #ifdef TRACE
-    printf("CglVPC: Finishing with exit reason: %s.\n", ExitReasonName[exitReason].c_str());
+    printf("CglVPC: Finishing with exit reason: %s.\n", ExitReasonName[static_cast<int>(exitReason)].c_str());
 #endif
   }
 

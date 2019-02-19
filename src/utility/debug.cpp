@@ -4,9 +4,35 @@
  * 2018-Dec-25
  */
 #include "debug.hpp"
-#include "utility.hpp"
-
 #include <vector>
+
+#include "utility.hpp"
+#include "SolverHelper.hpp"
+
+/**
+ * @brief Checks if a point computed in the complemented nonbasic space is equivalent to the original point in the structural space
+ */
+void checkPoint(CoinPackedVector point, OsiSolverInterface* origSolver, const double* struct_point) {
+  const int num_cols = origSolver->getNumCols();
+  const int num_rows = origSolver->getNumRows();
+
+  // Get nonbasic variables
+  std::vector<int> NBVarIndex;
+  for (int var = 0; var < num_cols+num_rows; var++) {
+    if (!isBasicVar(origSolver, var)) {
+
+    }
+  }
+
+  // Check objective value matches up
+  double struct_obj = 0.;
+  for (int i = 0; i < num_cols; i++) {
+    struct_obj += struct_point[i] * origSolver->getObjCoefficients()[i];
+  }
+
+  double nb_obj = 0.;
+
+} /* checkPoint */
 
 /************************************************************/
 /**

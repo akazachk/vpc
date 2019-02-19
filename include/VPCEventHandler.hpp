@@ -14,7 +14,6 @@
 
 #include <CbcEventHandler.hpp>
 #include <CbcNode.hpp>
-#include <OsiClpSolverInterface.hpp>
 
 #include "VPCParameters.hpp"
 
@@ -115,8 +114,8 @@ class VPCEventHandler : public CbcEventHandler {
     inline int getMaxTime() const { return maxTime_; }
 //    inline CoinWarmStartBasis* getOriginalBasis() const { return originalBasis_; };
 //    CoinWarmStartBasis* setOriginalBasis(const CoinWarmStart* const copyBasis, const bool return_old = false);
-    inline OsiClpSolverInterface* getOriginalSolver() const { return originalSolver_; }
-    OsiClpSolverInterface* setOriginalSolver(
+    inline SolverInterface* getOriginalSolver() const { return originalSolver_; }
+    SolverInterface* setOriginalSolver(
       const OsiSolverInterface* const copySolver,
       const bool return_old = false);
     inline int getOriginalLB(const int col) const { return originalLB_[col]; }
@@ -143,7 +142,7 @@ class VPCEventHandler : public CbcEventHandler {
     int numNodesOnTree_, numLeafNodes_;
     int numNodes_;
     //CoinWarmStartBasis* originalBasis_;
-    OsiClpSolverInterface* originalSolver_;
+    SolverInterface* originalSolver_;
     std::vector<double> originalLB_, originalUB_;
     std::vector<CoinWarmStartBasis*> bases_; // bases of node
     std::vector<NodeStatistics> stats_; // all stats that we need to recreate tree

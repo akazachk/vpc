@@ -4,9 +4,18 @@
 #include <vector>
 #include <cstdio> // fprintf
 
+#ifdef USE_CLP
+  #include <OsiClpSolverInterface.hpp>
+  using SolverInterface = OsiClpSolverInterface;
+#else
+  #include <OsiSolverInterface.hpp>
+  using SolverInterface = OsiSolverInterface;
+#endif
+
 enum intParam {
   CUTLIMIT, // max number of cuts generated
   NUM_DISJ_TERMS,
+  // PARTIAL_BB_STRATEGY:
   // Total used to decide the choose:
   // variable decision => hundreds digit: 0: default, 1: default+second criterion, 2: max min change+second (max max change), 3: second-best default, 4: second-best max-min change, -x: -1 * (1+x);
   // branch decision => tens digit: 0: default, 1: dynamic, 2: strong, 3: none;
@@ -28,7 +37,6 @@ const std::vector<std::string> intParamName {
 };
 
 enum doubleParam {
-  AWAY,
   DIFFEPS,
   EPS,
   RAYEPS,
@@ -38,13 +46,22 @@ enum doubleParam {
   NUM_DOUBLE_PARAMS
 }; /* doubleParam */
 const std::vector<std::string> doubleParamName {
-  "AWAY",
   "DIFFEPS",
   "EPS",
   "RAYEPS",
   "PARTIAL_BB_TIMELIMIT",
+  "MIN_PRLP_TIMELIMIT",
   "PRLP_TIMELIMIT",
   "TIMELIMIT"
+};
+enum doubleConst {
+  AWAY,
+  MIN_PRLP_TIMELIMIT,
+  NUM_DOUBLE_CONST
+};
+const std::vector<std::string> doubleConstName {
+  "AWAY",
+  "MIN_PRLP_TIMELIMIT"
 };
 
 enum stringParam {
@@ -73,7 +90,6 @@ struct VPCParameters {
   void set(intParam param, int value) { intParamValues[param] = value; }
 
   std::map<doubleParam, double> doubleParamValues {
-    {doubleParam::AWAY, 1e-3},
     {doubleParam::DIFFEPS, 1e-3}, // to check whether something is different enough to throw an error
     {doubleParam::EPS, 1e-7},
     {doubleParam::RAYEPS, 1e-7},
@@ -85,6 +101,12 @@ struct VPCParameters {
   void set(doubleParam param, double value) {
     doubleParamValues[param] = value;
   }
+
+  std::map<doubleConst, double> doubleConstValues {
+    {doubleConst::AWAY, 1e-3},
+    {doubleConst::MIN_PRLP_TIMELIMIT, 5}
+  };
+  double get(doubleConst param) const { return doubleConstValues.find(param)->second; }
 
   std::map<stringParam, std::string> stringParamValues {
     {stringParam::FILENAME, ""},

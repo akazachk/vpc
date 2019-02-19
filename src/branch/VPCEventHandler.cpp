@@ -322,7 +322,7 @@ void VPCEventHandler::copyOurStuff(const VPCEventHandler* const rhs) {
     this->numNodesOnTree_ = rhs->numNodesOnTree_;
     this->numNodes_ = rhs->numNodes_;
 //    this->originalBasis_ = dynamic_cast<CoinWarmStartBasis*>(rhs->originalBasis_->clone());
-    this->originalSolver_ = dynamic_cast<OsiClpSolverInterface*>(rhs->originalSolver_->clone());
+    this->originalSolver_ = dynamic_cast<SolverInterface*>(rhs->originalSolver_->clone());
     this->originalLB_ = rhs->originalLB_;
     this->originalUB_ = rhs->originalUB_;
     this->bases_ = rhs->bases_;
@@ -892,7 +892,7 @@ void VPCEventHandler::saveInformation() {
   ub.resize(numObjects);
 
   // Get new bounds
-  //const OsiClpSolverInterface* solver = dynamic_cast<OsiClpSolverInterface*>(model->
+  //const SolverInterface* solver = dynamic_cast<SolverInterface*>(model->
   for (int i = 0; i < model_->numberObjects(); i++) {
   try {
   // Usually we will be in the (new?) Osi side
@@ -922,16 +922,16 @@ ub[i] = obj->originalUpperBound();
 //  }
 //} /* setOriginalBasis */
 
-OsiClpSolverInterface* VPCEventHandler::setOriginalSolver(
+SolverInterface* VPCEventHandler::setOriginalSolver(
     const OsiSolverInterface* const copySolver, const bool return_old) {
-  OsiClpSolverInterface* tmp = NULL;
+  SolverInterface* tmp = NULL;
   if (return_old && originalSolver_) {
-    tmp = dynamic_cast<OsiClpSolverInterface*>(originalSolver_->clone());
+    tmp = dynamic_cast<SolverInterface*>(originalSolver_->clone());
   }
   try {
-    originalSolver_ = dynamic_cast<OsiClpSolverInterface*>(copySolver->clone());
+    originalSolver_ = dynamic_cast<SolverInterface*>(copySolver->clone());
   } catch (std::exception& e) {
-    error_msg(errorstring, "Unable to clone solver as OsiClpSolverInterface.\n");
+    error_msg(errorstring, "Unable to clone solver as SolverInterface.\n");
     writeErrorToLog(errorstring, params->logfile);
     exit(1);
   }
