@@ -1,3 +1,7 @@
+// Name:     utility.hpp
+// Author:   A. M. Kazachkov
+// Date:     2018-Dec-24
+//-----------------------------------------------------------------------------
 #pragma once
 
 #include <cstdio>
@@ -8,11 +12,7 @@
 #include <limits> // numeric_limits
 
 // COIN-OR includes
-#include <CoinPackedVector.hpp>
 #include <OsiSolverInterface.hpp>
-
-// VPC includes
-#include "VPCParameters.hpp"
 
 /**
  * NOTE: the below sorting functions will only work when the index list given is {0,...,size}
@@ -85,27 +85,7 @@ inline void writeErrorToLog(std::string text, FILE *myfile) {
   fclose(myfile);
 }
 
-double getObjValueFromFile(const VPCParameters& params);
-
-void setCompNBCoorPoint(CoinPackedVector& vec, double& objViolation,
-    const VPCParameters& params, const OsiSolverInterface* const tmpSolver,
-    const OsiSolverInterface* const origSolver,
-    const std::vector<int>& nonBasicVarIndex,
-    const std::vector<double>& nonBasicReducedCost, const int deletedVar = -1);
-void setCompNBCoorRay(CoinPackedVector& vec, const double* ray, double& objViolation, double& scale,
-    const VPCParameters& params, const OsiSolverInterface* const tmpSolver,
-    const OsiSolverInterface* const origSolver,
-    const std::vector<int>& rowOfOrigNBVar,
-    const std::vector<int>& nonBasicVarIndex,
-    const std::vector<double>& nonBasicReducedCost,
-    const int tmpNBVar, const int deletedVar = -1,
-    const bool rayNeedsCalculation = false);
-void setCompNBCoor(CoinPackedVector& vec, double& objViolation,
-    const VPCParameters& params, const double* const currColValue,
-    const double* const currSlackValue,
-    const OsiSolverInterface* const origSolver,
-    const std::vector<int>& nonBasicVarIndex,
-    const std::vector<double>& nonBasicReducedCost, const int deletedVar = -1);
+double getObjValueFromFile(std::string opt_filename, std::string fullfilename, FILE* logfile);
 /**
   * @brief Check if a file exists
   */
@@ -235,3 +215,8 @@ double dotProduct(int sizea, const int* indexa, const double* a,
 // Third version: sparse vectors
 double dotProduct(int sizea, const int* indexa, const double* a, int sizeb,
     const int* indexb, const double* b);
+
+double getRowTwoNorm(const int row, const CoinPackedMatrix* const mat);
+void packedSortedVectorSum(CoinPackedVector& sum, const double mult1,
+    const CoinPackedVectorBase& vec1, const double mult2,
+    const CoinPackedVectorBase& vec2, const double eps); 

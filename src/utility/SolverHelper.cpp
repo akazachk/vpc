@@ -51,6 +51,7 @@ void setLPSolverParameters(OsiSolverInterface* const solver,
 bool checkSolverOptimality(OsiSolverInterface* const solver,
     const bool exitOnDualInfeas, const double timeLimit,
     const int maxNumResolves) {
+  int resolve_count = 0;
 #ifdef USE_CLP
   OsiClpSolverInterface* clpsolver = NULL;
   try {
@@ -64,7 +65,6 @@ bool checkSolverOptimality(OsiSolverInterface* const solver,
 
   // If it is supposedly proven primal infeasible, might be good to do a resolve first
   // This is, e.g., something that arises with miplib2003/pp08aCUTS_presolved -32
-  int resolve_count = 0;
   if (clpsolver->isProvenPrimalInfeasible()) {
     clpsolver->getModelPtr()->setNumberIterations(0);
     clpsolver->getModelPtr()->setMaximumSeconds(timeLimit);

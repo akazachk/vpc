@@ -6,10 +6,27 @@
 //
 // This code is licensed under the terms of the Eclipse Public License (EPL).
 //============================================================================
-
 #pragma once
+
 // Project files
 #include "VPCParameters.hpp"
+
+enum BB_Strategy_Options {
+  cbc = 2,
+  cplex = 4,
+  gurobi = 8,
+  user_cuts = 16,
+  all_cuts_off = 32,
+  all_cuts_on = 64,
+  gmics_off = 128,
+  gmics_on = 256,
+  presolve_off = 512,
+  presolve_on = 1024,
+  heuristics_off = 2048,
+  heuristics_on = 4096,
+  use_best_bound = 8192,
+  strong_branching_on = 16384
+};
 
 // COIN-OR
 #ifdef USE_CBC

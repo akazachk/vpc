@@ -17,6 +17,7 @@
 #include "VPCEventHandler.hpp"
 #include "PRLP.hpp"
 #include "SolverHelper.hpp"
+#include "nbspace.hpp"
 #include "utility.hpp"
 
 #ifdef TRACE
@@ -44,8 +45,33 @@ const std::vector<std::string> CglVPC::VPCTimeStatsName {
 const std::vector<std::string> CglVPC::CutTypeName {
   "ONE_SIDED_CUT", "OPTIMALITY_CUT", "VPC"
 }; /* CutTypeName */
+const std::vector<std::string> CglVPC::CutHeuristicsName {
+  "DUMMY_OBJ",
+  "ALL_ONES",
+  "CUT_VERTICES",
+  "ITER_BILINEAR",
+  "UNIT_VECTORS",
+  "STRONG_LB",
+  "TIGHT_POINTS",
+  "TIGHT_RAYS",
+  "TIGHT_POINTS2",
+  "TIGHT_RAYS2",
+  "ONE_SIDED"
+}; /* CutHeuristicsName */
 const std::vector<std::string> CglVPC::FailureTypeName {
+  "ABANDONED",
+  "BAD_DYNAMISM",
+  "BAD_SUPPORT",
+  "BAD_VIOLATION",
+  "CUT_LIMIT",
+  "DUAL_INFEASIBLE",
+  "DUPLICATE_SIC",
+  "DUPLICATE_VPC",
+  "ITERATION_LIMIT",
+  "ORTHOGONALITY_SIC",
+  "ORTHOGONALITY_VPC",
   "PRIMAL_INFEASIBLE",
+  "TIME_LIMIT",
   "NUMERICAL_ISSUES_WARNING",
   "PRIMAL_INFEASIBLE_NO_OBJ",
   "NUMERICAL_ISSUES_NO_OBJ",
@@ -132,7 +158,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
 #ifdef TRACE
     std::cout << "Reading objective information from \"" + params.get(stringParam::OPTFILE) + "\"" << std::endl;
 #endif
-    ip_opt = getObjValueFromFile(params);
+    ip_opt = getObjValueFromFile(params.get(stringParam::OPTFILE), params.get(stringParam::FILENAME), params.logfile);
 #ifdef TRACE
     std::cout << "Best known objective value is " << ip_opt << std::endl;
 #endif
@@ -156,7 +182,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   }
 
   // Generate cuts from the PRLP
-  status = tryObjectives();
+  status = tryObjectives(cuts, solver, NULL, time_T1);
   if (status != ExitReason::SUCCESS_EXIT) {
     finish(status);
     return;
@@ -177,7 +203,10 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     this->exitReason = source->exitReason;
     this->timer = source->timer;
     this->cutType = source->cutType;
+    this->cutHeurVec = source->cutHeurVec;
     this->numCutsOfType = source->numCutsOfType;
+    this->numObjFromHeur = source->numObjFromHeur;
+    this->numCutsFromHeur = source->numCutsFromHeur;
     this->numFails = source->numFails;
     this->branching_lb = source->branching_lb;
     this->branching_ub = source->branching_ub;
@@ -205,11 +234,14 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     for (int t = 0; t < static_cast<int>(VPCTimeStats::NUM_TIME_STATS); t++) {
       timer.register_name(VPCTimeStatsName[t]);
     }
-    for (int t = 0; t < static_cast<int>(PRLP::CutHeuristics::NUM_CUT_HEUR); t++) {
-      timer.register_name(PRLP::CutHeuristicsName[t] + "_TIME");
+    for (int t = 0; t < static_cast<int>(CutHeuristics::NUM_CUT_HEUR); t++) {
+      timer.register_name(CutHeuristicsName[t] + "_TIME");
     }
     this->cutType.resize(0);
+    this->cutHeurVec.resize(0);
     this->numCutsOfType.resize(static_cast<int>(CutType::NUM_CUT_TYPES), 0);
+    this->numObjFromHeur.resize(static_cast<int>(CutHeuristics::NUM_CUT_HEUR), 0);
+    this->numCutsFromHeur.resize(static_cast<int>(CutHeuristics::NUM_CUT_HEUR), 0);
     this->numFails.resize(static_cast<int>(FailureType::NUM_FAILURES), 0);
     this->branching_lb = std::numeric_limits<double>::max();
     this->branching_ub = std::numeric_limits<double>::lowest();
@@ -241,18 +273,18 @@ void CglVPC::getProblemData(SolverInterface* const solver,
   // Set min/max reference values based on problem data
   double minReferenceValue = 1, maxReferenceValue = 1;
   const double* elements = solver->getMatrixByCol()->getElements();
-  double minAbsCoeff = *std::min_element(elements,
+  probData.minAbsCoeff = *std::min_element(elements,
       elements + solver->getMatrixByCol()->getNumElements(),
       [](double i, double j) {return std::abs(i) < std::abs(j);});
-  double maxAbsCoeff = *std::max_element(elements,
+  probData.maxAbsCoeff = *std::max_element(elements,
         elements + solver->getMatrixByCol()->getNumElements(),
         [](double i, double j) {return std::abs(i) < std::abs(j);});
-  minAbsCoeff = std::abs(minAbsCoeff);
-  maxAbsCoeff = std::abs(maxAbsCoeff);
+  probData.minAbsCoeff = std::abs(probData.minAbsCoeff);
+  probData.maxAbsCoeff = std::abs(probData.maxAbsCoeff);
   minReferenceValue =
-      (minAbsCoeff > 0) ?
-          CoinMin(minReferenceValue, minAbsCoeff) : minReferenceValue;
-  maxReferenceValue = CoinMax(maxReferenceValue, maxAbsCoeff);
+      (probData.minAbsCoeff > 0) ?
+          CoinMin(minReferenceValue, probData.minAbsCoeff) : minReferenceValue;
+  maxReferenceValue = CoinMax(maxReferenceValue, probData.maxAbsCoeff);
 
   double lp_opt = solver->getObjValue();
   minReferenceValue =
@@ -370,7 +402,7 @@ void CglVPC::getProblemData(SolverInterface* const solver,
         probData.NBReducedCost[j] = -1.0 * solver->getRowPrice()[tempIndex];
     }
     if (lessThanVal(probData.NBReducedCost[j], 0.)) {
-      if (lessThanVal(probData.NBReducedCost[j], 0., params.get(DIFFEPS))) {
+      if (lessThanVal(probData.NBReducedCost[j], 0., params.get(doubleConst::DIFFEPS))) {
         error_msg(errorstring,
             "Nonbasic reduced cost should be >= 0 in the complemented nonbasic space. "
             "However, for nb var %d (real var %d), it is %e.\n",
@@ -700,7 +732,7 @@ CglVPC::ExitReason CglVPC::setupConstraints(const SolverInterface* const si, Osi
 #endif
     calcAndFeasFacet[term_ind] = true;
     std::string tmpname = "feasSol" + std::to_string(term_ind);
-//    setCgsName(cgsName[0], tmpname);
+    setCgsName(this->disjunction.name, tmpname);
     double objOffset = 0.;
     vpcsolver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
     const double objVal = dotProduct(vpcsolver->getObjCoefficients(), sol, dim)
@@ -769,7 +801,7 @@ CglVPC::ExitReason CglVPC::setupConstraints(const SolverInterface* const si, Osi
       exit(1);
     }
     // Sometimes we run into a few issues getting the ``right'' value
-    if (!isVal(tmpSolverBase->getObjValue(), stats[node_id].obj, params.get(DIFFEPS))) {
+    if (!isVal(tmpSolverBase->getObjValue(), stats[node_id].obj, params.get(doubleConst::DIFFEPS))) {
       tmpSolverBase->resolve();
     }
 
@@ -779,11 +811,11 @@ CglVPC::ExitReason CglVPC::setupConstraints(const SolverInterface* const si, Osi
         tmpSolverBase->getObjValue(), curr_nb_obj_val);
     printNodeStatistics(stats[node_id], true);
 #endif
-    if (!isVal(tmpSolverBase->getObjValue(), stats[node_id].obj, params.get(DIFFEPS))) {
+    if (!isVal(tmpSolverBase->getObjValue(), stats[node_id].obj, params.get(doubleConst::DIFFEPS))) {
+#ifdef TRACE
       std::string commonName;
       setCgsName(commonName, curr_num_changed_bounds, commonTermIndices,
           commonTermCoeff, commonTermRHS, false);
-#ifdef TRACE
       printf("Bounds changed: %s.\n", commonName.c_str());
 #endif
       double ratio = tmpSolverBase->getObjValue() / stats[node_id].obj;
@@ -865,7 +897,6 @@ bool CglVPC::setupDisjunctiveTerm(const int term_ind, const int node_id,
   const bool set_equal = false;
 //  const int max_num_cgs = 1;
   const int num_ineq_per_term = 1;  // leaf nodes have one extra changed
-  std::string cgsName;
   termIndices.resize(num_ineq_per_term);
   termCoeff.resize(num_ineq_per_term);
   termRHS.resize(num_ineq_per_term);
@@ -899,7 +930,7 @@ bool CglVPC::setupDisjunctiveTerm(const int term_ind, const int node_id,
       calcAndFeasFacet = checkSolverOptimality(tmpSolver, true);
     }
 
-    setCgsName(cgsName, num_ineq_per_term, termIndices, termCoeff, termRHS);
+    setCgsName(this->disjunction.name, num_ineq_per_term, termIndices, termCoeff, termRHS);
 //    setCgsName(cgsName, curr_num_changed_bounds, commonTermIndices,
 //        commonTermCoeff, commonTermRHS, true);
     if (stats[node_id].depth + 1 < min_node_depth) {
@@ -934,32 +965,6 @@ bool CglVPC::setupDisjunctiveTerm(const int term_ind, const int node_id,
       getProblemData(tmpSolver, tmpData, &probData, false);
       genDepth1PRCollection(vpcsolver, tmpSolver,
           probData, tmpData, term_ind);
-
-      //      identifyCobasis(tmpVarBasicInRow[term_ind], tmpBasicStructVar[term_ind],
-      //          tmpBasicSlackVar[term_ind], rowOfTmpVar[term_ind],
-      //          rowOfOrigNBVar[term_ind], tmpNonBasicVarIndex[term_ind],
-      //          currBInvACol[term_ind], currRay[term_ind], tmpSolver, probData,
-      //          termIndices[term_ind][0][0], false, true);
-
-      //        identifyCobasis(tmpVarBasicInRow[term_ind], tmpBasicStructVar[term_ind],
-      //            tmpBasicSlackVar[term_ind], rowOfTmpVar[term_ind],
-      //            rowOfOrigNBVar[term_ind], tmpNonBasicVarIndex[term_ind],
-      //            currBInvACol[term_ind], currRay[term_ind], tmpSolver, probData,
-      //            termIndices[term_ind][0][0], false, true);
-
-      //        genDepth1PRCollection(interPtsAndRays[term_ind], tmpSolver, probData,
-      //            termIndices[term_ind], tmpVarBasicInRow[term_ind],
-      //            tmpBasicStructVar[term_ind], tmpBasicSlackVar[term_ind],
-      //            rowOfTmpVar[term_ind], rowOfOrigNBVar[term_ind],
-      //            tmpNonBasicVarIndex[term_ind], currRay[term_ind], term_ind, false,
-      //            0, max_num_cgs);
-
-      //          genDepth1PRCollection(interPtsAndRays[term_ind], tmpSolver, probData,
-      //              termIndices[term_ind], tmpVarBasicInRow[term_ind],
-      //              tmpBasicStructVar[term_ind], tmpBasicSlackVar[term_ind],
-      //              rowOfTmpVar[term_ind], rowOfOrigNBVar[term_ind],
-      //              tmpNonBasicVarIndex[term_ind], currRay[term_ind], term_ind, false,
-      //              0, max_num_cgs);
 
       timer.end_timer(CglVPC::time_T1 + "TOTAL");
       timer.end_timer(CglVPC::time_T1 + std::to_string(term_ind));
@@ -1006,7 +1011,7 @@ void CglVPC::genDepth1PRCollection(const SolverInterface* const vpcsolver,
   setCompNBCoorPoint(optPoint, curr_nb_obj_val, params, tmpSolver, vpcsolver,
       probData.NBVarIndex, probData.NBReducedCost);
   if (!isVal(curr_nb_obj_val, tmpSolver->getObjValue() - origProbData.lp_opt,
-      params.get(DIFFEPS))) {
+      params.get(doubleConst::DIFFEPS))) {
     error_msg(errorstring,
         "NB obj value is somehow incorrect. Calculated: %s, should be: %s.\n",
         stringValue(curr_nb_obj_val).c_str(),
@@ -1021,7 +1026,7 @@ void CglVPC::genDepth1PRCollection(const SolverInterface* const vpcsolver,
     if (lessThanVal(activity, beta, params.get(EPS))) {
       numFails[static_cast<int>(FailureType::NUMERICAL_ISSUES_WARNING)]++;
       // Is it less by a little or by a lot?
-      if (lessThanVal(activity, beta, params.get(DIFFEPS))) {
+      if (lessThanVal(activity, beta, params.get(doubleConst::DIFFEPS))) {
         error_msg(errorstring,
             "Term %d (point) does not satisfy the objective cut. Activity: %.8f. RHS: %.8f\n",
             term_ind, activity, beta);
@@ -1101,7 +1106,7 @@ void CglVPC::genDepth1PRCollection(const SolverInterface* const vpcsolver,
       calcRedCost += vals[el] * origProbData.NBReducedCost[ind[el]];
     }
     calcRedCost /= scale;
-    if (!isVal(curr_nb_obj_val, calcRedCost, params.get(DIFFEPS))) {
+    if (!isVal(curr_nb_obj_val, calcRedCost, params.get(doubleConst::DIFFEPS))) {
       error_msg(errorstring,
           "Calculated reduced cost is somehow incorrect. Calculated: %s, should be: %s.\n",
           stringValue(calcRedCost).c_str(),
@@ -1112,7 +1117,7 @@ void CglVPC::genDepth1PRCollection(const SolverInterface* const vpcsolver,
     if (lessThanVal(calcRedCost, 0., params.get(EPS))) {
       numFails[static_cast<int>(FailureType::NUMERICAL_ISSUES_WARNING)]++;
       // Is it less by a little or by a lot?
-      if (lessThanVal(calcRedCost, 0., params.get(DIFFEPS))) {
+      if (lessThanVal(calcRedCost, 0., params.get(doubleConst::DIFFEPS))) {
         error_msg(errorstring,
             "Term %d ray %d does not satisfy the objective cut. Activity: %.8f. RHS: %.8f\n",
             term_ind, ray_ind, calcRedCost, 0.);
@@ -1129,7 +1134,9 @@ void CglVPC::genDepth1PRCollection(const SolverInterface* const vpcsolver,
   } // iterate over nonbasic vars
 } /* genDepth1PRCollection */
 
-CglVPC::ExitReason CglVPC::tryObjectives() {
+CglVPC::ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
+    const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs,
+    const std::string& timeName) {
   if (reachedTimeLimit(time_T1 + "TOTAL", params.get(TIMELIMIT))) {
     return ExitReason::TIME_LIMIT_EXIT;
   }
@@ -1143,15 +1150,19 @@ CglVPC::ExitReason CglVPC::tryObjectives() {
   // We can scale the rhs for points by min_nb_obj_val
   const bool useScale = true && !isInfinity(std::abs(this->min_nb_obj_val));
   const double scale = (!useScale || lessThanVal(this->min_nb_obj_val, 1.)) ? 1. : this->min_nb_obj_val;
-//  double beta = params.get(intParam::PRLP_BETA) >= 0 ? scale : -1. * scale;
+  double beta = params.get(intParam::PRLP_BETA) >= 0 ? scale : -1. * scale;
 
 //  std::vector<double> ortho;
-  std::vector<int> nonZeroColIndex;
-  prlp->setup(nonZeroColIndex, scale, false);
+  const bool isCutSolverPrimalFeas = prlp->setup(scale, false);
   printf("# rows: %d\t # cols: %d\n", prlp->getNumRows(), prlp->getNumCols());
   printf("# points: %d\t # rays: %d\n", prlp->numPoints, prlp->numRays);
-//  const bool isCutSolverPrimalFeas = setupCutSolver(cutSolver, nonZeroColIndex,
-//      interPtsAndRays, ortho, scale, cgs_ind, fixFirstPoint);
+
+  if (isCutSolverPrimalFeas) {
+    prlp->targetStrongAndDifferentCuts(beta, cuts, this->num_cuts,
+        this->num_obj_tried, origSolver, structSICs, timeName,
+        params.get(intConst::NB_SPACE));
+  }
+
 //
 //  if (isCutSolverPrimalFeas) {
 //    if (param.getParamVal(ParamIndices::PRLP_STRATEGY_PARAM_IND) == 0) {

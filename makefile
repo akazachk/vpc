@@ -52,10 +52,12 @@ SOURCES += \
 		branch/CbcBranchStrongDecision.cpp \
 		branch/CbcCompareBFS.cpp \
 		branch/OsiChooseStrongCustom.cpp \
+    utility/nbspace.cpp \
     utility/SolverHelper.cpp \
 		utility/utility.cpp \
 		branch/VPCEventHandler.cpp \
 		cut/CglVPC.cpp \
+		cut/CutHelper.cpp \
     cut/PRLP.cpp
 
 ### Set build values based on user variables ###

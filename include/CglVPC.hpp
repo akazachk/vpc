@@ -21,6 +21,7 @@ public:
   friend class PRLP;
 
   // Enums
+  // If adding to any of these enums, do not forget to add the appropriate name (in the right position) in *Name in the source file
   enum class VPCMode {
     PARTIAL_BB,
     SPLITS,
@@ -57,8 +58,35 @@ public:
     NUM_CUT_TYPES
   }; /* CutType */
 
+  enum class CutHeuristics {
+    DUMMY_OBJ,
+    ALL_ONES,
+    CUT_VERTICES,
+    ITER_BILINEAR,
+    UNIT_VECTORS,
+    STRONG_LB,
+    TIGHT_POINTS,
+    TIGHT_RAYS,
+    TIGHT_POINTS2,
+    TIGHT_RAYS2,
+    ONE_SIDED,
+    NUM_CUT_HEUR
+  };
+
   enum class FailureType {
+    ABANDONED,
+    BAD_DYNAMISM,
+    BAD_SUPPORT,
+    BAD_VIOLATION,
+    CUT_LIMIT,
+    DUAL_INFEASIBLE,
+    DUPLICATE_SIC,
+    DUPLICATE_VPC,
+    ITERATION_LIMIT,
+    ORTHOGONALITY_SIC,
+    ORTHOGONALITY_VPC,
     PRIMAL_INFEASIBLE,
+    TIME_LIMIT,
     NUMERICAL_ISSUES_WARNING,
     PRIMAL_INFEASIBLE_NO_OBJ,
     NUMERICAL_ISSUES_NO_OBJ,
@@ -70,6 +98,7 @@ public:
   static const std::vector<std::string> ExitReasonName;
   static const std::vector<std::string> VPCTimeStatsName;
   static const std::vector<std::string> CutTypeName;
+  static const std::vector<std::string> CutHeuristicsName;
   static const std::vector<std::string> FailureTypeName;
   static const std::string time_T1; // = "TIME_TYPE1_";
   static const std::string time_T2; // = "TIME_TYPE2_";
@@ -80,8 +109,11 @@ public:
   ExitReason exitReason;
   TimeStats timer;
 
-  std::vector<CutType> cutType;
+  std::vector<CutType> cutType; // one entry per cut
+  std::vector<CutHeuristics> cutHeurVec; // one entry per cut
+
   std::vector<int> numCutsOfType;
+  std::vector<int> numObjFromHeur, numCutsFromHeur;
   std::vector<int> numFails;
 
   double branching_lb, branching_ub, min_nb_obj_val, ip_opt;
@@ -119,6 +151,7 @@ protected:
   struct ProblemData {
     int num_cols;
     double lp_opt;
+    double minAbsCoeff, maxAbsCoeff; // useful for dynamism calculation
     double EPS;
     std::vector<int> NBVarIndex, varBasicInRow;
     std::vector<int> rowOfVar; // row in which var is basic; if var is nonbasic, then it is (-(1 + nonbasic index))
@@ -141,6 +174,7 @@ protected:
     std::vector<int> node_id;
     std::vector<double> sol;
     std::vector<CoinWarmStart*> bases;
+    std::string name;
   } disjunction;
 
   struct PRLPData {
@@ -175,7 +209,9 @@ protected:
       std::vector<double>& termRHS,
       const SolverInterface* const vpcsolver,
       const SolverInterface* const tmpSolverBase);
-  ExitReason tryObjectives();
+  ExitReason tryObjectives(OsiCuts& cuts,
+      const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs,
+      const std::string& timeName);
   void addCut(const OsiRowCut& cut, const CutType& type, OsiCuts& cuts);
 
   int getCutLimit() const;
@@ -213,6 +249,7 @@ protected:
 #endif
   }
 
+  /** Set/update name of cut generating set (disjunction) */
   inline void setCgsName(std::string& cgsName, const std::string& disjTermName) const {
     if (disjTermName.empty()) {
       return;
@@ -236,7 +273,7 @@ protected:
       if (!append) {
         cgsName += " V ";
       } else {
-        cgsName.resize(cgsName.size() - 1);
+        cgsName.resize(cgsName.size() - 1); // remove last ")"
         cgsName += "; ";
       }
     }
