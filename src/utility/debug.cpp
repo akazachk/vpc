@@ -34,6 +34,15 @@ void checkPoint(CoinPackedVector point, OsiSolverInterface* origSolver, const do
 
 } /* checkPoint */
 
+void printVector(const int n, const double* vec) {
+  for (int i = 0; i < n; ++i) {
+    if (vec[i] != 0.0)
+      printf("\t[%d] = %e\n", i, vec[i]);
+    else
+      printf("\t[%d] = 0\n", i);
+  }
+}
+
 /************************************************************/
 /**
  * Create a string that can be fed into Mathematica to plot the tree

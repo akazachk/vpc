@@ -9,6 +9,7 @@
 #include "VPCParameters.hpp"
 #include "VPCEventHandler.hpp"
 
+void printVector(const int n, const double* vec);
 std::string generateTreePlotString(const VPCEventHandler* eventHandler, const VPCParameters& params,
     const bool saveToFile = false);
 std::string generateTikzTreeString(const VPCEventHandler* eventHandler, const VPCParameters& params,

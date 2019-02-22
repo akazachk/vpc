@@ -10,6 +10,10 @@
 
 #include <CoinTime.hpp>
 
+#ifdef TRACE
+#include "debug.hpp"
+#endif
+
 /** Default constructor */
 PRLP::PRLP() {
   initialize();
@@ -1362,7 +1366,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
     const std::string currTimeName = CglVPC::CutHeuristicsName[static_cast<int>(cutHeur)] + "_TIME";
     owner->timer.start_timer(currTimeName);
 #ifdef TRACE
-    printf("\n## Try all ones objective; cuts so far: %d.. ##\n",
+    printf("\n## Try all ones objective; cuts so far: %d. ##\n",
         cuts.sizeCuts());
 #endif
     setConstantObjectiveFromPackedVector(this, 1.);
@@ -1426,7 +1430,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
   // Let us try to target the strong branching lower bound
   // This means we find something tight on the point with the lowest objective value
   // Since that point cannot be cut away, that is the best bound we can hope for
-  const int strong_lb_row_ind =
+  const int disj_lb_row_ind =
       (pointIndex[0].row < 0) ?
           (-1 * (pointIndex[0].row + 1)) : pointIndex[0].row;
   if (owner->params.get(USE_DISJ_LB) >= 0) {
@@ -1438,8 +1442,8 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
         "\n## Try finding a cut tight on the branching lb point; cuts so far: %d. ##\n",
         cuts.sizeCuts());
 #endif
-    const bool goodReturn = findCutsTightOnPoint(num_failures, numTimesTightRow,
-        numTimesTightColLB, numTimesTightColUB, strong_lb_row_ind,
+    const int goodReturn = findCutsTightOnPoint(num_failures, numTimesTightRow,
+        numTimesTightColLB, numTimesTightColUB, disj_lb_row_ind,
         init_num_cuts, cutHeur, beta, cuts, num_cuts_total, num_obj_tried,
         origSolver, structSICs, timeName, inNBSpace, MAX_NUM_OBJ_PER_POINT);
     owner->timer.end_timer(currTimeName);
@@ -1513,7 +1517,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
       num_points_tried++;
       pointIndex[ind].row = -1 * (row_ind + 1);
       goodReturn = findCutsTightOnPoint(num_failures, numTimesTightRow,
-          numTimesTightColLB, numTimesTightColUB, strong_lb_row_ind,
+          numTimesTightColLB, numTimesTightColUB, disj_lb_row_ind,
           init_num_cuts, cutHeur, beta, cuts, num_cuts_total, num_obj_tried,
           origSolver, structSICs, timeName, inNBSpace, MAX_NUM_OBJ_PER_POINT);
     } /* tight on points */
@@ -1674,12 +1678,12 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
       if (numTimesTightRow[row_ind] < 0) {
         continue;
       }
-      if (row_ind == strong_lb_row_ind) {
+      if (row_ind == disj_lb_row_ind) {
         continue;
       }
       num_points_tried++;
       goodReturn = findCutsTightOnPoint(num_failures, numTimesTightRow,
-          numTimesTightColLB, numTimesTightColUB, strong_lb_row_ind,
+          numTimesTightColLB, numTimesTightColUB, disj_lb_row_ind,
           init_num_cuts, cutHeur, beta, cuts, num_cuts_total, num_obj_tried,
           origSolver, structSICs, timeName, inNBSpace, MAX_NUM_OBJ_PER_POINT);
     } /* tight on points */
