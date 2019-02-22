@@ -153,9 +153,10 @@ void processArgs(int argc, char** argv) {
   // has_arg: 0,1,2 for none, required, or optional
   // *flag: how results are returned; if NULL, getopt_long() returns val (e.g., can be the equivalent short option character), and o/w getopt_long() returns 0, and flag points to a var which is set to val if the option is found, but left unchanged if the option is not found
   // val: value to return, or to load into the variable pointed to by flag
-  const char* const short_opts = "d:f:hl:o:r:R:s:S:t:T:v:";
+  const char* const short_opts = "c:d:f:hl:o:r:R:s:S:t:T:v:";
   const struct option long_opts[] =
   {
+    {"cutlimit", required_argument, 0, 'c'},
     {"disj_terms", required_argument, 0, 'd'},
     {"file", required_argument, 0, 'f'},
     {"help", no_argument, 0, 'h'},
@@ -180,6 +181,16 @@ void processArgs(int argc, char** argv) {
   int inp;
   while ((inp = getopt_long(argc, argv, short_opts, long_opts, nullptr)) != -1) {
     switch (inp) {
+      case 'c': {
+                  int val;
+                  intParam param = intParam::CUTLIMIT;
+                  if (!parseInt(optarg, val)) {
+                    error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                    exit(1);
+                  }
+                  params.set(param, val);
+                  break;
+                }
       case 'd': {
                   int val;
                   intParam param = intParam::DISJ_TERMS;
@@ -346,15 +357,24 @@ void processArgs(int argc, char** argv) {
 								helpstring += "-f file, --file=file\n\tFilename.\n";
 								helpstring += "-l logfile, --logfile=logfile\n\tWhere to print log messages.\n";
 								helpstring += "-o optfile, --optfile=optfile\n\tWhere to find integer optimum value information (a csv file formatted as \"instance_name,value\" on each row).\n";
+								helpstring += "-v level, --verbosity=level\n\tVerbosity level (0: print little, 1: let solver output be visible).\n";
 								helpstring += "\n# General VPC options #\n";
+								helpstring += "-c num cuts, --cutlimit=num cuts\n\tMaximum number of cuts to generate (0 = # fractional variables at root).\n";
 								helpstring += "-d num terms, --disj_terms=num terms\n\tMaximum number of disjunctive terms to generate.\n";
 								helpstring += "-R num seconds, --prlp_timelimit=num seconds\n\tNumber of seconds allotted for solving the PRLP.\n";
+								helpstring += "-r num rounds, --rounds=num rounds\n\tNumber of rounds of cuts to apply.\n";
 								helpstring += "-t num seconds, --timelimit=num seconds\n\tTotal number of seconds allotted for cut generation.\n";
 								helpstring += "\n# Partial branch-and-bound options #\n";
 								helpstring += "-s strategy, --partial_bb_strategy=strategy\n\tPartial branch-and-bound strategy; this is a complicated parameter, and the user should check params.hpp for the description.\n";
 								helpstring += "-S num strong, --partial_bb_num_strong=num strong\n\tNumber of candidates for strong branching to consider during the creation of the partial branch-and-bound tree.\n";
 								helpstring += "-T num seconds, --partial_bb_timelimit=num seconds\n\tTotal number of seconds allotted for generating the partial branch-and-bound tree.\n";
 								helpstring += "\n# Objective options #\n";
+								helpstring += "--use_all_ones=0/1\n\tUse all ones objective.\n";
+								helpstring += "--use_disj_lb=0/1\n\tUse disjunctive lower bound objective.\n";
+								helpstring += "--use_iter_bilinear=num iters to do\n\tNumber of iterations to do in iterative bilinear procedure (1 = cut off the optimal post-SIC point).\n";
+								helpstring += "--use_tight_points=0/1\n\tUse objectives for being tight on points in collection.\n";
+								helpstring += "--use_tight_rays=0/1\n\tUse objectives for being tight on rays in collection.\n";
+								helpstring += "--use_unit_vectors=0/1\n\tUse unit vectors in nonbasic space.\n";
 								helpstring += "## END OF HELP ##\n";
 								std::cout << helpstring << std::endl;
 								exit(1);
