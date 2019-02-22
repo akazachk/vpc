@@ -235,7 +235,7 @@ protected:
 //    return reached_limit;
 //  }
   bool reachedFailureLimit(const int num_cuts, const int num_fails,
-      //const double time,
+//      const double time,
       const double few_cuts_fail_threshold = 0.95,
       const double many_cuts_fail_threshold = 0.90,
       const double many_obj_fail_threshold = 0.80,
