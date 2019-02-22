@@ -1341,23 +1341,23 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
   int num_failures = 0;
   int return_code = 0;
   const int BAD_RETURN_CODE = -1 * (static_cast<int>(CglVPC::FailureType::PRIMAL_INFEASIBLE) + 1);
-  const int MAX_NUM_POINTS_TO_TRY = owner->params.get(USE_TIGHT_POINTS_HEUR);
+  const int MAX_NUM_POINTS_TO_TRY = owner->params.get(USE_TIGHT_POINTS);
   const int MAX_NUM_OBJ_PER_POINT =
       owner->params.get(intConst::NUM_OBJ_PER_POINT) < 0 ?
           -1 * owner->params.get(intConst::NUM_OBJ_PER_POINT) * owner->getCutLimit() :
           owner->params.get(intConst::NUM_OBJ_PER_POINT);
   const int MAX_NUM_RAYS_TO_TRY =
-      owner->params.get(USE_TIGHT_RAYS_HEUR) < 0 ?
-          -1 * owner->params.get(USE_TIGHT_RAYS_HEUR) * std::ceil(std::sqrt(rayIndex.size())) :
-          owner->params.get(USE_TIGHT_RAYS_HEUR);
+      owner->params.get(USE_TIGHT_RAYS) < 0 ?
+          -1 * owner->params.get(USE_TIGHT_RAYS) * std::ceil(std::sqrt(rayIndex.size())) :
+          owner->params.get(USE_TIGHT_RAYS);
   const int MAX_NUM_UNIT_VECTORS_TO_TRY =
-      owner->params.get(USE_UNIT_VECTORS_HEUR) < 0 ?
-          -1 * owner->params.get(USE_UNIT_VECTORS_HEUR) * std::ceil(std::sqrt(owner->probData.num_cols)) :
-          CoinMin(static_cast<int>(this->nonZeroColIndex.size()), owner->params.get(USE_UNIT_VECTORS_HEUR));
+      owner->params.get(USE_UNIT_VECTORS) < 0 ?
+          -1 * owner->params.get(USE_UNIT_VECTORS) * std::ceil(std::sqrt(owner->probData.num_cols)) :
+          CoinMin(static_cast<int>(this->nonZeroColIndex.size()), owner->params.get(USE_UNIT_VECTORS));
   const std::string PRLP_SOLVE_TIME = CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::PRLP_SOLVE_TIME)];
 
   // First, the all ones objective
-  if (owner->params.get(USE_ALL_ONES_HEUR) == 1) {
+  if (owner->params.get(USE_ALL_ONES) == 1) {
     const CglVPC::CutHeuristics cutHeur = CglVPC::CutHeuristics::ALL_ONES;
     const std::string currTimeName = CglVPC::CutHeuristicsName[static_cast<int>(cutHeur)] + "_TIME";
     owner->timer.start_timer(currTimeName);

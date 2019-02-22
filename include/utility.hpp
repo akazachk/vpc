@@ -106,6 +106,11 @@ bool parseLong(const char *str, long &val);
  */
 bool parseDouble(const char *str, double &val);
 
+std::string lowerCaseString(const std::string& data);
+std::vector<std::string> lowerCaseStringVector(const std::vector<std::string>& strVec);
+std::string upperCaseString(const std::string& tmpData);
+std::string upperCaseStringNoUnderscore(const std::string& tmpData);
+
 inline bool isVal(const double val1, const double val2, const double eps = 1e-7) {
   return (std::abs((val1) - (val2)) <= eps);
 } /* isVal */

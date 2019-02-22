@@ -30,7 +30,7 @@ void checkPoint(CoinPackedVector point, OsiSolverInterface* origSolver, const do
     struct_obj += struct_point[i] * origSolver->getObjCoefficients()[i];
   }
 
-  double nb_obj = 0.;
+//  double nb_obj = 0.;
 
 } /* checkPoint */
 
@@ -329,7 +329,7 @@ std::string generateTikzTreeString(const VPCEventHandler* eventHandler,
     caption +=
         " (used for cut generation; generated with strategy "
             + stringValue(orig_strategy, "%03d") + " and "
-            + std::to_string(-1 * params.get(intParam::NUM_DISJ_TERMS))
+            + std::to_string(-1 * params.get(intParam::DISJ_TERMS))
             + " leafs)";
   } else {
     caption += " Optimal tree";
@@ -338,7 +338,7 @@ std::string generateTikzTreeString(const VPCEventHandler* eventHandler,
     caption +=
          " (partial tree: strategy "
             + stringValue(orig_strategy, "%03d") + " and "
-            + std::to_string(-1 * params.get(intParam::NUM_DISJ_TERMS))
+            + std::to_string(-1 * params.get(intParam::DISJ_TERMS))
             + " leafs).";
   }
   caption += + "\\\\\n";
@@ -372,7 +372,7 @@ std::string generateTikzTreeString(const VPCEventHandler* eventHandler,
     }
     fprintf(myfile, "## Tree for %s with vpc_depth = %d ##\n",
         params.get(stringParam::FILENAME).c_str(),
-        params.get(intParam::NUM_DISJ_TERMS));
+        params.get(intParam::DISJ_TERMS));
     fprintf(myfile, "%s\n", str.c_str());
     printNodeStatistics(stats, false, myfile);
     printNodeStatistics(pruned_stats, false, myfile);

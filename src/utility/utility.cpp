@@ -1,6 +1,7 @@
 #include "utility.hpp"
 #include "SolverHelper.hpp"
 
+#include <algorithm> // tolower
 #include <fstream>
 #include <sstream>
 #include <sys/stat.h> // for fexists
@@ -130,6 +131,38 @@ bool parseDouble(const char *str, double& val) {
 
   return rc;
 } /* parseDouble */
+
+std::string lowerCaseString(const std::string& tmpData) {
+  std::string data = tmpData;
+  std::transform(data.begin(), data.end(), data.begin(), ::tolower);
+  return data;
+}
+
+std::vector<std::string> lowerCaseStringVector(const std::vector<std::string>& strVec) {
+  std::vector<std::string> tmp;
+  tmp.resize(strVec.size());
+  for (int i = 0; i < (int) strVec.size(); i++) {
+    tmp[i] = lowerCaseString(strVec[i]);
+//    std::transform(tmp[i].begin(), tmp[i].end(), tmp[i].begin(), ::tolower);
+  }
+  return tmp;
+}
+
+std::string upperCaseString(const std::string& tmpData) {
+  std::string data = tmpData;
+  std::transform(data.begin(), data.end(), data.begin(), ::toupper);
+  return data;
+}
+
+bool remove_underscore(char c) {
+  return (c == '_');
+}
+
+std::string upperCaseStringNoUnderscore(const std::string& tmpData) {
+  std::string data = upperCaseString(tmpData);
+  data.erase(std::remove_if(data.begin(), data.end(), remove_underscore), data.end());
+  return data;
+}
 
 // Last edit: 03/27/12
 //

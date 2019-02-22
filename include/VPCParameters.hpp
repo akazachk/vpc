@@ -16,7 +16,10 @@
 #include <string>
 #include <vector>
 #include <cstdio> // fprintf
-#include "utility.hpp" // for stringValue
+#include <fstream>
+#include <sstream>
+
+#include "utility.hpp" // for stringValue and lowerCaseString
 
 #ifdef USE_CLP
   #include <OsiClpSolverInterface.hpp>
@@ -29,7 +32,7 @@
 /********** PARAMETERS **********/
 enum intParam {
   CUTLIMIT, // max number of cuts generated; 0 = no limit
-  NUM_DISJ_TERMS,
+  DISJ_TERMS,
   // PARTIAL_BB_STRATEGY:
   // Total used to decide the choose:
   // variable decision => hundreds digit: 0: default, 1: default+second criterion, 2: max min change+second (max max change), 3: second-best default, 4: second-best max-min change, -x: -1 * (1+x);
@@ -41,26 +44,26 @@ enum intParam {
   STRENGTHEN, // 0: no, 1: yes, when possible, 2: same as 1 plus add GMICs to strengthen each disjunctive term
   TEMP, // useful for various temporary parameter changes
   // Objective options
-  USE_ALL_ONES_HEUR, // 0: do not use, 1: use
-  USE_ITER_BILINEAR_HEUR, // 0: do not use, 1+: number of iterations to do
-  USE_UNIT_VECTORS_HEUR, // 0: do not use, 1+: num to try, <0: abs(val) * sqrt(n)
-  USE_TIGHT_POINTS_HEUR, // 0: do not use, 1+: num points to try
-  USE_TIGHT_RAYS_HEUR, // 0: do not use, 1+: num rays to try, -1: try the first sqrt(# rays) rays
+  USE_ALL_ONES, // 0: do not use, 1: use
+  USE_ITER_BILINEAR, // 0: do not use, 1+: number of iterations to do
+  USE_UNIT_VECTORS, // 0: do not use, 1+: num to try, <0: abs(val) * sqrt(n)
+  USE_TIGHT_POINTS, // 0: do not use, 1+: num points to try
+  USE_TIGHT_RAYS, // 0: do not use, 1+: num rays to try, -1: try the first sqrt(# rays) rays
   NUM_INT_PARAMS
 }; /* intParam */
 const std::vector<std::string> intParamName {
   "CUTLIMIT",
-  "NUM_DISJ_TERMS",
+  "DISJ_TERMS",
   "PARTIAL_BB_STRATEGY",
   "PARTIAL_BB_NUM_STRONG",
   "PRLP_BETA",
   "STRENGTHEN",
   "TEMP",
-  "USE_ALL_ONES_HEUR",
-  "USE_ITER_BILINEAR_HEUR",
-  "USE_UNIT_VECTORS_HEUR",
-  "USE_TIGHT_POINTS_HEUR",
-  "USE_TIGHT_RAYS_HEUR",
+  "USE_ALL_ONES",
+  "USE_ITER_BILINEAR",
+  "USE_UNIT_VECTORS",
+  "USE_TIGHT_POINTS",
+  "USE_TIGHT_RAYS",
 };
 
 enum doubleParam {
@@ -86,7 +89,7 @@ enum stringParam {
   NUM_STRING_PARAMS
 }; /* stringParam */
 const std::vector<std::string> stringParamName {
-  "FILENAME",
+  "FILE",
   "LOGFILE",
   "OPTFILE"
 };
@@ -162,20 +165,21 @@ struct VPCParameters {
   // Mutable parameters (of int, double, and string types)
   std::map<intParam, int> intParamValues {
     {intParam::CUTLIMIT, 1000}, // 0 = no limit
-    {intParam::NUM_DISJ_TERMS, 0}, // no disjunction (=> no cuts)
+    {intParam::DISJ_TERMS, 0}, // no disjunction (=> no cuts)
     {intParam::PARTIAL_BB_STRATEGY, 4}, // 004 => default var & branch decisions, and choose next node by min objective
     {intParam::PARTIAL_BB_NUM_STRONG, 5}, // consider 5 strong branching candidates
     {intParam::PRLP_BETA, 1}, // cut away the LP optimum
     {intParam::STRENGTHEN, 1}, // strengthen GMICs but not VPCs
     {intParam::TEMP, 0}, // do not enable any temporary options
-    {intParam::USE_ALL_ONES_HEUR, 1},
-    {intParam::USE_ITER_BILINEAR_HEUR, 0},
-    {intParam::USE_UNIT_VECTORS_HEUR, 0},
-    {intParam::USE_TIGHT_POINTS_HEUR, 0},
-    {intParam::USE_TIGHT_RAYS_HEUR, 0}
+    {intParam::USE_ALL_ONES, 1},
+    {intParam::USE_ITER_BILINEAR, 0},
+    {intParam::USE_UNIT_VECTORS, 0},
+    {intParam::USE_TIGHT_POINTS, 0},
+    {intParam::USE_TIGHT_RAYS, 0}
   };
   int get(intParam param) const { return intParamValues.find(param)->second; }
   void set(intParam param, int value) { intParamValues[param] = value; }
+  std::string name(intParam param) const { return intParamName[static_cast<int>(param)]; }
 
   std::map<doubleParam, double> doubleParamValues {
     {doubleParam::EPS, 1e-7},
@@ -185,9 +189,8 @@ struct VPCParameters {
     {doubleParam::TIMELIMIT, 60}
   };
   double get(doubleParam param) const { return doubleParamValues.find(param)->second; }
-  void set(doubleParam param, double value) {
-    doubleParamValues[param] = value;
-  }
+  void set(doubleParam param, double value) { doubleParamValues[param] = value; }
+  std::string name(doubleParam param) const { return doubleParamName[static_cast<int>(param)]; }
 
   std::map<stringParam, std::string> stringParamValues {
     {stringParam::FILENAME, ""},
@@ -195,9 +198,8 @@ struct VPCParameters {
     {stringParam::OPTFILE, ""}
   };
   std::string get(stringParam param) const { return stringParamValues.find(param)->second; }
-  void set(stringParam param, std::string value) {
-    stringParamValues[param] = value;
-  }
+  void set(stringParam param, std::string value) { stringParamValues[param] = value; }
+  std::string name(stringParam param) const { return stringParamName[static_cast<int>(param)]; }
 
   // Constants
   std::map<intConst, double> intConstValues {
@@ -224,31 +226,117 @@ struct VPCParameters {
   };
   double get(intConst param) const { return intConstValues.find(param)->second; }
   double get(doubleConst param) const { return doubleConstValues.find(param)->second; }
+  std::string name(intConst param) const { return intConstName[static_cast<int>(param)]; }
+  std::string name(doubleConst param) const { return doubleConstName[static_cast<int>(param)]; }
+
+  // Set int and double params by name
+  bool set(std::string tmpname, const double value) {
+    std::string name = upperCaseStringNoUnderscore(tmpname);
+    for (unsigned i = 0; i < intParamName.size(); i++) {
+      std::string str1 = upperCaseStringNoUnderscore(intParamName[i]);
+      if (str1.compare(name) == 0) {
+        set(static_cast<intParam>(i), static_cast<int>(value));
+        return true;
+      }
+    }
+    for (unsigned i = 0; i < doubleParamName.size(); i++) {
+      std::string str1 = upperCaseStringNoUnderscore(doubleParamName[i]);
+      if (str1.compare(name) == 0) {
+        set(static_cast<doubleParam>(i), value);
+        return true;
+      }
+    }
+    return false;
+  } /* set int and double parameters */
+
+  bool set(std::string tmpname, const std::string value) {
+    std::string name = upperCaseStringNoUnderscore(tmpname);
+    for (unsigned i = 0; i < stringParamName.size(); i++) {
+      std::string str1 = upperCaseStringNoUnderscore(stringParamName[i]);
+      if (str1.compare(name) == 0) {
+        set(static_cast<stringParam>(i), value);
+        return true;
+      }
+    }
+    return false;
+  }
 }; /* struct VPCParameters */
 
 /**
  * Print parameters and constants
  */
-inline void printParams(VPCParameters param, FILE* outfile = stdout) {
+inline void readParams(VPCParameters& params, std::string infilename) {
+  std::ifstream infile(infilename.c_str());
+  if (infile.is_open()) {
+    std::string line;
+    while (std::getline(infile, line)) {
+      std::istringstream iss(line);
+      if (line.empty()) {
+        continue;
+      }
+      std::string param_name;
+      if (!(std::getline(iss, param_name, ','))) {
+        warning_msg(errorstring, "Could not read parameter name. String is %s.\n", line.c_str());
+        continue;
+      }
+
+      try {
+        std::string token;
+        if (!(std::getline(iss, token, ','))) {
+          throw;
+        }
+        double val = std::stod(token);
+        if (!params.set(param_name, val)) {
+          // Could be a string parameter
+          if (!params.set(param_name, line)) {
+            warning_msg(warnstring,
+                "Unable to find parameter %s. Value not set.\n",
+                param_name.c_str());
+            continue;
+          }
+        }
+      } catch (std::exception& e) {
+        warning_msg(errorstring, "Could not read parameter value. String is %s.\n", line.c_str());
+        continue;
+      }
+    }
+    infile.close();
+  } else {
+    // If we were not able to open the file, throw an error
+    error_msg(errorstring, "Not able to open params file with name %s.\n", infilename.c_str());
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
+} /* readParams */
+
+/**
+ * Print parameters and constants
+ */
+inline void printParams(VPCParameters& params, FILE* outfile = stdout) {
   for (int i = 0; i < intParam::NUM_INT_PARAMS; i++) {
-    fprintf(outfile, "%s,%s\n", intParamName[i].c_str(),
-        stringValue(param.get(static_cast<intParam>(i))).c_str());
+    intParam param = static_cast<intParam>(i);
+    fprintf(outfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
+        stringValue(params.get(param)).c_str());
   }
   for (int i = 0; i < doubleParam::NUM_DOUBLE_PARAMS; i++) {
-    fprintf(outfile, "%s,%s\n", doubleParamName[i].c_str(),
-        stringValue(param.get(static_cast<doubleParam>(i)), "1.6e").c_str());
+    doubleParam param = static_cast<doubleParam>(i);
+    fprintf(outfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
+        stringValue(params.get(param)).c_str());
   }
   for (int i = 0; i < stringParam::NUM_STRING_PARAMS; i++) {
-    fprintf(outfile, "%s,%s\n", stringParamName[i].c_str(),
-        param.get(static_cast<stringParam>(i)).c_str());
+    stringParam param = static_cast<stringParam>(i);
+    fprintf(outfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
+        params.get(param).c_str());
   }
   for (int i = 0; i < static_cast<int>(intConst::NUM_INT_CONST); i++) {
-    fprintf(outfile, "%s,%s\n", intConstName[i].c_str(),
-        stringValue(param.get(static_cast<intConst>(i))).c_str());
+    intConst param = static_cast<intConst>(i);
+    fprintf(outfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
+        stringValue(params.get(param)).c_str());
   }
   for (int i = 0; i < static_cast<int>(doubleConst::NUM_DOUBLE_CONST); i++) {
-    fprintf(outfile, "%s,%s\n", doubleConstName[i].c_str(),
-        stringValue(param.get(static_cast<doubleConst>(i))).c_str());
+    doubleConst param = static_cast<doubleConst>(i);
+    fprintf(outfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
+        stringValue(params.get(param)).c_str());
   }
   fflush(outfile);
 } /* printParams */

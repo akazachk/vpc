@@ -121,9 +121,9 @@ void CglVPC::setParams(const VPCParameters& param) {
  * @brief Generate VPCs from a partial branch-and-bound tree
  */
 void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const CglTreeInfo info) {
-  printf("\n## Starting VPC generation from partial branch-and-bound tree with up to %d disjunctive terms. ##\n", params.get(intParam::NUM_DISJ_TERMS));
+  printf("\n## Starting VPC generation from partial branch-and-bound tree with up to %d disjunctive terms. ##\n", params.get(intParam::DISJ_TERMS));
   ExitReason status = ExitReason::UNKNOWN;
-  if (params.get(intParam::NUM_DISJ_TERMS) <= 1) {
+  if (params.get(intParam::DISJ_TERMS) <= 1) {
     status = ExitReason::NO_DISJUNCTION_EXIT;
     finish(status);
     return;
@@ -434,7 +434,7 @@ void CglVPC::getProblemData(SolverInterface* const solver,
  * @brief Prepares disjunction to be used for cut generation
  */
 CglVPC::ExitReason CglVPC::prepareDisjunction(SolverInterface* const si, OsiCuts& cuts) {
-  if (params.get(intParam::NUM_DISJ_TERMS) == 0) {
+  if (params.get(intParam::DISJ_TERMS) == 0) {
     return ExitReason::UNKNOWN;
   }
   if (mode != VPCMode::PARTIAL_BB) {
@@ -474,7 +474,7 @@ CglVPC::ExitReason CglVPC::prepareDisjunction(SolverInterface* const si, OsiCuts
   }
   const int num_before_trusted = std::numeric_limits<int>::max(); // 10;
   generatePartialBBTree(params, cbc_model, si,
-      params.get(intParam::NUM_DISJ_TERMS), num_strong,
+      params.get(intParam::DISJ_TERMS), num_strong,
       num_before_trusted);
   timer.end_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::GEN_DISJ_TIME)]);
 

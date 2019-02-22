@@ -151,6 +151,11 @@ void processArgs(int argc, char** argv) {
     {"partial_bb_timelimit", required_argument, 0, 'T'},
     {"prlp_timelimit", required_argument, 0, 'R'},
     {"timelimit", required_argument, 0, 't'},
+    {"use_all_ones", required_argument, 0, 'u'*'1'},
+    {"use_iter_bilinear", required_argument, 0, 'u'*'2'},
+    {"use_tight_points", required_argument, 0, 'u'*'3'},
+    {"use_tight_rays", required_argument, 0, 'u'*'4'},
+    {"use_unit_vectors", required_argument, 0, 'u'*'5'},
     {nullptr, no_argument, nullptr, 0}
   };
 
@@ -159,11 +164,12 @@ void processArgs(int argc, char** argv) {
     switch (inp) {
       case 'd': {
                   int val;
+                  intParam param = intParam::DISJ_TERMS;
                   if (!parseInt(optarg, val)) {
-                    error_msg(errorstring, "Error reading disj_terms. Given value: %s.\n", optarg);
+                    error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
                     exit(1);
                   }
-                  params.set(intParam::NUM_DISJ_TERMS, val);
+                  params.set(param, val);
                   break;
                 }
       case 'f': {
@@ -181,40 +187,94 @@ void processArgs(int argc, char** argv) {
                 }
       case 's': {
                   int val;
+                  intParam param = intParam::PARTIAL_BB_STRATEGY;
                   if (!parseInt(optarg, val)) {
-                    error_msg(errorstring, "Error reading partial_bb_strategy. Given value: %s.\n", optarg);
+                    error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
                     exit(1);
                   }
-                  params.set(intParam::PARTIAL_BB_STRATEGY, val);
+                  params.set(param, val);
                   break;
                 }
       case 'T': {
                   double val;
+                  doubleParam param = doubleParam::PARTIAL_BB_TIMELIMIT;
                   if (!parseDouble(optarg, val)) {
-                    error_msg(errorstring, "Error reading partial_bb_timelimit. Given value: %s.\n", optarg);
+                    error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
                     exit(1);
                   }
-                  params.set(doubleParam::PARTIAL_BB_TIMELIMIT, val);
+                  params.set(param, val);
                   break;
                 }
       case 'R': {
                   double val;
+                  doubleParam param = doubleParam::PRLP_TIMELIMIT;
                   if (!parseDouble(optarg, val)) {
-                    error_msg(errorstring, "Error reading prlp_timelimit. Given value: %s.\n", optarg);
+                    error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
                     exit(1);
                   }
-                  params.set(doubleParam::PRLP_TIMELIMIT, val);
+                  params.set(param, val);
                   break;
                 }
       case 't': {
                   double val;
+                  doubleParam param = doubleParam::TIMELIMIT;
                   if (!parseDouble(optarg, val)) {
-                    error_msg(errorstring, "Error reading timelimit. Given value: %s.\n", optarg);
+                    error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
                     exit(1);
                   }
-                  params.set(doubleParam::TIMELIMIT, val);
+                  params.set(param, val);
                   break;
                 }
+      case 'u'*'1': {
+                      int val;
+                      intParam param = intParam::USE_ALL_ONES;
+                      if (!parseInt(optarg, val)) {
+                        error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                        exit(1);
+                      }
+                      params.set(param, val);
+                      break;
+                    }
+      case 'u'*'2': {
+                      int val;
+                      intParam param = intParam::USE_ITER_BILINEAR;
+                      if (!parseInt(optarg, val)) {
+                        error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                        exit(1);
+                      }
+                      params.set(param, val);
+                      break;
+                    }
+      case 'u'*'3': {
+                      int val;
+                      intParam param = intParam::USE_TIGHT_POINTS;
+                      if (!parseInt(optarg, val)) {
+                        error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                        exit(1);
+                      }
+                      params.set(param, val);
+                      break;
+                    }
+      case 'u'*'4': {
+                      int val;
+                      intParam param = intParam::USE_TIGHT_RAYS;
+                      if (!parseInt(optarg, val)) {
+                        error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                        exit(1);
+                      }
+                      params.set(param, val);
+                      break;
+                    }
+      case 'u'*'5': {
+                      int val;
+                      intParam param = intParam::USE_UNIT_VECTORS;
+                      if (!parseInt(optarg, val)) {
+                        error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                        exit(1);
+                      }
+                      params.set(param, val);
+                      break;
+                    }
       case 'h':
       case '?':
       default: {
@@ -236,6 +296,7 @@ void processArgs(int argc, char** argv) {
 								helpstring += "-s strategy, --partial_bb_strategy=strategy\n\tPartial branch-and-bound strategy; this is a complicated parameter, and the user should check params.hpp for the description.\n";
 								helpstring += "-S num strong, --partial_bb_num_strong=num strong\n\tNumber of candidates for strong branching to consider during the creation of the partial branch-and-bound tree.\n";
 								helpstring += "-T num seconds, --partial_bb_timelimit=num seconds\n\tTotal number of seconds allotted for generating the partial branch-and-bound tree.\n";
+								helpstring += "\n# Objective options #\n";
 								helpstring += "## END OF HELP ##\n";
 								std::cout << helpstring << std::endl;
 								exit(1);
