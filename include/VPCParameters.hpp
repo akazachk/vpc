@@ -171,7 +171,7 @@ struct VPCParameters {
 
   // Mutable parameters (of int, double, and string types)
   std::map<intParam, int> intParamValues {
-    {intParam::CUTLIMIT, 1000}, // 0 = no limit
+    {intParam::CUTLIMIT, 0}, // 0 = limit is set as number of fractional integer variables at root
     {intParam::DISJ_TERMS, 0}, // no disjunction (=> no cuts)
     {intParam::PARTIAL_BB_STRATEGY, 4}, // 004 => default var & branch decisions, and choose next node by min objective
     {intParam::PARTIAL_BB_NUM_STRONG, 5}, // consider 5 strong branching candidates

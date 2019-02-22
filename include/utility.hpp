@@ -135,8 +135,8 @@ inline bool isInfinity(const double val, const double infinity = __DBL_MAX__, co
   return (val >= (infinity - eps));
 } /* isInfinity */
 
-inline bool isNegInfinity(const double val, const double infinity = -__DBL_MAX__, const double eps = 1e-7) {
-  return (val <= (infinity + eps));
+inline bool isNegInfinity(const double val, const double infinity = __DBL_MAX__, const double eps = 1e-7) {
+  return (val <= (-infinity + eps));
 } /* isInfinity */
 
 inline const std::string stringValue(const int value,

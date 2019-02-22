@@ -152,6 +152,11 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     exit(1);
   }
 
+  // Set cut limit if needed
+  if (params.get(CUTLIMIT) == 0) {
+    params.set(CUTLIMIT, solver->getFractionalIndices().size());
+  }
+
   // Read opt value
   ip_opt = std::numeric_limits<double>::max();
   if (!params.get(stringParam::OPTFILE).empty()) {
