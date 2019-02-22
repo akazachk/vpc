@@ -462,7 +462,7 @@ CglVPC::ExitReason CglVPC::prepareDisjunction(SolverInterface* const si, OsiCuts
   CbcModel* cbc_model = new CbcModel; // for obtaining the disjunction
   cbc_model->swapSolver(BBSolver);
   cbc_model->setModelOwnsSolver(true); // solver will be deleted with cbc object
-  setIPSolverParameters(cbc_model);
+  setIPSolverParameters(cbc_model, params.get(VERBOSITY));
 
   timer.start_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::GEN_DISJ_TIME)]);
   int num_strong = params.get(intParam::PARTIAL_BB_NUM_STRONG);
@@ -978,7 +978,6 @@ bool CglVPC::setupDisjunctiveTerm(const int term_ind, const int node_id,
   return calcAndFeasFacet;
 } /* prepareDisjunctiveTerm */
 
-/**********************************************************/
 /**
  * IN NON-BASIC SPACE
  * Get Point and Rays from corner polyhedron defined by current optimum at solver
@@ -1146,6 +1145,7 @@ CglVPC::ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
 #endif
 
   PRLP* prlp = new PRLP(this);
+  setLPSolverParameters(prlp, params.get(VERBOSITY));
 
   // We can scale the rhs for points by min_nb_obj_val
   const bool useScale = true && !isInfinity(std::abs(this->min_nb_obj_val));
@@ -1154,11 +1154,12 @@ CglVPC::ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
 
 //  std::vector<double> ortho;
   const bool isCutSolverPrimalFeas = prlp->setup(scale, false);
-  printf("# rows: %d\t # cols: %d\n", prlp->getNumRows(), prlp->getNumCols());
-  printf("# points: %d\t # rays: %d\n", prlp->numPoints, prlp->numRays);
+//  printf("# rows: %d\t # cols: %d\n", prlp->getNumRows(), prlp->getNumCols());
+//  printf("# points: %d\t # rays: %d\n", prlp->numPoints, prlp->numRays);
 
+  int curr_num_cuts = 0;
   if (isCutSolverPrimalFeas) {
-    prlp->targetStrongAndDifferentCuts(beta, cuts, this->num_cuts,
+    curr_num_cuts += prlp->targetStrongAndDifferentCuts(beta, cuts, this->num_cuts,
         this->num_obj_tried, origSolver, structSICs, timeName,
         params.get(intConst::NB_SPACE));
   }
@@ -1222,9 +1223,12 @@ CglVPC::ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
 
   if (prlp)
     delete prlp;
+
+#ifdef TRACE
+  printf("\n## CglVPC: Finished trying objectives. Generated %d cuts. ##\n", curr_num_cuts);
+#endif
   return ExitReason::SUCCESS_EXIT;
 } /* tryObjectives */
-
 
 void CglVPC::addCut(const OsiRowCut& cut, const CutType& type, OsiCuts& cuts) {
   cuts.insert(cut);
@@ -1232,7 +1236,6 @@ void CglVPC::addCut(const OsiRowCut& cut, const CutType& type, OsiCuts& cuts) {
   numCutsOfType[static_cast<int>(type)]++;
   num_cuts++;
 } /* addCut */
-
 
 /**
  * @brief Universal way to check whether we reached the limit for the number of cuts for each split

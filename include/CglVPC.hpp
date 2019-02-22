@@ -64,7 +64,7 @@ public:
     CUT_VERTICES,
     ITER_BILINEAR,
     UNIT_VECTORS,
-    STRONG_LB,
+    DISJ_LB,
     TIGHT_POINTS,
     TIGHT_RAYS,
     TIGHT_POINTS2,
@@ -245,7 +245,7 @@ protected:
     this->exitReason = exitReason;
     this->timer.end_all();
 #ifdef TRACE
-    printf("CglVPC: Finishing with exit reason: %s.\n", ExitReasonName[static_cast<int>(exitReason)].c_str());
+    printf("CglVPC: Finishing with exit reason: %s. Number cuts: %d.\n", ExitReasonName[static_cast<int>(exitReason)].c_str(), num_cuts);
 #endif
   }
 

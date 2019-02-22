@@ -19,7 +19,7 @@
 #include <fstream>
 #include <sstream>
 
-#include "utility.hpp" // for stringValue and lowerCaseString
+#include "utility.hpp" // for parseInt/Double, stringValue, and lowerCaseString
 
 #ifdef USE_CLP
   #include <OsiClpSolverInterface.hpp>
@@ -41,6 +41,7 @@ enum intParam {
   PARTIAL_BB_STRATEGY,
   PARTIAL_BB_NUM_STRONG, // -1: num cols, -2: sqrt(num cols), >= 0: that many
   PRLP_BETA, // rhs in nb space, 1: cut away LP opt, -1: do not cut away LP opt, 0: both
+  ROUNDS, // number of VPC rounds to do
   STRENGTHEN, // 0: no, 1: yes, when possible, 2: same as 1 plus add GMICs to strengthen each disjunctive term
   TEMP, // useful for various temporary parameter changes
   // Objective options
@@ -62,6 +63,8 @@ enum intParam {
   USE_TIGHT_POINTS, // 0: do not use, 1+: num points to try
   USE_TIGHT_RAYS, // 0: do not use, 1+: num rays to try, -1: try the first sqrt(# rays) rays
   USE_UNIT_VECTORS, // 0: do not use, 1+: num to try, <0: abs(val) * sqrt(n)
+  // Other options
+  VERBOSITY,
   NUM_INT_PARAMS
 }; /* intParam */
 const std::vector<std::string> intParamName {
@@ -70,6 +73,7 @@ const std::vector<std::string> intParamName {
   "PARTIAL_BB_STRATEGY",
   "PARTIAL_BB_NUM_STRONG",
   "PRLP_BETA",
+  "ROUNDS",
   "STRENGTHEN",
   "TEMP",
   "USE_ALL_ONES",
@@ -78,6 +82,7 @@ const std::vector<std::string> intParamName {
   "USE_TIGHT_POINTS",
   "USE_TIGHT_RAYS",
   "USE_UNIT_VECTORS",
+  "VERBOSITY"
 };
 
 enum doubleParam {
@@ -169,6 +174,7 @@ struct VPCParameters {
     {intParam::PARTIAL_BB_STRATEGY, 4}, // 004 => default var & branch decisions, and choose next node by min objective
     {intParam::PARTIAL_BB_NUM_STRONG, 5}, // consider 5 strong branching candidates
     {intParam::PRLP_BETA, 1}, // cut away the LP optimum
+    {intParam::ROUNDS, 1}, // number VPC rounds to do
     {intParam::STRENGTHEN, 1}, // strengthen GMICs but not VPCs
     {intParam::TEMP, 0}, // do not enable any temporary options
     {intParam::USE_ALL_ONES, 1},
@@ -177,6 +183,11 @@ struct VPCParameters {
     {intParam::USE_TIGHT_POINTS, 0},
     {intParam::USE_TIGHT_RAYS, 0},
     {intParam::USE_UNIT_VECTORS, 0},
+#ifdef TRACE
+    {intParam::VERBOSITY, 1},
+#else
+    {intParam::VERBOSITY, 0},
+#endif
   };
   int get(intParam param) const { return intParamValues.find(param)->second; }
   void set(intParam param, int value) { intParamValues[param] = value; }
@@ -224,42 +235,53 @@ struct VPCParameters {
     {doubleConst::MAX_DYN_LUB, 1e13},
     {doubleConst::MAX_SUPPORT_REL, 0.9}
   };
-  double get(intConst param) const { return intConstValues.find(param)->second; }
+  int get(intConst param) const { return intConstValues.find(param)->second; }
   double get(doubleConst param) const { return doubleConstValues.find(param)->second; }
   std::string name(intConst param) const { return intConstName[static_cast<int>(param)]; }
   std::string name(doubleConst param) const { return doubleConstName[static_cast<int>(param)]; }
 
-  // Set int and double params by name
-  bool set(std::string tmpname, const double value) {
+  // Set parameters by name
+  bool set(std::string tmpname, const std::string tmp) {
     std::string name = upperCaseStringNoUnderscore(tmpname);
     for (unsigned i = 0; i < intParamName.size(); i++) {
       std::string str1 = upperCaseStringNoUnderscore(intParamName[i]);
       if (str1.compare(name) == 0) {
-        set(static_cast<intParam>(i), static_cast<int>(value));
+        int value;
+        if (tmp.compare("+inf") == 0) {
+          value = std::numeric_limits<int>::max();
+        } else if (tmp.compare("-inf") == 0) {
+          value = std::numeric_limits<int>::min();
+        } else {
+          value = parseInt(tmp.c_str(), value);
+        }
+        set(static_cast<intParam>(i), value);
         return true;
       }
     }
     for (unsigned i = 0; i < doubleParamName.size(); i++) {
       std::string str1 = upperCaseStringNoUnderscore(doubleParamName[i]);
       if (str1.compare(name) == 0) {
+        double value;
+        if (tmp.compare("+inf") == 0) {
+          value = std::numeric_limits<double>::max();
+        } else if (tmp.compare("-inf") == 0) {
+          value = std::numeric_limits<double>::lowest();
+        } else {
+          value = parseDouble(tmp.c_str(), value);
+        }
         set(static_cast<doubleParam>(i), value);
         return true;
       }
     }
-    return false;
-  } /* set int and double parameters */
-
-  bool set(std::string tmpname, const std::string value) {
-    std::string name = upperCaseStringNoUnderscore(tmpname);
     for (unsigned i = 0; i < stringParamName.size(); i++) {
       std::string str1 = upperCaseStringNoUnderscore(stringParamName[i]);
       if (str1.compare(name) == 0) {
-        set(static_cast<stringParam>(i), value);
+        set(static_cast<stringParam>(i), tmp);
         return true;
       }
     }
     return false;
-  }
+  } /* set parameters by name */
 }; /* struct VPCParameters */
 
 /**
@@ -285,15 +307,11 @@ inline void readParams(VPCParameters& params, std::string infilename) {
         if (!(std::getline(iss, token, ','))) {
           throw;
         }
-        double val = std::stod(token);
-        if (!params.set(param_name, val)) {
-          // Could be a string parameter
-          if (!params.set(param_name, line)) {
-            warning_msg(warnstring,
-                "Unable to find parameter %s. Value not set.\n",
-                param_name.c_str());
-            continue;
-          }
+        if (!params.set(param_name, token)) {
+          warning_msg(warnstring,
+              "Unable to find parameter %s. Value not set.\n",
+              param_name.c_str());
+          continue;
         }
       } catch (std::exception& e) {
         warning_msg(errorstring, "Could not read parameter value. String is %s.\n", line.c_str());
@@ -321,7 +339,7 @@ inline void printParams(VPCParameters& params, FILE* outfile = stdout) {
   for (int i = 0; i < doubleParam::NUM_DOUBLE_PARAMS; i++) {
     doubleParam param = static_cast<doubleParam>(i);
     fprintf(outfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
-        stringValue(params.get(param)).c_str());
+        stringValue(params.get(param), "%e").c_str());
   }
   for (int i = 0; i < stringParam::NUM_STRING_PARAMS; i++) {
     stringParam param = static_cast<stringParam>(i);
@@ -336,7 +354,7 @@ inline void printParams(VPCParameters& params, FILE* outfile = stdout) {
   for (int i = 0; i < static_cast<int>(doubleConst::NUM_DOUBLE_CONST); i++) {
     doubleConst param = static_cast<doubleConst>(i);
     fprintf(outfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
-        stringValue(params.get(param)).c_str());
+        stringValue(params.get(param), "%e").c_str());
   }
   fflush(outfile);
 } /* printParams */

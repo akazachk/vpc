@@ -1414,6 +1414,9 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
 //  } /* iterative bilinear procedure */
 
   // Reset things with unlimited time
+#ifdef TRACE
+  printf("\n## Resetting solver before using subsequent heuristics. ##\n");
+#endif
   owner->timer.start_timer(PRLP_SOLVE_TIME);
   this->getModelPtr()->setNumberIterations(0);
   this->getModelPtr()->setMaximumSeconds(-1.);
@@ -1427,7 +1430,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
       (pointIndex[0].row < 0) ?
           (-1 * (pointIndex[0].row + 1)) : pointIndex[0].row;
   if (owner->params.get(USE_DISJ_LB) >= 0) {
-    const CglVPC::CutHeuristics cutHeur = CglVPC::CutHeuristics::STRONG_LB;
+    const CglVPC::CutHeuristics cutHeur = CglVPC::CutHeuristics::DISJ_LB;
     const std::string currTimeName = CglVPC::CutHeuristicsName[static_cast<int>(cutHeur)] + "_TIME";
     owner->timer.start_timer(currTimeName);
 #ifdef TRACE

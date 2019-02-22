@@ -11,10 +11,23 @@
 
 #ifdef USE_CBC
 #include <CbcModel.hpp>
-void setIPSolverParameters(CbcModel* const cbc_model);
+void setIPSolverParameters(CbcModel* const cbc_model,
+    const int verbosity =
+#ifdef TRACE
+        1
+#else
+        0
+#endif
+    );
 #endif
 
 void setLPSolverParameters(OsiSolverInterface* const solver,
+    const int verbosity =
+#ifdef TRACE
+        1,
+#else
+        0,
+#endif
     const double max_time = std::numeric_limits<double>::max());
 
 /**

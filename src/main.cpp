@@ -116,15 +116,30 @@ int main(int argc, char** argv) {
 
   timer.start_timer(OverallTimeStats::INITIAL_SOLVE_TIME);
   solver->initialSolve();
+  checkSolverOptimality(solver, false);
   timer.end_timer(OverallTimeStats::INITIAL_SOLVE_TIME);
 
-  timer.start_timer(OverallTimeStats::GEN_VPC_TIME);
-  CglVPC gen(params);
-  OsiCuts vpcs;
-  gen.generateCuts(*solver, vpcs); // solution may change slightly due to enable factorization called in getProblemData...
-  timer.end_timer(OverallTimeStats::GEN_VPC_TIME);
+  const double init_obj_value = solver->getObjValue();
 
-  printf("\n## Finished VPC generation using partial tree with %d disjunctive terms, generating %d cuts. ##\n", gen.num_disj_terms, vpcs.sizeCuts());
+  for (int round_ind = 0; round_ind < params.get(ROUNDS); ++round_ind) {
+    printf("\n## Starting round %d/%d. ##\n", round_ind+1, params.get(ROUNDS));
+    timer.start_timer(OverallTimeStats::GEN_VPC_TIME);
+    CglVPC gen(params);
+    OsiCuts vpcs;
+    gen.generateCuts(*solver, vpcs); // solution may change slightly due to enable factorization called in getProblemData...
+    timer.end_timer(OverallTimeStats::GEN_VPC_TIME);
+
+    printf(
+        "\n## Finished VPC generation (exit reason: %s) using partial tree with # disjunctive terms = %d, # cuts generated = %d. Now solving for new objective value. ##\n",
+        CglVPC::ExitReasonName[static_cast<int>(gen.exitReason)].c_str(),
+        gen.num_disj_terms, vpcs.sizeCuts());
+    solver->applyCuts(vpcs);
+    solver->resolve();
+    checkSolverOptimality(solver, false);
+    const double new_obj_value = solver->getObjValue();
+
+    printf("\n## Initial obj value: %1.6f. New obj value: %1.6f. Disj lb: %1.6f. ##\n", init_obj_value, new_obj_value, gen.branching_lb);
+  }
   return wrapUp(0);
 } /* main */
 
@@ -138,7 +153,7 @@ void processArgs(int argc, char** argv) {
   // has_arg: 0,1,2 for none, required, or optional
   // *flag: how results are returned; if NULL, getopt_long() returns val (e.g., can be the equivalent short option character), and o/w getopt_long() returns 0, and flag points to a var which is set to val if the option is found, but left unchanged if the option is not found
   // val: value to return, or to load into the variable pointed to by flag
-  const char* const short_opts = "d:f:hl:o:R:s:S:t:T:";
+  const char* const short_opts = "d:f:hl:o:r:R:s:S:t:T:v:";
   const struct option long_opts[] =
   {
     {"disj_terms", required_argument, 0, 'd'},
@@ -150,6 +165,7 @@ void processArgs(int argc, char** argv) {
     {"partial_bb_num_strong", required_argument, 0, 'S'},
     {"partial_bb_timelimit", required_argument, 0, 'T'},
     {"prlp_timelimit", required_argument, 0, 'R'},
+    {"rounds", required_argument, 0, 'r'},
     {"timelimit", required_argument, 0, 't'},
     {"use_all_ones", required_argument, 0, 'u'*'1'},
     {"use_disj_lb", required_argument, 0, 'u'*'2'},
@@ -157,6 +173,7 @@ void processArgs(int argc, char** argv) {
     {"use_tight_points", required_argument, 0, 'u'*'4'},
     {"use_tight_rays", required_argument, 0, 'u'*'5'},
     {"use_unit_vectors", required_argument, 0, 'u'*'6'},
+    {"verbosity", required_argument, 0, 'v'},
     {nullptr, no_argument, nullptr, 0}
   };
 
@@ -196,6 +213,16 @@ void processArgs(int argc, char** argv) {
                   params.set(param, val);
                   break;
                 }
+      case 'S': {
+                  int val;
+                  intParam param = intParam::PARTIAL_BB_NUM_STRONG;
+                  if (!parseInt(optarg, val)) {
+                    error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                    exit(1);
+                  }
+                  params.set(param, val);
+                  break;
+                }
       case 'T': {
                   double val;
                   doubleParam param = doubleParam::PARTIAL_BB_TIMELIMIT;
@@ -216,6 +243,16 @@ void processArgs(int argc, char** argv) {
                   params.set(param, val);
                   break;
                 }
+      case 'r': {
+                   int val;
+                   intParam param = intParam::ROUNDS;
+                   if (!parseInt(optarg, val)) {
+                     error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                     exit(1);
+                   }
+                   params.set(param, val);
+                   break;
+                 }
       case 't': {
                   double val;
                   doubleParam param = doubleParam::TIMELIMIT;
@@ -286,6 +323,16 @@ void processArgs(int argc, char** argv) {
                       params.set(param, val);
                       break;
                     }
+      case 'v': {
+                   int val;
+                   intParam param = intParam::VERBOSITY;
+                   if (!parseInt(optarg, val)) {
+                     error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                     exit(1);
+                   }
+                   params.set(param, val);
+                   break;
+                 }
       case 'h':
       case '?':
       default: {
@@ -359,7 +406,7 @@ void initializeSolver(OsiSolverInterface* &solver) {
 
   // Generate cuts
   solver = new SolverInterface;
-  setLPSolverParameters(solver);
+  setLPSolverParameters(solver, params.get(VERBOSITY));
 
   if (in_file_ext.compare("lp") == 0) {
 #ifdef TRACE

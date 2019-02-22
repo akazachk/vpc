@@ -1,15 +1,15 @@
 #include "SolverHelper.hpp"
 
 #ifdef USE_CBC
-void setIPSolverParameters(CbcModel* const cbc_model) {
-#ifdef TRACE
-  cbc_model->setLogLevel(3);
-  cbc_model->messagesPointer()->setDetailMessages(10, 10000, (int *) NULL);
-#else
-  cbc_model->setLogLevel(0);
-  cbc_model->messagesPointer()->setDetailMessages(10,5,5000);
-#endif
-  if (cbc_model->solver()) {
+void setIPSolverParameters(CbcModel* const cbc_model, const int verbosity) {
+  if (verbosity > 0) {
+    cbc_model->setLogLevel(3);
+    cbc_model->messagesPointer()->setDetailMessages(10, 10000, (int *) NULL);
+  } else {
+    cbc_model->setLogLevel(0);
+    cbc_model->messagesPointer()->setDetailMessages(10,5,5000);
+  }
+  if (cbc_model->solver()) { // catches when we are doing partial b&b
     cbc_model->solver()->setHintParam(OsiDoReducePrint, true, OsiHintTry);
   }
   cbc_model->setPrintFrequency(1);
@@ -17,17 +17,17 @@ void setIPSolverParameters(CbcModel* const cbc_model) {
 #endif
 
 void setLPSolverParameters(OsiSolverInterface* const solver,
+    const int verbosity,
     const double max_time) {
-#ifndef TRACE
-  solver->messageHandler()->setLogLevel(0);
+  if (verbosity == 0) {
+    solver->messageHandler()->setLogLevel(0);
 #ifdef USE_CLP
-  try {
-    dynamic_cast<OsiClpSolverInterface*>(solver)->getModelPtr()->messageHandler()->setLogLevel(0);
-  } catch (std::exception& e) {
-
+    try {
+      dynamic_cast<OsiClpSolverInterface*>(solver)->getModelPtr()->messageHandler()->setLogLevel(0);
+    } catch (std::exception& e) {
+    }
+#endif
   }
-#endif
-#endif
 #ifdef USE_CLP
   try {
     dynamic_cast<OsiClpSolverInterface*>(solver)->getModelPtr()->setMaximumSeconds(max_time);
