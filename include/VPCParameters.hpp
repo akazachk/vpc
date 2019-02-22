@@ -45,10 +45,23 @@ enum intParam {
   TEMP, // useful for various temporary parameter changes
   // Objective options
   USE_ALL_ONES, // 0: do not use, 1: use
+  // For each point, USE_DISJ_LB says which objectives to try
+  // 0 = all of the rows that are not tight, and subtract as they get tight
+  // 1 = one point/ray at time
+  // 2 = keep trying even if the point/ray has become tight in the process?
+  // 0 is more expensive at each step and not clear that it would be better
+  // 0x: only rays
+  // 1x: points+rays
+  // 2x: points+rays+variables
+  // 0xx: small to large angle with obj (ascending)
+  // 1xx: large to small angle with obj (descending)
+  // 2xx: small to large slack (ascending)
+  // 3xx: large to small slack (descending)
+  USE_DISJ_LB, // -1: do not use, 0+: see above
   USE_ITER_BILINEAR, // 0: do not use, 1+: number of iterations to do
-  USE_UNIT_VECTORS, // 0: do not use, 1+: num to try, <0: abs(val) * sqrt(n)
   USE_TIGHT_POINTS, // 0: do not use, 1+: num points to try
   USE_TIGHT_RAYS, // 0: do not use, 1+: num rays to try, -1: try the first sqrt(# rays) rays
+  USE_UNIT_VECTORS, // 0: do not use, 1+: num to try, <0: abs(val) * sqrt(n)
   NUM_INT_PARAMS
 }; /* intParam */
 const std::vector<std::string> intParamName {
@@ -60,10 +73,11 @@ const std::vector<std::string> intParamName {
   "STRENGTHEN",
   "TEMP",
   "USE_ALL_ONES",
+  "USE_DISJ_LB",
   "USE_ITER_BILINEAR",
-  "USE_UNIT_VECTORS",
   "USE_TIGHT_POINTS",
   "USE_TIGHT_RAYS",
+  "USE_UNIT_VECTORS",
 };
 
 enum doubleParam {
@@ -100,19 +114,6 @@ enum class intConst {
   LUB, // value for var upper bound considered "large"
   MAX_SUPPORT_ABS,
   // VPC objective-related constants
-  // For each point, MODE_OBJ_PER_POINT says which objectives to try
-  // 0 = all of the rows that are not tight, and subtract as they get tight
-  // 1 = one point/ray at time
-  // 2 = keep trying even if the point/ray has become tight in the process?
-  // 0 is more expensive at each step and not clear that it would be better
-  // 0x: only rays
-  // 1x: points+rays
-  // 2x: points+rays+variables
-  // 0xx: small to large angle with obj (ascending)
-  // 1xx: large to small angle with obj (descending)
-  // 2xx: small to large slack (ascending)
-  // 3xx: large to small slack (descending)
-  MODE_OBJ_PER_POINT,
   NUM_OBJ_PER_POINT, // # cuts to try to generate for the strong branching lb point (and others)
   NB_SPACE, // whether to generate cuts in the nonbasic space (currently must be set to true)
   NUM_INT_CONST
@@ -122,8 +123,7 @@ const std::vector<std::string> intConstName {
   "LUB",
   "MAX_SUPPORT_ABS",
   // VPC objective-related constants
-  "MODE_OBJ_PER_POINT",
-  "NUM_OBJ_PER_POINT"
+  "NUM_OBJ_PER_POINT",
   // Currently not changed
   "NB_SPACE",
 };
@@ -172,10 +172,11 @@ struct VPCParameters {
     {intParam::STRENGTHEN, 1}, // strengthen GMICs but not VPCs
     {intParam::TEMP, 0}, // do not enable any temporary options
     {intParam::USE_ALL_ONES, 1},
+    {intParam::USE_DISJ_LB, 121}, // one ray at a time, points+rays+variables, large to small angle (descending)
     {intParam::USE_ITER_BILINEAR, 0},
-    {intParam::USE_UNIT_VECTORS, 0},
     {intParam::USE_TIGHT_POINTS, 0},
-    {intParam::USE_TIGHT_RAYS, 0}
+    {intParam::USE_TIGHT_RAYS, 0},
+    {intParam::USE_UNIT_VECTORS, 0},
   };
   int get(intParam param) const { return intParamValues.find(param)->second; }
   void set(intParam param, int value) { intParamValues[param] = value; }
@@ -206,7 +207,6 @@ struct VPCParameters {
     {intConst::CHECK_DUPLICATES, 1},
     {intConst::LUB, 1e3},
     {intConst::MAX_SUPPORT_ABS, std::numeric_limits<int>::max()},
-    {intConst::MODE_OBJ_PER_POINT, 121}, // one ray at a time, points+rays+variables, large to small angle (descending)
     {intConst::NUM_OBJ_PER_POINT, -2}, // sqrt(n)
     {intConst::NB_SPACE, 1} // currently only works with true
   };

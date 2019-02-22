@@ -982,7 +982,7 @@ int PRLP::findCutsTightOnPoint(int& num_failures,
   }
 
   // Setup; there are different options for how to choose objectives here
-  const int mode_param = owner->params.get(intConst::MODE_OBJ_PER_POINT);
+  const int mode_param = owner->params.get(USE_DISJ_LB);
   // 0 = all of the rows that are not tight, and subtract as they get tight
   // 1 = one point/ray at time
   // 2 = keep trying even if the point/ray has become tight in the process?
@@ -1426,7 +1426,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
   const int strong_lb_row_ind =
       (pointIndex[0].row < 0) ?
           (-1 * (pointIndex[0].row + 1)) : pointIndex[0].row;
-  if (owner->params.get(intConst::MODE_OBJ_PER_POINT) >= 0) {
+  if (owner->params.get(USE_DISJ_LB) >= 0) {
     const CglVPC::CutHeuristics cutHeur = CglVPC::CutHeuristics::STRONG_LB;
     const std::string currTimeName = CglVPC::CutHeuristicsName[static_cast<int>(cutHeur)] + "_TIME";
     owner->timer.start_timer(currTimeName);
