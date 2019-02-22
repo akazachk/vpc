@@ -1168,8 +1168,7 @@ int PRLP::findCutsTightOnPoint(int& num_failures,
     if (tmp_return_code == BAD_RETURN_CODE
         || owner->reachedCutLimit(num_cuts_total)
         || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
-        || owner->reachedFailureLimit(cuts.sizeCuts() - init_num_cuts, num_failures,
-              owner->timer.get_total_time(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::PRLP_SOLVE_TIME)]))) {
+        || owner->reachedFailureLimit(cuts.sizeCuts() - init_num_cuts, num_failures)) {
       ret_val = 0;
       break;
     }
