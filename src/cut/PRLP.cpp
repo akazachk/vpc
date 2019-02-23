@@ -4,6 +4,7 @@
 //-----------------------------------------------------------------------------
 #include "PRLP.hpp"
 #include "CutHelper.hpp"
+#include "PartialBBDisjunction.hpp" // TODO Change to Disjunction
 #include "SolverHelper.hpp"
 
 #include <numeric> // inner_product
@@ -55,7 +56,7 @@ OsiSolverInterface* PRLP::clone(bool copyData) const {
 bool PRLP::setup(const double scale, const bool fixFirstPoint) {
   owner->timer.start_timer(static_cast<int>(CglVPC::VPCTimeStats::PRLP_SETUP_TIME));
   const int num_constraints = owner->prlpData.rhs.size();
-  const int num_disj_terms = owner->num_disj_terms;
+  const int num_disj_terms = owner->disj->num_terms;
   const int num_cols = owner->probData.num_cols;
 
   // Build the matrix as well as col lower/upper bounds

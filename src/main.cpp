@@ -24,6 +24,7 @@
 //#include <OsiCuts.hpp>
 
 // Project files
+#include "PartialBBDisjunction.hpp" // needed to access disjunction properties
 #include "CglVPC.hpp" // defines SolverInterface
 #include "SolverHelper.hpp"
 #include "VPCParameters.hpp"
@@ -131,14 +132,14 @@ int main(int argc, char** argv) {
 
     printf(
         "\n## Finished VPC generation (exit reason: %s) using partial tree with # disjunctive terms = %d, # cuts generated = %d. Now solving for new objective value. ##\n",
-        CglVPC::ExitReasonName[static_cast<int>(gen.exitReason)].c_str(),
-        gen.num_disj_terms, vpcs.sizeCuts());
+        ExitReasonName[static_cast<int>(gen.exitReason)].c_str(),
+        gen.disj->num_terms, vpcs.sizeCuts());
     solver->applyCuts(vpcs);
     solver->resolve();
     checkSolverOptimality(solver, false);
     const double new_obj_value = solver->getObjValue();
 
-    printf("\n## Initial obj value: %1.6f. New obj value: %1.6f. Disj lb: %1.6f. ##\n", init_obj_value, new_obj_value, gen.branching_lb);
+    printf("\n## Initial obj value: %1.6f. New obj value: %1.6f. Disj lb: %1.6f. ##\n", init_obj_value, new_obj_value, gen.disj->best_obj);
   }
   return wrapUp(0);
 } /* main */

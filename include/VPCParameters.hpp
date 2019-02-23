@@ -21,6 +21,7 @@
 
 #include "utility.hpp" // for parseInt/Double, stringValue, and lowerCaseString
 
+// Define SolverInterface that we can later change in a way that will be used in all VPC files
 #ifdef USE_CLP
   #include <OsiClpSolverInterface.hpp>
   using SolverInterface = OsiClpSolverInterface;
@@ -71,7 +72,7 @@ const std::vector<std::string> intParamName {
   "USE_TIGHT_RAYS",
   "USE_UNIT_VECTORS",
   "VERBOSITY"
-};
+}; /* intParamName */
 
 enum doubleParam {
   EPS,
@@ -87,7 +88,7 @@ const std::vector<std::string> doubleParamName {
   "PARTIAL_BB_TIMELIMIT",
   "PRLP_TIMELIMIT",
   "TIMELIMIT"
-};
+}; /* doubleParamName */
 
 enum stringParam {
   FILENAME,
@@ -99,7 +100,7 @@ const std::vector<std::string> stringParamName {
   "FILE",
   "LOGFILE",
   "OPTFILE"
-};
+}; /* stringParamName */
 
 /********** CONSTANTS **********/
 enum class intConst {
@@ -111,7 +112,7 @@ enum class intConst {
   NUM_OBJ_PER_POINT, // # cuts to try to generate for the strong branching lb point (and others)
   NB_SPACE, // whether to generate cuts in the nonbasic space (currently must be set to true)
   NUM_INT_CONST
-};
+}; /* intConst */
 const std::vector<std::string> intConstName {
   "CHECK_DUPLICATES",
   "LUB",
@@ -133,7 +134,7 @@ const std::vector<std::string> intConstName {
   "NUM_OBJ_PER_POINT",
   // Currently not changed
   "NB_SPACE",
-};
+}; /* intConstName */
 enum class doubleConst {
   AWAY,
   DIFFEPS, // to check whether something is different enough to throw an error
@@ -149,7 +150,7 @@ enum class doubleConst {
   MAX_DYN_LUB, // Same as MAX_DYN but when some of the variables involved in the cut have a large upper bound; should be >= MAX_DYN logically
   MAX_SUPPORT_REL,
   NUM_DOUBLE_CONST
-};
+}; /* doubleConst */
 const std::vector<std::string> doubleConstName {
   "AWAY",
   "DIFFEPS",
@@ -163,11 +164,11 @@ const std::vector<std::string> doubleConstName {
   "MAX_DYN",
   "MAX_DYN_LUB",
   "MAX_SUPPORT_REL"
-};
+}; /* doubleConstName */
 
 /********** VPC PARAMETERS STRUCT **********/
 struct VPCParameters {
-  FILE* logfile = NULL;
+  FILE* logfile = NULL; // NB: right now this is a shallow copy if this struct gets copied
 
   // Mutable parameters (of int, double, and string types)
   std::map<intParam, int> intParamValues {
@@ -190,32 +191,21 @@ struct VPCParameters {
 #else
     {intParam::VERBOSITY, 0},
 #endif
-  };
-  int get(intParam param) const { return intParamValues.find(param)->second; }
-  void set(intParam param, int value) { intParamValues[param] = value; }
-  std::string name(intParam param) const { return intParamName[static_cast<int>(param)]; }
-
+  }; /* intParamValues */
   std::map<doubleParam, double> doubleParamValues {
     {doubleParam::EPS, 1e-7},
     {doubleParam::MIN_ORTHOGONALITY, 0.000},
     {doubleParam::PARTIAL_BB_TIMELIMIT, 3600},
     {doubleParam::PRLP_TIMELIMIT, -1.},
     {doubleParam::TIMELIMIT, 60}
-  };
-  double get(doubleParam param) const { return doubleParamValues.find(param)->second; }
-  void set(doubleParam param, double value) { doubleParamValues[param] = value; }
-  std::string name(doubleParam param) const { return doubleParamName[static_cast<int>(param)]; }
-
+  }; /* doubleParamValues */
   std::map<stringParam, std::string> stringParamValues {
     {stringParam::FILENAME, ""},
     {stringParam::LOGFILE, ""},
     {stringParam::OPTFILE, ""}
-  };
-  std::string get(stringParam param) const { return stringParamValues.find(param)->second; }
-  void set(stringParam param, std::string value) { stringParamValues[param] = value; }
-  std::string name(stringParam param) const { return stringParamName[static_cast<int>(param)]; }
+  }; /* stringParamValues */
 
-  // Constants
+  // Constants (amk: though I am not setting to const in case user wishes to change)
   std::map<intConst, double> intConstValues {
     {intConst::CHECK_DUPLICATES, 1},
     {intConst::LUB, 1e3},
@@ -223,7 +213,7 @@ struct VPCParameters {
     {intConst::MODE_OBJ_PER_POINT, 121}, // one ray at a time, points+rays+variables, large to small angle (descending)
     {intConst::NUM_OBJ_PER_POINT, -2}, // sqrt(n)
     {intConst::NB_SPACE, 1} // currently only works with true
-  };
+  }; /* intConstValues */
   std::map<doubleConst, double> doubleConstValues {
     {doubleConst::AWAY, 1e-3},
     {doubleConst::DIFFEPS, 1e-3}, // to check whether something is different enough to throw an error
@@ -237,13 +227,26 @@ struct VPCParameters {
     {doubleConst::MAX_DYN, 1e8},
     {doubleConst::MAX_DYN_LUB, 1e13},
     {doubleConst::MAX_SUPPORT_REL, 0.9}
-  };
-  int get(intConst param) const { return intConstValues.find(param)->second; }
-  double get(doubleConst param) const { return doubleConstValues.find(param)->second; }
+  }; /* doubleConstValues */
+
+  // Methods (name/get/set)
+  std::string name(intParam param) const { return intParamName[static_cast<int>(param)]; }
+  std::string name(doubleParam param) const { return doubleParamName[static_cast<int>(param)]; }
+  std::string name(stringParam param) const { return stringParamName[static_cast<int>(param)]; }
   std::string name(intConst param) const { return intConstName[static_cast<int>(param)]; }
   std::string name(doubleConst param) const { return doubleConstName[static_cast<int>(param)]; }
 
-  // Set parameters by name
+  int         get(intParam param) const { return intParamValues.find(param)->second; }
+  double      get(doubleParam param) const { return doubleParamValues.find(param)->second; }
+  std::string get(stringParam param) const { return stringParamValues.find(param)->second; }
+  int         get(intConst param) const { return intConstValues.find(param)->second; }
+  double      get(doubleConst param) const { return doubleConstValues.find(param)->second; }
+
+  void set(intParam param, int value) { intParamValues[param] = value; }
+  void set(doubleParam param, double value) { doubleParamValues[param] = value; }
+  void set(stringParam param, std::string value) { stringParamValues[param] = value; }
+
+  /** Set parameters by name */
   bool set(std::string tmpname, const std::string tmp) {
     std::string name = upperCaseStringNoUnderscore(tmpname);
     for (unsigned i = 0; i < intParamName.size(); i++) {

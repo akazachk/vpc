@@ -58,6 +58,8 @@ SOURCES += \
 		branch/VPCEventHandler.cpp \
 		cut/CglVPC.cpp \
 		cut/CutHelper.cpp \
+    cut/Disjunction.cpp \
+    cut/PartialBBDisjunction.cpp \
     cut/PRLP.cpp
 
 ### Set build values based on user variables ###

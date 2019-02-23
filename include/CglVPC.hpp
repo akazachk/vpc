@@ -13,8 +13,32 @@
 
 // Project files
 #include "VPCEventHandler.hpp"
-#include "VPCParameters.hpp"
+#include "VPCParameters.hpp" // SolverInterface and VPCParameters
 #include "TimeStats.hpp"
+
+class Disjunction; // include is in source file
+class PartialBBDisjunction;
+
+enum class ExitReason {
+  SUCCESS_EXIT = 0,
+  CUT_LIMIT_EXIT,
+  FAIL_LIMIT_EXIT,
+  PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT,
+  TIME_LIMIT_EXIT,
+  NO_DISJUNCTION_EXIT,
+  UNKNOWN,
+  NUM_EXIT_REASONS
+};
+/* ExitReason */
+const std::vector<std::string> ExitReasonName {
+  "SUCCESS",
+  "CUT_LIMIT",
+  "FAIL_LIMIT",
+  "PARTIAL_BB_INTEGER_SOLUTION_FOUND",
+  "TIME_LIMIT",
+  "NO_DISJUNCTION",
+  "UNKNOWN"
+}; /* ExitReasonName */
 
 class CglVPC : public CglCutGenerator {
 public:
@@ -29,22 +53,11 @@ public:
     NUM_VPC_MODES
   };
 
-  enum class ExitReason {
-    SUCCESS_EXIT = 0,
-    CUT_LIMIT_EXIT,
-    FAIL_LIMIT_EXIT,
-    PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT,
-    TIME_LIMIT_EXIT,
-    NO_DISJUNCTION_EXIT,
-    UNKNOWN,
-    NUM_EXIT_REASONS
-  }; /* ExitReason */
-
   enum class VPCTimeStats {
     TOTAL_TIME,
     INIT_SOLVE_TIME,
     DISJ_SETUP_TIME,
-    GEN_DISJ_TIME,
+    DISJ_GEN_TIME,
     PRLP_SETUP_TIME,
     PRLP_SOLVE_TIME,
     GEN_CUTS_TIME,
@@ -95,7 +108,6 @@ public:
   }; /* FailureType */
 
   // Static variables
-  static const std::vector<std::string> ExitReasonName;
   static const std::vector<std::string> VPCTimeStatsName;
   static const std::vector<std::string> CutTypeName;
   static const std::vector<std::string> CutHeuristicsName;
@@ -106,6 +118,8 @@ public:
   // Class variables
   VPCParameters params;
   VPCMode mode;
+//  Disjunction* disj;
+  PartialBBDisjunction* disj;
   ExitReason exitReason;
   TimeStats timer;
 
@@ -116,11 +130,9 @@ public:
   std::vector<int> numObjFromHeur, numCutsFromHeur;
   std::vector<int> numFails;
 
-  double branching_lb, branching_ub, min_nb_obj_val, ip_opt;
-  int num_disj_terms;
+  double ip_opt;
   int num_cgs, num_cgs_actually_used, num_cgs_leading_to_cuts;
   int num_cuts;
-  int num_partial_bb_nodes, num_pruned_nodes, min_node_depth, max_node_depth;
   int num_obj_tried;
 
   /** Default constructor */
@@ -141,7 +153,7 @@ public:
   /** Clone */
   virtual CglCutGenerator* clone() const;
 
-  /** setParams based on CglVPCParams */
+  /** setParams based on VPCParameters */
   void setParams(const VPCParameters& param);
 
   /** generateCuts */
@@ -168,15 +180,6 @@ protected:
     }
   } probData;
 
-  struct DisjunctionData {
-    std::vector<NodeStatistics> stats, pruned_stats;
-    int num_nodes_on_tree, num_fixed_vars;
-    std::vector<int> node_id;
-    std::vector<double> sol;
-    std::vector<CoinWarmStart*> bases;
-    std::string name;
-  } disjunction;
-
   struct PRLPData {
     std::vector<CoinPackedVector> constraints;
     std::vector<double> rhs;
@@ -195,20 +198,19 @@ protected:
       const ProblemData* const origProbData = NULL,
       const bool enable_factorization = true);
 
-  ExitReason prepareDisjunction(SolverInterface* const solver, OsiCuts& cuts);
+//  ExitReason prepareDisjunction(SolverInterface* const solver, OsiCuts& cuts);
+
+  ExitReason setupConstraints(const SolverInterface* const si, OsiCuts& cuts);
+  bool setupDisjunctiveTerm(const int term_ind, const int branching_index,
+      const int branching_variable, const int branching_way,
+      const double branching_value, std::vector<std::vector<int> >& termIndices,
+      std::vector<std::vector<double> >& termCoeff,
+      std::vector<double>& termRHS, const SolverInterface* const vpcsolver,
+      const SolverInterface* const tmpSolverBase);
   void genDepth1PRCollection(const SolverInterface* const vpcsolver,
       const SolverInterface* const tmpSolver, const ProblemData& origProbData,
       const ProblemData& tmpProbData, const int term_ind);
 
-  ExitReason setupConstraints(const SolverInterface* const si, OsiCuts& cuts);
-  bool setupDisjunctiveTerm(const int term_ind, const int node_id,
-      const std::vector<NodeStatistics>& stats, const int branching_index,
-      const int branching_variable, const int branching_way,
-      const double branching_value, std::vector<std::vector<int> >& termIndices,
-      std::vector<std::vector<double> >& termCoeff,
-      std::vector<double>& termRHS,
-      const SolverInterface* const vpcsolver,
-      const SolverInterface* const tmpSolverBase);
   ExitReason tryObjectives(OsiCuts& cuts,
       const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs,
       const std::string& timeName);
