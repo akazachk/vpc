@@ -21,6 +21,7 @@
 
 #include "utility.hpp" // for parseInt/Double, stringValue, and lowerCaseString
 
+// Define SolverInterface that we can later change in a way that will be used in all VPC files
 #ifdef USE_CLP
   #include <OsiClpSolverInterface.hpp>
   using SolverInterface = OsiClpSolverInterface;
@@ -31,8 +32,9 @@
 
 /********** PARAMETERS **********/
 enum intParam {
-  CUTLIMIT, // max number of cuts generated; 0 = no limit
-  DISJ_TERMS,
+  CUTLIMIT, // max number of cuts generated; 0 = no limit, -k = k * # fractional variables at root
+  DISJ_TERMS, // number of disjunctive terms or number of disjunctions, depending on MODE
+  MODE, // 0: partial b&b tree, 1: splits, 2: crosses (not implemented), 3: custom
   // PARTIAL_BB_STRATEGY:
   // Total used to decide the choose:
   // variable decision => hundreds digit: 0: default, 1: default+second criterion, 2: max min change+second (max max change), 3: second-best default, 4: second-best max-min change, -x: -1 * (1+x);
@@ -40,7 +42,7 @@ enum intParam {
   // node comparison decision => ones digit: 0: default: 1: bfs, 2: depth, 3: estimate, 4: objective
   PARTIAL_BB_STRATEGY,
   PARTIAL_BB_NUM_STRONG, // -1: num cols, -2: sqrt(num cols), >= 0: that many
-  PRLP_BETA, // rhs in nb space, 1: cut away LP opt, -1: do not cut away LP opt, 0: both
+  PRLP_FLIP_BETA, // controls rhs in nb space, -1: do not cut away LP opt, 0: cut away LP opt, 1: both
   ROUNDS, // number of VPC rounds to do
   STRENGTHEN, // 0: no, 1: yes, when possible, 2: same as 1 plus add GMICs to strengthen each disjunctive term
   TEMP, // useful for various temporary parameter changes
@@ -58,9 +60,10 @@ enum intParam {
 const std::vector<std::string> intParamName {
   "CUTLIMIT",
   "DISJ_TERMS",
+  "MODE",
   "PARTIAL_BB_STRATEGY",
   "PARTIAL_BB_NUM_STRONG",
-  "PRLP_BETA",
+  "PRLP_FLIP_BETA",
   "ROUNDS",
   "STRENGTHEN",
   "TEMP",
@@ -71,7 +74,7 @@ const std::vector<std::string> intParamName {
   "USE_TIGHT_RAYS",
   "USE_UNIT_VECTORS",
   "VERBOSITY"
-};
+}; /* intParamName */
 
 enum doubleParam {
   EPS,
@@ -87,7 +90,7 @@ const std::vector<std::string> doubleParamName {
   "PARTIAL_BB_TIMELIMIT",
   "PRLP_TIMELIMIT",
   "TIMELIMIT"
-};
+}; /* doubleParamName */
 
 enum stringParam {
   FILENAME,
@@ -99,7 +102,7 @@ const std::vector<std::string> stringParamName {
   "FILE",
   "LOGFILE",
   "OPTFILE"
-};
+}; /* stringParamName */
 
 /********** CONSTANTS **********/
 enum class intConst {
@@ -111,7 +114,7 @@ enum class intConst {
   NUM_OBJ_PER_POINT, // # cuts to try to generate for the strong branching lb point (and others)
   NB_SPACE, // whether to generate cuts in the nonbasic space (currently must be set to true)
   NUM_INT_CONST
-};
+}; /* intConst */
 const std::vector<std::string> intConstName {
   "CHECK_DUPLICATES",
   "LUB",
@@ -133,7 +136,7 @@ const std::vector<std::string> intConstName {
   "NUM_OBJ_PER_POINT",
   // Currently not changed
   "NB_SPACE",
-};
+}; /* intConstName */
 enum class doubleConst {
   AWAY,
   DIFFEPS, // to check whether something is different enough to throw an error
@@ -149,7 +152,7 @@ enum class doubleConst {
   MAX_DYN_LUB, // Same as MAX_DYN but when some of the variables involved in the cut have a large upper bound; should be >= MAX_DYN logically
   MAX_SUPPORT_REL,
   NUM_DOUBLE_CONST
-};
+}; /* doubleConst */
 const std::vector<std::string> doubleConstName {
   "AWAY",
   "DIFFEPS",
@@ -163,19 +166,20 @@ const std::vector<std::string> doubleConstName {
   "MAX_DYN",
   "MAX_DYN_LUB",
   "MAX_SUPPORT_REL"
-};
+}; /* doubleConstName */
 
 /********** VPC PARAMETERS STRUCT **********/
 struct VPCParameters {
-  FILE* logfile = NULL;
+  FILE* logfile = NULL; // NB: right now this is a shallow copy if this struct gets copied
 
   // Mutable parameters (of int, double, and string types)
   std::map<intParam, int> intParamValues {
-    {intParam::CUTLIMIT, 0}, // 0 = limit is set as number of fractional integer variables at root
+    {intParam::CUTLIMIT, -1}, // -1 = limit is set as number of fractional integer variables at root
     {intParam::DISJ_TERMS, 0}, // no disjunction (=> no cuts)
+    {intParam::MODE, 0}, // disjunction from a partial b&b tree
     {intParam::PARTIAL_BB_STRATEGY, 4}, // 004 => default var & branch decisions, and choose next node by min objective
     {intParam::PARTIAL_BB_NUM_STRONG, 5}, // consider 5 strong branching candidates
-    {intParam::PRLP_BETA, 1}, // cut away the LP optimum
+    {intParam::PRLP_FLIP_BETA, 0}, // cut away the LP optimum
     {intParam::ROUNDS, 1}, // number VPC rounds to do
     {intParam::STRENGTHEN, 1}, // strengthen GMICs but not VPCs
     {intParam::TEMP, 0}, // do not enable any temporary options
@@ -190,32 +194,21 @@ struct VPCParameters {
 #else
     {intParam::VERBOSITY, 0},
 #endif
-  };
-  int get(intParam param) const { return intParamValues.find(param)->second; }
-  void set(intParam param, int value) { intParamValues[param] = value; }
-  std::string name(intParam param) const { return intParamName[static_cast<int>(param)]; }
-
+  }; /* intParamValues */
   std::map<doubleParam, double> doubleParamValues {
     {doubleParam::EPS, 1e-7},
     {doubleParam::MIN_ORTHOGONALITY, 0.000},
     {doubleParam::PARTIAL_BB_TIMELIMIT, 3600},
     {doubleParam::PRLP_TIMELIMIT, -1.},
     {doubleParam::TIMELIMIT, 60}
-  };
-  double get(doubleParam param) const { return doubleParamValues.find(param)->second; }
-  void set(doubleParam param, double value) { doubleParamValues[param] = value; }
-  std::string name(doubleParam param) const { return doubleParamName[static_cast<int>(param)]; }
-
+  }; /* doubleParamValues */
   std::map<stringParam, std::string> stringParamValues {
     {stringParam::FILENAME, ""},
     {stringParam::LOGFILE, ""},
     {stringParam::OPTFILE, ""}
-  };
-  std::string get(stringParam param) const { return stringParamValues.find(param)->second; }
-  void set(stringParam param, std::string value) { stringParamValues[param] = value; }
-  std::string name(stringParam param) const { return stringParamName[static_cast<int>(param)]; }
+  }; /* stringParamValues */
 
-  // Constants
+  // Constants (amk: though I am not setting to const in case user wishes to change)
   std::map<intConst, double> intConstValues {
     {intConst::CHECK_DUPLICATES, 1},
     {intConst::LUB, 1e3},
@@ -223,7 +216,7 @@ struct VPCParameters {
     {intConst::MODE_OBJ_PER_POINT, 121}, // one ray at a time, points+rays+variables, large to small angle (descending)
     {intConst::NUM_OBJ_PER_POINT, -2}, // sqrt(n)
     {intConst::NB_SPACE, 1} // currently only works with true
-  };
+  }; /* intConstValues */
   std::map<doubleConst, double> doubleConstValues {
     {doubleConst::AWAY, 1e-3},
     {doubleConst::DIFFEPS, 1e-3}, // to check whether something is different enough to throw an error
@@ -237,13 +230,26 @@ struct VPCParameters {
     {doubleConst::MAX_DYN, 1e8},
     {doubleConst::MAX_DYN_LUB, 1e13},
     {doubleConst::MAX_SUPPORT_REL, 0.9}
-  };
-  int get(intConst param) const { return intConstValues.find(param)->second; }
-  double get(doubleConst param) const { return doubleConstValues.find(param)->second; }
+  }; /* doubleConstValues */
+
+  // Methods (name/get/set)
+  std::string name(intParam param) const { return intParamName[static_cast<int>(param)]; }
+  std::string name(doubleParam param) const { return doubleParamName[static_cast<int>(param)]; }
+  std::string name(stringParam param) const { return stringParamName[static_cast<int>(param)]; }
   std::string name(intConst param) const { return intConstName[static_cast<int>(param)]; }
   std::string name(doubleConst param) const { return doubleConstName[static_cast<int>(param)]; }
 
-  // Set parameters by name
+  int         get(intParam param) const { return intParamValues.find(param)->second; }
+  double      get(doubleParam param) const { return doubleParamValues.find(param)->second; }
+  std::string get(stringParam param) const { return stringParamValues.find(param)->second; }
+  int         get(intConst param) const { return intConstValues.find(param)->second; }
+  double      get(doubleConst param) const { return doubleConstValues.find(param)->second; }
+
+  void set(intParam param, int value) { intParamValues[param] = value; }
+  void set(doubleParam param, double value) { doubleParamValues[param] = value; }
+  void set(stringParam param, std::string value) { stringParamValues[param] = value; }
+
+  /** Set parameters by name */
   bool set(std::string tmpname, const std::string tmp) {
     std::string name = upperCaseStringNoUnderscore(tmpname);
     for (unsigned i = 0; i < intParamName.size(); i++) {

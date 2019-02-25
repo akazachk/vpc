@@ -8,6 +8,7 @@
 #include "CutHelper.hpp"
 #include "CglVPC.hpp" // For FailureType
 #include "SolverHelper.hpp"
+#include "VPCParameters.hpp"
 
 /***********************************************************************/
 /**

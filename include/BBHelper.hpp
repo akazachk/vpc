@@ -11,6 +11,8 @@
 // Project files
 #include "VPCParameters.hpp"
 
+class PartialBBDisjunction;
+
 enum BB_Strategy_Options {
   cbc = 2,
   cplex = 4,
@@ -49,7 +51,7 @@ void setCbcParametersForPartialBB(
     const int numBeforeTrusted = 10, const double max_time =
         std::numeric_limits<double>::max());
 
-void generatePartialBBTree(const VPCParameters& param, CbcModel* cbc_model,
+void generatePartialBBTree(PartialBBDisjunction* const owner, CbcModel* cbc_model,
     const OsiSolverInterface* const solver, const int max_nodes,
     const int num_strong, const int num_before_trusted);
 #endif // USE_CBC

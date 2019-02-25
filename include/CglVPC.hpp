@@ -12,9 +12,33 @@
 #include <CglCutGenerator.hpp>
 
 // Project files
-#include "VPCEventHandler.hpp"
-#include "VPCParameters.hpp"
+#include "VPCParameters.hpp" // SolverInterface and VPCParameters
 #include "TimeStats.hpp"
+
+class Disjunction; // include is in source file
+
+enum class ExitReason {
+  SUCCESS_EXIT = 0,
+  CUT_LIMIT_EXIT,
+  FAIL_LIMIT_EXIT,
+  PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT,
+  TIME_LIMIT_EXIT,
+  NO_CUTS_LIKELY_EXIT,
+  NO_DISJUNCTION_EXIT,
+  UNKNOWN,
+  NUM_EXIT_REASONS
+};
+/* ExitReason */
+const std::vector<std::string> ExitReasonName {
+  "SUCCESS",
+  "CUT_LIMIT",
+  "FAIL_LIMIT",
+  "PARTIAL_BB_INTEGER_SOLUTION_FOUND",
+  "TIME_LIMIT",
+  "NO_CUTS_LIKELY",
+  "NO_DISJUNCTION",
+  "UNKNOWN"
+}; /* ExitReasonName */
 
 class CglVPC : public CglCutGenerator {
 public:
@@ -26,25 +50,15 @@ public:
     PARTIAL_BB,
     SPLITS,
     CROSSES,
+    CUSTOM,
     NUM_VPC_MODES
   };
-
-  enum class ExitReason {
-    SUCCESS_EXIT = 0,
-    CUT_LIMIT_EXIT,
-    FAIL_LIMIT_EXIT,
-    PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT,
-    TIME_LIMIT_EXIT,
-    NO_DISJUNCTION_EXIT,
-    UNKNOWN,
-    NUM_EXIT_REASONS
-  }; /* ExitReason */
 
   enum class VPCTimeStats {
     TOTAL_TIME,
     INIT_SOLVE_TIME,
     DISJ_SETUP_TIME,
-    GEN_DISJ_TIME,
+    DISJ_GEN_TIME,
     PRLP_SETUP_TIME,
     PRLP_SOLVE_TIME,
     GEN_CUTS_TIME,
@@ -88,6 +102,8 @@ public:
     PRIMAL_INFEASIBLE,
     TIME_LIMIT,
     NUMERICAL_ISSUES_WARNING,
+    DLB_EQUALS_DUB_NO_OBJ,
+    DLB_EQUALS_LPOPT_NO_OBJ,
     PRIMAL_INFEASIBLE_NO_OBJ,
     NUMERICAL_ISSUES_NO_OBJ,
     UNKNOWN,
@@ -95,17 +111,19 @@ public:
   }; /* FailureType */
 
   // Static variables
-  static const std::vector<std::string> ExitReasonName;
+  static const std::vector<std::string> VPCModeName;
   static const std::vector<std::string> VPCTimeStatsName;
   static const std::vector<std::string> CutTypeName;
   static const std::vector<std::string> CutHeuristicsName;
   static const std::vector<std::string> FailureTypeName;
   static const std::string time_T1; // = "TIME_TYPE1_";
   static const std::string time_T2; // = "TIME_TYPE2_";
+  static int getCutLimit(const int CUTLIMIT, const int numDisj);
 
   // Class variables
   VPCParameters params;
   VPCMode mode;
+  Disjunction* disj;
   ExitReason exitReason;
   TimeStats timer;
 
@@ -116,11 +134,9 @@ public:
   std::vector<int> numObjFromHeur, numCutsFromHeur;
   std::vector<int> numFails;
 
-  double branching_lb, branching_ub, min_nb_obj_val, ip_opt;
-  int num_disj_terms;
-  int num_cgs, num_cgs_actually_used, num_cgs_leading_to_cuts;
+  double ip_opt;
+//  int num_cgs, num_cgs_actually_used, num_cgs_leading_to_cuts;
   int num_cuts;
-  int num_partial_bb_nodes, num_pruned_nodes, min_node_depth, max_node_depth;
   int num_obj_tried;
 
   /** Default constructor */
@@ -141,12 +157,13 @@ public:
   /** Clone */
   virtual CglCutGenerator* clone() const;
 
-  /** setParams based on CglVPCParams */
+  /** setParams based on VPCParameters */
   void setParams(const VPCParameters& param);
 
   /** generateCuts */
   virtual void generateCuts(const OsiSolverInterface&, OsiCuts&, const CglTreeInfo = CglTreeInfo());
 
+  void addCut(const OsiRowCut& cut, const CutType& type, OsiCuts& cuts);
 protected:
   struct ProblemData {
     int num_cols;
@@ -168,15 +185,6 @@ protected:
     }
   } probData;
 
-  struct DisjunctionData {
-    std::vector<NodeStatistics> stats, pruned_stats;
-    int num_nodes_on_tree, num_fixed_vars;
-    std::vector<int> node_id;
-    std::vector<double> sol;
-    std::vector<CoinWarmStart*> bases;
-    std::string name;
-  } disjunction;
-
   struct PRLPData {
     std::vector<CoinPackedVector> constraints;
     std::vector<double> rhs;
@@ -191,40 +199,26 @@ protected:
   } prlpData;
 
   void initialize(const CglVPC* const source = NULL, const VPCParameters* const param = NULL);
-  void getProblemData(SolverInterface* const solver, ProblemData& probData,
+  void getProblemData(OsiSolverInterface* const solver, ProblemData& probData,
       const ProblemData* const origProbData = NULL,
       const bool enable_factorization = true);
 
-  ExitReason prepareDisjunction(SolverInterface* const solver, OsiCuts& cuts);
-  void genDepth1PRCollection(const SolverInterface* const vpcsolver,
-      const SolverInterface* const tmpSolver, const ProblemData& origProbData,
+  ExitReason setupConstraints(const OsiSolverInterface* const si, OsiCuts& cuts);
+  void genDepth1PRCollection(const OsiSolverInterface* const vpcsolver,
+      const OsiSolverInterface* const tmpSolver, const ProblemData& origProbData,
       const ProblemData& tmpProbData, const int term_ind);
 
-  ExitReason setupConstraints(const SolverInterface* const si, OsiCuts& cuts);
-  bool setupDisjunctiveTerm(const int term_ind, const int node_id,
-      const std::vector<NodeStatistics>& stats, const int branching_index,
-      const int branching_variable, const int branching_way,
-      const double branching_value, std::vector<std::vector<int> >& termIndices,
-      std::vector<std::vector<double> >& termCoeff,
-      std::vector<double>& termRHS,
-      const SolverInterface* const vpcsolver,
-      const SolverInterface* const tmpSolverBase);
   ExitReason tryObjectives(OsiCuts& cuts,
       const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs,
       const std::string& timeName);
-  void addCut(const OsiRowCut& cut, const CutType& type, OsiCuts& cuts);
 
-  int getCutLimit() const;
+  int getCutLimit(const int numDisj = 1) const;
   inline bool reachedCutLimit(const int num_cuts) const {
     const bool reached_limit = (num_cuts >= getCutLimit());
-//    if (reached_limit)
-//      exitReason = ExitReason::CUT_LIMIT_EXIT;
     return reached_limit;
   } /* reachedCutLimit */
   inline bool reachedTimeLimit(const std::string& timeName, const double max_time) const {
     const bool reached_limit = (timer.get_total_time(timeName) > max_time);
-//    if (reached_limit)
-//      exitReason = ExitReason::TIME_LIMIT_EXIT;
     return reached_limit;
   } /* reachedTimeLimit */
 //  inline bool reachedTimelimit(const std::chrono::time_point<std::chrono::high_resolution_clock>& start_chrono) const {
@@ -235,7 +229,6 @@ protected:
 //    return reached_limit;
 //  }
   bool reachedFailureLimit(const int num_cuts, const int num_fails,
-//      const double time,
       const double few_cuts_fail_threshold = 0.95,
       const double many_cuts_fail_threshold = 0.90,
       const double many_obj_fail_threshold = 0.80,
@@ -243,54 +236,9 @@ protected:
 
   inline void finish(ExitReason exitReason = ExitReason::UNKNOWN) {
     this->exitReason = exitReason;
-    this->timer.end_all();
+    this->timer.end_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
 #ifdef TRACE
     printf("CglVPC: Finishing with exit reason: %s. Number cuts: %d.\n", ExitReasonName[static_cast<int>(exitReason)].c_str(), num_cuts);
 #endif
   }
-
-  /** Set/update name of cut generating set (disjunction) */
-  inline void setCgsName(std::string& cgsName, const std::string& disjTermName) const {
-    if (disjTermName.empty()) {
-      return;
-    }
-    if (!cgsName.empty()) {
-      cgsName += " V ";
-    }
-    cgsName += "(";
-    cgsName += disjTermName;
-    cgsName += ")";
-  } /* setCgsName (given disj term name) */
-
-  inline void setCgsName(std::string& cgsName, const int num_ineq_per_term,
-      const std::vector<std::vector<int> >& termIndices,
-      const std::vector<std::vector<double> >& termCoeff,
-      const std::vector<double>& termRHS, const bool append = false) const {
-    if (num_ineq_per_term == 0) {
-      return;
-    }
-    if (!cgsName.empty()) {
-      if (!append) {
-        cgsName += " V ";
-      } else {
-        cgsName.resize(cgsName.size() - 1); // remove last ")"
-        cgsName += "; ";
-      }
-    }
-    cgsName += append ? "" : "(";
-    for (int i = 0; i < num_ineq_per_term; i++) {
-      if (i > 0) {
-        cgsName += "; ";
-      }
-      for (int coeff_ind = 0; coeff_ind < (int) termIndices[i].size();
-          coeff_ind++) {
-        cgsName += (termCoeff[i][coeff_ind] > 0) ? "+" : "-";
-        cgsName += "x";
-        cgsName += std::to_string(termIndices[i][coeff_ind]);
-      }
-      cgsName += " >= ";
-      cgsName += std::to_string((int) termRHS[i]);
-    }
-    cgsName += ")";
-  } /* setCgsName */
 }; /* CglVPC */

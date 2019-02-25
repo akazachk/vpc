@@ -4,6 +4,7 @@
 //-----------------------------------------------------------------------------
 #include "PRLP.hpp"
 #include "CutHelper.hpp"
+#include "PartialBBDisjunction.hpp" // TODO Change to Disjunction
 #include "SolverHelper.hpp"
 
 #include <numeric> // inner_product
@@ -55,7 +56,7 @@ OsiSolverInterface* PRLP::clone(bool copyData) const {
 bool PRLP::setup(const double scale, const bool fixFirstPoint) {
   owner->timer.start_timer(static_cast<int>(CglVPC::VPCTimeStats::PRLP_SETUP_TIME));
   const int num_constraints = owner->prlpData.rhs.size();
-  const int num_disj_terms = owner->num_disj_terms;
+  const int num_disj_terms = owner->disj->num_terms;
   const int num_cols = owner->probData.num_cols;
 
   // Build the matrix as well as col lower/upper bounds
@@ -405,6 +406,7 @@ void PRLP::initialize(const PRLP* const source) {
     this->numPoints = source->numPoints;
     this->numRays = source->numRays;
     this->density = source->density;
+    this->num_failures = source->num_failures;
   }
   else {
     this->owner = NULL;
@@ -413,6 +415,7 @@ void PRLP::initialize(const PRLP* const source) {
     this->numPoints = 0;
     this->numRays = 0;
     this->density = 0.;
+    this->num_failures = 0;
   }
 } /* initialize */
 
@@ -1341,7 +1344,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
 //  }
 
   int num_points_tried = 0, num_rays_tried = 0;
-  int num_failures = 0;
+  this->num_failures = 0;
   int return_code = 0;
   const int BAD_RETURN_CODE = -1 * (static_cast<int>(CglVPC::FailureType::PRIMAL_INFEASIBLE) + 1);
   const int MAX_NUM_POINTS_TO_TRY = owner->params.get(USE_TIGHT_POINTS);

@@ -16,12 +16,12 @@
  */
 class PRLP : public OsiClpSolverInterface {
 public:
-
   CglVPC* owner;
   std::vector<int> nonZeroColIndex;
   std::vector<double> ortho;
   int numPoints, numRays;
   double density;
+  int num_failures;
 
   /** Default constructor */
   PRLP();

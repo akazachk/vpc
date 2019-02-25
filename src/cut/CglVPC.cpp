@@ -20,19 +20,21 @@
 #include "nbspace.hpp"
 #include "utility.hpp"
 
+// Various pre-built disjunction options
+#include "Disjunction.hpp"
+#include "PartialBBDisjunction.hpp"
+#include "SplitDisjunction.hpp"
+
 #ifdef TRACE
 #include "debug.hpp"
 #endif
 
-const std::vector<std::string> CglVPC::ExitReasonName {
-  "SUCCESS",
-  "CUT_LIMIT",
-  "FAIL_LIMIT",
-  "PARTIAL_BB_INTEGER_SOLUTION_FOUND",
-  "TIME_LIMIT",
-  "NO_DISJUNCTION",
-  "UNKNOWN"
-}; /* ExitReasonName */
+const std::vector<std::string> CglVPC::VPCModeName {
+  "PARTIAL_BB",
+  "SPLITS",
+  "CROSSES",
+  "CUSTOM"
+}; /* VPCModeName */
 const std::vector<std::string> CglVPC::VPCTimeStatsName {
   "TOTAL_TIME",
   "INIT_SOLVE_TIME",
@@ -73,12 +75,33 @@ const std::vector<std::string> CglVPC::FailureTypeName {
   "PRIMAL_INFEASIBLE",
   "TIME_LIMIT",
   "NUMERICAL_ISSUES_WARNING",
+  "DLB_EQUALS_DUB_NO_OBJ",
+  "DLB_EQUALS_LPOPT_NO_OBJ",
   "PRIMAL_INFEASIBLE_NO_OBJ",
   "NUMERICAL_ISSUES_NO_OBJ",
   "UNKNOWN"
 }; /* FailureTypeName */
 const std::string CglVPC::time_T1 = "TIME_TYPE1_";
 const std::string CglVPC::time_T2 = "TIME_TYPE2_";
+
+/**
+ * @brief Universal way to check whether we reached the limit for the number of cuts for each split
+ * This allows us to change between restricting number of cuts per split and total number of cuts easily
+ */
+int CglVPC::getCutLimit(const int CUTLIMIT, const int numDisj) {
+  // The cut limit is either across all cut-generating sets
+  // or it is divided among the cut-generating sets (either as the limit / numFracVars, or as a fixed number per cgs)
+  // If CUTLIMIT = 0 => no cut limit
+  // If CUTLIMIT > 0 => absolute cut limit
+  // If CUTLIMIT < 0 => cut limit per cgs
+  if (CUTLIMIT == 0) {
+    return std::numeric_limits<int>::max();
+  } else if (CUTLIMIT > 0) {
+    return CUTLIMIT;
+  } else {
+    return (numDisj <= 0) ? 0 : (-1. * CUTLIMIT / numDisj);
+  }
+} /* getCutLimit */
 
 /** Default constructor */
 CglVPC::CglVPC() {
@@ -91,12 +114,13 @@ CglVPC::CglVPC(const VPCParameters& param) {
 } /* param constructor */
 
 /** Copy constructor */
-CglVPC::CglVPC(const CglVPC& source) {
+CglVPC::CglVPC(const CglVPC& source) : CglCutGenerator(source) {
   initialize(&source);
 } /* copy constructor */
 
 /** Destructor */
 CglVPC::~CglVPC() {
+  if (disj) { delete disj; }
 } /* destructor */
 
 /** Assignment operator */
@@ -121,20 +145,53 @@ void CglVPC::setParams(const VPCParameters& param) {
  * @brief Generate VPCs from a partial branch-and-bound tree
  */
 void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const CglTreeInfo info) {
-  printf("\n## Starting VPC generation from partial branch-and-bound tree with up to %d disjunctive terms. ##\n", params.get(intParam::DISJ_TERMS));
   ExitReason status = ExitReason::UNKNOWN;
-  if (params.get(intParam::DISJ_TERMS) <= 1) {
+  if (params.get(intParam::DISJ_TERMS) == 0) {
     status = ExitReason::NO_DISJUNCTION_EXIT;
     finish(status);
     return;
   }
-
-  timer.start_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
   if (reachedTimeLimit(VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)],
       params.get(TIMELIMIT))) {
     status = ExitReason::TIME_LIMIT_EXIT;
     finish(status);
     return;
+  }
+  if (reachedCutLimit(cuts.sizeCuts())) {
+    status = ExitReason::CUT_LIMIT_EXIT;
+    finish(status);
+    return;
+  }
+
+  mode = static_cast<VPCMode>(params.get(MODE));
+  if (mode == VPCMode::PARTIAL_BB) {
+    if (params.get(intParam::DISJ_TERMS) < 2) {
+      status = ExitReason::NO_DISJUNCTION_EXIT;
+      finish(status);
+      return;
+    }
+    printf("\n## Starting VPC generation from partial branch-and-bound tree with up to %d disjunctive terms. ##\n", params.get(intParam::DISJ_TERMS));
+    disj = new PartialBBDisjunction(this->params);
+    disj->timer = &timer;
+  }
+  else if (mode== VPCMode::SPLITS) {
+    printf("\n## Starting VPC generation from one split. ##\n");
+    disj = new SplitDisjunction(this->params);
+    disj->timer = &timer;
+  }
+  else if (mode == VPCMode::CUSTOM) {
+    if (!disj) {
+      error_msg(errorstring, "Mode chosen is CUSTOM but no disjunction is set.\n");
+      writeErrorToLog(errorstring, params.logfile);
+      exit(1);
+    }
+  }
+  else {
+    error_msg(errorstring,
+        "Mode that is chosen has not yet been implemented for VPC generation: %s.\n",
+        VPCModeName[static_cast<int>(mode)].c_str());
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
   }
 
   // Solver can't be const because custom enableFactorization function might do initialSolve or resolve
@@ -153,48 +210,83 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   }
 
   // Set cut limit if needed
-  if (params.get(CUTLIMIT) == 0) {
-    params.set(CUTLIMIT, solver->getFractionalIndices().size());
+  if (params.get(CUTLIMIT) < 0) {
+    params.set(CUTLIMIT,
+        -1 * params.get(CUTLIMIT) * si.getFractionalIndices().size());
+  } else if (params.get(CUTLIMIT) == 0) {
+    params.set(CUTLIMIT, std::numeric_limits<int>::max());
   }
 
-  // Read opt value
-  ip_opt = std::numeric_limits<double>::max();
-  if (!params.get(stringParam::OPTFILE).empty()) {
-#ifdef TRACE
-    std::cout << "Reading objective information from \"" + params.get(stringParam::OPTFILE) + "\"" << std::endl;
-#endif
-    ip_opt = getObjValueFromFile(params.get(stringParam::OPTFILE), params.get(stringParam::FILENAME), params.logfile);
-#ifdef TRACE
-    std::cout << "Best known objective value is " << ip_opt << std::endl;
-#endif
-    if (isInfinity(ip_opt)) {
-      warning_msg(warnstring, "Did not find objective value.\n");
+  // Read opt value (if not yet inputted)
+  if (isInfinity(ip_opt)) {
+    if (!params.get(stringParam::OPTFILE).empty()) {
+  #ifdef TRACE
+      std::cout << "Reading objective information from \"" + params.get(stringParam::OPTFILE) + "\"" << std::endl;
+  #endif
+      ip_opt = getObjValueFromFile(params.get(stringParam::OPTFILE), params.get(stringParam::FILENAME), params.logfile);
+  #ifdef TRACE
+      std::cout << "Best known objective value is " << ip_opt << std::endl;
+  #endif
+      if (isInfinity(ip_opt)) {
+        warning_msg(warnstring, "Did not find objective value.\n");
+      }
     }
   }
 
-  // Choose disjunctive terms and obtain their optimal bases
-  status = prepareDisjunction(solver, cuts);
-  if (status != ExitReason::SUCCESS_EXIT) {
-    finish(status);
-    return;
+  // Time starts here, and will end when finish is called
+  timer.start_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
+  if (mode != VPCMode::CUSTOM) {
+    // Get disjunctive terms and obtain their optimal bases
+    // (If mode is custom, i.e., disjunction is given to us,
+    // then we assume that the disjunction is already prepared)
+    status = disj->prepareDisjunction(solver);
+    if (status == ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT) {
+      warning_msg(warnstr,
+          "An integer (optimal) solution was found prior while getting disjunction. "
+          "We will generate between n and 2n cuts, restricting the value of each variable.\n");
+      const double* solution = disj->integer_sol.data();
+      for (int col = 0; col < static_cast<int>(disj->integer_sol.size()); col++) {
+        const double val = solution[col];
+
+        // Check which of the bounds needs to be fixed
+        for (int b = 0; b < 2; b++) {
+          if ((b == 0 && greaterThanVal(val, solver->getColLower()[col]))
+              || (b == 1 && lessThanVal(val, solver->getColUpper()[col]))) {
+            const double mult = (b == 0) ? 1. : -1.;
+            const double el = mult * 1.;
+
+            OsiRowCut currCut;
+            currCut.setLb(mult * val);
+            currCut.setRow(1, &col, &el, false);
+            addCut(currCut, CutType::OPTIMALITY_CUT, cuts);
+          }
+        }
+      } // iterate over columns and add optimality cut if needed
+    } // exit out early if integer-optimal solution found
+    if (status != ExitReason::SUCCESS_EXIT) {
+      finish(status);
+      return;
+    }
   }
 
   // Save the V-polyhedral relaxations of each optimal basis in the terms of the PRLP
-  status = setupConstraints(solver, cuts);
+  status = setupConstraints(&si, cuts);
   if (status != ExitReason::SUCCESS_EXIT) {
     finish(status);
     return;
   }
 
   // Generate cuts from the PRLP
-  status = tryObjectives(cuts, solver, NULL, time_T1);
-  if (status != ExitReason::SUCCESS_EXIT) {
-    finish(status);
-    return;
-  }
-
+  status = tryObjectives(cuts, &si, NULL, time_T1);
   finish(status);
 } /* generateCuts */
+
+void CglVPC::addCut(const OsiRowCut& cut, const CutType& type, OsiCuts& cuts) {
+  cuts.insert(cut);
+  cutType.push_back(type);
+  numCutsOfType[static_cast<int>(type)]++;
+  num_cuts++;
+} /* addCut */
 
 /****************** PROTECTED **********************/
 
@@ -203,8 +295,9 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     setParams(*param);
   if (source != NULL) {
     if (param == NULL)
-      this->params = source->params;
+      setParams(source->params);
     this->mode = source->mode;
+    this->disj = source->disj;
     this->exitReason = source->exitReason;
     this->timer = source->timer;
     this->cutType = source->cutType;
@@ -213,28 +306,15 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     this->numObjFromHeur = source->numObjFromHeur;
     this->numCutsFromHeur = source->numCutsFromHeur;
     this->numFails = source->numFails;
-    this->branching_lb = source->branching_lb;
-    this->branching_ub = source->branching_ub;
-    this->min_nb_obj_val = source->min_nb_obj_val;
     this->ip_opt = source->ip_opt;
-    this->num_disj_terms = source->num_disj_terms;
-    this->num_cgs = source->num_cgs;
-    this->num_cgs_actually_used = source->num_cgs_actually_used;
-    this->num_cgs_leading_to_cuts = source->num_cgs_leading_to_cuts;
     this->num_cuts = source->num_cuts;
-    this->num_partial_bb_nodes = source->num_partial_bb_nodes;
-    this->num_pruned_nodes = source->num_pruned_nodes;
-    this->min_node_depth = source->min_node_depth;
-    this->max_node_depth = source->max_node_depth;
     this->num_obj_tried = source->num_obj_tried;
     this->probData = source->probData;
-    this->disjunction = source->disjunction;
     this->prlpData = source->prlpData;
   }
   else {
-//    if (param == NULL)
-//      this->param = VPCParamsDefault;
     this->mode = VPCMode::PARTIAL_BB;
+    this->disj = NULL;
     this->exitReason = ExitReason::UNKNOWN;
     for (int t = 0; t < static_cast<int>(VPCTimeStats::NUM_TIME_STATS); t++) {
       timer.register_name(VPCTimeStatsName[t]);
@@ -248,25 +328,18 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     this->numObjFromHeur.resize(static_cast<int>(CutHeuristics::NUM_CUT_HEUR), 0);
     this->numCutsFromHeur.resize(static_cast<int>(CutHeuristics::NUM_CUT_HEUR), 0);
     this->numFails.resize(static_cast<int>(FailureType::NUM_FAILURES), 0);
-    this->branching_lb = std::numeric_limits<double>::max();
-    this->branching_ub = std::numeric_limits<double>::lowest();
-    this->min_nb_obj_val = std::numeric_limits<double>::max();
     this->ip_opt = std::numeric_limits<double>::max();
-    this->num_disj_terms = 0;
-    this->num_cgs = 1; // for now, always 1, unless we go back to doing multiple cgs
-    this->num_cgs_actually_used = 0;
-    this->num_cgs_leading_to_cuts = 0;
     this->num_cuts = 0;
-    this->num_partial_bb_nodes = 0;
-    this->num_pruned_nodes = 0;
-    this->min_node_depth = std::numeric_limits<int>::max();
-    this->max_node_depth = 0;
     this->num_obj_tried = 0;
-    this->probData.EPS = 1e-7;
+    this->probData.EPS = this->params.get(EPS);
   }
 } /* initialize */
 
-void CglVPC::getProblemData(SolverInterface* const solver,
+/**
+ * Get problem data such as min/max coeff, problem-specific epsilon,
+ * nonbasic variables, row in which each variable is basic, etc.
+ */
+void CglVPC::getProblemData(OsiSolverInterface* const solver,
     ProblemData& probData, const ProblemData* const origProbData,
     const bool enable_factorization) {
   const int numCols = solver->getNumCols();
@@ -384,7 +457,7 @@ void CglVPC::getProblemData(SolverInterface* const solver,
     }
   } // loop over variables
 
-  // TODO May also need to save rays of C1, where the coefficients of inv(B) * A
+  // May also need to save rays of C1, where the coefficients of inv(B) * A
   // are sometimes negated because we have
   // \bar x = inv(B) * b - inv(B) * A * x_N
   const int numNB = probData.NBVarIndex.size();
@@ -435,177 +508,25 @@ void CglVPC::getProblemData(SolverInterface* const solver,
     solver->disableFactorization();
 } /* getProblemData */
 
-/**
- * @brief Prepares disjunction to be used for cut generation
- */
-CglVPC::ExitReason CglVPC::prepareDisjunction(SolverInterface* const si, OsiCuts& cuts) {
-  if (params.get(intParam::DISJ_TERMS) == 0) {
-    return ExitReason::UNKNOWN;
-  }
-  if (mode != VPCMode::PARTIAL_BB) {
-    error_msg(errorstring, "Currently the code only works with partial b&b trees as the disjunction source.\n");
-    writeErrorToLog(errorstring, params.logfile);
-    exit(1);
-  }
-
-  // Set up solver
-  SolverInterface* BBSolver;
-  try {
-    BBSolver = dynamic_cast<SolverInterface*>(si->clone());
-  } catch (std::exception& e) {
-    error_msg(errorstring, "Unable to clone solver into desired SolverInterface.\n");
-    writeErrorToLog(errorstring, params.logfile);
-    exit(1);
-  }
-#ifdef USE_CLP
-  setupClpForCbc(BBSolver);
-#endif
-
-#ifdef TRACE
-  printf("\n## Generating partial branch-and-bound tree. ##\n");
-#endif
-  CbcModel* cbc_model = new CbcModel; // for obtaining the disjunction
-  cbc_model->swapSolver(BBSolver);
-  cbc_model->setModelOwnsSolver(true); // solver will be deleted with cbc object
-  setIPSolverParameters(cbc_model, params.get(VERBOSITY));
-
-  timer.start_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::GEN_DISJ_TIME)]);
-  int num_strong = params.get(intParam::PARTIAL_BB_NUM_STRONG);
-  if (num_strong == -1) {
-    num_strong = si->getNumCols();
-  }
-  if (num_strong == -2) {
-    num_strong = static_cast<int>(std::ceil(std::sqrt(si->getNumCols())));
-  }
-  const int num_before_trusted = std::numeric_limits<int>::max(); // 10;
-  generatePartialBBTree(params, cbc_model, si,
-      params.get(intParam::DISJ_TERMS), num_strong,
-      num_before_trusted);
-  timer.end_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::GEN_DISJ_TIME)]);
-
-  num_partial_bb_nodes = cbc_model->getNodeCount(); // save number of nodes looked at
-
-  VPCEventHandler* eventHandler = NULL;
-  try {
-    eventHandler = dynamic_cast<VPCEventHandler*>(cbc_model->getEventHandler());
-  } catch (std::exception& e) {
-  }
-  if (!eventHandler) {
-    error_msg(errstr, "Could not get event handler.\n");
-    writeErrorToLog(errstr, params.logfile);
-    exit(1);
-  }
-  this->num_disj_terms = eventHandler->getNumLeafNodes() + eventHandler->isIntegerSolutionFound();
-  this->num_pruned_nodes = eventHandler->getPrunedStatsVector().size() - eventHandler->isIntegerSolutionFound();
-
-  // If branch-and-bound finished (was not stopped by a user event), check why and exit
-  if (cbc_model->status() == 0 || cbc_model->status() == 1
-      || cbc_model->status() == 2 || num_disj_terms <= 1) {
-    if (cbc_model->isProvenOptimal()) {
-      warning_msg(warnstr,
-          "An integer (optimal) solution was found prior while branching. " "We will generate between n and 2n cuts, restricting the value of each variable.\n");
-      const double* solution = cbc_model->getColSolution();
-      for (int col = 0; col < cbc_model->getNumCols(); col++) {
-        const double val = solution[col];
-
-        // Check which of the bounds needs to be fixed
-        for (int b = 0; b < 2; b++) {
-          if ((b == 0 && greaterThanVal(val, si->getColLower()[col]))
-              || (b == 1 && lessThanVal(val, si->getColUpper()[col]))) {
-            const double mult = (b == 0) ? 1. : -1.;
-            const double el = mult * 1.;
-
-            OsiRowCut currCut;
-            currCut.setLb(mult * val);
-            currCut.setRow(1, &col, &el, false);
-            addCut(currCut, CutType::OPTIMALITY_CUT, cuts);
-          }
-        }
-      }
-
-      // Set strong branching lb and ub to both be this value
-      this->branching_lb = cbc_model->getObjValue();
-      this->branching_ub = cbc_model->getObjValue();
-    } else {
-      warning_msg(warnstr,
-          "Giving up on getting cuts from the partial branch-and-bound tree (bad status or too few terms). Model status is %d.\n",
-          cbc_model->status());
-    }
-
-    return ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT;
-  } /* exit out early if cbc_model status is 0 or insufficiently many disjunctive terms */
-
-  // Save everything we need from this disjunction
-  this->disjunction.stats = eventHandler->getStatsVector();
-  this->disjunction.num_nodes_on_tree = eventHandler->getNumNodesOnTree();
-  this->disjunction.num_fixed_vars = cbc_model->strongInfo()[1]; // number fixed during b&b
-  this->disjunction.node_id.resize(this->disjunction.num_nodes_on_tree);
-  this->disjunction.bases.resize(this->disjunction.num_nodes_on_tree);
-  for (int tmp_ind = 0; tmp_ind < this->disjunction.num_nodes_on_tree; tmp_ind++) {
-    this->disjunction.node_id[tmp_ind] = eventHandler->getNodeIndex(tmp_ind);
-    this->disjunction.bases[tmp_ind] = (eventHandler->getBasisForNode(tmp_ind))->clone();
-  }
-  if (eventHandler->isIntegerSolutionFound()) {
-    const double* sol = eventHandler->getIntegerFeasibleSolution();
-    this->disjunction.sol.assign(sol, sol + si->getNumCols());
-  }
-
-#ifdef TRACE
-  std::vector<NodeStatistics> stats = eventHandler->getStatsVector();
-  printNodeStatistics(stats, false);
-  if (eventHandler->getPrunedStatsVector().size() > 0) {
-    printf("\n");
-    printNodeStatistics(eventHandler->getPrunedStatsVector(), false);
-  }
-
-  if (std::abs(params.get(intParam::TEMP)) >= 10 && std::abs(params.get(intParam::TEMP)) <= 15) {
-    generateTikzTreeString(eventHandler, params,
-        params.get(intParam::PARTIAL_BB_STRATEGY),
-        si->getObjValue(), true);
-    if (std::abs(params.get(intParam::TEMP)) == 14) {
-      // Free
-      if (cbc_model) {
-        delete cbc_model;
-        cbc_model = NULL;
-      }
-      return ExitReason::SUCCESS_EXIT;
-    }
-    if (std::abs(params.get(intParam::TEMP)) == 15) {
-      exit(1); // this is during debug and does not free memory
-    }
-  }
-#endif
-
-  if (cbc_model)
-    delete cbc_model;
-  return ExitReason::SUCCESS_EXIT;
-} /* prepareDisjunction */
-
-CglVPC::ExitReason CglVPC::setupConstraints(const SolverInterface* const si, OsiCuts& cuts) {
-  // Decide if we are in the nonbasic space, based on option
-  const bool inNBSpace = true; // TODO later
-  const int dim = si->getNumCols(); // TODO treating fixed vars as at bound
-
-  std::vector<NodeStatistics>& stats = disjunction.stats;
-
+ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts& cuts) {
   /***********************************************************************************
    * Change initial bounds
    ***********************************************************************************/
-  // Make a copy of the solver to allow for fixing variables
+  // Make a copy of the solver to allow for fixing variables and changed bounds at root
   SolverInterface* vpcsolver = dynamic_cast<SolverInterface*>(si->clone());
-  const int num_changed_bounds = stats[0].changed_var.size();
+  const int num_changed_bounds = this->disj->common_changed_var.size();
   int num_fixed = 0;
   for (int i = 0; i < num_changed_bounds; i++) {
-    const int col = stats[0].changed_var[i];
-    if (stats[0].changed_bound[i] <= 0) {
-      vpcsolver->setColLower(col, stats[0].changed_value[i]);
+    const int col = this->disj->common_changed_var[i];
+    if (this->disj->common_changed_bound[i] <= 0) {
+      vpcsolver->setColLower(col, this->disj->common_changed_value[i]);
     } else {
-      vpcsolver->setColUpper(col, stats[0].changed_value[i]);
+      vpcsolver->setColUpper(col, this->disj->common_changed_value[i]);
     }
 
-    const double mult = (stats[0].changed_bound[i] <= 0) ? 1. : -1.;
+    const double mult = (this->disj->common_changed_bound[i] <= 0) ? 1. : -1.;
     const double el = mult * 1.;
-    const double val = stats[0].changed_value[i];
+    const double val = this->disj->common_changed_value[i];
     OsiRowCut currCut;
     currCut.setLb(mult * val);
     currCut.setRow(1, &col, &el, false);
@@ -614,14 +535,21 @@ CglVPC::ExitReason CglVPC::setupConstraints(const SolverInterface* const si, Osi
     if (isVal(vpcsolver->getColLower()[col], vpcsolver->getColUpper()[col])) {
       num_fixed++;
     }
+  } // account for bounds changed at root
+
+  const int num_added_ineqs = this->disj->common_ineqs.size();
+  for (int i = 0; i < num_added_ineqs; i++) {
+    OsiRowCut* currCut = &disj->common_ineqs[i];
+    vpcsolver->applyRowCuts(1, currCut); // hopefully this works
+    addCut(*currCut, CutType::ONE_SIDED_CUT, cuts);
   }
+
 #ifdef TRACE
   printf(
-      "\n## Total number changed bounds: %d. Number fixed: %d. Number fixed in course of BB: %d. ##\n",
-      num_changed_bounds, num_fixed, disjunction.num_fixed_vars);
+      "\n## Total number changed bounds: %d. Number fixed: %d. Number added inequalities: %d. ##\n",
+      num_changed_bounds, num_fixed, num_added_ineqs);
 #endif
-
-  if (num_changed_bounds + num_fixed > 0) {
+  if (num_changed_bounds + num_fixed + num_added_ineqs > 0) {
     vpcsolver->resolve();
     if (!checkSolverOptimality(vpcsolver, false)) {
       error_msg(errorstring,
@@ -640,83 +568,62 @@ CglVPC::ExitReason CglVPC::setupConstraints(const SolverInterface* const si, Osi
   printf("Problem-specific epsilon set to %.10e\n", this->probData.EPS);
 #endif
 
-  /***********************************************************************************
-   * Save objective
-   ***********************************************************************************/
-  // In order to calculate how good the points we find are
-  // with respect to the objective function (which should be in NB space when appropriate)
-  // Clearly a valid inequality is c^T x \ge c^\T v,
-  // where v is the LP optimum, since we are minimizing
-  // Either we have the objective, or we have the reduced costs
-  // of the nonbasic variables (which is exactly the objective
-  // in the nonbasic space).
-  // Recall that the reduced cost of slack variables is exactly
-  // the negative of the row price (dual variable) for that row.
-  OsiRowCut objCut;
-  if (inNBSpace) {
-    std::vector<int> indices;
-    std::vector<double> vals;
-    indices.reserve(dim);
-    vals.reserve(dim);
-    for (int i = 0; i < dim; i++) {
-      if (!isVal(probData.NBReducedCost[i], probData.EPS)) {
-        indices.push_back(i);
-        vals.push_back(probData.NBReducedCost[i]);
-      }
-    }
-    objCut.setRow(indices.size(), indices.data(), vals.data(), false);
-    objCut.setLb(0.0);
-  } else {
-    std::vector<int> indices;
-    std::vector<double> vals;
-    indices.reserve(dim);
-    vals.reserve(dim);
-    for (int i = 0; i < dim; i++) {
-      if (!isVal(vpcsolver->getObjCoefficients()[i], probData.EPS)) {
-        indices.push_back(i);
-        vals.push_back(vpcsolver->getObjCoefficients()[i]);
-      }
-    }
-    objCut.setRow(indices.size(), indices.data(), vals.data(), false);
-    objCut.setLb(vpcsolver->getObjValue());
-  }
-
-  /***********************************************************************************
-   * Set up intersection point and ray storage
-   ***********************************************************************************/
-  std::vector < std::vector<std::vector<int> > > termIndices(num_disj_terms);
-  std::vector < std::vector<std::vector<double> > > termCoeff(num_disj_terms);
-  std::vector < std::vector<double> > termRHS(num_disj_terms);
+//  /***********************************************************************************
+//   * Save objective
+//   ***********************************************************************************/
+//  // In order to calculate how good the points we find are
+//  // with respect to the objective function (which should be in NB space when appropriate)
+//  // Clearly a valid inequality is c^T x \ge c^\T v,
+//  // where v is the LP optimum, since we are minimizing
+//  // Either we have the objective, or we have the reduced costs
+//  // of the nonbasic variables (which is exactly the objective
+//  // in the nonbasic space).
+//  // Recall that the reduced cost of slack variables is exactly
+//  // the negative of the row price (dual variable) for that row.
+//  OsiRowCut objCut;
+//  if (inNBSpace) {
+//    std::vector<int> indices;
+//    std::vector<double> vals;
+//    indices.reserve(dim);
+//    vals.reserve(dim);
+//    for (int i = 0; i < dim; i++) {
+//      if (!isVal(probData.NBReducedCost[i], probData.EPS)) {
+//        indices.push_back(i);
+//        vals.push_back(probData.NBReducedCost[i]);
+//      }
+//    }
+//    objCut.setRow(indices.size(), indices.data(), vals.data(), false);
+//    objCut.setLb(0.0);
+//  } else {
+//    std::vector<int> indices;
+//    std::vector<double> vals;
+//    indices.reserve(dim);
+//    vals.reserve(dim);
+//    for (int i = 0; i < dim; i++) {
+//      if (!isVal(vpcsolver->getObjCoefficients()[i], probData.EPS)) {
+//        indices.push_back(i);
+//        vals.push_back(vpcsolver->getObjCoefficients()[i]);
+//      }
+//    }
+//    objCut.setRow(indices.size(), indices.data(), vals.data(), false);
+//    objCut.setLb(vpcsolver->getObjValue());
+//  }
 
   /***********************************************************************************
    * Get bases and generate VPCs
    ***********************************************************************************/
-  std::vector<ProblemData> disjProbData(num_disj_terms);
-//  std::vector < std::vector<int> > tmpVarBasicInRow(num_disj_terms);
-//  std::vector < std::vector<int> > tmpBasicStructVar(num_disj_terms);
-//  std::vector < std::vector<int> > tmpBasicSlackVar(num_disj_terms);
-//  std::vector < std::vector<int> > rowOfTmpVar(num_disj_terms);
-//  std::vector < std::vector<int> > rowOfOrigNBVar(num_disj_terms);
-//  std::vector < std::vector<int> > tmpNonBasicVarIndex(num_disj_terms);
-//  std::vector < std::vector<std::vector<double> >
-//      > currBInvACol(num_disj_terms);
-//  std::vector < std::vector<std::vector<double> > > currRay(num_disj_terms);
+  const int num_disj_terms = disj->num_terms;
+  const int dim = si->getNumCols(); // NB: treating fixed vars as at bound
 
-  int term_ind = -1;
-  std::vector<bool> calcAndFeasFacet(num_disj_terms);
-  this->branching_lb = std::numeric_limits<double>::max();
-  this->branching_ub = std::numeric_limits<double>::lowest();
-  this->min_nb_obj_val = std::numeric_limits<double>::max();
-  this->min_node_depth = std::numeric_limits<int>::max();
-  this->max_node_depth = 0;
-//  const int max_num_cgs = 1;
+  int terms_added = -1;
+  std::vector<bool> calcAndFeasTerm(num_disj_terms);
 
   // Start with the integer-feasible solution
-  if (!(disjunction.sol.empty())) {
-    term_ind++;
+  if (!(disj->integer_sol.empty())) {
+    terms_added++;
 
     // Get solution and calculate slacks
-    const double* sol = disjunction.sol.data();
+    const double* sol = disj->integer_sol.data();
     std::vector<double> slack(vpcsolver->getNumRows(), 0.);
     const CoinPackedMatrix* mx = vpcsolver->getMatrixByRow();
     mx->times(sol, &slack[0]);
@@ -731,265 +638,162 @@ CglVPC::ExitReason CglVPC::setupConstraints(const SolverInterface* const si, Osi
         probData.NBVarIndex, probData.NBReducedCost);
     const double beta = 1.0;
 //        params.get(FLIP_BETA) >= 0 ? 1.0 : -1.0;
-    prlpData.addConstraint(point, beta, term_ind, curr_nb_obj_val);
+    prlpData.addConstraint(point, beta, terms_added, curr_nb_obj_val);
 #ifdef TRACE
-    printf("\n## Saving integer feasible solution as term %d. ##\n", term_ind);
+    printf("\n## Saving integer feasible solution as term %d. ##\n", terms_added);
 #endif
-    calcAndFeasFacet[term_ind] = true;
-    std::string tmpname = "feasSol" + std::to_string(term_ind);
-    setCgsName(this->disjunction.name, tmpname);
+    calcAndFeasTerm[terms_added] = true;
+
+    // Update disjunctive bound info
+    // This is here rather than in the Disjunction class,
+    // because it is unclear whether, in that class,
+    // the user computes with the variables changed at the root
     double objOffset = 0.;
     vpcsolver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
-    const double objVal = dotProduct(vpcsolver->getObjCoefficients(), sol, dim)
-        - objOffset;
-    if (objVal < this->branching_lb) {
-      this->branching_lb = objVal;
-    }
-    if (objVal > this->branching_ub) {
-      this->branching_ub = objVal;
-    }
-    if (curr_nb_obj_val < this->min_nb_obj_val) {
-      this->min_nb_obj_val = curr_nb_obj_val;
-    }
-  } /* integer-feasible solution */
+    const double objVal =
+        dotProduct(vpcsolver->getObjCoefficients(), sol, dim) - objOffset;
+    this->disj->updateObjValue(objVal);
+//    this->disj->updateNBObjValue(curr_nb_obj_val);
+  } // integer-feasible solution
 
   // Now we handle the normal terms
-  for (int tmp_ind = 0; tmp_ind < disjunction.num_nodes_on_tree; tmp_ind++) {
-    //    printf("\n## DEBUG: Tmp index: %d ##\n", tmp_ind);
-    const int node_id = disjunction.node_id[tmp_ind];
-    const int orig_node_id = stats[node_id].orig_id;
-
-    SolverInterface* tmpSolverBase = dynamic_cast<SolverInterface*>(vpcsolver->clone());
-    tmpSolverBase->disableFactorization();
+  const int num_normal_terms = disj->terms.size();
+  for (int tmp_ind = 0; tmp_ind < num_normal_terms; tmp_ind++) {
+    terms_added++;
+    SolverInterface* tmpSolver = dynamic_cast<SolverInterface*>(vpcsolver->clone());
+    tmpSolver->disableFactorization();
 
     // Change bounds in the solver
-    const int curr_num_changed_bounds =
-        (orig_node_id == 0) ? 0 : stats[orig_node_id].changed_var.size();
+    DisjunctiveTerm* term = &this->disj->terms[tmp_ind];
+    const int curr_num_changed_bounds = term->changed_var.size();
     std::vector < std::vector<int> > commonTermIndices(curr_num_changed_bounds);
-    std::vector < std::vector<double>
-        > commonTermCoeff(curr_num_changed_bounds);
+    std::vector < std::vector<double> > commonTermCoeff(curr_num_changed_bounds);
     std::vector<double> commonTermRHS(curr_num_changed_bounds);
     for (int i = 0; i < curr_num_changed_bounds; i++) {
-      const int col = stats[orig_node_id].changed_var[i];
-      const double coeff =
-          (stats[orig_node_id].changed_bound[i] <= 0) ? 1. : -1.;
-      const double val = stats[orig_node_id].changed_value[i];
+      const int col = term->changed_var[i];
+      const double coeff = (term->changed_bound[i] <= 0) ? 1. : -1.;
+      const double val = term->changed_value[i];
       commonTermIndices[i].resize(1, col);
       commonTermCoeff[i].resize(1, coeff);
       commonTermRHS[i] = coeff * val;
-      //      tmpSolverBase->addRow(1, &col, &coeff, rhs,
-      //          tmpSolverBase->getInfinity());
-      if (stats[orig_node_id].changed_bound[i] <= 0) {
-        tmpSolverBase->setColLower(col, val);
+      if (term->changed_bound[i] <= 0) {
+        tmpSolver->setColLower(col, val);
       } else {
-        tmpSolverBase->setColUpper(col, val);
+        tmpSolver->setColUpper(col, val);
       }
     }
 
+    const int curr_num_added_ineqs = term->ineqs.size();
+    for (int i = 0; i < curr_num_added_ineqs; i++) {
+      OsiRowCut* currCut = &term->ineqs[i];
+      tmpSolver->applyRowCuts(1, currCut); // hopefully this works
+    }
+
     // Set the warm start
-    if (!(tmpSolverBase->setWarmStart(disjunction.bases[tmp_ind]))) {
+    if (!(tmpSolver->setWarmStart(term->basis))) {
       error_msg(errorstring,
-          "Warm start information not accepted for node %d.\n", node_id);
+          "Warm start information not accepted for leaf node %d/%d.\n",
+          tmp_ind + 1, num_normal_terms);
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
     }
 
-    // Resolve
+    // Resolve and check the objective matches
 #ifdef TRACE
-    printf("\n## Solving for parent node %d/%d. ##\n", tmp_ind + 1, disjunction.num_nodes_on_tree);
+    printf("\n## Solving for leaf node %d/%d. ##\n",
+        tmp_ind + 1, num_normal_terms);
 #endif
-    tmpSolverBase->resolve();
-    if (!checkSolverOptimality(tmpSolverBase, false)) {
-      error_msg(errorstring, "Solver not proven optimal for node %d.\n",
-          node_id);
-      writeErrorToLog(errorstring, params.logfile);
-      exit(1);
-    }
+    tmpSolver->resolve();
+    enableFactorization(tmpSolver, params.get(doubleParam::EPS)); // this may change the solution slightly
+    calcAndFeasTerm[terms_added] = checkSolverOptimality(tmpSolver, true);
+
     // Sometimes we run into a few issues getting the ``right'' value
-    if (!isVal(tmpSolverBase->getObjValue(), stats[node_id].obj, params.get(doubleConst::DIFFEPS))) {
-      tmpSolverBase->resolve();
+    if (!isVal(tmpSolver->getObjValue(), term->obj, params.get(doubleConst::DIFFEPS))) {
+      tmpSolver->resolve();
     }
-
-#ifdef TRACE
-    double curr_nb_obj_val = tmpSolverBase->getObjValue() - vpcsolver->getObjValue();
-    printf("DEBUG: Node: %d .......... Obj val:%.3f .......... NB obj val: %.3f\n", node_id,
-        tmpSolverBase->getObjValue(), curr_nb_obj_val);
-    printNodeStatistics(stats[node_id], true);
-#endif
-    if (!isVal(tmpSolverBase->getObjValue(), stats[node_id].obj, params.get(doubleConst::DIFFEPS))) {
-#ifdef TRACE
-      std::string commonName;
-      setCgsName(commonName, curr_num_changed_bounds, commonTermIndices,
-          commonTermCoeff, commonTermRHS, false);
-      printf("Bounds changed: %s.\n", commonName.c_str());
-#endif
-      double ratio = tmpSolverBase->getObjValue() / stats[node_id].obj;
+    if (!isVal(tmpSolver->getObjValue(), term->obj, params.get(doubleConst::DIFFEPS))) {
+      double ratio = tmpSolver->getObjValue() / term->obj;
       if (ratio < 1.) {
         ratio = 1. / ratio;
       }
       // Allow it to be up to 3% off without causing an error
       if (greaterThanVal(ratio, 1.03)) {
         error_msg(errorstring,
-            "Objective at parent node %d is incorrect. During BB, it was %s, now it is %s.\n",
-            node_id, stringValue(stats[node_id].obj, "%1.3f").c_str(),
-            stringValue(tmpSolverBase->getObjValue(), "%1.3f").c_str());
+            "Objective at leaf node %d/%d is incorrect. During BB, it was %s, now it is %s.\n",
+            tmp_ind, num_normal_terms, stringValue(term->obj, "%1.3f").c_str(),
+            stringValue(tmpSolver->getObjValue(), "%1.3f").c_str());
         writeErrorToLog(errorstring, params.logfile);
         exit(1);
       } else {
         warning_msg(warnstring,
-            "Objective at parent node %d is incorrect. During BB, it was %s, now it is %s.\n",
-            node_id, stringValue(stats[node_id].obj, "%1.3f").c_str(),
-            stringValue(tmpSolverBase->getObjValue(), "%1.3f").c_str());
+            "Objective at disjunctive term %d/%d is incorrect. During BB, it was %s, now it is %s.\n",
+            tmp_ind, num_normal_terms, stringValue(term->obj, "%1.3f").c_str(),
+            stringValue(tmpSolver->getObjValue(), "%1.3f").c_str());
       }
+#ifdef TRACE
+      std::string commonName;
+      Disjunction::setCgsName(commonName, curr_num_changed_bounds, commonTermIndices,
+          commonTermCoeff, commonTermRHS, false);
+      printf("Bounds changed: %s.\n", commonName.c_str());
+#endif
+    } // check that objective value matches
+
+    // Possibly strengthen the term
+    if (calcAndFeasTerm[terms_added] && params.get(intParam::STRENGTHEN) == 2) {
+    // Add Gomory cuts on disjunctive term and resolve
+      OsiCuts GMICs;
+      CglGMI GMIGen;
+      GMIGen.generateCuts(*tmpSolver, GMICs);
+      tmpSolver->applyCuts(GMICs);
+      tmpSolver->resolve();
+      calcAndFeasTerm[terms_added] = checkSolverOptimality(tmpSolver, true);
     }
+    if (calcAndFeasTerm[terms_added]) {
+      // Update disjunctive bound info
+      // This is here rather than in the Disjunction class,
+      // because it is unclear whether, in that class,
+      // the user computes with the variables changed at the root
+      this->disj->updateObjValue(tmpSolver->getObjValue());
+//      this->disj->updateNBObjValue(tmpSolver->getObjValue() - vpcsolver->getObjValue());
 
-    // Now we go to the branch or branches left for this node
-//    const int num_ineq_per_term = 1;  // leaf nodes have one extra changed
-    const int branching_index = stats[node_id].branch_index;
-    const int branching_variable = stats[node_id].variable;
-    int branching_way = stats[node_id].way;
-    double branching_value = (branching_way <= 0) ? stats[node_id].ub : stats[node_id].lb;
+      timer.register_name(CglVPC::time_T1 + std::to_string(terms_added));
+      timer.register_name(CglVPC::time_T2 + std::to_string(terms_added));
 
-    // Set up termIndices, termCoeff, termRHS for this term
-    // First direction
-    term_ind++;
-#ifdef TRACE
-    printf("\n## Solving first child of parent %d/%d for term %d. ##\n",
-        tmp_ind + 1, disjunction.num_nodes_on_tree, term_ind);
-#endif
-    calcAndFeasFacet[term_ind] = setupDisjunctiveTerm(term_ind, node_id, stats, branching_index, branching_variable,
-        branching_way, branching_value, termIndices[term_ind],
-        termCoeff[term_ind], termRHS[term_ind], vpcsolver, tmpSolverBase);
+      if (!reachedTimeLimit(CglVPC::time_T1 + "TOTAL", params.get(TIMELIMIT))) {
+        timer.start_timer(CglVPC::time_T1 + "TOTAL");
+        timer.start_timer(CglVPC::time_T1 + std::to_string(terms_added));
 
-    // Should we compute a second branch?
-    if (branching_index == 0) {
-      // Other direction
-      branching_way = (stats[node_id].way <= 0) ? 1 : 0;
-      branching_value = (branching_way <= 0) ? branching_value - 1 : branching_value + 1;
-      term_ind++;
-#ifdef TRACE
-      printf("\n## Solving second child of parent %d/%d for term %d. ##\n",
-          tmp_ind + 1, disjunction.num_nodes_on_tree, term_ind);
-#endif
-      calcAndFeasFacet[term_ind] = setupDisjunctiveTerm(term_ind, node_id, stats, branching_index,
-          branching_variable, branching_way, branching_value,
-          termIndices[term_ind], termCoeff[term_ind], termRHS[term_ind],
-          vpcsolver, tmpSolverBase);
-    } /* end second branch computation */
+        // Get cobasis information and PR collection
+        enableFactorization(tmpSolver, probData.EPS);
+        ProblemData tmpData;
+        getProblemData(tmpSolver, tmpData, &probData, false);
+        genDepth1PRCollection(vpcsolver, tmpSolver,
+            probData, tmpData, terms_added);
 
-    if (tmpSolverBase) {
-      delete tmpSolverBase;
+        timer.end_timer(CglVPC::time_T1 + "TOTAL");
+        timer.end_timer(CglVPC::time_T1 + std::to_string(terms_added));
+      }
+    } // compute PR collection if the disj term is feasible
+    if (tmpSolver) {
+      delete tmpSolver;
     }
   } /* end loop over nodes on tree */
 
 #ifdef TRACE
   printf(
       "\nFinished generating cgs from partial BB. Min obj val: Structural: %1.3f, NB: %1.3f.\n",
-      this->branching_lb, this->min_nb_obj_val);
+      this->disj->best_obj, this->disj->best_obj - this->probData.lp_opt);
 #endif
   return ExitReason::SUCCESS_EXIT;
-} /* setupPRLP */
-
-bool CglVPC::setupDisjunctiveTerm(const int term_ind, const int node_id,
-    const std::vector<NodeStatistics>& stats, const int branching_index,
-    const int branching_variable, const int branching_way,
-    const double branching_value, std::vector<std::vector<int> >& termIndices,
-    std::vector<std::vector<double> >& termCoeff, std::vector<double>& termRHS,
-    const SolverInterface* const vpcsolver,
-    const SolverInterface* const tmpSolverBase) {
-  bool calcAndFeasFacet = false; // return value
-
-  const bool set_equal = false;
-//  const int max_num_cgs = 1;
-  const int num_ineq_per_term = 1;  // leaf nodes have one extra changed
-  termIndices.resize(num_ineq_per_term);
-  termCoeff.resize(num_ineq_per_term);
-  termRHS.resize(num_ineq_per_term);
-  for (int i = 0; i < num_ineq_per_term; i++) {
-    termIndices[i].resize(1);
-    termCoeff[i].resize(1);
-    termIndices[i][0] = branching_variable;
-    termCoeff[i][0] = (branching_way <= 0) ? -1. : 1.;
-    termRHS[i] = termCoeff[i][0] * branching_value;
-  }
-  SolverInterface* tmpSolver = dynamic_cast<SolverInterface*>(tmpSolverBase->clone());
-  for (int ineq_ind = 0; ineq_ind < (int) termIndices.size(); ineq_ind++) {
-    const int num_coeff = termIndices[ineq_ind].size();
-    tmpSolver->addRow(num_coeff, termIndices[ineq_ind].data(),
-        termCoeff[ineq_ind].data(), termRHS[ineq_ind],
-        (set_equal) ? termRHS[ineq_ind] : tmpSolver->getInfinity());
-  }
-  if (termIndices.size() > 0)
-    tmpSolver->resolve();
-  enableFactorization(tmpSolver, params.get(doubleParam::EPS)); // this may change the solution slightly
-  calcAndFeasFacet = checkSolverOptimality(tmpSolver, true);
-
-  if (calcAndFeasFacet) {
-    if (params.get(intParam::STRENGTHEN) == 2) { // possibly strengthen
-      // Add Gomory cuts on disjunctive term and resolve
-      OsiCuts GMICs;
-      CglGMI GMIGen;
-      GMIGen.generateCuts(*tmpSolver, GMICs);
-      tmpSolver->applyCuts(GMICs);
-      tmpSolver->resolve();
-      calcAndFeasFacet = checkSolverOptimality(tmpSolver, true);
-    }
-
-    setCgsName(this->disjunction.name, num_ineq_per_term, termIndices, termCoeff, termRHS);
-//    setCgsName(cgsName, curr_num_changed_bounds, commonTermIndices,
-//        commonTermCoeff, commonTermRHS, true);
-    if (stats[node_id].depth + 1 < min_node_depth) {
-      min_node_depth = stats[node_id].depth + 1;
-    }
-    if (stats[node_id].depth + 1 > max_node_depth) {
-      max_node_depth = stats[node_id].depth + 1;
-    }
-
-    // Update strong branching info
-    if (tmpSolver->getObjValue() < this->branching_lb) {
-      this->branching_lb = tmpSolver->getObjValue();
-    }
-    if (tmpSolver->getObjValue() > this->branching_ub) {
-      this->branching_ub = tmpSolver->getObjValue();
-    }
-    double curr_nb_obj_val = tmpSolver->getObjValue() - probData.lp_opt;
-    if (curr_nb_obj_val < this->min_nb_obj_val) {
-      this->min_nb_obj_val = curr_nb_obj_val;
-    }
-
-    timer.register_name(CglVPC::time_T1 + std::to_string(term_ind));
-    timer.register_name(CglVPC::time_T2 + std::to_string(term_ind));
-
-    if (!reachedTimeLimit(CglVPC::time_T1 + "TOTAL", params.get(TIMELIMIT))) {
-      timer.start_timer(CglVPC::time_T1 + "TOTAL");
-      timer.start_timer(CglVPC::time_T1 + std::to_string(term_ind));
-
-      // Get cobasis information and PR collection
-      enableFactorization(tmpSolver, probData.EPS);
-      ProblemData tmpData;
-      getProblemData(tmpSolver, tmpData, &probData, false);
-      genDepth1PRCollection(vpcsolver, tmpSolver,
-          probData, tmpData, term_ind);
-
-      timer.end_timer(CglVPC::time_T1 + "TOTAL");
-      timer.end_timer(CglVPC::time_T1 + std::to_string(term_ind));
-    }
-  } // check if calcAndFeasFacet
-
-  if (tmpSolver) {
-    delete tmpSolver;
-  }
-
-  return calcAndFeasFacet;
-} /* prepareDisjunctiveTerm */
+} /* setupConstraints */
 
 /**
  * IN NON-BASIC SPACE
  * Get Point and Rays from corner polyhedron defined by current optimum at solver
  * Assumed to be optimal already
  */
-void CglVPC::genDepth1PRCollection(const SolverInterface* const vpcsolver,
-    const SolverInterface* const tmpSolver, const ProblemData& origProbData,
+void CglVPC::genDepth1PRCollection(const OsiSolverInterface* const vpcsolver,
+    const OsiSolverInterface* const tmpSolver, const ProblemData& origProbData,
     const ProblemData& tmpProbData, const int term_ind) {
   // Ensure solver is optimal
   if (!tmpSolver->isProvenOptimal()) {
@@ -998,16 +802,12 @@ void CglVPC::genDepth1PRCollection(const SolverInterface* const vpcsolver,
     exit(1);
   }
 
-//  const bool use_cross = (mode == VPCMode::CROSSES);
-//  const bool splitVarDeleted = false;
-
   /***********************************************************************************
    * The first point is simply the first vertex
    ***********************************************************************************/
   // We need to calculate its coefficients in the NB space given in origProbData
   // That is, the NB space defined by v, the solution to the initial LP relaxation
   // *However* we need to work in the complemented NB space, where v is the origin
-  //const double* structSolution = tmpSolver->getColSolution();
   // The point will be stored wrt origProbData cobasis,
   // but the cobasis of the point is given by nonBasicVarIndex
   CoinPackedVector optPoint;
@@ -1023,7 +823,7 @@ void CglVPC::genDepth1PRCollection(const SolverInterface* const vpcsolver,
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }
-  const double beta = params.get(PRLP_BETA) >= 0 ? 1.0 : -1.0;
+  const double beta = params.get(PRLP_FLIP_BETA) >= 0 ? 1.0 : -1.0;
   if (beta > 0 && !isZero(curr_nb_obj_val)) { // check things are still okay after we scale; only applies when beta > 0, as otherwise the obj cut is not valid
     const double activity = curr_nb_obj_val
         / (tmpSolver->getObjValue() - origProbData.lp_opt);
@@ -1044,11 +844,6 @@ void CglVPC::genDepth1PRCollection(const SolverInterface* const vpcsolver,
     }
   }
   prlpData.addConstraint(optPoint, beta, term_ind, curr_nb_obj_val);
-//  interPtsAndRays.addPointOrRayToIntersectionInfo(optPoint, beta, term_ind,
-//      optPoint.getObjViolation());
-//  if (optPoint.getObjViolation() < this->min_nb_obj_val) {
-//    this->min_nb_obj_val = optPoint.getObjViolation();
-//  }
 
   /***********************************************************************************
    * We get the rays corresponding to non-basic variables
@@ -1079,7 +874,6 @@ void CglVPC::genDepth1PRCollection(const SolverInterface* const vpcsolver,
   // then we have it be a_i - s = b_i, so we move everything to the other side.
   // I.e., we negate the *row* of Binv * A.
   // We iterate through each of the rays
-//  std::vector<double> currBInvACol(tmpSolver->getNumRows());
   std::vector<double> currRay(tmpSolver->getNumRows());
   for (int ray_ind = 0; ray_ind < (int) tmpProbData.NBVarIndex.size(); ray_ind++) {
     const int NBVar = tmpProbData.NBVarIndex[ray_ind]; // This is the current ray
@@ -1138,128 +932,92 @@ void CglVPC::genDepth1PRCollection(const SolverInterface* const vpcsolver,
   } // iterate over nonbasic vars
 } /* genDepth1PRCollection */
 
-CglVPC::ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
+ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
     const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs,
     const std::string& timeName) {
   if (reachedTimeLimit(time_T1 + "TOTAL", params.get(TIMELIMIT))) {
     return ExitReason::TIME_LIMIT_EXIT;
   }
+  if (reachedCutLimit(cuts.sizeCuts())) {
+    return ExitReason::CUT_LIMIT_EXIT;
+  }
+
+  // We can scale the rhs for points by min_nb_obj_val
+  const double min_nb_obj_val = this->disj->best_obj - this->probData.lp_opt;
+  const bool useScale = true && !isInfinity(std::abs(min_nb_obj_val));
+  const double scale = (!useScale || lessThanVal(min_nb_obj_val, 1.)) ? 1. : min_nb_obj_val;
+  double beta = params.get(intParam::PRLP_FLIP_BETA) >= 0 ? scale : -1. * scale;
+
+  // Check that we can actually use this disjunction
+  // We reject it if the best term and worst term have the same obj value as the LP opt
+  const bool LP_OPT_IS_NOT_CUT = !greaterThanVal(min_nb_obj_val, 0.0);
+  const bool DLB_EQUALS_DUB = !greaterThanVal(disj->worst_obj, disj->best_obj);
+  const bool flipBeta = params.get(PRLP_FLIP_BETA) > 0; // if the PRLP is infeasible, we will try flipping the beta
+  if (LP_OPT_IS_NOT_CUT) {
+    this->numFails[static_cast<int>(FailureType::DLB_EQUALS_LPOPT_NO_OBJ)]++;
+  }
+  if (DLB_EQUALS_DUB) {
+    this->numFails[static_cast<int>(FailureType::DLB_EQUALS_DUB_NO_OBJ)]++;
+  }
+  if (LP_OPT_IS_NOT_CUT && DLB_EQUALS_DUB && !flipBeta) {
+    return ExitReason::NO_CUTS_LIKELY_EXIT;
+  }
 
 #ifdef TRACE
   printf("\n## CglVPC: Trying objectives. ##\n");
 #endif
+  const int init_num_cuts = this->num_cuts;
+  const int init_num_obj = this->num_obj_tried;
+  int num_failures = 0;
 
-  PRLP* prlp = new PRLP(this);
-  setLPSolverParameters(prlp, params.get(VERBOSITY));
+  if (!LP_OPT_IS_NOT_CUT || !DLB_EQUALS_DUB) {
+    PRLP* prlp = new PRLP(this);
+    setLPSolverParameters(prlp, params.get(VERBOSITY));
+    const bool isCutSolverPrimalFeas = prlp->setup(scale, false);
+  //  printf("# rows: %d\t # cols: %d\n", prlp->getNumRows(), prlp->getNumCols());
+  //  printf("# points: %d\t # rays: %d\n", prlp->numPoints, prlp->numRays);
 
-  // We can scale the rhs for points by min_nb_obj_val
-  const bool useScale = true && !isInfinity(std::abs(this->min_nb_obj_val));
-  const double scale = (!useScale || lessThanVal(this->min_nb_obj_val, 1.)) ? 1. : this->min_nb_obj_val;
-  double beta = params.get(intParam::PRLP_BETA) >= 0 ? scale : -1. * scale;
+    if (isCutSolverPrimalFeas) {
+      prlp->targetStrongAndDifferentCuts(beta, cuts, this->num_cuts,
+          this->num_obj_tried, origSolver, structSICs, timeName,
+          params.get(intConst::NB_SPACE));
+    }
+    num_failures += prlp->num_failures;
 
-//  std::vector<double> ortho;
-  const bool isCutSolverPrimalFeas = prlp->setup(scale, false);
-//  printf("# rows: %d\t # cols: %d\n", prlp->getNumRows(), prlp->getNumCols());
-//  printf("# points: %d\t # rays: %d\n", prlp->numPoints, prlp->numRays);
-
-  int curr_num_cuts = 0;
-  if (isCutSolverPrimalFeas) {
-    curr_num_cuts += prlp->targetStrongAndDifferentCuts(beta, cuts, this->num_cuts,
-        this->num_obj_tried, origSolver, structSICs, timeName,
-        params.get(intConst::NB_SPACE));
+    if (prlp)
+      delete prlp;
   }
 
-//
-//  if (isCutSolverPrimalFeas) {
-//    if (param.getParamVal(ParamIndices::PRLP_STRATEGY_PARAM_IND) == 0) {
-//      tightOnPointsRaysCutGeneration(cutSolver, beta, nonZeroColIndex,
-//          structVPCs, num_cuts_per_cgs, num_cuts_generated, num_obj_tried,
-//          castsolver, probData, cgs_ind, cgsName, structSICs, timeStats,
-//          timeName, inNBSpace);
-//
-//      if (!inNBSpace) {
-//        //genCutsFromPointsRays(cutSolver, beta, structVPCs,
-//        //    num_vpcs_per_split[split_ind], num_cuts_generated, num_obj_tried,
-//        //    dynamic_cast<LiftGICsSolverInterface*>(solver), probData, interPtsAndRays[split_ind],
-//        //    probData.feasSplitVar[split_ind], structSICs);
-//      } else {
-//        // This is in the * complemented * non-basic space,
-//        // so the origin is the solution to the LP relaxation
-//        // Moreover, every cut will have right-hand side 1,
-//        // since we want to separate the origin
-//        genCutsFromPointsRaysNB(cutSolver, beta, nonZeroColIndex, structVPCs,
-//            num_cuts_per_cgs, num_cuts_generated, num_obj_tried, castsolver,
-//            probData, cgs_ind, cgsName, structSICs);
-//      }
-//    } else {
-//      targetStrongAndDifferentCuts(cutSolver, beta, nonZeroColIndex, structVPCs,
-//          num_cuts_per_cgs, num_cuts_generated, num_obj_tried, castsolver,
-//          probData, ortho, cgs_ind, cgsName, structSICs, timeStats, timeName,
-//          inNBSpace);
-//    }
-//  }
-
-//  const bool flipBeta = params.get(PRLP_BETA) > 0; // if the PRLP is infeasible, we will try flipping the beta
-//  if (flipBeta || greaterThanVal(this->branching_ub, this->branching_lb)
-//      || greaterThanVal(this->min_nb_obj_val, 0.)) {
-//    for (int i = 0; i < this->num_cgs; i++) {
-//      this->num_disj_terms += calcAndFeasFacet[i];
-//    }
-//    const int old_num_obj_tried = num_obj_tried;
-//    const int old_num_cuts = cuts.sizeCuts();
-//    const int old_num_primal_infeas =
-//        this->numFails[FailureType::PRIMAL_INFEASIBLE];
-//    int num_generated = 0;
-//
-//    generateVPCsT1(structVPCs, probData, vpcTimeStats, structSICs,
-//        interPtsAndRays, num_vpcs_per_cgs_T1[0], num_generated_vpcsT1, objCut,
-//        calcAndFeasFacet, 0, 0, cgsName[0], max_num_cgs, dim, inNBSpace);
-//
-//    if (num_generated > old_num_cuts) {
-//      num_cgs_actually_used++;
-//      num_cgs_leading_to_cuts++;
-//    } else if ((num_obj_tried > old_num_obj_tried)
-//        && (old_num_primal_infeas == numFails[FailureType::PRIMAL_INFEASIBLE])) {
-//      this->num_cgs_actually_used++;
-//    } else {
-//      // Clear out stuff because this cgs was not used?
-//    }
-//  }
-
-  if (prlp)
-    delete prlp;
+  if (flipBeta) {
+    error_msg(errorstring,
+        "Currently, flipping beta is not implemented. Need to check that within setup, we can correctly switch the rhs.\n");
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
 
 #ifdef TRACE
-  printf("\n## CglVPC: Finished trying objectives. Generated %d cuts. ##\n", curr_num_cuts);
+  printf("\n## CglVPC: Finished trying %d objectives. Generated %d cuts. Total num cuts: %d. ##\n",
+      this->num_obj_tried - init_num_obj, this->num_cuts - init_num_cuts, this->num_cuts);
 #endif
+
+  if (reachedTimeLimit(time_T1 + "TOTAL", params.get(TIMELIMIT))) {
+    return ExitReason::TIME_LIMIT_EXIT;
+  }
+  if (reachedCutLimit(cuts.sizeCuts())) {
+    return ExitReason::CUT_LIMIT_EXIT;
+  }
+  if (reachedFailureLimit(num_cuts - init_num_cuts, num_failures)) {
+    return ExitReason::FAIL_LIMIT_EXIT;
+  }
   return ExitReason::SUCCESS_EXIT;
 } /* tryObjectives */
-
-void CglVPC::addCut(const OsiRowCut& cut, const CutType& type, OsiCuts& cuts) {
-  cuts.insert(cut);
-  cutType.push_back(type);
-  numCutsOfType[static_cast<int>(type)]++;
-  num_cuts++;
-} /* addCut */
 
 /**
  * @brief Universal way to check whether we reached the limit for the number of cuts for each split
  * This allows us to change between restricting number of cuts per split and total number of cuts easily
  */
-int CglVPC::getCutLimit() const {
-  // The cut limit is either across all cut-generating sets
-  // or it is divided among the cut-generating sets (either as the limit / num_cgs, or as a fixed number per cgs)
-  // If CUT_LIMIT = 0 => no cut limit
-  // If CUT_LIMIT > 0 => absolute cut limit
-  // If CUT_LIMIT < 0 => cut limit per cgs
-  if (params.get(intParam::CUTLIMIT) == 0) {
-    return std::numeric_limits<int>::max();
-  } else if (params.get(intParam::CUTLIMIT) > 0) {
-    return params.get(intParam::CUTLIMIT);
-  } else {
-    const int num_cgs = 1; //param.get(NUM_CGS);
-    return (-1. * params.get(intParam::CUTLIMIT) / num_cgs);
-  }
+int CglVPC::getCutLimit(const int numDisj) const {
+  return CglVPC::getCutLimit(params.get(CUTLIMIT), numDisj);
 } /* getCutLimit */
 
 /**

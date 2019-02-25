@@ -11,6 +11,7 @@
 
 // Project files 
 #include "BBHelper.hpp"
+#include "PartialBBDisjunction.hpp"
 #include "SolverHelper.hpp"
 #include "VPCEventHandler.hpp"
 #include "utility.hpp"
@@ -157,19 +158,19 @@ void setCbcParametersForPartialBB(
 /**
  * Generate a partial branch-and-bound tree with at most max_leaf_nodes leaf nodes 
  */
-void generatePartialBBTree(const VPCParameters& params, CbcModel* cbc_model,
+void generatePartialBBTree(PartialBBDisjunction* const owner, CbcModel* cbc_model,
     const OsiSolverInterface* const solver, const int max_leaf_nodes,
     const int num_strong, const int num_before_trusted) {
-  //  double partial_timelimit = 100 * max_leaf_nodes * solver->getNumCols()
+  //  const double partial_timelimit = 100 * max_leaf_nodes * solver->getNumCols()
   //      * GlobalVariables::timeStats.get_time(GlobalConstants::INIT_SOLVE_TIME);
-  const double partial_timelimit = params.get(PARTIAL_BB_TIMELIMIT); // will be checked manually by the eventHandler
+  const double partial_timelimit = owner->params.get(PARTIAL_BB_TIMELIMIT); // will be checked manually by the eventHandler
 
   // Set up options
-  VPCEventHandler* eventHandler = new VPCEventHandler(max_leaf_nodes, partial_timelimit, &params);
+  VPCEventHandler* eventHandler = new VPCEventHandler(owner, max_leaf_nodes, partial_timelimit);
   eventHandler->setOriginalSolver(solver);
 
   // This sets branching decision, event handling, etc.
-  setCbcParametersForPartialBB(params, cbc_model, eventHandler, num_strong,
+  setCbcParametersForPartialBB(owner->params, cbc_model, eventHandler, num_strong,
       num_before_trusted, std::numeric_limits<double>::max());
 
 #ifdef TRACE

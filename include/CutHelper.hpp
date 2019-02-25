@@ -2,12 +2,12 @@
 // Author:   A. M. Kazachkov
 // Date:     2019-Feb-20
 //-----------------------------------------------------------------------------
-
 #pragma once
 
 #include <OsiRowCut.hpp>
 #include <OsiSolverInterface.hpp>
-#include "VPCParameters.hpp"
+
+struct VPCParameters; // defined in VPCParameters.hpp
 
 void setCutFromJSpaceCoefficients(OsiRowCut* const cut,
     const std::vector<int>& nonZeroColIndex,

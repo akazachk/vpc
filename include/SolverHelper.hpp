@@ -30,6 +30,19 @@ void setLPSolverParameters(OsiSolverInterface* const solver,
 #endif
     const double max_time = std::numeric_limits<double>::max());
 
+#ifdef USE_CLP
+/**
+ * We need to be careful with the strong branching options;
+ * sometimes the Clp strong branching fails, such as with arki001, branching down on variable 924
+ */
+void setupClpForStrongBranching(OsiClpSolverInterface* const solver,
+    const int hot_start_iter_limit = std::numeric_limits<int>::max());
+#endif
+
+/** Overload solve from hot start because of issues */
+bool solveFromHotStart(OsiSolverInterface* const solver, const int col,
+    const bool isChangedUB, const double origBound, const double newBound);
+
 /**
  * Checks whether a solver is optimal
  * Something that can go wrong (e.g., bc1 -64 sb5 tmp_ind = 14):
