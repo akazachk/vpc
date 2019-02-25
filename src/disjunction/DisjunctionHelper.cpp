@@ -6,7 +6,6 @@
 
 // Project files
 #include "SolverHelper.hpp"
-#include "CglVPC.hpp" // ExitReason, VPCMode
 #include "TimeStats.hpp"
 #include "utility.hpp"
 #include "VPCParameters.hpp"
@@ -37,15 +36,17 @@
 //} /* generateRoundOfCuts */
 
 ExitReason setDisjunctions(std::vector<Disjunction*>& disjVec,
-    const OsiSolverInterface* const si, const VPCParameters& params) {
-  CglVPC::VPCMode mode = static_cast<CglVPC::VPCMode>(params.get(MODE));
-    if (mode == CglVPC::VPCMode::PARTIAL_BB) {
-      if (params.get(intParam::DISJ_TERMS) < 2) {
-        return ExitReason::NO_DISJUNCTION_EXIT;
-      }
-      PartialBBDisjunction* disj = new PartialBBDisjunction(params);
-      ExitReason status = disj->prepareDisjunction(si);
-      return status;
+    const OsiSolverInterface* const si, const VPCParameters& params,
+    CglVPC::VPCMode mode) {
+//  CglVPC::VPCMode mode = static_cast<CglVPC::VPCMode>(params.get(MODE));
+  if (mode == CglVPC::VPCMode::PARTIAL_BB) {
+    if (params.get(intParam::DISJ_TERMS) < 2) {
+      return ExitReason::NO_DISJUNCTION_EXIT;
+    }
+    PartialBBDisjunction* disj = new PartialBBDisjunction(params);
+    ExitReason status = disj->prepareDisjunction(si);
+    disjVec.push_back(disj);
+    return status;
 //      if (status == ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT) {
 //        warning_msg(warnstr,
 //            "An integer (optimal) solution was found prior while getting disjunction. " "We will generate between n and 2n cuts, restricting the value of each variable.\n");
@@ -69,19 +70,18 @@ ExitReason setDisjunctions(std::vector<Disjunction*>& disjVec,
 //          }
 //        } // iterate over columns and add optimality cut if needed
 //      }
-    } // PARTIAL_BB
-    else if (mode == CglVPC::VPCMode::SPLITS) {
-      if (generateSplitDisjunctions(disjVec, si, params)) {
-        return ExitReason::SUCCESS_EXIT;
-      }
+  } // PARTIAL_BB
+  else if (mode == CglVPC::VPCMode::SPLITS) {
+    if (generateSplitDisjunctions(disjVec, si, params)) {
+      return ExitReason::SUCCESS_EXIT;
     }
-    else {
-      error_msg(errorstring,
-          "Mode that is chosen has not yet been implemented for VPC generation: %s.\n",
-          CglVPC::VPCModeName[static_cast<int>(mode)].c_str());
-      writeErrorToLog(errorstring, params.logfile);
-      exit(1);
-    }
+  } else {
+    error_msg(errorstring,
+        "Mode that is chosen has not yet been implemented for VPC generation: %s.\n",
+        CglVPC::VPCModeName[static_cast<int>(mode)].c_str());
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
   return ExitReason::UNKNOWN;
 } /* setDisjunctions */
 

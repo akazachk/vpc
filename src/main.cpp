@@ -31,6 +31,8 @@
 #include "TimeStats.hpp"
 #include "utility.hpp"
 
+#include "DisjunctionHelper.hpp"
+
 // Main file variables
 VPCParameters params;
 OsiSolverInterface* solver;
@@ -126,7 +128,20 @@ int main(int argc, char** argv) {
     timer.start_timer(OverallTimeStats::GEN_VPC_TIME);
     CglVPC gen(params);
     OsiCuts vpcs;
-    gen.generateCuts(*solver, vpcs); // solution may change slightly due to enable factorization called in getProblemData...
+    if (params.get(MODE) == static_cast<int>(CglVPC::VPCMode::CUSTOM)) {
+      std::vector<Disjunction*> disjVec;
+      gen.timer.start_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
+      ExitReason exitReason = setDisjunctions(disjVec, solver, params, CglVPC::VPCMode::PARTIAL_BB);
+      gen.timer.end_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
+      if (exitReason == ExitReason::SUCCESS_EXIT) {
+        for (Disjunction* disj : disjVec) {
+          gen.disj = disj;
+          gen.generateCuts(*solver, vpcs); // solution may change slightly due to enable factorization called in getProblemData...
+        }
+      }
+    } else {
+      gen.generateCuts(*solver, vpcs); // solution may change slightly due to enable factorization called in getProblemData...
+    }
     timer.end_timer(OverallTimeStats::GEN_VPC_TIME);
 
     printf(

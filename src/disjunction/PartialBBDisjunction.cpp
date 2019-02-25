@@ -76,11 +76,11 @@ void PartialBBDisjunction::setupAsNew() {
 ExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface* const si) {
   // Reset things in case we are reusing the class for some reason
   setupAsNew();
-  if (!timer) {
-    error_msg(errorstring, "Timer is not set.\n");
-    writeErrorToLog(errorstring, params.logfile);
-    exit(1);
-  }
+//  if (!timer) {
+//    error_msg(errorstring, "Timer is not set.\n");
+//    writeErrorToLog(errorstring, params.logfile);
+//    exit(1);
+//  }
   if (this->params.get(intParam::DISJ_TERMS) < 2) {
     return ExitReason::NO_DISJUNCTION_EXIT;
   }
