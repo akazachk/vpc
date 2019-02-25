@@ -32,7 +32,7 @@
 
 /********** PARAMETERS **********/
 enum intParam {
-  CUTLIMIT, // max number of cuts generated; 0 = no limit
+  CUTLIMIT, // max number of cuts generated; 0 = no limit, -k = k * # fractional variables at root
   DISJ_TERMS, // number of disjunctive terms or number of disjunctions, depending on MODE
   MODE, // 0: partial b&b tree, 1: splits, 2: crosses (not implemented), 3: custom
   // PARTIAL_BB_STRATEGY:
@@ -174,7 +174,7 @@ struct VPCParameters {
 
   // Mutable parameters (of int, double, and string types)
   std::map<intParam, int> intParamValues {
-    {intParam::CUTLIMIT, 0}, // 0 = limit is set as number of fractional integer variables at root
+    {intParam::CUTLIMIT, -1}, // -1 = limit is set as number of fractional integer variables at root
     {intParam::DISJ_TERMS, 0}, // no disjunction (=> no cuts)
     {intParam::MODE, 0}, // disjunction from a partial b&b tree
     {intParam::PARTIAL_BB_STRATEGY, 4}, // 004 => default var & branch decisions, and choose next node by min objective
