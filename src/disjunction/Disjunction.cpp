@@ -31,7 +31,7 @@ Disjunction& Disjunction::operator=(const Disjunction& source) {
   return *this;
 } /* assignment operator */
 
-/** Set up the disjunction class as new */
+/** Set up the disjunction class as new (except the timer pointer) */
 void Disjunction::setupAsNew() {
   this->name = "";
   this->best_obj = std::numeric_limits<double>::max();
@@ -46,13 +46,6 @@ void Disjunction::setupAsNew() {
   this->terms.resize(0);
 } /* setupAsNew */
 
-ExitReason Disjunction::setBases(const OsiSolverInterface* const si,
-    std::vector<int>& changed_var, std::vector<int>& changed_bound,
-    std::vector<double>& changed_value) {
-  ExitReason retval = ExitReason::UNKNOWN;
-  return retval;
-} /* setBases */
-
 /****************** PROTECTED **********************/
 void Disjunction::initialize(const Disjunction* const source) {
   if (source != NULL) {
@@ -62,12 +55,14 @@ void Disjunction::initialize(const Disjunction* const source) {
     this->min_nb_obj_val = source->min_nb_obj_val;
     this->integer_obj = source->integer_obj;
     this->integer_sol = source->integer_sol;
+    this->timer = source->timer;
     this->common_changed_bound = source->common_changed_bound;
     this->common_changed_value = source->common_changed_value;
     this->common_changed_var = source->common_changed_var;
     this->num_terms = source->num_terms;
     this->terms = source->terms;
   } else {
+    this->timer = NULL;
     setupAsNew();
   }
 } /* initialize */

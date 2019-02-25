@@ -5,8 +5,8 @@
 #pragma once
 
 /**********************************************/
-/*  Generic abstract Disjunction class from   */
-/*  which a point-ray collection can be       */
+/*  Generic abstract Disjunction class        */
+/*  from which a point-ray collection can be  */
 /*  constructed and VPCs can be generated     */
 /**********************************************/
 
@@ -17,9 +17,13 @@
 #include <OsiSolverInterface.hpp>
 
 // Project files
+#include "TimeStats.hpp"
+
+// Project files
 enum class ExitReason; // defined in CglVPC.hpp, which is included in the source file
 
 /**
+ * Struct DisjunctiveTerm
  * Each disjunctive term is specified by a basis
  * as well as which bounds are changed to arrive at that term
  * (not counting the changed values at the root node that are common to all nodes)
@@ -32,17 +36,20 @@ struct DisjunctiveTerm {
   std::vector<double> changed_value;
 };
 
-// Abstract class
+/**
+ * Abstract Class Disjunction
+ */
 class Disjunction {
 public:
   friend class CglVPC;
   std::string name;
-  double best_obj, worst_obj;
-  double min_nb_obj_val;
-  double integer_obj; // value of term with best and worst objective, and integer obj (if found)
+  double best_obj, worst_obj; // value of term with best and worst objective
+  double min_nb_obj_val; // value of best nonbasic objective (simply best_obj - initial_lp_obj)
+  double integer_obj;  // value of best integer-feasible solution
   std::vector<double> integer_sol; // integer-feasible solution
+  TimeStats* timer;
 
-  // Save changed variable bounds at root node
+  // Save changed variable bounds at root node (bound <= 0 is LB, bound = 1 is UB)
   std::vector<int> common_changed_var;
   std::vector<int> common_changed_bound;
   std::vector<double> common_changed_value;
@@ -68,10 +75,6 @@ public:
 
   /** For clearing things and setting up the disjunction as new */
   virtual void setupAsNew();
-
-  ExitReason setBases(const OsiSolverInterface* const si,
-      std::vector<int>& changed_var, std::vector<int>& changed_bound,
-      std::vector<double>& changed_value);
 
   /** Get disjunction */
   virtual ExitReason prepareDisjunction(OsiSolverInterface* const si) = 0;

@@ -906,7 +906,7 @@ bool VPCEventHandler::setupDisjunctiveTerm(const int node_id,
     term.changed_var = stats_[orig_node_id].changed_var;
     term.changed_var.push_back(branching_variable);
     term.changed_bound = stats_[orig_node_id].changed_bound;
-    term.changed_bound.push_back(branching_way == 1 ? -1 : 1);
+    term.changed_bound.push_back(branching_way == 1 ? 0 : 1);
     term.changed_value = stats_[orig_node_id].changed_value;
     term.changed_value.push_back(branching_value);
     owner->terms.push_back(term);
@@ -943,7 +943,6 @@ void VPCEventHandler::saveInformation() {
   }
 
   owner->terms.reserve(2 * numNodesOnTree_);
-//  bases_.reserve(2 * numNodesOnTree_);
 
   // Set up original basis including bounds changed at root
   CoinWarmStartBasis* original_basis = dynamic_cast<CoinWarmStartBasis*>(originalSolver_->getWarmStart());
@@ -1084,18 +1083,6 @@ void VPCEventHandler::saveInformation() {
       delete tmpSolverBase;
   } // loop over num nodes on tree // DONE
 
-//  bases_.resize(numNodesOnTree_);
-//  CoinWarmStartBasis* tmp = dynamic_cast<CoinWarmStartBasis*>(originalSolver_->getWarmStart());
-//  for (int i = 0; i < numNodesOnTree_; i++) {
-//    bases_[i] = dynamic_cast<CoinWarmStartBasis*>(tmp->clone());
-//    CbcNode* node = model_->tree()->nodePointer(i);
-//    CbcNodeInfo* nodeInfo = node->nodeInfo();
-//    nodeInfo->buildRowBasis(*bases_[i]);
-//    finalNodeIndices_.push_back(stats_[nodeInfo->nodeNumber()].id);
-//  }
-//  if (tmp) {
-//    delete tmp;
-//  }
   if (original_basis) {
     delete original_basis;
   }

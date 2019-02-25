@@ -45,7 +45,7 @@ USE_CPLEX=0
 EXECUTABLE_STUB = vpc
 SRC_DIR = src
 SOURCES = main.cpp
-DIR_LIST = ${SRC_DIR} ${SRC_DIR}/branch ${SRC_DIR}/cut ${SRC_DIR}/utility
+DIR_LIST = $(SRC_DIR) $(SRC_DIR)/branch $(SRC_DIR)/cut $(SRC_DIR)/disjunction $(SRC_DIR)/utility
 
 SOURCES += \
 		branch/BBHelper.cpp \
@@ -58,9 +58,10 @@ SOURCES += \
 		branch/VPCEventHandler.cpp \
 		cut/CglVPC.cpp \
 		cut/CutHelper.cpp \
-    cut/Disjunction.cpp \
-    cut/PartialBBDisjunction.cpp \
-    cut/PRLP.cpp
+    cut/PRLP.cpp \
+    disjunction/Disjunction.cpp \
+    disjunction/PartialBBDisjunction.cpp \
+    disjunction/SplitDisjunction.cpp
 
 ### Set build values based on user variables ###
 ifeq ($(BUILD_CONFIG),debug)

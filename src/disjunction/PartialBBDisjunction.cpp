@@ -19,15 +19,18 @@
 #endif
 
 /****************** PUBLIC  **********************/
+/** Handle parameters */
+PartialBBDisjunction::PartialBBDisjunction(const VPCParameters& param) {
+  initialize(NULL, &param);
+} /* param constructor */
+void PartialBBDisjunction::setParams(const VPCParameters& param) {
+  this->params = param;
+} /* setParams */
+
 /** Default constructor */
 PartialBBDisjunction::PartialBBDisjunction() {
   initialize();
 } /* default constructor */
-
-/** Param constructor */
-PartialBBDisjunction::PartialBBDisjunction(const VPCParameters& param) {
-  initialize(NULL, &param);
-} /* param constructor */
 
 /** Copy constructor */
 PartialBBDisjunction::PartialBBDisjunction(const PartialBBDisjunction& source) : Disjunction(source) {
@@ -51,7 +54,7 @@ PartialBBDisjunction* PartialBBDisjunction::clone() const {
   return new PartialBBDisjunction(*this);
 } /* clone */
 
-/** Set up the disjunction class as new (but do not change the timer pointer) */
+/** Set up the disjunction class as new (except the timer pointer, and do not reset params) */
 void PartialBBDisjunction::setupAsNew() {
   Disjunction::setupAsNew();
   this->data.num_nodes_on_tree = 0;
@@ -65,11 +68,6 @@ void PartialBBDisjunction::setupAsNew() {
   //    this->data.node_id.resize(0);
 } /* setupAsNew */
 
-/** setParams */
-void PartialBBDisjunction::setParams(const VPCParameters& param) {
-  this->params = param;
-} /* setParams */
-
 /**
  * @brief Prepare a new disjunction
  *
@@ -78,13 +76,11 @@ void PartialBBDisjunction::setParams(const VPCParameters& param) {
 ExitReason PartialBBDisjunction::prepareDisjunction(OsiSolverInterface* const si) {
   // Reset things in case we are reusing the class for some reason
   setupAsNew();
-
   if (!timer) {
     error_msg(errorstring, "Timer is not set.\n");
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }
-//  ExitReason retval = ExitReason::UNKNOWN;
   if (this->params.get(intParam::DISJ_TERMS) < 2) {
     return ExitReason::NO_DISJUNCTION_EXIT;
   }
@@ -197,18 +193,16 @@ ExitReason PartialBBDisjunction::prepareDisjunction(OsiSolverInterface* const si
 /****************** PROTECTED **********************/
 void PartialBBDisjunction::initialize(const PartialBBDisjunction* const source,
     const VPCParameters* const params) {
-  Disjunction::initialize(source);
   if (params != NULL) {
     setParams(*params);
   }
   if (source) {
+    Disjunction::initialize(source);
     if (!params) {
       setParams(source->params);
     }
-    this->timer = source->timer;
     this->data = source->data;
   } else {
-    this->timer = NULL;
     setupAsNew();
   }
 } /* initialize */

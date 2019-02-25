@@ -154,7 +154,7 @@ void processArgs(int argc, char** argv) {
   // has_arg: 0,1,2 for none, required, or optional
   // *flag: how results are returned; if NULL, getopt_long() returns val (e.g., can be the equivalent short option character), and o/w getopt_long() returns 0, and flag points to a var which is set to val if the option is found, but left unchanged if the option is not found
   // val: value to return, or to load into the variable pointed to by flag
-  const char* const short_opts = "c:d:f:hl:o:r:R:s:S:t:T:v:";
+  const char* const short_opts = "c:d:f:hl:m:o:r:R:s:S:t:T:v:";
   const struct option long_opts[] =
   {
     {"cutlimit", required_argument, 0, 'c'},
@@ -162,6 +162,7 @@ void processArgs(int argc, char** argv) {
     {"file", required_argument, 0, 'f'},
     {"help", no_argument, 0, 'h'},
     {"logfile", required_argument, 0, 'l'},
+    {"mode", required_argument, 0, 'm'},
     {"optfile", required_argument, 0, 'o'},
     {"partial_bb_strategy", required_argument, 0, 's'},
     {"partial_bb_num_strong", required_argument, 0, 'S'},
@@ -211,6 +212,16 @@ void processArgs(int argc, char** argv) {
                   params.set(stringParam::LOGFILE, optarg);
                   break;
                 }
+      case 'm': {
+                 int val;
+                 intParam param = intParam::MODE;
+                 if (!parseInt(optarg, val)) {
+                   error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                   exit(1);
+                 }
+                 params.set(param, val);
+                 break;
+               }
       case 'o': {
                   params.set(stringParam::OPTFILE, optarg);
                   break;
@@ -361,7 +372,8 @@ void processArgs(int argc, char** argv) {
 								helpstring += "-v level, --verbosity=level\n\tVerbosity level (0: print little, 1: let solver output be visible).\n";
 								helpstring += "\n# General VPC options #\n";
 								helpstring += "-c num cuts, --cutlimit=num cuts\n\tMaximum number of cuts to generate (0 = # fractional variables at root).\n";
-								helpstring += "-d num terms, --disj_terms=num terms\n\tMaximum number of disjunctive terms to generate.\n";
+								helpstring += "-d num terms, --disj_terms=num terms\n\tMaximum number of disjunctive terms or disjunctions to generate (depending on mode).\n";
+								helpstring += "-m mode, --mode=mode\n\tMode for generating disjunction(s). 0: partial b&b tree, 1: splits, 2: crosses (not implemented), 3: custom.\n";
 								helpstring += "-R num seconds, --prlp_timelimit=num seconds\n\tNumber of seconds allotted for solving the PRLP.\n";
 								helpstring += "-r num rounds, --rounds=num rounds\n\tNumber of rounds of cuts to apply.\n";
 								helpstring += "-t num seconds, --timelimit=num seconds\n\tTotal number of seconds allotted for cut generation.\n";

@@ -14,18 +14,27 @@
 
 // Project files
 #include "BBHelper.hpp"
-#include "PartialBBDisjunction.hpp"
-#include "Disjunction.hpp"
 #include "VPCEventHandler.hpp"
 #include "PRLP.hpp"
 #include "SolverHelper.hpp"
 #include "nbspace.hpp"
 #include "utility.hpp"
 
+// Various pre-built disjunction options
+#include "Disjunction.hpp"
+#include "PartialBBDisjunction.hpp"
+#include "SplitDisjunction.hpp"
+
 #ifdef TRACE
 #include "debug.hpp"
 #endif
 
+const std::vector<std::string> CglVPC::VPCModeName {
+  "PARTIAL_BB",
+  "SPLITS",
+  "CROSSES",
+  "CUSTOM"
+}; /* VPCModeName */
 const std::vector<std::string> CglVPC::VPCTimeStatsName {
   "TOTAL_TIME",
   "INIT_SOLVE_TIME",
@@ -115,21 +124,47 @@ void CglVPC::setParams(const VPCParameters& param) {
  * @brief Generate VPCs from a partial branch-and-bound tree
  */
 void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const CglTreeInfo info) {
-  printf("\n## Starting VPC generation from partial branch-and-bound tree with up to %d disjunctive terms. ##\n", params.get(intParam::DISJ_TERMS));
   ExitReason status = ExitReason::UNKNOWN;
-  if (params.get(intParam::DISJ_TERMS) <= 1) {
+  if (params.get(intParam::DISJ_TERMS) == 0) {
     status = ExitReason::NO_DISJUNCTION_EXIT;
     finish(status);
     return;
   }
-
-  timer.start_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
   if (reachedTimeLimit(VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)],
       params.get(TIMELIMIT))) {
     status = ExitReason::TIME_LIMIT_EXIT;
     finish(status);
     return;
   }
+
+  mode = static_cast<VPCMode>(params.get(MODE));
+  if (mode == VPCMode::PARTIAL_BB) {
+    if (params.get(intParam::DISJ_TERMS) < 2) {
+      status = ExitReason::NO_DISJUNCTION_EXIT;
+      finish(status);
+      return;
+    }
+    printf("\n## Starting VPC generation from partial branch-and-bound tree with up to %d disjunctive terms. ##\n", params.get(intParam::DISJ_TERMS));
+    disj = new PartialBBDisjunction(this->params);
+  }
+  else if (mode == VPCMode::SPLITS) {
+    disj = new SplitDisjunction(this->params);
+  }
+  else if (mode == VPCMode::CUSTOM) {
+    if (!disj) {
+      error_msg(errorstring, "Mode chosen is CUSTOM but no disjunction is set.\n");
+      writeErrorToLog(errorstring, params.logfile);
+      exit(1);
+    }
+  }
+  else {
+    error_msg(errorstring,
+        "Mode that is chosen has not yet been implemented for VPC generation: %s.\n",
+        VPCModeName[static_cast<int>(mode)].c_str());
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
+  disj->timer = &timer;
 
   // Solver can't be const because custom enableFactorization function might do initialSolve or resolve
   SolverInterface* solver;
@@ -167,8 +202,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   }
 
   // Get disjunctive terms and obtain their optimal bases
-  disj = new PartialBBDisjunction(this->params);
-  disj->timer = &timer;
+  timer.start_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
   status = disj->prepareDisjunction(solver);
   if (status == ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT) {
     warning_msg(warnstr,
@@ -471,8 +505,8 @@ ExitReason CglVPC::setupConstraints(const SolverInterface* const si, OsiCuts& cu
   } // account for bounds changed at root
 #ifdef TRACE
   printf(
-      "\n## Total number changed bounds: %d. Number fixed: %d. Number fixed in course of BB: %d. ##\n",
-      num_changed_bounds, num_fixed, this->disj->data.num_fixed_vars);
+      "\n## Total number changed bounds: %d. Number fixed: %d. ##\n",
+      num_changed_bounds, num_fixed);
 #endif
 
   if (num_changed_bounds + num_fixed > 0) {
@@ -714,83 +748,6 @@ ExitReason CglVPC::setupConstraints(const SolverInterface* const si, OsiCuts& cu
 #endif
   return ExitReason::SUCCESS_EXIT;
 } /* setupConstraints */
-//
-//bool CglVPC::setupDisjunctiveTerm(const int term_ind, const int branching_index,
-//    const int branching_variable, const int branching_way,
-//    const double branching_value, std::vector<std::vector<int> >& termIndices,
-//    std::vector<std::vector<double> >& termCoeff, std::vector<double>& termRHS,
-//    const SolverInterface* const vpcsolver,
-//    const SolverInterface* const tmpSolverBase) {
-//  bool calcAndFeasTerm = false; // return value
-//
-//  const bool set_equal = false;
-////  const int max_num_cgs = 1;
-//  const int num_ineq_per_term = 1;  // leaf nodes have one extra changed
-//  termIndices.resize(num_ineq_per_term);
-//  termCoeff.resize(num_ineq_per_term);
-//  termRHS.resize(num_ineq_per_term);
-//  for (int i = 0; i < num_ineq_per_term; i++) {
-//    termIndices[i].resize(1);
-//    termCoeff[i].resize(1);
-//    termIndices[i][0] = branching_variable;
-//    termCoeff[i][0] = (branching_way <= 0) ? -1. : 1.;
-//    termRHS[i] = termCoeff[i][0] * branching_value;
-//  }
-//  SolverInterface* tmpSolver = dynamic_cast<SolverInterface*>(tmpSolverBase->clone());
-//  for (int ineq_ind = 0; ineq_ind < (int) termIndices.size(); ineq_ind++) {
-//    const int num_coeff = termIndices[ineq_ind].size();
-//    tmpSolver->addRow(num_coeff, termIndices[ineq_ind].data(),
-//        termCoeff[ineq_ind].data(), termRHS[ineq_ind],
-//        (set_equal) ? termRHS[ineq_ind] : tmpSolver->getInfinity());
-//  }
-//  if (termIndices.size() > 0)
-//    tmpSolver->resolve();
-//  enableFactorization(tmpSolver, params.get(doubleParam::EPS)); // this may change the solution slightly
-//  calcAndFeasTerm = checkSolverOptimality(tmpSolver, true);
-//
-//  if (calcAndFeasTerm && params.get(intParam::STRENGTHEN) == 2) { // possibly strengthen
-//    // Add Gomory cuts on disjunctive term and resolve
-//    OsiCuts GMICs;
-//    CglGMI GMIGen;
-//    GMIGen.generateCuts(*tmpSolver, GMICs);
-//    tmpSolver->applyCuts(GMICs);
-//    tmpSolver->resolve();
-//    calcAndFeasTerm = checkSolverOptimality(tmpSolver, true);
-//  }
-//
-//  if (calcAndFeasTerm) {
-//    // Update disjunctive bound info
-//    // This is here rather than in the Disjunction class,
-//    // because it is unclear whether, in that class,
-//    // the user computes with the variables changed at the root
-//    this->disj->updateObjValue(tmpSolver->getObjValue());
-//    this->disj->updateNBObjValue(tmpSolver->getObjValue() - vpcsolver->getObjValue());
-//
-//    timer.register_name(CglVPC::time_T1 + std::to_string(term_ind));
-//    timer.register_name(CglVPC::time_T2 + std::to_string(term_ind));
-//
-//    if (!reachedTimeLimit(CglVPC::time_T1 + "TOTAL", params.get(TIMELIMIT))) {
-//      timer.start_timer(CglVPC::time_T1 + "TOTAL");
-//      timer.start_timer(CglVPC::time_T1 + std::to_string(term_ind));
-//
-//      // Get cobasis information and PR collection
-//      enableFactorization(tmpSolver, probData.EPS);
-//      ProblemData tmpData;
-//      getProblemData(tmpSolver, tmpData, &probData, false);
-//      genDepth1PRCollection(vpcsolver, tmpSolver,
-//          probData, tmpData, term_ind);
-//
-//      timer.end_timer(CglVPC::time_T1 + "TOTAL");
-//      timer.end_timer(CglVPC::time_T1 + std::to_string(term_ind));
-//    }
-//  } // compute PR collection if the disj term is feasible
-//
-//  if (tmpSolver) {
-//    delete tmpSolver;
-//  }
-//
-//  return calcAndFeasTerm;
-//} /* setupDisjunctiveTerm */
 
 /**
  * IN NON-BASIC SPACE
@@ -806,9 +763,6 @@ void CglVPC::genDepth1PRCollection(const SolverInterface* const vpcsolver,
     writeErrorToLog(errstr, params.logfile);
     exit(1);
   }
-
-//  const bool use_cross = (mode == VPCMode::CROSSES);
-//  const bool splitVarDeleted = false;
 
   /***********************************************************************************
    * The first point is simply the first vertex

@@ -33,7 +33,8 @@
 /********** PARAMETERS **********/
 enum intParam {
   CUTLIMIT, // max number of cuts generated; 0 = no limit
-  DISJ_TERMS,
+  DISJ_TERMS, // number of disjunctive terms or number of disjunctions, depending on MODE
+  MODE, // 0: partial b&b tree, 1: splits, 2: crosses (not implemented), 3: custom
   // PARTIAL_BB_STRATEGY:
   // Total used to decide the choose:
   // variable decision => hundreds digit: 0: default, 1: default+second criterion, 2: max min change+second (max max change), 3: second-best default, 4: second-best max-min change, -x: -1 * (1+x);
@@ -59,6 +60,7 @@ enum intParam {
 const std::vector<std::string> intParamName {
   "CUTLIMIT",
   "DISJ_TERMS",
+  "MODE",
   "PARTIAL_BB_STRATEGY",
   "PARTIAL_BB_NUM_STRONG",
   "PRLP_BETA",
@@ -174,6 +176,7 @@ struct VPCParameters {
   std::map<intParam, int> intParamValues {
     {intParam::CUTLIMIT, 0}, // 0 = limit is set as number of fractional integer variables at root
     {intParam::DISJ_TERMS, 0}, // no disjunction (=> no cuts)
+    {intParam::MODE, 0}, // disjunction from a partial b&b tree
     {intParam::PARTIAL_BB_STRATEGY, 4}, // 004 => default var & branch decisions, and choose next node by min objective
     {intParam::PARTIAL_BB_NUM_STRONG, 5}, // consider 5 strong branching candidates
     {intParam::PRLP_BETA, 1}, // cut away the LP optimum

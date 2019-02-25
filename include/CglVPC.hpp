@@ -12,12 +12,10 @@
 #include <CglCutGenerator.hpp>
 
 // Project files
-#include "VPCEventHandler.hpp"
 #include "VPCParameters.hpp" // SolverInterface and VPCParameters
 #include "TimeStats.hpp"
 
 class Disjunction; // include is in source file
-class PartialBBDisjunction;
 
 enum class ExitReason {
   SUCCESS_EXIT = 0,
@@ -50,6 +48,7 @@ public:
     PARTIAL_BB,
     SPLITS,
     CROSSES,
+    CUSTOM,
     NUM_VPC_MODES
   };
 
@@ -108,6 +107,7 @@ public:
   }; /* FailureType */
 
   // Static variables
+  static const std::vector<std::string> VPCModeName;
   static const std::vector<std::string> VPCTimeStatsName;
   static const std::vector<std::string> CutTypeName;
   static const std::vector<std::string> CutHeuristicsName;
@@ -118,8 +118,7 @@ public:
   // Class variables
   VPCParameters params;
   VPCMode mode;
-//  Disjunction* disj;
-  PartialBBDisjunction* disj;
+  Disjunction* disj;
   ExitReason exitReason;
   TimeStats timer;
 
@@ -198,15 +197,7 @@ protected:
       const ProblemData* const origProbData = NULL,
       const bool enable_factorization = true);
 
-//  ExitReason prepareDisjunction(SolverInterface* const solver, OsiCuts& cuts);
-
   ExitReason setupConstraints(const SolverInterface* const si, OsiCuts& cuts);
-//  bool setupDisjunctiveTerm(const int term_ind, const int branching_index,
-//      const int branching_variable, const int branching_way,
-//      const double branching_value, std::vector<std::vector<int> >& termIndices,
-//      std::vector<std::vector<double> >& termCoeff,
-//      std::vector<double>& termRHS, const SolverInterface* const vpcsolver,
-//      const SolverInterface* const tmpSolverBase);
   void genDepth1PRCollection(const SolverInterface* const vpcsolver,
       const SolverInterface* const tmpSolver, const ProblemData& origProbData,
       const ProblemData& tmpProbData, const int term_ind);
@@ -219,14 +210,10 @@ protected:
   int getCutLimit() const;
   inline bool reachedCutLimit(const int num_cuts) const {
     const bool reached_limit = (num_cuts >= getCutLimit());
-//    if (reached_limit)
-//      exitReason = ExitReason::CUT_LIMIT_EXIT;
     return reached_limit;
   } /* reachedCutLimit */
   inline bool reachedTimeLimit(const std::string& timeName, const double max_time) const {
     const bool reached_limit = (timer.get_total_time(timeName) > max_time);
-//    if (reached_limit)
-//      exitReason = ExitReason::TIME_LIMIT_EXIT;
     return reached_limit;
   } /* reachedTimeLimit */
 //  inline bool reachedTimelimit(const std::chrono::time_point<std::chrono::high_resolution_clock>& start_chrono) const {
@@ -237,7 +224,6 @@ protected:
 //    return reached_limit;
 //  }
   bool reachedFailureLimit(const int num_cuts, const int num_fails,
-//      const double time,
       const double few_cuts_fail_threshold = 0.95,
       const double many_cuts_fail_threshold = 0.90,
       const double many_obj_fail_threshold = 0.80,

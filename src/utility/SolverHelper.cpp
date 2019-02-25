@@ -37,7 +37,43 @@ void setLPSolverParameters(OsiSolverInterface* const solver,
 #endif
   // Try turning on scaling with enableFactorization
 //  solver->setSpecialOptions(solver->specialOptions() | 512);
-} /* setLPSolverParameters (OsiClp) */
+} /* setLPSolverParameters */
+
+#ifdef USE_CLP
+/**
+ * We need to be careful with the strong branching options;
+ * sometimes the Clp strong branching fails, such as with arki001, branching down on variable 924
+ */
+void setupClpForStrongBranching(OsiClpSolverInterface* const solver, const int hot_start_iter_limit) {
+  solver->setIntParam(OsiMaxNumIterationHotStart, hot_start_iter_limit);
+  solver->setSpecialOptions(16); // use standard strong branching rather than clp's
+} /* setupClpForStrongBranching */
+#endif
+
+/** Overload solve from hot start because of issues */
+bool solveFromHotStart(OsiSolverInterface* const solver, const int col,
+    const bool isChangedUB, const double origBound, const double newBound) {
+  solver->solveFromHotStart();
+  if (solver->isIterationLimitReached()) {
+    // This sometimes happens, e.g., with arki001
+    solver->unmarkHotStart();
+    solver->resolve();
+    if (isChangedUB) {
+      solver->setColUpper(col, origBound);
+    } else {
+      solver->setColLower(col, origBound);
+    }
+    solver->resolve();
+    solver->markHotStart();
+    if (isChangedUB) {
+      solver->setColUpper(col, newBound);
+    } else {
+      solver->setColLower(col, newBound);
+    }
+    solver->solveFromHotStart();
+  }
+  return (solver->isProvenOptimal());
+} /* solveFromHotStart overload */
 
 /**
  * @brief Checks whether a solver is optimal
