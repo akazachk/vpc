@@ -231,7 +231,7 @@ protected:
 
   inline void finish(ExitReason exitReason = ExitReason::UNKNOWN) {
     this->exitReason = exitReason;
-    this->timer.end_all();
+    this->timer.end_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
 #ifdef TRACE
     printf("CglVPC: Finishing with exit reason: %s. Number cuts: %d.\n", ExitReasonName[static_cast<int>(exitReason)].c_str(), num_cuts);
 #endif

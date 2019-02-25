@@ -77,7 +77,7 @@ public:
   virtual void setupAsNew();
 
   /** Get disjunction */
-  virtual ExitReason prepareDisjunction(OsiSolverInterface* const si) = 0;
+  virtual ExitReason prepareDisjunction(const OsiSolverInterface* const si) = 0;
 
   /** Set/update name of cut generating set (disjunction) */
   inline static void setCgsName(std::string& cgsName, const std::string& disjTermName) {

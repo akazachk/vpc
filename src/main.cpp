@@ -24,9 +24,9 @@
 //#include <OsiCuts.hpp>
 
 // Project files
-#include "PartialBBDisjunction.hpp" // needed to access disjunction properties
-#include "CglVPC.hpp" // defines SolverInterface
-#include "SolverHelper.hpp"
+#include "CglVPC.hpp"
+#include "Disjunction.hpp" // needed to access disjunction properties
+#include "SolverHelper.hpp" // defines SolverInterface
 #include "VPCParameters.hpp"
 #include "TimeStats.hpp"
 #include "utility.hpp"
@@ -34,7 +34,6 @@
 // Main file variables
 VPCParameters params;
 OsiSolverInterface* solver;
-//ExitReason exitReason = ExitReason::UNKNOWN;
 std::string instname;
 
 enum OverallTimeStats {

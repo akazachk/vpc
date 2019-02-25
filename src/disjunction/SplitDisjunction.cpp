@@ -67,7 +67,7 @@ void SplitDisjunction::setupAsNew() {
  *
  * This will throw away all the information from the old disjunction, except it will not reset the timer
  */
-ExitReason SplitDisjunction::prepareDisjunction(OsiSolverInterface* const si) {
+ExitReason SplitDisjunction::prepareDisjunction(const OsiSolverInterface* const si) {
   // Reset things in case we are reusing the class for some reason
   setupAsNew();
   if (!timer) {

@@ -40,7 +40,7 @@ public:
   virtual void setupAsNew();
 
   /** Get disjunction */
-  virtual ExitReason prepareDisjunction(OsiSolverInterface* const si);
+  virtual ExitReason prepareDisjunction(const OsiSolverInterface* const si);
 protected:
   void initialize(const SplitDisjunction* const source = NULL, const VPCParameters* const params = NULL);
   void addTerm(const int branching_variable, 

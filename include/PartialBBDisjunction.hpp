@@ -48,7 +48,7 @@ public:
   virtual void setupAsNew();
 
   /** Get disjunction */
-  virtual ExitReason prepareDisjunction(OsiSolverInterface* const si);
+  virtual ExitReason prepareDisjunction(const OsiSolverInterface* const si);
 protected:
   void initialize(const PartialBBDisjunction* const source = NULL, const VPCParameters* const params = NULL);
 }; /* PartialBBDisjunction */

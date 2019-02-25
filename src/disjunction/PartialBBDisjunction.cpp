@@ -73,7 +73,7 @@ void PartialBBDisjunction::setupAsNew() {
  *
  * This will throw away all the information from the old disjunction, except it will not reset the timer
  */
-ExitReason PartialBBDisjunction::prepareDisjunction(OsiSolverInterface* const si) {
+ExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface* const si) {
   // Reset things in case we are reusing the class for some reason
   setupAsNew();
   if (!timer) {

@@ -146,9 +146,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     }
     printf("\n## Starting VPC generation from partial branch-and-bound tree with up to %d disjunctive terms. ##\n", params.get(intParam::DISJ_TERMS));
     disj = new PartialBBDisjunction(this->params);
-  }
-  else if (mode == VPCMode::SPLITS) {
-    disj = new SplitDisjunction(this->params);
+    disj->timer = &timer;
   }
   else if (mode == VPCMode::CUSTOM) {
     if (!disj) {
@@ -164,7 +162,6 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }
-  disj->timer = &timer;
 
   // Solver can't be const because custom enableFactorization function might do initialSolve or resolve
   SolverInterface* solver;
@@ -189,50 +186,56 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     params.set(CUTLIMIT, std::numeric_limits<int>::max());
   }
 
-  // Read opt value
-  ip_opt = std::numeric_limits<double>::max();
-  if (!params.get(stringParam::OPTFILE).empty()) {
-#ifdef TRACE
-    std::cout << "Reading objective information from \"" + params.get(stringParam::OPTFILE) + "\"" << std::endl;
-#endif
-    ip_opt = getObjValueFromFile(params.get(stringParam::OPTFILE), params.get(stringParam::FILENAME), params.logfile);
-#ifdef TRACE
-    std::cout << "Best known objective value is " << ip_opt << std::endl;
-#endif
-    if (isInfinity(ip_opt)) {
-      warning_msg(warnstring, "Did not find objective value.\n");
+  // Read opt value (if not yet inputted)
+  if (isInfinity(ip_opt)) {
+    if (!params.get(stringParam::OPTFILE).empty()) {
+  #ifdef TRACE
+      std::cout << "Reading objective information from \"" + params.get(stringParam::OPTFILE) + "\"" << std::endl;
+  #endif
+      ip_opt = getObjValueFromFile(params.get(stringParam::OPTFILE), params.get(stringParam::FILENAME), params.logfile);
+  #ifdef TRACE
+      std::cout << "Best known objective value is " << ip_opt << std::endl;
+  #endif
+      if (isInfinity(ip_opt)) {
+        warning_msg(warnstring, "Did not find objective value.\n");
+      }
     }
   }
 
-  // Get disjunctive terms and obtain their optimal bases
+  // Time starts here, and will end when finish is called
   timer.start_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
-  status = disj->prepareDisjunction(solver);
-  if (status == ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT) {
-    warning_msg(warnstr,
-        "An integer (optimal) solution was found prior while getting disjunction. "
-        "We will generate between n and 2n cuts, restricting the value of each variable.\n");
-    const double* solution = disj->integer_sol.data();
-    for (int col = 0; col < static_cast<int>(disj->integer_sol.size()); col++) {
-      const double val = solution[col];
+  if (mode != VPCMode::CUSTOM) {
+    // Get disjunctive terms and obtain their optimal bases
+    // (If mode is custom, i.e., disjunction is given to us,
+    // then we assume that the disjunction is already prepared)
+    status = disj->prepareDisjunction(solver);
+    if (status == ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT) {
+      warning_msg(warnstr,
+          "An integer (optimal) solution was found prior while getting disjunction. "
+          "We will generate between n and 2n cuts, restricting the value of each variable.\n");
+      const double* solution = disj->integer_sol.data();
+      for (int col = 0; col < static_cast<int>(disj->integer_sol.size()); col++) {
+        const double val = solution[col];
 
-      // Check which of the bounds needs to be fixed
-      for (int b = 0; b < 2; b++) {
-        if ((b == 0 && greaterThanVal(val, solver->getColLower()[col]))
-            || (b == 1 && lessThanVal(val, solver->getColUpper()[col]))) {
-          const double mult = (b == 0) ? 1. : -1.;
-          const double el = mult * 1.;
+        // Check which of the bounds needs to be fixed
+        for (int b = 0; b < 2; b++) {
+          if ((b == 0 && greaterThanVal(val, solver->getColLower()[col]))
+              || (b == 1 && lessThanVal(val, solver->getColUpper()[col]))) {
+            const double mult = (b == 0) ? 1. : -1.;
+            const double el = mult * 1.;
 
-          OsiRowCut currCut;
-          currCut.setLb(mult * val);
-          currCut.setRow(1, &col, &el, false);
-          addCut(currCut, CutType::OPTIMALITY_CUT, cuts);
+            OsiRowCut currCut;
+            currCut.setLb(mult * val);
+            currCut.setRow(1, &col, &el, false);
+            addCut(currCut, CutType::OPTIMALITY_CUT, cuts);
+          }
         }
-      }
-    } // iterate over columns and add optimality cut if needed
-  } // exit out early if integer-optimal solution found
-  if (status != ExitReason::SUCCESS_EXIT) {
-    finish(status);
-    return;
+      } // iterate over columns and add optimality cut if needed
+    } // exit out early if integer-optimal solution found
+    if (status != ExitReason::SUCCESS_EXIT) {
+      finish(status);
+      return;
+    }
   }
 
   // Save the V-polyhedral relaxations of each optimal basis in the terms of the PRLP
@@ -573,18 +576,10 @@ ExitReason CglVPC::setupConstraints(const SolverInterface* const si, OsiCuts& cu
 //  }
 
   /***********************************************************************************
-   * Set up intersection point and ray storage
+   * Get bases and generate VPCs
    ***********************************************************************************/
   const int num_disj_terms = disj->num_terms;
   const int dim = si->getNumCols(); // NB: treating fixed vars as at bound
-  std::vector < std::vector<std::vector<int> > > termIndices(num_disj_terms);
-  std::vector < std::vector<std::vector<double> > > termCoeff(num_disj_terms);
-  std::vector < std::vector<double> > termRHS(num_disj_terms);
-
-  /***********************************************************************************
-   * Get bases and generate VPCs
-   ***********************************************************************************/
-//  std::vector<ProblemData> disjProbData(num_disj_terms);
 
   int terms_added = -1;
   std::vector<bool> calcAndFeasTerm(num_disj_terms);
