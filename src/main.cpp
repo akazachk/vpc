@@ -124,7 +124,9 @@ int main(int argc, char** argv) {
   const double init_obj_value = solver->getObjValue();
 
   for (int round_ind = 0; round_ind < params.get(ROUNDS); ++round_ind) {
-    printf("\n## Starting round %d/%d. ##\n", round_ind+1, params.get(ROUNDS));
+    if (params.get(ROUNDS) > 1) {
+      printf("\n## Starting round %d/%d. ##\n", round_ind+1, params.get(ROUNDS));
+    }
     timer.start_timer(OverallTimeStats::GEN_VPC_TIME);
     CglVPC gen(params);
     OsiCuts vpcs;
