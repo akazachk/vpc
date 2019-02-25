@@ -16,7 +16,6 @@
  */
 class PRLP : public OsiClpSolverInterface {
 public:
-
   CglVPC* owner;
   std::vector<int> nonZeroColIndex;
   std::vector<double> ortho;

@@ -201,12 +201,12 @@ protected:
 //  ExitReason prepareDisjunction(SolverInterface* const solver, OsiCuts& cuts);
 
   ExitReason setupConstraints(const SolverInterface* const si, OsiCuts& cuts);
-  bool setupDisjunctiveTerm(const int term_ind, const int branching_index,
-      const int branching_variable, const int branching_way,
-      const double branching_value, std::vector<std::vector<int> >& termIndices,
-      std::vector<std::vector<double> >& termCoeff,
-      std::vector<double>& termRHS, const SolverInterface* const vpcsolver,
-      const SolverInterface* const tmpSolverBase);
+//  bool setupDisjunctiveTerm(const int term_ind, const int branching_index,
+//      const int branching_variable, const int branching_way,
+//      const double branching_value, std::vector<std::vector<int> >& termIndices,
+//      std::vector<std::vector<double> >& termCoeff,
+//      std::vector<double>& termRHS, const SolverInterface* const vpcsolver,
+//      const SolverInterface* const tmpSolverBase);
   void genDepth1PRCollection(const SolverInterface* const vpcsolver,
       const SolverInterface* const tmpSolver, const ProblemData& origProbData,
       const ProblemData& tmpProbData, const int term_ind);
@@ -250,49 +250,4 @@ protected:
     printf("CglVPC: Finishing with exit reason: %s. Number cuts: %d.\n", ExitReasonName[static_cast<int>(exitReason)].c_str(), num_cuts);
 #endif
   }
-
-  /** Set/update name of cut generating set (disjunction) */
-  inline void setCgsName(std::string& cgsName, const std::string& disjTermName) const {
-    if (disjTermName.empty()) {
-      return;
-    }
-    if (!cgsName.empty()) {
-      cgsName += " V ";
-    }
-    cgsName += "(";
-    cgsName += disjTermName;
-    cgsName += ")";
-  } /* setCgsName (given disj term name) */
-
-  inline void setCgsName(std::string& cgsName, const int num_ineq_per_term,
-      const std::vector<std::vector<int> >& termIndices,
-      const std::vector<std::vector<double> >& termCoeff,
-      const std::vector<double>& termRHS, const bool append = false) const {
-    if (num_ineq_per_term == 0) {
-      return;
-    }
-    if (!cgsName.empty()) {
-      if (!append) {
-        cgsName += " V ";
-      } else {
-        cgsName.resize(cgsName.size() - 1); // remove last ")"
-        cgsName += "; ";
-      }
-    }
-    cgsName += append ? "" : "(";
-    for (int i = 0; i < num_ineq_per_term; i++) {
-      if (i > 0) {
-        cgsName += "; ";
-      }
-      for (int coeff_ind = 0; coeff_ind < (int) termIndices[i].size();
-          coeff_ind++) {
-        cgsName += (termCoeff[i][coeff_ind] > 0) ? "+" : "-";
-        cgsName += "x";
-        cgsName += std::to_string(termIndices[i][coeff_ind]);
-      }
-      cgsName += " >= ";
-      cgsName += std::to_string((int) termRHS[i]);
-    }
-    cgsName += ")";
-  } /* setCgsName */
 }; /* CglVPC */

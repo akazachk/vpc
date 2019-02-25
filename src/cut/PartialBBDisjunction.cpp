@@ -46,12 +46,39 @@ PartialBBDisjunction& PartialBBDisjunction::operator=(const PartialBBDisjunction
   return *this;
 } /* assignment operator */
 
+/** Clone */
+PartialBBDisjunction* PartialBBDisjunction::clone() const {
+  return new PartialBBDisjunction(*this);
+} /* clone */
+
+/** Set up the disjunction class as new (but do not change the timer pointer) */
+void PartialBBDisjunction::setupAsNew() {
+  Disjunction::setupAsNew();
+  this->data.num_nodes_on_tree = 0;
+  this->data.num_partial_bb_nodes = 0;
+  this->data.num_pruned_nodes = 0;
+  this->data.min_node_depth = std::numeric_limits<int>::max();
+  this->data.max_node_depth = 0;
+  this->data.num_fixed_vars = 0;
+  //    this->data.stats.resize(0);
+  //    this->data.pruned_stats.resize(0);
+  //    this->data.node_id.resize(0);
+} /* setupAsNew */
+
 /** setParams */
 void PartialBBDisjunction::setParams(const VPCParameters& param) {
   this->params = param;
 } /* setParams */
 
+/**
+ * @brief Prepare a new disjunction
+ *
+ * This will throw away all the information from the old disjunction, except it will not reset the timer
+ */
 ExitReason PartialBBDisjunction::prepareDisjunction(OsiSolverInterface* const si) {
+  // Reset things in case we are reusing the class for some reason
+  setupAsNew();
+
   if (!timer) {
     error_msg(errorstring, "Timer is not set.\n");
     writeErrorToLog(errorstring, params.logfile);
@@ -94,7 +121,7 @@ ExitReason PartialBBDisjunction::prepareDisjunction(OsiSolverInterface* const si
     num_strong = static_cast<int>(std::ceil(std::sqrt(si->getNumCols())));
   }
   const int num_before_trusted = std::numeric_limits<int>::max(); // 10;
-  generatePartialBBTree(params, cbc_model, si, params.get(intParam::DISJ_TERMS),
+  generatePartialBBTree(this, cbc_model, si, params.get(intParam::DISJ_TERMS),
       num_strong, num_before_trusted);
   if (timer)
     timer->end_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
@@ -110,11 +137,17 @@ ExitReason PartialBBDisjunction::prepareDisjunction(OsiSolverInterface* const si
     exit(1);
   }
 
-  this->data.num_partial_bb_nodes = cbc_model->getNodeCount(); // save number of nodes looked at
-  this->num_terms = eventHandler->getNumLeafNodes()
-      + eventHandler->isIntegerSolutionFound();
-  this->data.num_pruned_nodes = eventHandler->getPrunedStatsVector().size()
-      - eventHandler->isIntegerSolutionFound();
+  // Make sure that the right number of terms has been saved
+  if ((num_terms
+      != (eventHandler->getNumLeafNodes() + eventHandler->isIntegerSolutionFound()))
+      || (num_terms != static_cast<int>(terms.size()))) {
+    error_msg(errstr,
+        "Number of terms does not match: num terms = %d, num bases = %d, num leaf nodes + found_integer_sol = %d\n",
+        num_terms, static_cast<int>(terms.size()),
+        eventHandler->getNumLeafNodes() + eventHandler->isIntegerSolutionFound());
+    writeErrorToLog(errstr, params.logfile);
+    exit(1);
+  }
 
   // If branch-and-bound finished (was not stopped by a user event), check why and exit
   if (cbc_model->status() == 0 || cbc_model->status() == 1
@@ -133,22 +166,6 @@ ExitReason PartialBBDisjunction::prepareDisjunction(OsiSolverInterface* const si
 
     return ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT;
   } // exit out early if cbc_model status is 0 or insufficiently many disjunctive terms
-
-//  // Save everything we need from this disjunction
-  this->data.stats = eventHandler->getStatsVector();
-  this->data.num_nodes_on_tree = eventHandler->getNumNodesOnTree();
-  this->data.num_fixed_vars = cbc_model->strongInfo()[1]; // number fixed during b&b
-  this->data.node_id.resize(this->data.num_nodes_on_tree);
-  this->bases.resize(this->data.num_nodes_on_tree);
-  for (int tmp_ind = 0; tmp_ind < this->data.num_nodes_on_tree; tmp_ind++) {
-//    this->disjunction.node_id[tmp_ind] = eventHandler->getNodeIndex(tmp_ind);
-    this->bases[tmp_ind] =
-        (eventHandler->getBasisForNode(tmp_ind))->clone();
-  }
-  if (eventHandler->isIntegerSolutionFound()) {
-    const double* sol = eventHandler->getIntegerFeasibleSolution();
-    this->integer_sol.assign(sol, sol + si->getNumCols());
-  }
 
 #ifdef TRACE
   std::vector<NodeStatistics> stats = eventHandler->getStatsVector();
@@ -177,12 +194,9 @@ ExitReason PartialBBDisjunction::prepareDisjunction(OsiSolverInterface* const si
   return ExitReason::SUCCESS_EXIT;
 } /* prepareDisjunction */
 
-/** Clone */
-PartialBBDisjunction* PartialBBDisjunction::clone() const {
-  return new PartialBBDisjunction(*this);
-} /* clone */
-
-void PartialBBDisjunction::initialize(const PartialBBDisjunction* const source, const VPCParameters* const params) {
+/****************** PROTECTED **********************/
+void PartialBBDisjunction::initialize(const PartialBBDisjunction* const source,
+    const VPCParameters* const params) {
   Disjunction::initialize(source);
   if (params != NULL) {
     setParams(*params);
@@ -195,14 +209,6 @@ void PartialBBDisjunction::initialize(const PartialBBDisjunction* const source, 
     this->data = source->data;
   } else {
     this->timer = NULL;
-    this->data.num_nodes_on_tree = 0;
-    this->data.num_partial_bb_nodes = 0;
-    this->data.num_pruned_nodes = 0;
-    this->data.min_node_depth = std::numeric_limits<int>::max();
-    this->data.max_node_depth = 0;
-    this->data.num_fixed_vars = 0;
-    this->data.stats.resize(0);
-    this->data.pruned_stats.resize(0);
-    this->data.node_id.resize(0);
+    setupAsNew();
   }
 } /* initialize */

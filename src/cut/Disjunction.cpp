@@ -31,6 +31,21 @@ Disjunction& Disjunction::operator=(const Disjunction& source) {
   return *this;
 } /* assignment operator */
 
+/** Set up the disjunction class as new */
+void Disjunction::setupAsNew() {
+  this->name = "";
+  this->best_obj = std::numeric_limits<double>::max();
+  this->worst_obj = std::numeric_limits<double>::lowest();
+  this->min_nb_obj_val = std::numeric_limits<double>::max();
+  this->integer_obj = std::numeric_limits<double>::max();
+  this->integer_sol.resize(0);
+  this->common_changed_bound.resize(0);
+  this->common_changed_value.resize(0);
+  this->common_changed_var.resize(0);
+  this->num_terms = 0;
+  this->terms.resize(0);
+} /* setupAsNew */
+
 ExitReason Disjunction::setBases(const OsiSolverInterface* const si,
     std::vector<int>& changed_var, std::vector<int>& changed_bound,
     std::vector<double>& changed_value) {
@@ -41,23 +56,19 @@ ExitReason Disjunction::setBases(const OsiSolverInterface* const si,
 /****************** PROTECTED **********************/
 void Disjunction::initialize(const Disjunction* const source) {
   if (source != NULL) {
-    this->num_terms = source->num_terms;
+    this->name = source->name;
     this->best_obj = source->best_obj;
     this->worst_obj = source->worst_obj;
     this->min_nb_obj_val = source->min_nb_obj_val;
     this->integer_obj = source->integer_obj;
     this->integer_sol = source->integer_sol;
-    this->bases = source->bases;
-    this->name = source->name;
+    this->common_changed_bound = source->common_changed_bound;
+    this->common_changed_value = source->common_changed_value;
+    this->common_changed_var = source->common_changed_var;
+    this->num_terms = source->num_terms;
+    this->terms = source->terms;
   } else {
-    this->num_terms = 0;
-    this->best_obj = std::numeric_limits<double>::lowest();
-    this->worst_obj = std::numeric_limits<double>::max();
-    this->min_nb_obj_val = std::numeric_limits<double>::max();
-    this->integer_obj = std::numeric_limits<double>::max();
-    this->integer_sol.resize(0);
-    this->bases.resize(0);
-    this->name = "";
+    setupAsNew();
   }
 } /* initialize */
 

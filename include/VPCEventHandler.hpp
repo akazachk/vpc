@@ -17,6 +17,8 @@
 
 #include "VPCParameters.hpp"
 
+class PartialBBDisjunction;
+
 // Useful data structure for COIN-OR tracking
 struct NodeStatistics {
   int id = -1; // in stats vector
@@ -39,10 +41,11 @@ struct NodeStatistics {
   std::vector<double> changed_value;
 };
 
-void setNodeStatistics(NodeStatistics& stats, const CbcNode* const node, 
+void setNodeStatistics(NodeStatistics& stats, const CbcNode* const node,
     const CbcModel* const model, const std::vector<NodeStatistics>& stats_vec,
-    const std::vector<double>& originalLB, const std::vector<double>& originalUB,
-    const bool will_create_child, const bool solution_is_found = false);
+    const std::vector<double>& originalLB,
+    const std::vector<double>& originalUB, const bool will_create_child,
+    const bool solution_is_found = false);
 void setPrunedNodeStatistics(NodeStatistics& stats,
     const CbcNode* const parent_node, const CbcModel* const model,
     /*const std::vector<NodeStatistics>& stats_vec,*/const bool prune_by_integrality,
@@ -55,108 +58,138 @@ void printNodeStatistics(const std::vector<NodeStatistics>& stats,
 void printNodeStatistics(const NodeStatistics& stats, const bool print_bounds,
     FILE* myfile = stdout);
 
-//std::string changedBoundsString(const CbcNodeInfo* const nodeInfo,
-//    const std::vector<double>& originalLB, const std::vector<double>& originalUB);
-void changedBounds(NodeStatistics& stats, const OsiSolverInterface* const solver,
-    const std::vector<double>& originalLB, const std::vector<double>& originalUB);
+void changedBounds(NodeStatistics& stats,
+    const OsiSolverInterface* const solver,
+    const std::vector<double>& originalLB,
+    const std::vector<double>& originalUB);
 
 /************************************************************/
-/** This is so user can trap events and do useful stuff.  
- *
- *     CbcModel model_ is available as well as anything else you care 
- *         to pass in
+/**
+ *  This is so user can trap events and do useful stuff.
+ *  CbcModel model_ is available as well as anything else you care to pass in.
  */
-class VPCEventHandler : public CbcEventHandler {
-  public:
-    /**@name Overrides */
-    //@{
-    virtual CbcAction event(CbcEvent whichEvent);
-    //@}
-    
-    /**@name Constructors, destructor, etc. */
-    //@{
-    /** Default constructor */
-    VPCEventHandler();
-    /** VPC special constructors */
-    VPCEventHandler(const int maxNumLeafNodes, const double maxTime, const VPCParameters* params);
-    /// Constructor with pointer to model (redundant as setEventHandler does)
-    VPCEventHandler(CbcModel* model);
-    /** Destructor */
-    virtual ~VPCEventHandler();
-    /** The copy constructor. */
-    VPCEventHandler(const VPCEventHandler& rhs);
-    /// Assignment
-    VPCEventHandler& operator=(const VPCEventHandler& rhs);
-    /// Clone
-    virtual CbcEventHandler* clone() const;
-    /// Copy our stuff
-    virtual void copyOurStuff(const VPCEventHandler* const rhs);
-    //@}
+class VPCEventHandler: public CbcEventHandler {
+public:
+  PartialBBDisjunction* owner;
 
-    /**@name Helper methods */
-    //@{
-    virtual void saveInformation();
-    //@}
+  /**@name Overrides */
+  //@{
+  virtual CbcAction event(CbcEvent whichEvent);
+  //@}
 
-    /**@name Access methods */
-    //@{
-    /*
-    inline double getObjLower(const int i) { return lb[i]; }
-    inline double getObjUpper(const int i) { return ub[i]; }
-    */
-    // Number of nodes on the tree at the end
-    inline int getNumNodesOnTree() const { return numNodesOnTree_; }
-    inline int getNumNodes() const { return numNodes_; }
-    // For the nodes on the tree at the end, where do we find the information in stats_
-    inline int getNodeIndex(const int i) const { return finalNodeIndices_[i]; }
-    inline int getNumLeafNodes() const { return numLeafNodes_; }
-    inline int getMaxNumLeafNodes() const { return maxNumLeafNodes_; }
-    inline int getMaxTime() const { return maxTime_; }
-//    inline CoinWarmStartBasis* getOriginalBasis() const { return originalBasis_; };
-//    CoinWarmStartBasis* setOriginalBasis(const CoinWarmStart* const copyBasis, const bool return_old = false);
-    inline SolverInterface* getOriginalSolver() const { return originalSolver_; }
-    SolverInterface* setOriginalSolver(
-      const OsiSolverInterface* const copySolver,
+  /**@name Constructors, destructor, etc. */
+  //@{
+  /** Default constructor */
+  VPCEventHandler();
+  /** VPC special constructors */
+  VPCEventHandler(PartialBBDisjunction* const disj, const int maxNumLeafNodes,
+      const double maxTime);
+  /// Constructor with pointer to model (redundant as setEventHandler does)
+  VPCEventHandler(CbcModel* model);
+  /** Destructor */
+  virtual ~VPCEventHandler();
+  /** The copy constructor. */
+  VPCEventHandler(const VPCEventHandler& rhs);
+  /// Assignment
+  VPCEventHandler& operator=(const VPCEventHandler& rhs);
+  /// Clone
+  virtual CbcEventHandler* clone() const;
+  //@}
+
+  /**@name Access methods */
+  //@{
+  // Number of nodes on the tree at the end
+  inline int getNumNodesOnTree() const {
+    return numNodesOnTree_;
+  }
+  inline int getNumNodes() const {
+    return numNodes_;
+  }
+  // For the nodes on the tree at the end, where do we find the information in stats_
+  inline int getNodeIndex(const int i) const {
+    return finalNodeIndices_[i];
+  }
+  inline int getNumLeafNodes() const {
+    return numLeafNodes_;
+  }
+  inline int getMaxNumLeafNodes() const {
+    return maxNumLeafNodes_;
+  }
+  inline int getMaxTime() const {
+    return maxTime_;
+  }
+  inline SolverInterface* getOriginalSolver() const {
+    return originalSolver_;
+  }
+  SolverInterface* setOriginalSolver(const OsiSolverInterface* const copySolver,
       const bool return_old = false);
-    inline int getOriginalLB(const int col) const { return originalLB_[col]; }
-    inline int getOriginalUB(const int col) const { return originalUB_[col]; }
-    void setOriginalLB(const int num_cols, const double* const vec);
-    void setOriginalUB(const int num_cols, const double* const vec);
-    inline const CoinWarmStartBasis* getBasisForNode(const int node_ind) const {
-      return bases_[node_ind];
-    }
-    inline std::vector<NodeStatistics> getStatsVector() const { return stats_; }
-    inline std::vector<NodeStatistics> getPrunedStatsVector() const { return pruned_stats_; }
-    inline const double* getIntegerFeasibleSolution() const { return savedSolution_.data(); }
-    inline int getNumStats() const { return stats_.size(); }
-    inline int getNumPrunedStats() const { return pruned_stats_.size(); }
-    inline bool isIntegerSolutionFound() const { return !savedSolution_.empty(); }
-    //@}
-    
-  protected:
-    const VPCParameters* params;
-    int maxNumLeafNodes_;
-    double maxTime_;
-    
-    // Things that will be saved at the end
-    int numNodesOnTree_, numLeafNodes_;
-    int numNodes_;
-    //CoinWarmStartBasis* originalBasis_;
-    SolverInterface* originalSolver_;
-    std::vector<double> originalLB_, originalUB_;
-    std::vector<CoinWarmStartBasis*> bases_; // bases of node
-    std::vector<NodeStatistics> stats_; // all stats that we need to recreate tree
-    std::vector<NodeStatistics> pruned_stats_; // info for all children that were pruned
-    std::vector<int> finalNodeIndices_; // node numbers for the nodes on the final tree
-    //std::vector<std::vector<double>> integerFeasibleSolutions_; // for those pruned nodes that were actually feasible
-    std::vector<double> savedSolution_; // when pruneNode_ = 3, the saved solution might have been deleted somehow
+  inline int getOriginalLB(const int col) const {
+    return originalLB_[col];
+  }
+  inline int getOriginalUB(const int col) const {
+    return originalUB_[col];
+  }
+  void setOriginalLB(const int num_cols, const double* const vec);
+  void setOriginalUB(const int num_cols, const double* const vec);
+//  inline const CoinWarmStartBasis* getBasisForNode(const int node_ind) const {
+//    return bases_[node_ind];
+//  }
+  inline std::vector<NodeStatistics> getStatsVector() const {
+    return stats_;
+  }
+  inline std::vector<NodeStatistics> getPrunedStatsVector() const {
+    return pruned_stats_;
+  }
+  inline const double* getIntegerFeasibleSolution() const {
+    return savedSolution_.data();
+  }
+  inline int getNumStats() const {
+    return stats_.size();
+  }
+  inline int getNumPrunedStats() const {
+    return pruned_stats_.size();
+  }
+  inline bool isIntegerSolutionFound() const {
+    return !savedSolution_.empty();
+  }
+  //@}
 
-    // Temporary information we want to keep during the B&B process
-    std::vector<CbcNode*> currentNodes_;
-    CbcNode* parent_;
-    CbcNodeInfo* parentInfo_;
-    CbcNode* child_;
-    int pruneNode_ = 0; // 0: no, 1: prune by infeasibility, 2: prune by bound, 3: prune by integrality
-    bool reachedEnd_ = false;
-    bool foundSolution_ = false;
-}; /* VPCEventHandler definition */
+protected:
+  int maxNumLeafNodes_;
+  double maxTime_;
+
+  // Things that will be saved at the end
+  int numNodesOnTree_, numLeafNodes_;
+  int numNodes_;
+  SolverInterface* originalSolver_;
+  std::vector<double> originalLB_, originalUB_;
+//    std::vector<CoinWarmStartBasis*> bases_; // bases of node
+  std::vector<NodeStatistics> stats_; // all stats that we need to recreate tree
+  std::vector<NodeStatistics> pruned_stats_; // info for all children that were pruned
+  std::vector<int> finalNodeIndices_; // node numbers for the nodes on the final tree
+  std::vector<double> savedSolution_; // when pruneNode_ = 3, the saved solution might have been deleted somehow
+
+  // Temporary information we want to keep during the B&B process
+  std::vector<CbcNode*> currentNodes_;
+  CbcNode* parent_;
+  CbcNodeInfo* parentInfo_;
+  CbcNode* child_;
+  int pruneNode_ = 0; // 0: no, 1: prune by infeasibility, 2: prune by bound, 3: prune by integrality
+  bool reachedEnd_ = false;
+  bool foundSolution_ = false;
+
+  /**@name Helper methods */
+  //@{
+  /// Copy our stuff
+  void initialize(const VPCEventHandler* const rhs);
+  bool setupDisjunctiveTerm(const int node_id, const int branching_variable,
+      const int branching_way, const double branching_value,
+      const SolverInterface* const tmpSolverBase,
+      const int curr_num_changed_bounds,
+      std::vector<std::vector<int> >& commonTermIndices,
+      std::vector<std::vector<double> >& commonTermCoeff,
+      std::vector<double>& commonTermRHS);
+  void saveInformation();
+  //@}
+};
+/* VPCEventHandler definition */

@@ -23,8 +23,8 @@ public:
     int min_node_depth = std::numeric_limits<int>::max();
     int max_node_depth = 0;
     int num_fixed_vars = 0;
-    std::vector<NodeStatistics> stats, pruned_stats;
-    std::vector<int> node_id;
+//    std::vector<NodeStatistics> stats, pruned_stats;
+//    std::vector<int> node_id;
   } data;
 
   TimeStats* timer;
@@ -48,12 +48,14 @@ public:
   /** Clone */
   virtual PartialBBDisjunction* clone() const;
 
+  /** For clearing things and setting up the disjunction as new */
+  virtual void setupAsNew();
+
   /** setParams based on VPCParameters */
   void setParams(const VPCParameters& params);
 
   /** Get disjunction */
   virtual ExitReason prepareDisjunction(OsiSolverInterface* const si);
-//  virtual int setupConstraints(const OsiSolverInterface* const si);
 protected:
-  virtual void initialize(const PartialBBDisjunction* const source = NULL, const VPCParameters* const params = NULL);
+  void initialize(const PartialBBDisjunction* const source = NULL, const VPCParameters* const params = NULL);
 }; /* PartialBBDisjunction */

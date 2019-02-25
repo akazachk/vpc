@@ -1,12 +1,14 @@
 //============================================================================
 // Name        : VPCEventHandler.cpp
 // Author      : A. M. Kazachkov
-// Version     : 2018-Dec-25
+// Version     : 2019-02-24
 // Description : Custom event handler for Cbc
 //============================================================================
 
 // For saving the information on the tree
 #include "VPCEventHandler.hpp"
+#include "PartialBBDisjunction.hpp"
+#include "SolverHelper.hpp"
 #include "utility.hpp"
 
 #include <CbcModel.hpp>
@@ -86,7 +88,7 @@ void setNodeStatistics(NodeStatistics& stats, const CbcNode* const node,
     int prev_stat_id = nodeInfo->nodeNumber();
     if (prev_stat_id < 0) {
       error_msg(errorstring, "Branch index is 1 but node has no previous number.\n");
-      //writeErrorToLog(errorstring, params->logfile);
+      //writeErrorToLog(errorstring, owner->params.logfile);
       exit(1);
     }
     /*
@@ -266,25 +268,27 @@ void changedBounds(NodeStatistics& stats, const OsiSolverInterface* const solver
 /************************************************************/
 /* Implement the methods for VPCEventHandler which we use to exit early and save information */
 VPCEventHandler::VPCEventHandler () : CbcEventHandler() {
-  copyOurStuff(NULL);
+  initialize(NULL);
 } /* default constructor */
 
-VPCEventHandler::VPCEventHandler (const int maxNumLeafNodes, const double maxTime, const VPCParameters* params) : CbcEventHandler() {
-  copyOurStuff(NULL);
-  this->params = params;
+VPCEventHandler::VPCEventHandler(PartialBBDisjunction* const disj,
+    const int maxNumLeafNodes, const double maxTime) :
+    CbcEventHandler() {
+  initialize(NULL);
+  this->owner = disj;
   this->maxNumLeafNodes_ = maxNumLeafNodes;
   this->maxTime_ = maxTime;
 } /* VPCEventHandler-specific constructor */
 
 VPCEventHandler::VPCEventHandler (const VPCEventHandler & rhs) : CbcEventHandler(rhs) {
-  copyOurStuff(&rhs);
+  initialize(&rhs);
 } /* copy constructor */
 
 VPCEventHandler::VPCEventHandler(CbcModel * model) : CbcEventHandler(model) {
   try {
-    copyOurStuff(dynamic_cast<VPCEventHandler*>(model->getEventHandler()));
+    initialize(dynamic_cast<VPCEventHandler*>(model->getEventHandler()));
   } catch (std::exception& e) {
-    copyOurStuff(NULL);
+    initialize(NULL);
   }
 } /* constructor with pointer to model */
 
@@ -292,12 +296,12 @@ VPCEventHandler::~VPCEventHandler () {
   if (originalSolver_) {
     delete originalSolver_;
   }
-  for (int i = 0; i < (int) bases_.size(); i++) {
-    if (bases_[i]) {
-      delete bases_[i];
-    }
-  }
-  bases_.resize(0);
+//  for (int i = 0; i < (int) bases_.size(); i++) {
+//    if (bases_[i]) {
+//      delete bases_[i];
+//    }
+//  }
+//  bases_.resize(0);
   //integerFeasibleSolutions_.resize(0);
 } /* destructor */
 
@@ -305,45 +309,13 @@ VPCEventHandler& VPCEventHandler::operator=(const VPCEventHandler& rhs) {
   if (this != &rhs) {
     CbcEventHandler::operator=(rhs);
   }
-  copyOurStuff(&rhs);
+  initialize(&rhs);
   return *this;
 } /* assignment */
 
 CbcEventHandler* VPCEventHandler::clone() const {
   return new VPCEventHandler(*this);
 } /* clone */
-
-void VPCEventHandler::copyOurStuff(const VPCEventHandler* const rhs) {
-  if (rhs) {
-    this->params = rhs->params;
-    this->maxNumLeafNodes_ = rhs->maxNumLeafNodes_;
-    this->maxTime_ = rhs->maxTime_;
-    this->numLeafNodes_ = rhs->numLeafNodes_;
-    this->numNodesOnTree_ = rhs->numNodesOnTree_;
-    this->numNodes_ = rhs->numNodes_;
-//    this->originalBasis_ = dynamic_cast<CoinWarmStartBasis*>(rhs->originalBasis_->clone());
-    this->originalSolver_ = dynamic_cast<SolverInterface*>(rhs->originalSolver_->clone());
-    this->originalLB_ = rhs->originalLB_;
-    this->originalUB_ = rhs->originalUB_;
-    this->bases_ = rhs->bases_;
-    this->stats_ = rhs->stats_;
-    this->pruned_stats_ = rhs->pruned_stats_;
-    this->finalNodeIndices_ = rhs->finalNodeIndices_;
-    this->savedSolution_ = rhs->savedSolution_;
-    /*
-    this->lb = rhs->lb;
-    this->ub = rhs->ub;
-    */
-  } else {
-    this->maxNumLeafNodes_ = 0;
-    this->maxTime_ = 0;
-    this->numLeafNodes_ = 0;
-    this->numNodesOnTree_ = 0;
-    this->numNodes_ = 0;
-//    this->originalBasis_ = NULL;
-    this->originalSolver_ = NULL;
-  }
-} /* copyOurStuff */
 
 /*
  * Returns CbcAction based on one of the following CbcEvents
@@ -477,7 +449,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
               prevUB = dyn_branch->object()->originalUpperBound();
             } else {
               error_msg(errorstring, "Cannot access original object.\n");
-              writeErrorToLog(errorstring, params->logfile);
+              writeErrorToLog(errorstring, owner->params.logfile);
               exit(1);
             }
           }
@@ -514,7 +486,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
 #ifdef TRACE
     if (model_->solver()->isProvenDualInfeasible()) {
       error_msg(errorstring, "Did not think that dual infeasibility in the model solver could happen. Check this.\n");
-      writeErrorToLog(errorstring, params->logfile);
+      writeErrorToLog(errorstring, owner->params.logfile);
       exit(1);
     }
 #endif
@@ -538,7 +510,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
             "Node number 1: %d. Node number 2: %d. Parent index: %d.\n",
             model_->getNodeCount(), model_->getNodeCount2(),
             (child_->nodeInfo()->parent() ? child_->nodeInfo()->parent()->nodeNumber() : -1));
-        writeErrorToLog(errorstring, params->logfile);
+        writeErrorToLog(errorstring, owner->params.logfile);
         exit(1);
       }
       NodeStatistics currNodeStats;
@@ -574,7 +546,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
 #ifdef TRACE
       if (!parentInfo_) {
         error_msg(errorstring, "Could not find parent node.\n");
-        writeErrorToLog(errorstring, params->logfile);
+        writeErrorToLog(errorstring, owner->params.logfile);
         exit(1);
       }
 #endif
@@ -584,7 +556,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
       // Perhaps this happens when we do not use strong branching...
       if (solver_feasible && !solution_found && (pruneNode_ == 0) && child_ && child_->active() && child_->branchingObject()) {
         error_msg(errorstring, "We should not get here, I think. Is it an integer-feasible solution? If so, it should be saved.\n");
-        writeErrorToLog(errorstring, params->logfile);
+        writeErrorToLog(errorstring, owner->params.logfile);
         exit(1);
       }
 
@@ -610,7 +582,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
           if (originalSolver_->isInteger(col)) {
             const double floor_xk = std::floor(val);
             const double infeasibility = (val - floor_xk < 0.5) ? (val - floor_xk) : (floor_xk + 1 - val);
-            if (!isZero(infeasibility, params->get(doubleParam::EPS))) {
+            if (!isZero(infeasibility, owner->params.get(doubleParam::EPS))) {
               solution_found = false;
               break;
             }
@@ -671,7 +643,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
           const double activity = dotProduct(size_vec, vec_ind, vec_el, sol.data());
           if (!isVal(activity, ref_activity)) {
             error_msg(errorstring, "Error calculating activity. Activity: %f. Reference activity: %f.\n", activity, ref_activity);
-            writeErrorToLog(errorstring, params->logfile);
+            writeErrorToLog(errorstring, owner->params.logfile);
             exit(1);
           }
           double rhs = model_->solver()->getRightHandSide()[row_ind];
@@ -679,29 +651,29 @@ VPCEventHandler::event(CbcEvent whichEvent) {
           sol.push_back(violation);
           const char sense = model_->solver()->getRowSense()[row_ind];
           if (sense == 'G') {
-            if (lessThanVal(activity, rhs, params->get(doubleParam::EPS))) {
+            if (lessThanVal(activity, rhs, owner->params.get(doubleParam::EPS))) {
               error = row_ind + model_->getNumCols();
               break;
             }
           } else if (sense == 'L') {
-            if (greaterThanVal(activity, rhs, params->get(doubleParam::EPS))) {
+            if (greaterThanVal(activity, rhs, owner->params.get(doubleParam::EPS))) {
               error = row_ind + model_->getNumCols();
               break;
             }
           } else if (sense == 'E') {
-            if (!isVal(activity, rhs, params->get(doubleParam::EPS))) {
+            if (!isVal(activity, rhs, owner->params.get(doubleParam::EPS))) {
               error = row_ind + model_->getNumCols();
               break;
             }
           } else { // ranged; not 'N'
             // Need to check upper and lower bounds
             // rhs returns rowupper() in this case
-            if (greaterThanVal(activity, rhs, params->get(doubleParam::EPS))) {
+            if (greaterThanVal(activity, rhs, owner->params.get(doubleParam::EPS))) {
               error = row_ind + model_->getNumCols();
               break;
             }
             rhs = model_->solver()->getColLower()[row_ind];
-            if (lessThanVal(activity, rhs, params->get(doubleParam::EPS))) {
+            if (lessThanVal(activity, rhs, owner->params.get(doubleParam::EPS))) {
               error = row_ind + model_->getNumCols();
               break;
             }
@@ -710,7 +682,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
 
         if (error >= 0) {
           error_msg(errorstring, "An integer-feasible solution was supposedly found, but it is infeasible somehow. Variable: %d. Violation: %f.\n", error, violation);
-          writeErrorToLog(errorstring, params->logfile);
+          writeErrorToLog(errorstring, owner->params.logfile);
           exit(1);
         }
 
@@ -721,7 +693,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
         objectiveValue = dotProduct(sol.data(), model_->getObjCoefficients(), model_->getNumCols()) - objOffset;
         if (pruneNode_ == 3 && !isVal(objectiveValue, model_->getObjValue())) {
           error_msg(errorstring, "We are assuming that if pruning by integrality, the objective we calculated should be the same as the objective of the solver.\n");
-          writeErrorToLog(errorstring, params->logfile);
+          writeErrorToLog(errorstring, owner->params.logfile);
           exit(1);
         }
         if (pruneNode_ == 3 || (!greaterThanVal(objectiveValue, model_->getCutoff() + model_->getCutoffIncrement()))) {
@@ -827,101 +799,6 @@ VPCEventHandler::event(CbcEvent whichEvent) {
   return noAction;
 } /* VPCEventHandler::event  */
 
-/**
- * Save all relevant information before it gets deleted by BB finishing
- */
-void VPCEventHandler::saveInformation() {
-  /*
-  // 2017-08-11: Only one integer-feasible solution needs to be kept (the best one), so we drop this
-  // Prune integer feasible solutions that are above cutoff
-  // Will use a lambda function because I want to try it (with the erase-remove idiom)
-  const double cutoff = model_->getCutoff() + model_->getCutoffIncrement();
-  const double* obj = model_->getObjCoefficients();
-  const int num_cols = model_->getNumCols();
-  double objOffset = 0.;
-  model_->solver()->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
-  integerFeasibleSolutions_.erase(
-      std::remove_if(integerFeasibleSolutions_.begin(),
-          integerFeasibleSolutions_.end(),
-          [&](const std::vector<double>& x)
-          {
-            return (greaterThanVal(dotProduct(x.data(), obj, num_cols) - offset, cutoff));
-          }), integerFeasibleSolutions_.end());
-  */
-  // For each node on the tree, save the warm start basis and branching directions
-  bases_.resize(numNodesOnTree_);
-  CoinWarmStartBasis* tmp = dynamic_cast<CoinWarmStartBasis*>(originalSolver_->getWarmStart());
-  for (int i = 0; i < numNodesOnTree_; i++) {
-    bases_[i] = dynamic_cast<CoinWarmStartBasis*>(tmp->clone());
-    CbcNode* node = model_->tree()->nodePointer(i);
-    CbcNodeInfo* nodeInfo = node->nodeInfo();
-    nodeInfo->buildRowBasis(*bases_[i]);
-    finalNodeIndices_.push_back(stats_[nodeInfo->nodeNumber()].id);
-
-    /*
-    // Might be partial or full
-    try {
-    } catch (std::exception& e) {
-
-    }
-    */
-
-    /*
-    // Figure out the variables fixed to get to this node
-    // Work backwards via parent
-    CbcNodeInfo* parent = nodeInfo->parent();
-    printf("Node number: %d.\n", node->nodeNumber());
-    printf("\tBranching on: %d.\n", node->branchingObject()->columnNumber());
-    while (parent) {
-    const CbcNode* parentNode = parent->owner();
-    printf("\tFrom node %d branching on %d.\n", parentNode->nodeNumber(), parentNode->branchingObject()->columnNumber());
-    parent = parentNode->nodeInfo()->parent();
-    }
-    printf("\n");
-    */
-  }
-  if (tmp) {
-    delete tmp;
-  }
-
-  /*
-     const int numObjects = model_->numberObjects();
-
-  // Resize arrays
-  lb.resize(numObjects);
-  ub.resize(numObjects);
-
-  // Get new bounds
-  //const SolverInterface* solver = dynamic_cast<SolverInterface*>(model->
-  for (int i = 0; i < model_->numberObjects(); i++) {
-  try {
-  // Usually we will be in the (new?) Osi side
-  const OsiSimpleInteger* obj = dynamic_cast<const OsiSimpleInteger*>(model_->object(i));
-  lb[i] = obj->originalLowerBound();
-  ub[i] = obj->originalUpperBound();
-  } catch (std::exception& e) {
-// Maybe we are in the Cbc side of the branching process
-const CbcSimpleInteger* obj = dynamic_cast<const CbcSimpleInteger*>(model_->object(i));
-lb[i] = obj->originalLowerBound();
-ub[i] = obj->originalUpperBound();
-}
-}
-*/
-} /* saveInformaton */
-
-//CoinWarmStartBasis* VPCEventHandler::setOriginalBasis(const CoinWarmStart* const copyBasis, const bool return_old) {
-//  CoinWarmStartBasis* tmp;
-//  if (originalBasis_ && return_old) {
-//    tmp = dynamic_cast<CoinWarmStartBasis*>(originalBasis_->clone());
-//  }
-//  originalBasis_ = dynamic_cast<CoinWarmStartBasis*>(copyBasis->clone());
-//  if (return_old) {
-//    return tmp;
-//  } else {
-//    return NULL;
-//  }
-//} /* setOriginalBasis */
-
 SolverInterface* VPCEventHandler::setOriginalSolver(
     const OsiSolverInterface* const copySolver, const bool return_old) {
   SolverInterface* tmp = NULL;
@@ -932,7 +809,7 @@ SolverInterface* VPCEventHandler::setOriginalSolver(
     originalSolver_ = dynamic_cast<SolverInterface*>(copySolver->clone());
   } catch (std::exception& e) {
     error_msg(errorstring, "Unable to clone solver as SolverInterface.\n");
-    writeErrorToLog(errorstring, params->logfile);
+    writeErrorToLog(errorstring, owner->params.logfile);
     exit(1);
   }
   this->setOriginalLB(originalSolver_->getNumCols(), originalSolver_->getColLower());
@@ -951,3 +828,275 @@ void VPCEventHandler::setOriginalLB(const int num_cols, const double* const vec)
 void VPCEventHandler::setOriginalUB(const int num_cols, const double* const vec) {
   originalUB_.assign(vec, vec + num_cols);
 } /* setOriginalUB */
+
+/****************** PROTECTED **********************/
+
+void VPCEventHandler::initialize(const VPCEventHandler* const source) {
+  if (source) {
+    this->owner = source->owner;
+    this->maxNumLeafNodes_ = source->maxNumLeafNodes_;
+    this->maxTime_ = source->maxTime_;
+    this->numNodesOnTree_ = source->numNodesOnTree_;
+    this->numLeafNodes_ = source->numLeafNodes_;
+    this->numNodes_ = source->numNodes_;
+    this->originalSolver_ = dynamic_cast<SolverInterface*>(source->originalSolver_->clone());
+    this->originalLB_ = source->originalLB_;
+    this->originalUB_ = source->originalUB_;
+    this->stats_ = source->stats_;
+    this->pruned_stats_ = source->pruned_stats_;
+    this->finalNodeIndices_ = source->finalNodeIndices_;
+    this->savedSolution_ = source->savedSolution_;
+    // Temporary members
+    this->currentNodes_ = source->currentNodes_;
+    this->parentInfo_ = source->parentInfo_;
+    this->child_ = source->child_;
+    this->pruneNode_ = source->pruneNode_;
+    this->reachedEnd_ = source->reachedEnd_;
+    this->foundSolution_ = source->foundSolution_;
+  } else {
+    this->owner = NULL;
+    this->maxNumLeafNodes_ = 0;
+    this->maxTime_ = 0;
+    this->numNodesOnTree_ = 0;
+    this->numLeafNodes_ = 0;
+    this->numNodes_ = 0;
+    this->originalSolver_ = NULL;
+    this->originalLB_.resize(0);
+    this->originalUB_.resize(0);
+    this->stats_.resize(0);
+    this->pruned_stats_.resize(0);
+    this->finalNodeIndices_.resize(0);
+    this->savedSolution_.resize(0);
+    // Temporary members
+    this->currentNodes_.resize(0);
+    this->parentInfo_ = NULL;
+    this->child_ = NULL;
+    this->pruneNode_ = 0;
+    this->reachedEnd_ = false;
+    this->foundSolution_ = false;
+  }
+} /* initialize */
+
+bool VPCEventHandler::setupDisjunctiveTerm(const int node_id,
+    const int branching_variable, const int branching_way,
+    const double branching_value, const SolverInterface* const tmpSolverBase,
+    const int curr_num_changed_bounds,
+    std::vector<std::vector<int> >& commonTermIndices,
+    std::vector<std::vector<double> >& commonTermCoeff,
+    std::vector<double>& commonTermRHS) {
+  bool isFeasible = false;
+  const int ind[] = {branching_variable};
+  const double coeff[] = {(branching_way <= 0) ? -1. : 1.};
+  const double rhs = coeff[0] * branching_value;
+  const int orig_node_id = stats_[node_id].orig_id;
+
+  SolverInterface* tmpSolver = dynamic_cast<SolverInterface*>(tmpSolverBase->clone());
+  tmpSolver->addRow(1, ind, coeff, rhs, tmpSolver->getInfinity());
+  tmpSolver->resolve();
+  enableFactorization(tmpSolver, owner->params.get(doubleParam::EPS)); // this may change the solution slightly
+  if (checkSolverOptimality(tmpSolver, true)) {
+    this->owner->num_terms++;
+    Disjunction::setCgsName(this->owner->name, 1, ind, coeff, rhs);
+    if (curr_num_changed_bounds > 0)
+      Disjunction::setCgsName(this->owner->name, curr_num_changed_bounds,
+          commonTermIndices, commonTermCoeff, commonTermRHS, true);
+    DisjunctiveTerm term;
+    term.basis = dynamic_cast<CoinWarmStartBasis*>(tmpSolver->getWarmStart());
+    term.obj = tmpSolver->getObjValue();
+    term.changed_var = stats_[orig_node_id].changed_var;
+    term.changed_var.push_back(branching_variable);
+    term.changed_bound = stats_[orig_node_id].changed_bound;
+    term.changed_bound.push_back(branching_way == 1 ? -1 : 1);
+    term.changed_value = stats_[orig_node_id].changed_value;
+    term.changed_value.push_back(branching_value);
+    owner->terms.push_back(term);
+    isFeasible = true;
+  }
+  if (tmpSolver)
+    delete tmpSolver;
+  return isFeasible;
+} /* setupDisjunctiveTerm */
+
+/**
+ * Save all relevant information before it gets deleted by BB finishing
+ */
+void VPCEventHandler::saveInformation() {
+  owner->data.num_nodes_on_tree = this->getNumNodesOnTree();
+  owner->data.num_partial_bb_nodes = model_->getNodeCount(); // save number of nodes looked at
+  owner->data.num_pruned_nodes = this->getPrunedStatsVector().size()
+      - this->isIntegerSolutionFound();
+  owner->data.num_fixed_vars = model_->strongInfo()[1]; // number fixed during b&b
+
+  // Save variables with bounds that were changed at the root
+  this->owner->common_changed_bound = this->stats_[0].changed_bound;
+  this->owner->common_changed_value = this->stats_[0].changed_value;
+  this->owner->common_changed_var = this->stats_[0].changed_var;
+
+  // If an integer solution was found, save it
+  if (isIntegerSolutionFound()) {
+    // 2017-08-11: Only one integer-feasible solution needs to be kept (the best one),
+    // So we drop old code that would prune integer feasible solutions that are above cutoff
+    this->owner->num_terms++;
+    owner->integer_sol = savedSolution_;
+    std::string tmpname = "feasSol0";
+    Disjunction::setCgsName(owner->name, tmpname);
+  }
+
+  owner->terms.reserve(2 * numNodesOnTree_);
+//  bases_.reserve(2 * numNodesOnTree_);
+
+  // Set up original basis including bounds changed at root
+  CoinWarmStartBasis* original_basis = dynamic_cast<CoinWarmStartBasis*>(originalSolver_->getWarmStart());
+
+  // For each node on the tree, use the warm start basis and branching directions to save the disjunctive node
+  for (int tmp_ind = 0; tmp_ind < numNodesOnTree_; tmp_ind++) {
+    CoinWarmStartBasis* parent_basis = dynamic_cast<CoinWarmStartBasis*>(original_basis->clone());
+    CbcNode* node = model_->tree()->nodePointer(tmp_ind);
+    CbcNodeInfo* nodeInfo = node->nodeInfo();
+    nodeInfo->buildRowBasis(*parent_basis);
+    finalNodeIndices_.push_back(stats_[nodeInfo->nodeNumber()].id);
+
+    const int node_id = stats_[nodeInfo->nodeNumber()].id;
+    const int orig_node_id = stats_[node_id].orig_id;
+
+    SolverInterface* tmpSolverBase =
+        dynamic_cast<SolverInterface*>(originalSolver_->clone());
+//    tmpSolverBase->disableFactorization(); // seg fault
+
+    // Change bounds in the solver
+    const int curr_num_changed_bounds =
+        (orig_node_id == 0) ? 0 : stats_[orig_node_id].changed_var.size();
+    std::vector < std::vector<int> > commonTermIndices(curr_num_changed_bounds);
+    std::vector < std::vector<double> > commonTermCoeff(curr_num_changed_bounds);
+    std::vector<double> commonTermRHS(curr_num_changed_bounds);
+    for (int i = 0; i < curr_num_changed_bounds; i++) {
+      const int col = stats_[orig_node_id].changed_var[i];
+      const double coeff = (stats_[orig_node_id].changed_bound[i] <= 0) ? 1. : -1.;
+      const double val = stats_[orig_node_id].changed_value[i];
+      commonTermIndices[i].resize(1, col);
+      commonTermCoeff[i].resize(1, coeff);
+      commonTermRHS[i] = coeff * val;
+      if (stats_[orig_node_id].changed_bound[i] <= 0) {
+        tmpSolverBase->setColLower(col, val);
+      } else {
+        tmpSolverBase->setColUpper(col, val);
+      }
+    }
+
+    // Set the parent node warm start
+    if (!(tmpSolverBase->setWarmStart(parent_basis))) {
+      error_msg(errorstring,
+          "Warm start information not accepted for parent node %d.\n", tmp_ind);
+      writeErrorToLog(errorstring, owner->params.logfile);
+      exit(1);
+    }
+
+    // Resolve
+#ifdef TRACE
+    printf("\n## Solving for parent node %d/%d. ##\n", tmp_ind + 1, numNodesOnTree_);
+#endif
+    tmpSolverBase->resolve();
+    if (!checkSolverOptimality(tmpSolverBase, false)) {
+      error_msg(errorstring, "Solver not proven optimal for node %d.\n",
+          node_id);
+      writeErrorToLog(errorstring, owner->params.logfile);
+      exit(1);
+    }
+    // Sometimes we run into a few issues getting the ``right'' value
+    if (!isVal(tmpSolverBase->getObjValue(), stats_[node_id].obj, owner->params.get(doubleConst::DIFFEPS))) {
+      tmpSolverBase->resolve();
+    }
+
+#ifdef TRACE
+    double curr_nb_obj_val = tmpSolverBase->getObjValue() - originalSolver_->getObjValue();
+    printf("DEBUG: Node: %d .......... Obj val:%.3f .......... NB obj val: %.3f\n", node_id,
+        tmpSolverBase->getObjValue(), curr_nb_obj_val);
+    printNodeStatistics(stats_[node_id], true);
+#endif
+    if (!isVal(tmpSolverBase->getObjValue(), stats_[node_id].obj,
+        owner->params.get(doubleConst::DIFFEPS))) {
+#ifdef TRACE
+      std::string commonName;
+      Disjunction::setCgsName(commonName, curr_num_changed_bounds, commonTermIndices,
+          commonTermCoeff, commonTermRHS, false);
+      printf("Bounds changed: %s.\n", commonName.c_str());
+#endif
+      double ratio = tmpSolverBase->getObjValue() / stats_[node_id].obj;
+      if (ratio < 1.) {
+        ratio = 1. / ratio;
+      }
+      // Allow it to be up to 3% off without causing an error
+      if (greaterThanVal(ratio, 1.03)) {
+        error_msg(errorstring,
+            "Objective at parent node %d/%d (node id %d) is incorrect. During BB, it was %s, now it is %s.\n",
+            tmp_ind + 1, this->numNodesOnTree_, node_id,
+            stringValue(stats_[node_id].obj, "%1.3f").c_str(),
+            stringValue(tmpSolverBase->getObjValue(), "%1.3f").c_str());
+        writeErrorToLog(errorstring, owner->params.logfile);
+        exit(1);
+      } else {
+        warning_msg(warnstring,
+            "Objective at parent node %d/%d (node id %d) is incorrect. During BB, it was %s, now it is %s.\n",
+            tmp_ind + 1, this->numNodesOnTree_, node_id,
+            stringValue(stats_[node_id].obj, "%1.3f").c_str(),
+            stringValue(tmpSolverBase->getObjValue(), "%1.3f").c_str());
+      }
+    } // check that the parent node objective matches
+
+    // Now we check the branch or branches left for this node
+    bool hasFeasibleChild = false;
+    const int branching_index = stats_[node_id].branch_index;
+    const int branching_variable = stats_[node_id].variable;
+    int branching_way = stats_[node_id].way;
+    double branching_value = (branching_way <= 0) ? stats_[node_id].ub : stats_[node_id].lb;
+
+#ifdef TRACE
+    printf("\n## Solving first child of parent %d/%d for term %d. ##\n",
+        tmp_ind + 1, this->numNodesOnTree_, this->owner->num_terms);
+#endif
+    hasFeasibleChild = setupDisjunctiveTerm(node_id, branching_variable,
+        branching_way, branching_value, tmpSolverBase, curr_num_changed_bounds,
+        commonTermIndices, commonTermCoeff, commonTermRHS);
+    if (branching_index == 0) { // should we compute a second branch?
+  #ifdef TRACE
+      printf("\n## Solving second child of parent %d/%d for term %d. ##\n",
+          tmp_ind + 1, this->numNodesOnTree_, this->owner->num_terms);
+  #endif
+      branching_way = (stats_[node_id].way <= 0) ? 1 : 0;
+      branching_value =
+          (branching_way <= 0) ? branching_value - 1 : branching_value + 1;
+      const bool childIsFeasible = setupDisjunctiveTerm(node_id, branching_variable, branching_way,
+              branching_value, tmpSolverBase, curr_num_changed_bounds,
+              commonTermIndices, commonTermCoeff, commonTermRHS);
+      hasFeasibleChild = hasFeasibleChild || childIsFeasible;
+    } // end second branch computation
+
+    if (hasFeasibleChild) {
+      if (stats_[node_id].depth + 1 < owner->data.min_node_depth) {
+        owner->data.min_node_depth = stats_[node_id].depth + 1;
+      }
+      if (stats_[node_id].depth + 1 > owner->data.max_node_depth) {
+        owner->data.max_node_depth = stats_[node_id].depth + 1;
+      }
+    }
+
+    if (tmpSolverBase)
+      delete tmpSolverBase;
+  } // loop over num nodes on tree // DONE
+
+//  bases_.resize(numNodesOnTree_);
+//  CoinWarmStartBasis* tmp = dynamic_cast<CoinWarmStartBasis*>(originalSolver_->getWarmStart());
+//  for (int i = 0; i < numNodesOnTree_; i++) {
+//    bases_[i] = dynamic_cast<CoinWarmStartBasis*>(tmp->clone());
+//    CbcNode* node = model_->tree()->nodePointer(i);
+//    CbcNodeInfo* nodeInfo = node->nodeInfo();
+//    nodeInfo->buildRowBasis(*bases_[i]);
+//    finalNodeIndices_.push_back(stats_[nodeInfo->nodeNumber()].id);
+//  }
+//  if (tmp) {
+//    delete tmp;
+//  }
+  if (original_basis) {
+    delete original_basis;
+  }
+} /* saveInformation */

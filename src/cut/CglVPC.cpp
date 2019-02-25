@@ -166,7 +166,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     }
   }
 
-  // Choose disjunctive terms and obtain their optimal bases
+  // Get disjunctive terms and obtain their optimal bases
   disj = new PartialBBDisjunction(this->params);
   disj->timer = &timer;
   status = disj->prepareDisjunction(solver);
@@ -442,31 +442,24 @@ void CglVPC::getProblemData(SolverInterface* const solver,
 } /* getProblemData */
 
 ExitReason CglVPC::setupConstraints(const SolverInterface* const si, OsiCuts& cuts) {
-  // Decide if we are in the nonbasic space, based on option
-  const bool inNBSpace = params.get(intConst::NB_SPACE);
-  const int dim = si->getNumCols(); // NB: treating fixed vars as at bound
-
-  std::vector<NodeStatistics>& stats = this->disj->data.stats;
-  const int num_disj_terms = disj->num_terms;
-
   /***********************************************************************************
    * Change initial bounds
    ***********************************************************************************/
-  // Make a copy of the solver to allow for fixing variables
+  // Make a copy of the solver to allow for fixing variables and changed bounds at root
   SolverInterface* vpcsolver = dynamic_cast<SolverInterface*>(si->clone());
-  const int num_changed_bounds = stats[0].changed_var.size();
+  const int num_changed_bounds = this->disj->common_changed_var.size();
   int num_fixed = 0;
   for (int i = 0; i < num_changed_bounds; i++) {
-    const int col = stats[0].changed_var[i];
-    if (stats[0].changed_bound[i] <= 0) {
-      vpcsolver->setColLower(col, stats[0].changed_value[i]);
+    const int col = this->disj->common_changed_var[i];
+    if (this->disj->common_changed_bound[i] <= 0) {
+      vpcsolver->setColLower(col, this->disj->common_changed_value[i]);
     } else {
-      vpcsolver->setColUpper(col, stats[0].changed_value[i]);
+      vpcsolver->setColUpper(col, this->disj->common_changed_value[i]);
     }
 
-    const double mult = (stats[0].changed_bound[i] <= 0) ? 1. : -1.;
+    const double mult = (this->disj->common_changed_bound[i] <= 0) ? 1. : -1.;
     const double el = mult * 1.;
-    const double val = stats[0].changed_value[i];
+    const double val = this->disj->common_changed_value[i];
     OsiRowCut currCut;
     currCut.setLb(mult * val);
     currCut.setRow(1, &col, &el, false);
@@ -475,7 +468,7 @@ ExitReason CglVPC::setupConstraints(const SolverInterface* const si, OsiCuts& cu
     if (isVal(vpcsolver->getColLower()[col], vpcsolver->getColUpper()[col])) {
       num_fixed++;
     }
-  }
+  } // account for bounds changed at root
 #ifdef TRACE
   printf(
       "\n## Total number changed bounds: %d. Number fixed: %d. Number fixed in course of BB: %d. ##\n",
@@ -501,50 +494,52 @@ ExitReason CglVPC::setupConstraints(const SolverInterface* const si, OsiCuts& cu
   printf("Problem-specific epsilon set to %.10e\n", this->probData.EPS);
 #endif
 
-  /***********************************************************************************
-   * Save objective
-   ***********************************************************************************/
-  // In order to calculate how good the points we find are
-  // with respect to the objective function (which should be in NB space when appropriate)
-  // Clearly a valid inequality is c^T x \ge c^\T v,
-  // where v is the LP optimum, since we are minimizing
-  // Either we have the objective, or we have the reduced costs
-  // of the nonbasic variables (which is exactly the objective
-  // in the nonbasic space).
-  // Recall that the reduced cost of slack variables is exactly
-  // the negative of the row price (dual variable) for that row.
-  OsiRowCut objCut;
-  if (inNBSpace) {
-    std::vector<int> indices;
-    std::vector<double> vals;
-    indices.reserve(dim);
-    vals.reserve(dim);
-    for (int i = 0; i < dim; i++) {
-      if (!isVal(probData.NBReducedCost[i], probData.EPS)) {
-        indices.push_back(i);
-        vals.push_back(probData.NBReducedCost[i]);
-      }
-    }
-    objCut.setRow(indices.size(), indices.data(), vals.data(), false);
-    objCut.setLb(0.0);
-  } else {
-    std::vector<int> indices;
-    std::vector<double> vals;
-    indices.reserve(dim);
-    vals.reserve(dim);
-    for (int i = 0; i < dim; i++) {
-      if (!isVal(vpcsolver->getObjCoefficients()[i], probData.EPS)) {
-        indices.push_back(i);
-        vals.push_back(vpcsolver->getObjCoefficients()[i]);
-      }
-    }
-    objCut.setRow(indices.size(), indices.data(), vals.data(), false);
-    objCut.setLb(vpcsolver->getObjValue());
-  }
+//  /***********************************************************************************
+//   * Save objective
+//   ***********************************************************************************/
+//  // In order to calculate how good the points we find are
+//  // with respect to the objective function (which should be in NB space when appropriate)
+//  // Clearly a valid inequality is c^T x \ge c^\T v,
+//  // where v is the LP optimum, since we are minimizing
+//  // Either we have the objective, or we have the reduced costs
+//  // of the nonbasic variables (which is exactly the objective
+//  // in the nonbasic space).
+//  // Recall that the reduced cost of slack variables is exactly
+//  // the negative of the row price (dual variable) for that row.
+//  OsiRowCut objCut;
+//  if (inNBSpace) {
+//    std::vector<int> indices;
+//    std::vector<double> vals;
+//    indices.reserve(dim);
+//    vals.reserve(dim);
+//    for (int i = 0; i < dim; i++) {
+//      if (!isVal(probData.NBReducedCost[i], probData.EPS)) {
+//        indices.push_back(i);
+//        vals.push_back(probData.NBReducedCost[i]);
+//      }
+//    }
+//    objCut.setRow(indices.size(), indices.data(), vals.data(), false);
+//    objCut.setLb(0.0);
+//  } else {
+//    std::vector<int> indices;
+//    std::vector<double> vals;
+//    indices.reserve(dim);
+//    vals.reserve(dim);
+//    for (int i = 0; i < dim; i++) {
+//      if (!isVal(vpcsolver->getObjCoefficients()[i], probData.EPS)) {
+//        indices.push_back(i);
+//        vals.push_back(vpcsolver->getObjCoefficients()[i]);
+//      }
+//    }
+//    objCut.setRow(indices.size(), indices.data(), vals.data(), false);
+//    objCut.setLb(vpcsolver->getObjValue());
+//  }
 
   /***********************************************************************************
    * Set up intersection point and ray storage
    ***********************************************************************************/
+  const int num_disj_terms = disj->num_terms;
+  const int dim = si->getNumCols(); // NB: treating fixed vars as at bound
   std::vector < std::vector<std::vector<int> > > termIndices(num_disj_terms);
   std::vector < std::vector<std::vector<double> > > termCoeff(num_disj_terms);
   std::vector < std::vector<double> > termRHS(num_disj_terms);
@@ -552,23 +547,14 @@ ExitReason CglVPC::setupConstraints(const SolverInterface* const si, OsiCuts& cu
   /***********************************************************************************
    * Get bases and generate VPCs
    ***********************************************************************************/
-  std::vector<ProblemData> disjProbData(num_disj_terms);
+//  std::vector<ProblemData> disjProbData(num_disj_terms);
 
-  int term_ind = -1;
-  std::vector<bool> calcAndFeasFacet(num_disj_terms);
-  this->disj->best_obj = std::numeric_limits<double>::max();
-  this->disj->worst_obj = std::numeric_limits<double>::lowest();
-  this->disj->min_nb_obj_val = std::numeric_limits<double>::max();
-//  int& min_node_depth = this->disj->data.min_node_depth;
-//  int& max_node_depth = this->disj->data.max_node_depth;
-//  this->disj->data.min_node_depth = std::numeric_limits<int>::max();
-//  this->disj->data.max_node_depth = 0;
-  int min_node_depth = std::numeric_limits<int>::max();
-  int max_node_depth = 0;
+  int terms_added = -1;
+  std::vector<bool> calcAndFeasTerm(num_disj_terms);
 
   // Start with the integer-feasible solution
   if (!(disj->integer_sol.empty())) {
-    term_ind++;
+    terms_added++;
 
     // Get solution and calculate slacks
     const double* sol = disj->integer_sol.data();
@@ -586,152 +572,138 @@ ExitReason CglVPC::setupConstraints(const SolverInterface* const si, OsiCuts& cu
         probData.NBVarIndex, probData.NBReducedCost);
     const double beta = 1.0;
 //        params.get(FLIP_BETA) >= 0 ? 1.0 : -1.0;
-    prlpData.addConstraint(point, beta, term_ind, curr_nb_obj_val);
+    prlpData.addConstraint(point, beta, terms_added, curr_nb_obj_val);
 #ifdef TRACE
-    printf("\n## Saving integer feasible solution as term %d. ##\n", term_ind);
+    printf("\n## Saving integer feasible solution as term %d. ##\n", terms_added);
 #endif
-    calcAndFeasFacet[term_ind] = true;
-    std::string tmpname = "feasSol" + std::to_string(term_ind);
-    setCgsName(this->disj->name, tmpname);
+    calcAndFeasTerm[terms_added] = true;
+
+    // Update disjunctive bound info
+    // This is here rather than in the Disjunction class,
+    // because it is unclear whether, in that class,
+    // the user computes with the variables changed at the root
     double objOffset = 0.;
     vpcsolver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
-    const double objVal = dotProduct(vpcsolver->getObjCoefficients(), sol, dim)
-        - objOffset;
+    const double objVal =
+        dotProduct(vpcsolver->getObjCoefficients(), sol, dim) - objOffset;
     this->disj->updateObjValue(objVal);
     this->disj->updateNBObjValue(curr_nb_obj_val);
-  } /* integer-feasible solution */
+  } // integer-feasible solution
 
   // Now we handle the normal terms
-  for (int tmp_ind = 0; tmp_ind < this->disj->data.num_nodes_on_tree; tmp_ind++) {
-    //    printf("\n## DEBUG: Tmp index: %d ##\n", tmp_ind);
-    const int node_id = this->disj->data.node_id[tmp_ind];
-    const int orig_node_id = stats[node_id].orig_id;
-
-    SolverInterface* tmpSolverBase = dynamic_cast<SolverInterface*>(vpcsolver->clone());
-    tmpSolverBase->disableFactorization();
+  const int num_normal_terms = disj->terms.size();
+  for (int tmp_ind = 0; tmp_ind < num_normal_terms; tmp_ind++) {
+    terms_added++;
+    SolverInterface* tmpSolver = dynamic_cast<SolverInterface*>(vpcsolver->clone());
+    tmpSolver->disableFactorization();
 
     // Change bounds in the solver
-    const int curr_num_changed_bounds =
-        (orig_node_id == 0) ? 0 : stats[orig_node_id].changed_var.size();
+    DisjunctiveTerm* term = &this->disj->terms[tmp_ind];
+    const int curr_num_changed_bounds = term->changed_var.size();
     std::vector < std::vector<int> > commonTermIndices(curr_num_changed_bounds);
     std::vector < std::vector<double> > commonTermCoeff(curr_num_changed_bounds);
     std::vector<double> commonTermRHS(curr_num_changed_bounds);
     for (int i = 0; i < curr_num_changed_bounds; i++) {
-      const int col = stats[orig_node_id].changed_var[i];
-      const double coeff =
-          (stats[orig_node_id].changed_bound[i] <= 0) ? 1. : -1.;
-      const double val = stats[orig_node_id].changed_value[i];
+      const int col = term->changed_var[i];
+      const double coeff = (term->changed_bound[i] <= 0) ? 1. : -1.;
+      const double val = term->changed_value[i];
       commonTermIndices[i].resize(1, col);
       commonTermCoeff[i].resize(1, coeff);
       commonTermRHS[i] = coeff * val;
-      if (stats[orig_node_id].changed_bound[i] <= 0) {
-        tmpSolverBase->setColLower(col, val);
+      if (term->changed_bound[i] <= 0) {
+        tmpSolver->setColLower(col, val);
       } else {
-        tmpSolverBase->setColUpper(col, val);
+        tmpSolver->setColUpper(col, val);
       }
     }
 
     // Set the warm start
-    if (!(tmpSolverBase->setWarmStart(this->disj->bases[tmp_ind]))) {
+    if (!(tmpSolver->setWarmStart(term->basis))) {
       error_msg(errorstring,
-          "Warm start information not accepted for node %d.\n", node_id);
+          "Warm start information not accepted for leaf node %d/%d.\n",
+          tmp_ind + 1, num_normal_terms);
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
     }
 
-    // Resolve
+    // Resolve and check the objective matches
 #ifdef TRACE
-    printf("\n## Solving for parent node %d/%d. ##\n", tmp_ind + 1, this->disj->data.num_nodes_on_tree);
+    printf("\n## Solving for leaf node %d/%d. ##\n",
+        tmp_ind + 1, num_normal_terms);
 #endif
-    tmpSolverBase->resolve();
-    if (!checkSolverOptimality(tmpSolverBase, false)) {
-      error_msg(errorstring, "Solver not proven optimal for node %d.\n",
-          node_id);
-      writeErrorToLog(errorstring, params.logfile);
-      exit(1);
-    }
+    tmpSolver->resolve();
+    enableFactorization(tmpSolver, params.get(doubleParam::EPS)); // this may change the solution slightly
+    calcAndFeasTerm[terms_added] = checkSolverOptimality(tmpSolver, true);
+
     // Sometimes we run into a few issues getting the ``right'' value
-    if (!isVal(tmpSolverBase->getObjValue(), stats[node_id].obj, params.get(doubleConst::DIFFEPS))) {
-      tmpSolverBase->resolve();
+    if (!isVal(tmpSolver->getObjValue(), term->obj, params.get(doubleConst::DIFFEPS))) {
+      tmpSolver->resolve();
     }
-
-#ifdef TRACE
-    double curr_nb_obj_val = tmpSolverBase->getObjValue() - vpcsolver->getObjValue();
-    printf("DEBUG: Node: %d .......... Obj val:%.3f .......... NB obj val: %.3f\n", node_id,
-        tmpSolverBase->getObjValue(), curr_nb_obj_val);
-    printNodeStatistics(stats[node_id], true);
-#endif
-    if (!isVal(tmpSolverBase->getObjValue(), stats[node_id].obj, params.get(doubleConst::DIFFEPS))) {
-#ifdef TRACE
-      std::string commonName;
-      setCgsName(commonName, curr_num_changed_bounds, commonTermIndices,
-          commonTermCoeff, commonTermRHS, false);
-      printf("Bounds changed: %s.\n", commonName.c_str());
-#endif
-      double ratio = tmpSolverBase->getObjValue() / stats[node_id].obj;
+    if (!isVal(tmpSolver->getObjValue(), term->obj, params.get(doubleConst::DIFFEPS))) {
+      double ratio = tmpSolver->getObjValue() / term->obj;
       if (ratio < 1.) {
         ratio = 1. / ratio;
       }
       // Allow it to be up to 3% off without causing an error
       if (greaterThanVal(ratio, 1.03)) {
         error_msg(errorstring,
-            "Objective at parent node %d is incorrect. During BB, it was %s, now it is %s.\n",
-            node_id, stringValue(stats[node_id].obj, "%1.3f").c_str(),
-            stringValue(tmpSolverBase->getObjValue(), "%1.3f").c_str());
+            "Objective at leaf node %d/%d is incorrect. During BB, it was %s, now it is %s.\n",
+            tmp_ind, num_normal_terms, stringValue(term->obj, "%1.3f").c_str(),
+            stringValue(tmpSolver->getObjValue(), "%1.3f").c_str());
         writeErrorToLog(errorstring, params.logfile);
         exit(1);
       } else {
         warning_msg(warnstring,
-            "Objective at parent node %d is incorrect. During BB, it was %s, now it is %s.\n",
-            node_id, stringValue(stats[node_id].obj, "%1.3f").c_str(),
-            stringValue(tmpSolverBase->getObjValue(), "%1.3f").c_str());
+            "Objective at disjunctive term %d/%d is incorrect. During BB, it was %s, now it is %s.\n",
+            tmp_ind, num_normal_terms, stringValue(term->obj, "%1.3f").c_str(),
+            stringValue(tmpSolver->getObjValue(), "%1.3f").c_str());
       }
-    }
-
-    // Now we go to the branch or branches left for this node
-//    const int num_ineq_per_term = 1;  // leaf nodes have one extra changed
-    const int branching_index = stats[node_id].branch_index;
-    const int branching_variable = stats[node_id].variable;
-    int branching_way = stats[node_id].way;
-    double branching_value = (branching_way <= 0) ? stats[node_id].ub : stats[node_id].lb;
-
-    if (stats[node_id].depth + 1 < min_node_depth) {
-      min_node_depth = stats[node_id].depth + 1;
-    }
-    if (stats[node_id].depth + 1 > max_node_depth) {
-      max_node_depth = stats[node_id].depth + 1;
-    }
-
-    // Set up termIndices, termCoeff, termRHS for this term
-    // First direction
-    term_ind++;
 #ifdef TRACE
-    printf("\n## Solving first child of parent %d/%d for term %d. ##\n",
-        tmp_ind + 1, this->disj->data.num_nodes_on_tree, term_ind);
+      std::string commonName;
+      Disjunction::setCgsName(commonName, curr_num_changed_bounds, commonTermIndices,
+          commonTermCoeff, commonTermRHS, false);
+      printf("Bounds changed: %s.\n", commonName.c_str());
 #endif
-    calcAndFeasFacet[term_ind] = setupDisjunctiveTerm(term_ind, branching_index,
-        branching_variable, branching_way, branching_value,
-        termIndices[term_ind], termCoeff[term_ind], termRHS[term_ind],
-        vpcsolver, tmpSolverBase);
+    } // check that objective value matches
 
-    // Should we compute a second branch?
-    if (branching_index == 0) {
-      // Other direction
-      branching_way = (stats[node_id].way <= 0) ? 1 : 0;
-      branching_value = (branching_way <= 0) ? branching_value - 1 : branching_value + 1;
-      term_ind++;
-#ifdef TRACE
-      printf("\n## Solving second child of parent %d/%d for term %d. ##\n",
-          tmp_ind + 1, this->disj->data.num_nodes_on_tree, term_ind);
-#endif
-      calcAndFeasFacet[term_ind] = setupDisjunctiveTerm(term_ind, branching_index,
-          branching_variable, branching_way, branching_value,
-          termIndices[term_ind], termCoeff[term_ind], termRHS[term_ind],
-          vpcsolver, tmpSolverBase);
-    } /* end second branch computation */
+    // Possibly strengthen the term
+    if (calcAndFeasTerm[terms_added] && params.get(intParam::STRENGTHEN) == 2) {
+    // Add Gomory cuts on disjunctive term and resolve
+      OsiCuts GMICs;
+      CglGMI GMIGen;
+      GMIGen.generateCuts(*tmpSolver, GMICs);
+      tmpSolver->applyCuts(GMICs);
+      tmpSolver->resolve();
+      calcAndFeasTerm[terms_added] = checkSolverOptimality(tmpSolver, true);
+    }
+    if (calcAndFeasTerm[terms_added]) {
+      // Update disjunctive bound info
+      // This is here rather than in the Disjunction class,
+      // because it is unclear whether, in that class,
+      // the user computes with the variables changed at the root
+      this->disj->updateObjValue(tmpSolver->getObjValue());
+      this->disj->updateNBObjValue(tmpSolver->getObjValue() - vpcsolver->getObjValue());
 
-    if (tmpSolverBase) {
-      delete tmpSolverBase;
+      timer.register_name(CglVPC::time_T1 + std::to_string(terms_added));
+      timer.register_name(CglVPC::time_T2 + std::to_string(terms_added));
+
+      if (!reachedTimeLimit(CglVPC::time_T1 + "TOTAL", params.get(TIMELIMIT))) {
+        timer.start_timer(CglVPC::time_T1 + "TOTAL");
+        timer.start_timer(CglVPC::time_T1 + std::to_string(terms_added));
+
+        // Get cobasis information and PR collection
+        enableFactorization(tmpSolver, probData.EPS);
+        ProblemData tmpData;
+        getProblemData(tmpSolver, tmpData, &probData, false);
+        genDepth1PRCollection(vpcsolver, tmpSolver,
+            probData, tmpData, terms_added);
+
+        timer.end_timer(CglVPC::time_T1 + "TOTAL");
+        timer.end_timer(CglVPC::time_T1 + std::to_string(terms_added));
+      }
+    } // compute PR collection if the disj term is feasible
+    if (tmpSolver) {
+      delete tmpSolver;
     }
   } /* end loop over nodes on tree */
 
@@ -742,84 +714,83 @@ ExitReason CglVPC::setupConstraints(const SolverInterface* const si, OsiCuts& cu
 #endif
   return ExitReason::SUCCESS_EXIT;
 } /* setupConstraints */
-
-bool CglVPC::setupDisjunctiveTerm(const int term_ind, const int branching_index,
-    const int branching_variable, const int branching_way,
-    const double branching_value, std::vector<std::vector<int> >& termIndices,
-    std::vector<std::vector<double> >& termCoeff, std::vector<double>& termRHS,
-    const SolverInterface* const vpcsolver,
-    const SolverInterface* const tmpSolverBase) {
-  bool calcAndFeasFacet = false; // return value
-
-  const bool set_equal = false;
-//  const int max_num_cgs = 1;
-  const int num_ineq_per_term = 1;  // leaf nodes have one extra changed
-  termIndices.resize(num_ineq_per_term);
-  termCoeff.resize(num_ineq_per_term);
-  termRHS.resize(num_ineq_per_term);
-  for (int i = 0; i < num_ineq_per_term; i++) {
-    termIndices[i].resize(1);
-    termCoeff[i].resize(1);
-    termIndices[i][0] = branching_variable;
-    termCoeff[i][0] = (branching_way <= 0) ? -1. : 1.;
-    termRHS[i] = termCoeff[i][0] * branching_value;
-  }
-  SolverInterface* tmpSolver = dynamic_cast<SolverInterface*>(tmpSolverBase->clone());
-  for (int ineq_ind = 0; ineq_ind < (int) termIndices.size(); ineq_ind++) {
-    const int num_coeff = termIndices[ineq_ind].size();
-    tmpSolver->addRow(num_coeff, termIndices[ineq_ind].data(),
-        termCoeff[ineq_ind].data(), termRHS[ineq_ind],
-        (set_equal) ? termRHS[ineq_ind] : tmpSolver->getInfinity());
-  }
-  if (termIndices.size() > 0)
-    tmpSolver->resolve();
-  enableFactorization(tmpSolver, params.get(doubleParam::EPS)); // this may change the solution slightly
-  calcAndFeasFacet = checkSolverOptimality(tmpSolver, true);
-
-  if (calcAndFeasFacet) {
-    if (params.get(intParam::STRENGTHEN) == 2) { // possibly strengthen
-      // Add Gomory cuts on disjunctive term and resolve
-      OsiCuts GMICs;
-      CglGMI GMIGen;
-      GMIGen.generateCuts(*tmpSolver, GMICs);
-      tmpSolver->applyCuts(GMICs);
-      tmpSolver->resolve();
-      calcAndFeasFacet = checkSolverOptimality(tmpSolver, true);
-    }
-
-    setCgsName(this->disj->name, num_ineq_per_term, termIndices, termCoeff, termRHS);
-//    setCgsName(cgsName, curr_num_changed_bounds, commonTermIndices,
-//        commonTermCoeff, commonTermRHS, true);
-
-    // Update disjunctive bound info
-    this->disj->updateObjValue(tmpSolver->getObjValue());
-    this->disj->updateNBObjValue(tmpSolver->getObjValue() - probData.lp_opt);
-
-    timer.register_name(CglVPC::time_T1 + std::to_string(term_ind));
-    timer.register_name(CglVPC::time_T2 + std::to_string(term_ind));
-
-    if (!reachedTimeLimit(CglVPC::time_T1 + "TOTAL", params.get(TIMELIMIT))) {
-      timer.start_timer(CglVPC::time_T1 + "TOTAL");
-      timer.start_timer(CglVPC::time_T1 + std::to_string(term_ind));
-
-      // Get cobasis information and PR collection
-      enableFactorization(tmpSolver, probData.EPS);
-      ProblemData tmpData;
-      getProblemData(tmpSolver, tmpData, &probData, false);
-      genDepth1PRCollection(vpcsolver, tmpSolver,
-          probData, tmpData, term_ind);
-
-      timer.end_timer(CglVPC::time_T1 + "TOTAL");
-      timer.end_timer(CglVPC::time_T1 + std::to_string(term_ind));
-    }
-  } // check if calcAndFeasFacet
-
-  if (tmpSolver) {
-    delete tmpSolver;
-  }
-
-  return calcAndFeasFacet;
-} /* setupDisjunctiveTerm */
+//
+//bool CglVPC::setupDisjunctiveTerm(const int term_ind, const int branching_index,
+//    const int branching_variable, const int branching_way,
+//    const double branching_value, std::vector<std::vector<int> >& termIndices,
+//    std::vector<std::vector<double> >& termCoeff, std::vector<double>& termRHS,
+//    const SolverInterface* const vpcsolver,
+//    const SolverInterface* const tmpSolverBase) {
+//  bool calcAndFeasTerm = false; // return value
+//
+//  const bool set_equal = false;
+////  const int max_num_cgs = 1;
+//  const int num_ineq_per_term = 1;  // leaf nodes have one extra changed
+//  termIndices.resize(num_ineq_per_term);
+//  termCoeff.resize(num_ineq_per_term);
+//  termRHS.resize(num_ineq_per_term);
+//  for (int i = 0; i < num_ineq_per_term; i++) {
+//    termIndices[i].resize(1);
+//    termCoeff[i].resize(1);
+//    termIndices[i][0] = branching_variable;
+//    termCoeff[i][0] = (branching_way <= 0) ? -1. : 1.;
+//    termRHS[i] = termCoeff[i][0] * branching_value;
+//  }
+//  SolverInterface* tmpSolver = dynamic_cast<SolverInterface*>(tmpSolverBase->clone());
+//  for (int ineq_ind = 0; ineq_ind < (int) termIndices.size(); ineq_ind++) {
+//    const int num_coeff = termIndices[ineq_ind].size();
+//    tmpSolver->addRow(num_coeff, termIndices[ineq_ind].data(),
+//        termCoeff[ineq_ind].data(), termRHS[ineq_ind],
+//        (set_equal) ? termRHS[ineq_ind] : tmpSolver->getInfinity());
+//  }
+//  if (termIndices.size() > 0)
+//    tmpSolver->resolve();
+//  enableFactorization(tmpSolver, params.get(doubleParam::EPS)); // this may change the solution slightly
+//  calcAndFeasTerm = checkSolverOptimality(tmpSolver, true);
+//
+//  if (calcAndFeasTerm && params.get(intParam::STRENGTHEN) == 2) { // possibly strengthen
+//    // Add Gomory cuts on disjunctive term and resolve
+//    OsiCuts GMICs;
+//    CglGMI GMIGen;
+//    GMIGen.generateCuts(*tmpSolver, GMICs);
+//    tmpSolver->applyCuts(GMICs);
+//    tmpSolver->resolve();
+//    calcAndFeasTerm = checkSolverOptimality(tmpSolver, true);
+//  }
+//
+//  if (calcAndFeasTerm) {
+//    // Update disjunctive bound info
+//    // This is here rather than in the Disjunction class,
+//    // because it is unclear whether, in that class,
+//    // the user computes with the variables changed at the root
+//    this->disj->updateObjValue(tmpSolver->getObjValue());
+//    this->disj->updateNBObjValue(tmpSolver->getObjValue() - vpcsolver->getObjValue());
+//
+//    timer.register_name(CglVPC::time_T1 + std::to_string(term_ind));
+//    timer.register_name(CglVPC::time_T2 + std::to_string(term_ind));
+//
+//    if (!reachedTimeLimit(CglVPC::time_T1 + "TOTAL", params.get(TIMELIMIT))) {
+//      timer.start_timer(CglVPC::time_T1 + "TOTAL");
+//      timer.start_timer(CglVPC::time_T1 + std::to_string(term_ind));
+//
+//      // Get cobasis information and PR collection
+//      enableFactorization(tmpSolver, probData.EPS);
+//      ProblemData tmpData;
+//      getProblemData(tmpSolver, tmpData, &probData, false);
+//      genDepth1PRCollection(vpcsolver, tmpSolver,
+//          probData, tmpData, term_ind);
+//
+//      timer.end_timer(CglVPC::time_T1 + "TOTAL");
+//      timer.end_timer(CglVPC::time_T1 + std::to_string(term_ind));
+//    }
+//  } // compute PR collection if the disj term is feasible
+//
+//  if (tmpSolver) {
+//    delete tmpSolver;
+//  }
+//
+//  return calcAndFeasTerm;
+//} /* setupDisjunctiveTerm */
 
 /**
  * IN NON-BASIC SPACE

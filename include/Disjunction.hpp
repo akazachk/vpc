@@ -19,17 +19,37 @@
 // Project files
 enum class ExitReason; // defined in CglVPC.hpp, which is included in the source file
 
+/**
+ * Each disjunctive term is specified by a basis
+ * as well as which bounds are changed to arrive at that term
+ * (not counting the changed values at the root node that are common to all nodes)
+ */
+struct DisjunctiveTerm {
+  CoinWarmStart* basis;
+  double obj;
+  std::vector<int> changed_var;
+  std::vector<int> changed_bound;
+  std::vector<double> changed_value;
+};
+
 // Abstract class
 class Disjunction {
 public:
   friend class CglVPC;
-  int num_terms;
+  std::string name;
   double best_obj, worst_obj;
   double min_nb_obj_val;
   double integer_obj; // value of term with best and worst objective, and integer obj (if found)
   std::vector<double> integer_sol; // integer-feasible solution
-  std::vector<CoinWarmStart*> bases; // optimal bases of each of the disjunctive terms
-  std::string name;
+
+  // Save changed variable bounds at root node
+  std::vector<int> common_changed_var;
+  std::vector<int> common_changed_bound;
+  std::vector<double> common_changed_value;
+
+  // The disjunctive terms
+  int num_terms;
+  std::vector<DisjunctiveTerm> terms; // optimal bases of parents of each of the disjunctive terms
 
   /** Default constructor */
   Disjunction();
@@ -46,11 +66,76 @@ public:
   /** Clone */
   virtual Disjunction* clone() const = 0;
 
-  /** Get disjunction */
+  /** For clearing things and setting up the disjunction as new */
+  virtual void setupAsNew();
+
   ExitReason setBases(const OsiSolverInterface* const si,
       std::vector<int>& changed_var, std::vector<int>& changed_bound,
       std::vector<double>& changed_value);
+
+  /** Get disjunction */
   virtual ExitReason prepareDisjunction(OsiSolverInterface* const si) = 0;
+
+  /** Set/update name of cut generating set (disjunction) */
+  inline static void setCgsName(std::string& cgsName, const std::string& disjTermName) {
+    if (disjTermName.empty()) {
+      return;
+    }
+    if (!cgsName.empty()) {
+      cgsName += " V ";
+    }
+    cgsName += "(";
+    cgsName += disjTermName;
+    cgsName += ")";
+  } /* setCgsName (given disj term name) */
+
+  inline static void setCgsName(std::string& cgsName, const int num_coeff,
+      const int* const termIndices, const double* const termCoeff,
+      const double termRHS, const bool append = false) {
+    if (num_coeff == 0) {
+      return;
+    }
+    if (!cgsName.empty()) {
+      if (!append) {
+        cgsName += " V ";
+      } else {
+        cgsName.resize(cgsName.size() - 1); // remove last ")"
+        cgsName += "; ";
+      }
+    }
+    cgsName += append ? "" : "(";
+    for (int coeff_ind = 0; coeff_ind < num_coeff; coeff_ind++) {
+      cgsName += (termCoeff[coeff_ind] > 0) ? "+" : "-";
+      cgsName += "x";
+      cgsName += std::to_string(termIndices[coeff_ind]);
+    }
+    cgsName += " >= ";
+    cgsName += std::to_string((int) termRHS);
+    cgsName += ")";
+  } /* setCgsName (one ineq per term) */
+
+  inline static void setCgsName(std::string& cgsName, const int num_ineq_per_term,
+      const std::vector<std::vector<int> >& termIndices,
+      const std::vector<std::vector<double> >& termCoeff,
+      const std::vector<double>& termRHS, const bool append = false) {
+    if (num_ineq_per_term == 0) {
+      return;
+    }
+    if (!cgsName.empty()) {
+      if (!append) {
+        cgsName += " V ";
+      } else {
+        cgsName.resize(cgsName.size() - 1); // remove last ")"
+        cgsName += "; ";
+      }
+    }
+    cgsName += append ? "" : "(";
+    for (int i = 0; i < num_ineq_per_term; i++) {
+      setCgsName(cgsName, termIndices[i].size(), termIndices[i].data(),
+          termCoeff[i].data(), termRHS[i], (i > 0));
+    }
+    cgsName += ")";
+  } /* setCgsName */
 protected:
   void initialize(const Disjunction* const source = NULL);
   void updateObjValue(const double obj);
