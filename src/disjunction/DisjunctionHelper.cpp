@@ -220,5 +220,10 @@ int generateSplitDisjunctions(std::vector<Disjunction*>& disjVec, const OsiSolve
     disj->prepareDisjunction(si);
     disjVec.push_back(disj);
   }
+  { // DEBUG
+    for (int i = 0; i < num_splits; ++i) {
+      printf("Var: %d\n", dynamic_cast<SplitDisjunction*>(disjVec[i])->var);
+    }
+  }
   return num_splits;
 } /* generateCutsFromSplitDisjunctions */

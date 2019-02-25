@@ -57,10 +57,13 @@ SplitDisjunction* SplitDisjunction::clone() const {
   return new SplitDisjunction(*this);
 } /* clone */
 
-/** Set up the disjunction class as new (except the timer pointer, and do not reset params) */
+/**
+ * Set up the disjunction class as new
+ * (except the timer pointer, and do not reset params;
+ * in addition, here we do not reset var, in case user has set it)
+ */
 void SplitDisjunction::setupAsNew() {
   Disjunction::setupAsNew();
-  this->var = -1;
 } /* setupAsNew */
 
 /**
@@ -71,11 +74,11 @@ void SplitDisjunction::setupAsNew() {
 ExitReason SplitDisjunction::prepareDisjunction(const OsiSolverInterface* const si) {
   // Reset things in case we are reusing the class for some reason
   setupAsNew();
-  if (!timer) {
-    error_msg(errorstring, "Timer is not set.\n");
-    writeErrorToLog(errorstring, params.logfile);
-    exit(1);
-  }
+//  if (!timer) {
+//    error_msg(errorstring, "Timer is not set.\n");
+//    writeErrorToLog(errorstring, params.logfile);
+//    exit(1);
+//  }
 
   if (timer)
     timer->start_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
@@ -132,6 +135,9 @@ ExitReason SplitDisjunction::prepareDisjunction(const OsiSolverInterface* const 
 
     for (int col : fracCore) {
       if (checkVar(solver, col)) {
+#ifdef TRACE
+        printf("Selected var %d (value %1.3f) for split variable to branch on.\n", col, solver->getColSolution()[col]);
+#endif
         retVal = ExitReason::SUCCESS_EXIT;
         break; // stop when we find a disjunction; might want to sort by strong branching value instead, but that can be too expensive
       }

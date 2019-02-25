@@ -136,6 +136,11 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     finish(status);
     return;
   }
+  if (reachedCutLimit(cuts.sizeCuts())) {
+    status = ExitReason::CUT_LIMIT_EXIT;
+    finish(status);
+    return;
+  }
 
   mode = static_cast<VPCMode>(params.get(MODE));
   if (mode == VPCMode::PARTIAL_BB) {
@@ -146,6 +151,11 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     }
     printf("\n## Starting VPC generation from partial branch-and-bound tree with up to %d disjunctive terms. ##\n", params.get(intParam::DISJ_TERMS));
     disj = new PartialBBDisjunction(this->params);
+    disj->timer = &timer;
+  }
+  else if (mode== VPCMode::SPLITS) {
+    printf("\n## Starting VPC generation from one split. ##\n");
+    disj = new SplitDisjunction(this->params);
     disj->timer = &timer;
   }
   else if (mode == VPCMode::CUSTOM) {
@@ -898,6 +908,9 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
   if (reachedTimeLimit(time_T1 + "TOTAL", params.get(TIMELIMIT))) {
     return ExitReason::TIME_LIMIT_EXIT;
   }
+  if (reachedCutLimit(cuts.sizeCuts())) {
+    return ExitReason::CUT_LIMIT_EXIT;
+  }
 
 #ifdef TRACE
   printf("\n## CglVPC: Trying objectives. ##\n");
@@ -953,9 +966,13 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
     delete prlp;
 
 #ifdef TRACE
-  printf("\n## CglVPC: Finished trying %d objectives. Generated %d cuts. ##\n",
-      this->num_obj_tried - init_num_obj, curr_num_cuts);
+  printf("\n## CglVPC: Finished trying %d objectives. Generated %d cuts. Total num cuts: %d. ##\n",
+      this->num_obj_tried - init_num_obj, curr_num_cuts, cuts.sizeCuts());
 #endif
+
+  if (reachedCutLimit(cuts.sizeCuts())) {
+    return ExitReason::CUT_LIMIT_EXIT;
+  }
   return ExitReason::SUCCESS_EXIT;
 } /* tryObjectives */
 

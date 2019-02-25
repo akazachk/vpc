@@ -137,6 +137,9 @@ int main(int argc, char** argv) {
         for (Disjunction* disj : disjVec) {
           gen.disj = disj;
           gen.generateCuts(*solver, vpcs); // solution may change slightly due to enable factorization called in getProblemData...
+          if (gen.exitReason != ExitReason::SUCCESS_EXIT) {
+            break;
+          }
         }
       }
     } else {
@@ -153,7 +156,10 @@ int main(int argc, char** argv) {
     checkSolverOptimality(solver, false);
     const double new_obj_value = solver->getObjValue();
 
-    printf("\n## Initial obj value: %1.6f. New obj value: %1.6f. Disj lb: %1.6f. ##\n", init_obj_value, new_obj_value, gen.disj->best_obj);
+    printf(
+        "\n## Initial obj value: %1.6f. New obj value: %1.6f. Disj lb: %s. ##\n",
+        init_obj_value, new_obj_value,
+        stringValue(gen.disj->best_obj, "%1.6f").c_str());
   }
   return wrapUp(0);
 } /* main */
