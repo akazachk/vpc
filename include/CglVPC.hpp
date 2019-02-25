@@ -23,6 +23,7 @@ enum class ExitReason {
   FAIL_LIMIT_EXIT,
   PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT,
   TIME_LIMIT_EXIT,
+  NO_CUTS_LIKELY_EXIT,
   NO_DISJUNCTION_EXIT,
   UNKNOWN,
   NUM_EXIT_REASONS
@@ -34,6 +35,7 @@ const std::vector<std::string> ExitReasonName {
   "FAIL_LIMIT",
   "PARTIAL_BB_INTEGER_SOLUTION_FOUND",
   "TIME_LIMIT",
+  "NO_CUTS_LIKELY",
   "NO_DISJUNCTION",
   "UNKNOWN"
 }; /* ExitReasonName */
@@ -100,6 +102,8 @@ public:
     PRIMAL_INFEASIBLE,
     TIME_LIMIT,
     NUMERICAL_ISSUES_WARNING,
+    DLB_EQUALS_DUB_NO_OBJ,
+    DLB_EQUALS_LPOPT_NO_OBJ,
     PRIMAL_INFEASIBLE_NO_OBJ,
     NUMERICAL_ISSUES_NO_OBJ,
     UNKNOWN,
@@ -114,6 +118,7 @@ public:
   static const std::vector<std::string> FailureTypeName;
   static const std::string time_T1; // = "TIME_TYPE1_";
   static const std::string time_T2; // = "TIME_TYPE2_";
+  static int getCutLimit(const int CUTLIMIT, const int numDisj);
 
   // Class variables
   VPCParameters params;
@@ -130,7 +135,7 @@ public:
   std::vector<int> numFails;
 
   double ip_opt;
-  int num_cgs, num_cgs_actually_used, num_cgs_leading_to_cuts;
+//  int num_cgs, num_cgs_actually_used, num_cgs_leading_to_cuts;
   int num_cuts;
   int num_obj_tried;
 
@@ -194,20 +199,20 @@ protected:
   } prlpData;
 
   void initialize(const CglVPC* const source = NULL, const VPCParameters* const param = NULL);
-  void getProblemData(SolverInterface* const solver, ProblemData& probData,
+  void getProblemData(OsiSolverInterface* const solver, ProblemData& probData,
       const ProblemData* const origProbData = NULL,
       const bool enable_factorization = true);
 
-  ExitReason setupConstraints(const SolverInterface* const si, OsiCuts& cuts);
-  void genDepth1PRCollection(const SolverInterface* const vpcsolver,
-      const SolverInterface* const tmpSolver, const ProblemData& origProbData,
+  ExitReason setupConstraints(const OsiSolverInterface* const si, OsiCuts& cuts);
+  void genDepth1PRCollection(const OsiSolverInterface* const vpcsolver,
+      const OsiSolverInterface* const tmpSolver, const ProblemData& origProbData,
       const ProblemData& tmpProbData, const int term_ind);
 
   ExitReason tryObjectives(OsiCuts& cuts,
       const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs,
       const std::string& timeName);
 
-  int getCutLimit() const;
+  int getCutLimit(const int numDisj = 1) const;
   inline bool reachedCutLimit(const int num_cuts) const {
     const bool reached_limit = (num_cuts >= getCutLimit());
     return reached_limit;

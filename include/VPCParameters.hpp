@@ -42,7 +42,7 @@ enum intParam {
   // node comparison decision => ones digit: 0: default: 1: bfs, 2: depth, 3: estimate, 4: objective
   PARTIAL_BB_STRATEGY,
   PARTIAL_BB_NUM_STRONG, // -1: num cols, -2: sqrt(num cols), >= 0: that many
-  PRLP_BETA, // rhs in nb space, 1: cut away LP opt, -1: do not cut away LP opt, 0: both
+  PRLP_FLIP_BETA, // controls rhs in nb space, -1: do not cut away LP opt, 0: cut away LP opt, 1: both
   ROUNDS, // number of VPC rounds to do
   STRENGTHEN, // 0: no, 1: yes, when possible, 2: same as 1 plus add GMICs to strengthen each disjunctive term
   TEMP, // useful for various temporary parameter changes
@@ -63,7 +63,7 @@ const std::vector<std::string> intParamName {
   "MODE",
   "PARTIAL_BB_STRATEGY",
   "PARTIAL_BB_NUM_STRONG",
-  "PRLP_BETA",
+  "PRLP_FLIP_BETA",
   "ROUNDS",
   "STRENGTHEN",
   "TEMP",
@@ -179,7 +179,7 @@ struct VPCParameters {
     {intParam::MODE, 0}, // disjunction from a partial b&b tree
     {intParam::PARTIAL_BB_STRATEGY, 4}, // 004 => default var & branch decisions, and choose next node by min objective
     {intParam::PARTIAL_BB_NUM_STRONG, 5}, // consider 5 strong branching candidates
-    {intParam::PRLP_BETA, 1}, // cut away the LP optimum
+    {intParam::PRLP_FLIP_BETA, 0}, // cut away the LP optimum
     {intParam::ROUNDS, 1}, // number VPC rounds to do
     {intParam::STRENGTHEN, 1}, // strengthen GMICs but not VPCs
     {intParam::TEMP, 0}, // do not enable any temporary options

@@ -27,13 +27,15 @@ enum class ExitReason; // defined in CglVPC.hpp, which is included in the source
  * Each disjunctive term is specified by a basis
  * as well as which bounds are changed to arrive at that term
  * (not counting the changed values at the root node that are common to all nodes)
+ * We can also specify a set of inequalities to add
  */
 struct DisjunctiveTerm {
-  CoinWarmStart* basis;
-  double obj;
+  CoinWarmStart* basis = NULL;
+  double obj = std::numeric_limits<double>::max();
   std::vector<int> changed_var;
-  std::vector<int> changed_bound;
+  std::vector<int> changed_bound; // <= 0: lower bound, 1: upper bound
   std::vector<double> changed_value;
+  std::vector<OsiRowCut> ineqs; // optional: inequalities to add aside from changed bounds
 };
 
 /**
@@ -42,9 +44,15 @@ struct DisjunctiveTerm {
 class Disjunction {
 public:
   friend class CglVPC;
+
+  // Required members
+  int num_terms;
+  std::vector<DisjunctiveTerm> terms; // optimal bases of parents of each of the disjunctive terms
+
+  // Optional members
   std::string name;
   double best_obj, worst_obj; // value of term with best and worst objective
-  double min_nb_obj_val; // value of best nonbasic objective (simply best_obj - initial_lp_obj)
+//  double min_nb_obj_val; // value of best nonbasic objective (simply best_obj - initial_lp_obj)
   double integer_obj;  // value of best integer-feasible solution
   std::vector<double> integer_sol; // integer-feasible solution
   TimeStats* timer;
@@ -53,10 +61,7 @@ public:
   std::vector<int> common_changed_var;
   std::vector<int> common_changed_bound;
   std::vector<double> common_changed_value;
-
-  // The disjunctive terms
-  int num_terms;
-  std::vector<DisjunctiveTerm> terms; // optimal bases of parents of each of the disjunctive terms
+  std::vector<OsiRowCut> common_ineqs;
 
   /** Default constructor */
   Disjunction();
@@ -142,5 +147,5 @@ public:
 protected:
   void initialize(const Disjunction* const source = NULL);
   void updateObjValue(const double obj);
-  void updateNBObjValue(const double curr_nb_obj_val);
+//  void updateNBObjValue(const double curr_nb_obj_val);
 }; /* Disjunction */

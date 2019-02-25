@@ -21,6 +21,7 @@ public:
   std::vector<double> ortho;
   int numPoints, numRays;
   double density;
+  int num_failures;
 
   /** Default constructor */
   PRLP();

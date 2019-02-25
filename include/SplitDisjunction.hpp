@@ -46,6 +46,7 @@ public:
 protected:
   void initialize(const SplitDisjunction* const source = NULL, const VPCParameters* const params = NULL);
   bool checkVar(OsiSolverInterface* si, int col);
+  void setCgsName(const int var, const double val);
   void addTerm(const int branching_variable,
       const int branching_way, const double branching_value,
       const OsiSolverInterface* const solver);

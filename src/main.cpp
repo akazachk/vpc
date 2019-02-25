@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <chrono> // for timing
+#include <limits> // numeric_limits
 
 // For option handling
 #include <getopt.h> // getopt, getopt_long
@@ -123,22 +124,25 @@ int main(int argc, char** argv) {
 
   const double init_obj_value = solver->getObjValue();
 
+  std::vector<OsiCuts> vpcs(params.get(ROUNDS));
   for (int round_ind = 0; round_ind < params.get(ROUNDS); ++round_ind) {
     if (params.get(ROUNDS) > 1) {
       printf("\n## Starting round %d/%d. ##\n", round_ind+1, params.get(ROUNDS));
     }
     timer.start_timer(OverallTimeStats::GEN_VPC_TIME);
     CglVPC gen(params);
-    OsiCuts vpcs;
     if (params.get(MODE) == static_cast<int>(CglVPC::VPCMode::CUSTOM)) {
       std::vector<Disjunction*> disjVec;
       gen.timer.start_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
       ExitReason exitReason = setDisjunctions(disjVec, solver, params, CglVPC::VPCMode::PARTIAL_BB);
       gen.timer.end_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
+      const int numDisj = disjVec.size();
+      int cutLimit = gen.getCutLimit(params.get(CUTLIMIT), numDisj);// distribute cut limit over the disjunctions
       if (exitReason == ExitReason::SUCCESS_EXIT) {
         for (Disjunction* disj : disjVec) {
+          gen.params.set(CUTLIMIT, cutLimit);
           gen.disj = disj;
-          gen.generateCuts(*solver, vpcs); // solution may change slightly due to enable factorization called in getProblemData...
+          gen.generateCuts(*solver, vpcs[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
           if (gen.exitReason != ExitReason::SUCCESS_EXIT) {
             break;
           }
@@ -163,21 +167,21 @@ int main(int argc, char** argv) {
               OsiRowCut currCut;
               currCut.setLb(mult * val);
               currCut.setRow(1, &col, &el, false);
-              gen.addCut(currCut, CglVPC::CutType::OPTIMALITY_CUT, vpcs);
+              gen.addCut(currCut, CglVPC::CutType::OPTIMALITY_CUT, vpcs[round_ind]);
             }
           }
         } // iterate over columns and add optimality cut if needed
       } // check if integer-optimal solution
     } else {
-      gen.generateCuts(*solver, vpcs); // solution may change slightly due to enable factorization called in getProblemData...
+      gen.generateCuts(*solver, vpcs[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
     }
     timer.end_timer(OverallTimeStats::GEN_VPC_TIME);
 
     printf(
         "\n## Finished VPC generation (exit reason: %s) using partial tree with # disjunctive terms = %d, # cuts generated = %d. Now solving for new objective value. ##\n",
         ExitReasonName[static_cast<int>(gen.exitReason)].c_str(),
-        gen.disj->num_terms, vpcs.sizeCuts());
-    solver->applyCuts(vpcs);
+        gen.disj->num_terms, vpcs[round_ind].sizeCuts());
+    solver->applyCuts(vpcs[round_ind]);
     solver->resolve();
     checkSolverOptimality(solver, false);
     const double new_obj_value = solver->getObjValue();
@@ -420,8 +424,8 @@ void processArgs(int argc, char** argv) {
 								helpstring += "-c num cuts, --cutlimit=num cuts\n\tMaximum number of cuts to generate (0 = no limit, -k = k * # fractional variables at root).\n";
 								helpstring += "-d num terms, --disj_terms=num terms\n\tMaximum number of disjunctive terms or disjunctions to generate (depending on mode).\n";
 								helpstring += "-m mode, --mode=mode\n\tMode for generating disjunction(s). 0: partial b&b tree, 1: splits, 2: crosses (not implemented), 3: custom.\n";
-								helpstring += "-R num seconds, --prlp_timelimit=num seconds\n\tNumber of seconds allotted for solving the PRLP.\n";
 								helpstring += "-r num rounds, --rounds=num rounds\n\tNumber of rounds of cuts to apply.\n";
+								helpstring += "-R num seconds, --prlp_timelimit=num seconds\n\tNumber of seconds allotted for solving the PRLP.\n";
 								helpstring += "-t num seconds, --timelimit=num seconds\n\tTotal number of seconds allotted for cut generation.\n";
 								helpstring += "\n# Partial branch-and-bound options #\n";
 								helpstring += "-s strategy, --partial_bb_strategy=strategy\n\tPartial branch-and-bound strategy; this is a complicated parameter, and the user should check params.hpp for the description.\n";

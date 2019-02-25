@@ -150,6 +150,9 @@ ExitReason SplitDisjunction::prepareDisjunction(const OsiSolverInterface* const 
 
   if (timer)
     timer->end_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
+  if (retVal == ExitReason::SUCCESS_EXIT) {
+    setCgsName(var, si->getColSolution()[var]);
+  }
   return retVal;
 } /* prepareDisjunction */
 
@@ -265,6 +268,23 @@ bool SplitDisjunction::checkVar(OsiSolverInterface* si, int col) {
     return true;
   }
 } /* checkVar */
+
+void SplitDisjunction::setCgsName(const int var, const double val) {
+  if (var < 0)
+    return;
+  const double floorxk = std::floor(val);
+  const double ceilxk = std::ceil(val);
+  std::string disjTermName = "(";
+  disjTermName += "x" + std::to_string(var);
+  disjTermName += " <= ";
+  disjTermName += std::to_string(floorxk);
+  disjTermName += ") V (";
+  disjTermName += "x" + std::to_string(var);
+  disjTermName += " >= ";
+  disjTermName += std::to_string(ceilxk);
+  disjTermName += ")";
+  Disjunction::setCgsName(this->name, disjTermName);
+} /* setCgsName */
 
 void SplitDisjunction::addTerm(const int branching_variable,
     const int branching_way, const double branching_value,

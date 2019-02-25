@@ -75,12 +75,33 @@ const std::vector<std::string> CglVPC::FailureTypeName {
   "PRIMAL_INFEASIBLE",
   "TIME_LIMIT",
   "NUMERICAL_ISSUES_WARNING",
+  "DLB_EQUALS_DUB_NO_OBJ",
+  "DLB_EQUALS_LPOPT_NO_OBJ",
   "PRIMAL_INFEASIBLE_NO_OBJ",
   "NUMERICAL_ISSUES_NO_OBJ",
   "UNKNOWN"
 }; /* FailureTypeName */
 const std::string CglVPC::time_T1 = "TIME_TYPE1_";
 const std::string CglVPC::time_T2 = "TIME_TYPE2_";
+
+/**
+ * @brief Universal way to check whether we reached the limit for the number of cuts for each split
+ * This allows us to change between restricting number of cuts per split and total number of cuts easily
+ */
+int CglVPC::getCutLimit(const int CUTLIMIT, const int numDisj) {
+  // The cut limit is either across all cut-generating sets
+  // or it is divided among the cut-generating sets (either as the limit / numFracVars, or as a fixed number per cgs)
+  // If CUTLIMIT = 0 => no cut limit
+  // If CUTLIMIT > 0 => absolute cut limit
+  // If CUTLIMIT < 0 => cut limit per cgs
+  if (CUTLIMIT == 0) {
+    return std::numeric_limits<int>::max();
+  } else if (CUTLIMIT > 0) {
+    return CUTLIMIT;
+  } else {
+    return (numDisj <= 0) ? 0 : (-1. * CUTLIMIT / numDisj);
+  }
+} /* getCutLimit */
 
 /** Default constructor */
 CglVPC::CglVPC() {
@@ -191,7 +212,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   // Set cut limit if needed
   if (params.get(CUTLIMIT) < 0) {
     params.set(CUTLIMIT,
-        -1 * params.get(CUTLIMIT) * solver->getFractionalIndices().size());
+        -1 * params.get(CUTLIMIT) * si.getFractionalIndices().size());
   } else if (params.get(CUTLIMIT) == 0) {
     params.set(CUTLIMIT, std::numeric_limits<int>::max());
   }
@@ -249,19 +270,14 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   }
 
   // Save the V-polyhedral relaxations of each optimal basis in the terms of the PRLP
-  status = setupConstraints(solver, cuts);
+  status = setupConstraints(&si, cuts);
   if (status != ExitReason::SUCCESS_EXIT) {
     finish(status);
     return;
   }
 
   // Generate cuts from the PRLP
-  status = tryObjectives(cuts, solver, NULL, time_T1);
-  if (status != ExitReason::SUCCESS_EXIT) {
-    finish(status);
-    return;
-  }
-
+  status = tryObjectives(cuts, &si, NULL, time_T1);
   finish(status);
 } /* generateCuts */
 
@@ -291,9 +307,6 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     this->numCutsFromHeur = source->numCutsFromHeur;
     this->numFails = source->numFails;
     this->ip_opt = source->ip_opt;
-    this->num_cgs = source->num_cgs;
-    this->num_cgs_actually_used = source->num_cgs_actually_used;
-    this->num_cgs_leading_to_cuts = source->num_cgs_leading_to_cuts;
     this->num_cuts = source->num_cuts;
     this->num_obj_tried = source->num_obj_tried;
     this->probData = source->probData;
@@ -316,9 +329,6 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     this->numCutsFromHeur.resize(static_cast<int>(CutHeuristics::NUM_CUT_HEUR), 0);
     this->numFails.resize(static_cast<int>(FailureType::NUM_FAILURES), 0);
     this->ip_opt = std::numeric_limits<double>::max();
-    this->num_cgs = 1; // for now, always 1, unless we go back to doing multiple cgs
-    this->num_cgs_actually_used = 0;
-    this->num_cgs_leading_to_cuts = 0;
     this->num_cuts = 0;
     this->num_obj_tried = 0;
     this->probData.EPS = this->params.get(EPS);
@@ -329,7 +339,7 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
  * Get problem data such as min/max coeff, problem-specific epsilon,
  * nonbasic variables, row in which each variable is basic, etc.
  */
-void CglVPC::getProblemData(SolverInterface* const solver,
+void CglVPC::getProblemData(OsiSolverInterface* const solver,
     ProblemData& probData, const ProblemData* const origProbData,
     const bool enable_factorization) {
   const int numCols = solver->getNumCols();
@@ -447,7 +457,7 @@ void CglVPC::getProblemData(SolverInterface* const solver,
     }
   } // loop over variables
 
-  // TODO May also need to save rays of C1, where the coefficients of inv(B) * A
+  // May also need to save rays of C1, where the coefficients of inv(B) * A
   // are sometimes negated because we have
   // \bar x = inv(B) * b - inv(B) * A * x_N
   const int numNB = probData.NBVarIndex.size();
@@ -498,7 +508,7 @@ void CglVPC::getProblemData(SolverInterface* const solver,
     solver->disableFactorization();
 } /* getProblemData */
 
-ExitReason CglVPC::setupConstraints(const SolverInterface* const si, OsiCuts& cuts) {
+ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts& cuts) {
   /***********************************************************************************
    * Change initial bounds
    ***********************************************************************************/
@@ -526,13 +536,20 @@ ExitReason CglVPC::setupConstraints(const SolverInterface* const si, OsiCuts& cu
       num_fixed++;
     }
   } // account for bounds changed at root
+
+  const int num_added_ineqs = this->disj->common_ineqs.size();
+  for (int i = 0; i < num_added_ineqs; i++) {
+    OsiRowCut* currCut = &disj->common_ineqs[i];
+    vpcsolver->applyRowCuts(1, currCut); // hopefully this works
+    addCut(*currCut, CutType::ONE_SIDED_CUT, cuts);
+  }
+
 #ifdef TRACE
   printf(
-      "\n## Total number changed bounds: %d. Number fixed: %d. ##\n",
-      num_changed_bounds, num_fixed);
+      "\n## Total number changed bounds: %d. Number fixed: %d. Number added inequalities: %d. ##\n",
+      num_changed_bounds, num_fixed, num_added_ineqs);
 #endif
-
-  if (num_changed_bounds + num_fixed > 0) {
+  if (num_changed_bounds + num_fixed + num_added_ineqs > 0) {
     vpcsolver->resolve();
     if (!checkSolverOptimality(vpcsolver, false)) {
       error_msg(errorstring,
@@ -636,7 +653,7 @@ ExitReason CglVPC::setupConstraints(const SolverInterface* const si, OsiCuts& cu
     const double objVal =
         dotProduct(vpcsolver->getObjCoefficients(), sol, dim) - objOffset;
     this->disj->updateObjValue(objVal);
-    this->disj->updateNBObjValue(curr_nb_obj_val);
+//    this->disj->updateNBObjValue(curr_nb_obj_val);
   } // integer-feasible solution
 
   // Now we handle the normal terms
@@ -664,6 +681,12 @@ ExitReason CglVPC::setupConstraints(const SolverInterface* const si, OsiCuts& cu
       } else {
         tmpSolver->setColUpper(col, val);
       }
+    }
+
+    const int curr_num_added_ineqs = term->ineqs.size();
+    for (int i = 0; i < curr_num_added_ineqs; i++) {
+      OsiRowCut* currCut = &term->ineqs[i];
+      tmpSolver->applyRowCuts(1, currCut); // hopefully this works
     }
 
     // Set the warm start
@@ -731,7 +754,7 @@ ExitReason CglVPC::setupConstraints(const SolverInterface* const si, OsiCuts& cu
       // because it is unclear whether, in that class,
       // the user computes with the variables changed at the root
       this->disj->updateObjValue(tmpSolver->getObjValue());
-      this->disj->updateNBObjValue(tmpSolver->getObjValue() - vpcsolver->getObjValue());
+//      this->disj->updateNBObjValue(tmpSolver->getObjValue() - vpcsolver->getObjValue());
 
       timer.register_name(CglVPC::time_T1 + std::to_string(terms_added));
       timer.register_name(CglVPC::time_T2 + std::to_string(terms_added));
@@ -759,7 +782,7 @@ ExitReason CglVPC::setupConstraints(const SolverInterface* const si, OsiCuts& cu
 #ifdef TRACE
   printf(
       "\nFinished generating cgs from partial BB. Min obj val: Structural: %1.3f, NB: %1.3f.\n",
-      this->disj->best_obj, this->disj->min_nb_obj_val);
+      this->disj->best_obj, this->disj->best_obj - this->probData.lp_opt);
 #endif
   return ExitReason::SUCCESS_EXIT;
 } /* setupConstraints */
@@ -769,8 +792,8 @@ ExitReason CglVPC::setupConstraints(const SolverInterface* const si, OsiCuts& cu
  * Get Point and Rays from corner polyhedron defined by current optimum at solver
  * Assumed to be optimal already
  */
-void CglVPC::genDepth1PRCollection(const SolverInterface* const vpcsolver,
-    const SolverInterface* const tmpSolver, const ProblemData& origProbData,
+void CglVPC::genDepth1PRCollection(const OsiSolverInterface* const vpcsolver,
+    const OsiSolverInterface* const tmpSolver, const ProblemData& origProbData,
     const ProblemData& tmpProbData, const int term_ind) {
   // Ensure solver is optimal
   if (!tmpSolver->isProvenOptimal()) {
@@ -800,7 +823,7 @@ void CglVPC::genDepth1PRCollection(const SolverInterface* const vpcsolver,
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }
-  const double beta = params.get(PRLP_BETA) >= 0 ? 1.0 : -1.0;
+  const double beta = params.get(PRLP_FLIP_BETA) >= 0 ? 1.0 : -1.0;
   if (beta > 0 && !isZero(curr_nb_obj_val)) { // check things are still okay after we scale; only applies when beta > 0, as otherwise the obj cut is not valid
     const double activity = curr_nb_obj_val
         / (tmpSolver->getObjValue() - origProbData.lp_opt);
@@ -919,66 +942,72 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
     return ExitReason::CUT_LIMIT_EXIT;
   }
 
+  // We can scale the rhs for points by min_nb_obj_val
+  const double min_nb_obj_val = this->disj->best_obj - this->probData.lp_opt;
+  const bool useScale = true && !isInfinity(std::abs(min_nb_obj_val));
+  const double scale = (!useScale || lessThanVal(min_nb_obj_val, 1.)) ? 1. : min_nb_obj_val;
+  double beta = params.get(intParam::PRLP_FLIP_BETA) >= 0 ? scale : -1. * scale;
+
+  // Check that we can actually use this disjunction
+  // We reject it if the best term and worst term have the same obj value as the LP opt
+  const bool LP_OPT_IS_NOT_CUT = !greaterThanVal(min_nb_obj_val, 0.0);
+  const bool DLB_EQUALS_DUB = !greaterThanVal(disj->worst_obj, disj->best_obj);
+  const bool flipBeta = params.get(PRLP_FLIP_BETA) > 0; // if the PRLP is infeasible, we will try flipping the beta
+  if (LP_OPT_IS_NOT_CUT) {
+    this->numFails[static_cast<int>(FailureType::DLB_EQUALS_LPOPT_NO_OBJ)]++;
+  }
+  if (DLB_EQUALS_DUB) {
+    this->numFails[static_cast<int>(FailureType::DLB_EQUALS_DUB_NO_OBJ)]++;
+  }
+  if (LP_OPT_IS_NOT_CUT && DLB_EQUALS_DUB && !flipBeta) {
+    return ExitReason::NO_CUTS_LIKELY_EXIT;
+  }
+
 #ifdef TRACE
   printf("\n## CglVPC: Trying objectives. ##\n");
 #endif
+  const int init_num_cuts = this->num_cuts;
+  const int init_num_obj = this->num_obj_tried;
+  int num_failures = 0;
 
-  PRLP* prlp = new PRLP(this);
-  setLPSolverParameters(prlp, params.get(VERBOSITY));
+  if (!LP_OPT_IS_NOT_CUT || !DLB_EQUALS_DUB) {
+    PRLP* prlp = new PRLP(this);
+    setLPSolverParameters(prlp, params.get(VERBOSITY));
+    const bool isCutSolverPrimalFeas = prlp->setup(scale, false);
+  //  printf("# rows: %d\t # cols: %d\n", prlp->getNumRows(), prlp->getNumCols());
+  //  printf("# points: %d\t # rays: %d\n", prlp->numPoints, prlp->numRays);
 
-  // We can scale the rhs for points by min_nb_obj_val
-  const bool useScale = true && !isInfinity(std::abs(this->disj->min_nb_obj_val));
-  const double scale = (!useScale || lessThanVal(this->disj->min_nb_obj_val, 1.)) ? 1. : this->disj->min_nb_obj_val;
-  double beta = params.get(intParam::PRLP_BETA) >= 0 ? scale : -1. * scale;
+    if (isCutSolverPrimalFeas) {
+      prlp->targetStrongAndDifferentCuts(beta, cuts, this->num_cuts,
+          this->num_obj_tried, origSolver, structSICs, timeName,
+          params.get(intConst::NB_SPACE));
+    }
+    num_failures += prlp->num_failures;
 
-//  std::vector<double> ortho;
-  const bool isCutSolverPrimalFeas = prlp->setup(scale, false);
-//  printf("# rows: %d\t # cols: %d\n", prlp->getNumRows(), prlp->getNumCols());
-//  printf("# points: %d\t # rays: %d\n", prlp->numPoints, prlp->numRays);
-
-  int curr_num_cuts = 0, init_num_obj = this->num_obj_tried;
-  if (isCutSolverPrimalFeas) {
-    curr_num_cuts += prlp->targetStrongAndDifferentCuts(beta, cuts, this->num_cuts,
-        this->num_obj_tried, origSolver, structSICs, timeName,
-        params.get(intConst::NB_SPACE));
+    if (prlp)
+      delete prlp;
   }
 
-  const bool flipBeta = params.get(PRLP_BETA) > 0; // if the PRLP is infeasible, we will try flipping the beta
-  if (flipBeta || greaterThanVal(this->disj->worst_obj, this->disj->best_obj)
-      || greaterThanVal(this->disj->min_nb_obj_val, 0.)) {
-//    for (int i = 0; i < this->num_cgs; i++) {
-//      this->num_disj_terms += calcAndFeasFacet[i];
-//    }
-//    const int old_num_obj_tried = num_obj_tried;
-//    const int old_num_cuts = cuts.sizeCuts();
-//    const int old_num_primal_infeas = this->numFails[FailureType::PRIMAL_INFEASIBLE];
-//    int num_generated = 0;
-//
-//    generateVPCsT1(structVPCs, probData, vpcTimeStats, structSICs,
-//        interPtsAndRays, num_vpcs_per_cgs_T1[0], num_generated_vpcsT1, objCut,
-//        calcAndFeasFacet, 0, 0, cgsName[0], max_num_cgs, dim, inNBSpace);
-//
-//    if (num_generated > old_num_cuts) {
-//      num_cgs_actually_used++;
-//      num_cgs_leading_to_cuts++;
-//    } else if ((num_obj_tried > old_num_obj_tried)
-//        && (old_num_primal_infeas == numFails[FailureType::PRIMAL_INFEASIBLE])) {
-//      this->num_cgs_actually_used++;
-//    } else {
-//      // Clear out stuff because this cgs was not used?
-//    }
+  if (flipBeta) {
+    error_msg(errorstring,
+        "Currently, flipping beta is not implemented. Need to check that within setup, we can correctly switch the rhs.\n");
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
   }
-
-  if (prlp)
-    delete prlp;
 
 #ifdef TRACE
   printf("\n## CglVPC: Finished trying %d objectives. Generated %d cuts. Total num cuts: %d. ##\n",
-      this->num_obj_tried - init_num_obj, curr_num_cuts, cuts.sizeCuts());
+      this->num_obj_tried - init_num_obj, this->num_cuts - init_num_cuts, this->num_cuts);
 #endif
 
+  if (reachedTimeLimit(time_T1 + "TOTAL", params.get(TIMELIMIT))) {
+    return ExitReason::TIME_LIMIT_EXIT;
+  }
   if (reachedCutLimit(cuts.sizeCuts())) {
     return ExitReason::CUT_LIMIT_EXIT;
+  }
+  if (reachedFailureLimit(num_cuts - init_num_cuts, num_failures)) {
+    return ExitReason::FAIL_LIMIT_EXIT;
   }
   return ExitReason::SUCCESS_EXIT;
 } /* tryObjectives */
@@ -987,20 +1016,8 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
  * @brief Universal way to check whether we reached the limit for the number of cuts for each split
  * This allows us to change between restricting number of cuts per split and total number of cuts easily
  */
-int CglVPC::getCutLimit() const {
-  // The cut limit is either across all cut-generating sets
-  // or it is divided among the cut-generating sets (either as the limit / num_cgs, or as a fixed number per cgs)
-  // If CUT_LIMIT = 0 => no cut limit
-  // If CUT_LIMIT > 0 => absolute cut limit
-  // If CUT_LIMIT < 0 => cut limit per cgs
-  if (params.get(intParam::CUTLIMIT) == 0) {
-    return std::numeric_limits<int>::max();
-  } else if (params.get(intParam::CUTLIMIT) > 0) {
-    return params.get(intParam::CUTLIMIT);
-  } else {
-    const int num_cgs = 1; //param.get(NUM_CGS);
-    return (-1. * params.get(intParam::CUTLIMIT) / num_cgs);
-  }
+int CglVPC::getCutLimit(const int numDisj) const {
+  return CglVPC::getCutLimit(params.get(CUTLIMIT), numDisj);
 } /* getCutLimit */
 
 /**
