@@ -60,6 +60,7 @@ SplitDisjunction* SplitDisjunction::clone() const {
 /** Set up the disjunction class as new (except the timer pointer, and do not reset params) */
 void SplitDisjunction::setupAsNew() {
   Disjunction::setupAsNew();
+  this->var = -1;
 } /* setupAsNew */
 
 /**
@@ -78,8 +79,6 @@ ExitReason SplitDisjunction::prepareDisjunction(const OsiSolverInterface* const 
 
   if (timer)
     timer->start_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
-
-  OsiVectorInt fracCore = si->getFractionalIndices(params.get(doubleConst::AWAY));
 
   // Set up solver for hot start
   SolverInterface* solver;
@@ -100,94 +99,44 @@ ExitReason SplitDisjunction::prepareDisjunction(const OsiSolverInterface* const 
 #endif
   solver->enableFactorization();
   solver->markHotStart();
-  for (int var : fracCore) {
-    if (num_terms >= params.get(DISJ_TERMS))
-      break;
 
-    const double val = solver->getColSolution()[var];
-    const double floorxk = std::floor(val);
-    const double ceilxk = std::ceil(val);
-
-    if (!si->isInteger(var)) {
-      error_msg(errorstring, "Chosen variable %d is not an integer variable.\n", var);
-      writeErrorToLog(errorstring, params.logfile);
-      exit(1);
-    }
-    if (isVal(val, floorxk, params.get(doubleConst::AWAY))
-          || isVal(val, ceilxk, params.get(doubleConst::AWAY))) {
-      error_msg(errorstring, "Chosen variable %d is not fractional (value: %1.6e).\n", var, val);
-      writeErrorToLog(errorstring, params.logfile);
-      exit(1);
-    }
-
-    const double origLB = solver->getColLower()[var];
-    const double origUB = solver->getColUpper()[var];
-    bool downBranchFeasible = true, upBranchFeasible = true;
-
-    // Check down branch
-    solver->setColUpper(var, floorxk);
-    solveFromHotStart(solver, var, true, origUB, floorxk);
-    if (solver->isProvenOptimal()) {
-      addTerm(var, 1, floorxk, solver);
-    } else if (solver->isProvenPrimalInfeasible()) {
-      downBranchFeasible = false;
+  // If var >= 0, that means user has picked a variable already
+  // Otherwise, var < 0, and we need to pick one
+  ExitReason retVal = ExitReason::UNKNOWN;
+  if (var >= 0) {
+    if (checkVar(solver, var)) {
+      retVal = ExitReason::SUCCESS_EXIT;
     } else {
-      // Something strange happened
-      error_msg(errorstring,
-          "Down branch is neither optimal nor primal infeasible on variable %d (value %e).\n",
-          var, val);
-      writeErrorToLog(errorstring, params.logfile);
-      exit(1);
+      retVal = ExitReason::NO_DISJUNCTION_EXIT;
     }
-    solver->setColUpper(var, origUB);
-
-    // Return to previous state
-    solver->solveFromHotStart();
-
-    // Check up branch
-    solver->setColLower(var, ceilxk);
-    solveFromHotStart(solver, var, false, origLB, ceilxk);
-    if (solver->isProvenOptimal()) {
-      addTerm(var, 0, ceilxk, solver);
-    } else if (solver->isProvenPrimalInfeasible()) {
-      upBranchFeasible = false;
-    } else {
-      // Something strange happened
-      error_msg(errorstring,
-          "Up branch is neither optimal nor primal infeasible on variable %d (value %e).\n",
-          var, val);
-      writeErrorToLog(errorstring, params.logfile);
-      exit(1);
+  }
+  else { // loop through variables and find a split disjunction we can use
+    OsiVectorInt fracCore = si->getFractionalIndices(params.get(doubleConst::AWAY));
+    if (fracCore.size() == 0) {
+      if (solver)
+        delete solver;
+      return ExitReason::NO_DISJUNCTION_EXIT;
     }
-    solver->setColLower(var, origLB);
 
-    // Return to original state
-    solver->solveFromHotStart();
-
-    // Check if some side of the split is infeasible
-    if (!downBranchFeasible || !upBranchFeasible) {
-      if (!downBranchFeasible && !upBranchFeasible) {
-        // Infeasible problem
-        error_msg(errorstring,
-            "Infeasible problem due to integer variable %d (value %e).\n",
-            var, val);
-        writeErrorToLog(errorstring, params.logfile);
-        exit(1);
-      }
-      // If one side infeasible, can delete last term added and fix variables instead 
-      this->terms.resize(this->num_terms - 1);
-      this->num_terms--;
-      this->common_changed_var.push_back(var);
-      if (!downBranchFeasible) { // set lb to ceilxk
-        this->common_changed_bound.push_back(0);
-        this->common_changed_value.push_back(ceilxk);
-      }
-      if (!upBranchFeasible) { // set ub to floorxk
-        this->common_changed_bound.push_back(1);
-        this->common_changed_value.push_back(floorxk);
-      }
+    // Sort by fractionality
+    std::vector<double> fractionality(fracCore.size());
+    for (unsigned i = 0; i < fracCore.size(); i++) {
+      const int col = fracCore[i];
+      const double val = solver->getColSolution()[col];
+      const double floorxk = std::floor(val);
+      const double ceilxk = std::ceil(val);
+      fractionality[i] = CoinMin(val - floorxk, ceilxk - val);
     }
-  } // loop through fractional core
+    std::sort(fracCore.begin(), fracCore.end(),
+        index_cmp_dsc<const std::vector<double>&>(fractionality)); // descending
+
+    for (int col : fracCore) {
+      if (checkVar(solver, col)) {
+        retVal = ExitReason::SUCCESS_EXIT;
+        break; // stop when we find a disjunction; might want to sort by strong branching value instead, but that can be too expensive
+      }
+    } // loop through fractional core
+  } // loop through variables and find a split disjunction we can use
   solver->unmarkHotStart();
   solver->disableFactorization();
   if (solver)
@@ -195,7 +144,7 @@ ExitReason SplitDisjunction::prepareDisjunction(const OsiSolverInterface* const 
 
   if (timer)
     timer->end_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
-  return ExitReason::SUCCESS_EXIT;
+  return retVal;
 } /* prepareDisjunction */
 
 /****************** PROTECTED **********************/
@@ -209,20 +158,117 @@ void SplitDisjunction::initialize(const SplitDisjunction* const source,
     if (!params) {
       setParams(source->params);
     }
+    this->var = source->var;
   } else {
     setupAsNew();
   }
 } /* initialize */
 
-void SplitDisjunction::addTerm(const int branching_variable, 
-    const int branching_way, const double branching_value, 
+/**
+ * @brief Checks whether we can add a term from the given variable
+ *
+ * It is assumed that the solver is already set up for hot start
+ */
+bool SplitDisjunction::checkVar(OsiSolverInterface* si, int col) {
+  SolverInterface* solver = dynamic_cast<SolverInterface*>(si);
+  const double val = solver->getColSolution()[col];
+  const double floorxk = std::floor(val);
+  const double ceilxk = std::ceil(val);
+
+  if (!si->isInteger(col)) {
+    error_msg(errorstring, "Chosen variable %d is not an integer variable.\n", col);
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
+  if (isVal(val, floorxk, params.get(doubleConst::AWAY))
+        || isVal(val, ceilxk, params.get(doubleConst::AWAY))) {
+    error_msg(errorstring, "Chosen variable %d is not fractional (value: %1.6e).\n", col, val);
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
+
+  const double origLB = solver->getColLower()[col];
+  const double origUB = solver->getColUpper()[col];
+  bool downBranchFeasible = true, upBranchFeasible = true;
+
+  // Check down branch
+  solver->setColUpper(col, floorxk);
+  solveFromHotStart(solver, col, true, origUB, floorxk);
+  if (solver->isProvenOptimal()) {
+    addTerm(col, 1, floorxk, solver);
+  } else if (solver->isProvenPrimalInfeasible()) {
+    downBranchFeasible = false;
+  } else {
+    // Something strange happened
+    error_msg(errorstring,
+        "Down branch is neither optimal nor primal infeasible on variable %d (value %e).\n",
+        col, val);
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
+  solver->setColUpper(col, origUB);
+
+  // Return to previous state
+  solver->solveFromHotStart();
+
+  // Check up branch
+  solver->setColLower(col, ceilxk);
+  solveFromHotStart(solver, col, false, origLB, ceilxk);
+  if (solver->isProvenOptimal()) {
+    addTerm(col, 0, ceilxk, solver);
+  } else if (solver->isProvenPrimalInfeasible()) {
+    upBranchFeasible = false;
+  } else {
+    // Something strange happened
+    error_msg(errorstring,
+        "Up branch is neither optimal nor primal infeasible on variable %d (value %e).\n",
+        col, val);
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
+  solver->setColLower(col, origLB);
+
+  // Return to original state
+  solver->solveFromHotStart();
+
+  // Check if some side of the split is infeasible
+  if (!downBranchFeasible || !upBranchFeasible) {
+    if (!downBranchFeasible && !upBranchFeasible) {
+      // Infeasible problem
+      error_msg(errorstring,
+          "Infeasible problem due to integer variable %d (value %e).\n",
+          col, val);
+      writeErrorToLog(errorstring, params.logfile);
+      exit(1);
+    }
+    // If one side infeasible, can delete last term added and fix variables instead
+    this->terms.resize(this->num_terms - 1);
+    this->num_terms--;
+    this->common_changed_var.push_back(col);
+    if (!downBranchFeasible) { // set lb to ceilxk
+      this->common_changed_bound.push_back(0);
+      this->common_changed_value.push_back(ceilxk);
+    }
+    if (!upBranchFeasible) { // set ub to floorxk
+      this->common_changed_bound.push_back(1);
+      this->common_changed_value.push_back(floorxk);
+    }
+    return false;
+  } else {
+    this->var = col;
+    return true;
+  }
+} /* checkVar */
+
+void SplitDisjunction::addTerm(const int branching_variable,
+    const int branching_way, const double branching_value,
     const OsiSolverInterface* const solver) {
   DisjunctiveTerm term;
   term.basis = dynamic_cast<CoinWarmStartBasis*>(solver->getWarmStart());
   term.obj = solver->getObjValue();
-  term.changed_var.resize(1, branching_variable); 
-  term.changed_bound.resize(1, branching_way); 
-  term.changed_value.resize(1, branching_value); 
+  term.changed_var.resize(1, branching_variable);
+  term.changed_bound.resize(1, branching_way);
+  term.changed_value.resize(1, branching_value);
   this->terms.push_back(term);
   this->num_terms++;
 } /* addTerm */

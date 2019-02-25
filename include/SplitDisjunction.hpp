@@ -14,6 +14,8 @@
 
 class SplitDisjunction : public Disjunction {
 public:
+  int var;
+
   /** Params */
   VPCParameters params;
   /** Param constructor */
@@ -43,7 +45,8 @@ public:
   virtual ExitReason prepareDisjunction(const OsiSolverInterface* const si);
 protected:
   void initialize(const SplitDisjunction* const source = NULL, const VPCParameters* const params = NULL);
-  void addTerm(const int branching_variable, 
-      const int branching_way, const double branching_value, 
+  bool checkVar(OsiSolverInterface* si, int col);
+  void addTerm(const int branching_variable,
+      const int branching_way, const double branching_value,
       const OsiSolverInterface* const solver);
 }; /* SplitDisjunction */

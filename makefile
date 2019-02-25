@@ -60,6 +60,7 @@ SOURCES += \
 		cut/CutHelper.cpp \
     cut/PRLP.cpp \
     disjunction/Disjunction.cpp \
+    disjunction/DisjunctionHelper.cpp \
     disjunction/PartialBBDisjunction.cpp \
     disjunction/SplitDisjunction.cpp
 
