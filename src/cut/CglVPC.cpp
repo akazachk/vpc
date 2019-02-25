@@ -265,6 +265,13 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   finish(status);
 } /* generateCuts */
 
+void CglVPC::addCut(const OsiRowCut& cut, const CutType& type, OsiCuts& cuts) {
+  cuts.insert(cut);
+  cutType.push_back(type);
+  numCutsOfType[static_cast<int>(type)]++;
+  num_cuts++;
+} /* addCut */
+
 /****************** PROTECTED **********************/
 
 void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const param) {
@@ -975,13 +982,6 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
   }
   return ExitReason::SUCCESS_EXIT;
 } /* tryObjectives */
-
-void CglVPC::addCut(const OsiRowCut& cut, const CutType& type, OsiCuts& cuts) {
-  cuts.insert(cut);
-  cutType.push_back(type);
-  numCutsOfType[static_cast<int>(type)]++;
-  num_cuts++;
-} /* addCut */
 
 /**
  * @brief Universal way to check whether we reached the limit for the number of cuts for each split

@@ -142,6 +142,30 @@ int main(int argc, char** argv) {
           }
         }
       }
+      // If integer-optimal solution was found, all disjunctions but one will have been deleted
+      if (exitReason == ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT) {
+        warning_msg(warnstr,
+            "An integer (optimal) solution was found prior while getting disjunction. " "We will generate between n and 2n cuts, restricting the value of each variable.\n");
+        const double* solution = disjVec[0]->integer_sol.data();
+        for (int col = 0; col < static_cast<int>(disjVec[0]->integer_sol.size());
+            col++) {
+          const double val = solution[col];
+
+          // Check which of the bounds needs to be fixed
+          for (int b = 0; b < 2; b++) {
+            if ((b == 0 && greaterThanVal(val, solver->getColLower()[col]))
+                || (b == 1 && lessThanVal(val, solver->getColUpper()[col]))) {
+              const double mult = (b == 0) ? 1. : -1.;
+              const double el = mult * 1.;
+
+              OsiRowCut currCut;
+              currCut.setLb(mult * val);
+              currCut.setRow(1, &col, &el, false);
+              gen.addCut(currCut, CglVPC::CutType::OPTIMALITY_CUT, vpcs);
+            }
+          }
+        } // iterate over columns and add optimality cut if needed
+      } // check if integer-optimal solution
     } else {
       gen.generateCuts(*solver, vpcs); // solution may change slightly due to enable factorization called in getProblemData...
     }

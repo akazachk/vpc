@@ -158,6 +158,7 @@ public:
   /** generateCuts */
   virtual void generateCuts(const OsiSolverInterface&, OsiCuts&, const CglTreeInfo = CglTreeInfo());
 
+  void addCut(const OsiRowCut& cut, const CutType& type, OsiCuts& cuts);
 protected:
   struct ProblemData {
     int num_cols;
@@ -205,7 +206,6 @@ protected:
   ExitReason tryObjectives(OsiCuts& cuts,
       const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs,
       const std::string& timeName);
-  void addCut(const OsiRowCut& cut, const CutType& type, OsiCuts& cuts);
 
   int getCutLimit() const;
   inline bool reachedCutLimit(const int num_cuts) const {

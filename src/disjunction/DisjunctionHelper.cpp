@@ -35,6 +35,9 @@
 //      init_obj_value, new_obj_value, gen.disj->best_obj);
 //} /* generateRoundOfCuts */
 
+/**
+ * Set disjunctions; if integer-optimal solution is found, delete all but one disjunction, which will have that solution
+ */
 ExitReason setDisjunctions(std::vector<Disjunction*>& disjVec,
     const OsiSolverInterface* const si, const VPCParameters& params,
     CglVPC::VPCMode mode) {
@@ -47,29 +50,6 @@ ExitReason setDisjunctions(std::vector<Disjunction*>& disjVec,
     ExitReason status = disj->prepareDisjunction(si);
     disjVec.push_back(disj);
     return status;
-//      if (status == ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT) {
-//        warning_msg(warnstr,
-//            "An integer (optimal) solution was found prior while getting disjunction. " "We will generate between n and 2n cuts, restricting the value of each variable.\n");
-//        const double* solution = disj->integer_sol.data();
-//        for (int col = 0; col < static_cast<int>(disj->integer_sol.size());
-//            col++) {
-//          const double val = solution[col];
-//
-//          // Check which of the bounds needs to be fixed
-//          for (int b = 0; b < 2; b++) {
-//            if ((b == 0 && greaterThanVal(val, solver->getColLower()[col]))
-//                || (b == 1 && lessThanVal(val, solver->getColUpper()[col]))) {
-//              const double mult = (b == 0) ? 1. : -1.;
-//              const double el = mult * 1.;
-//
-//              OsiRowCut currCut;
-//              currCut.setLb(mult * val);
-//              currCut.setRow(1, &col, &el, false);
-//              addCut(currCut, CutType::OPTIMALITY_CUT, cuts);
-//            }
-//          }
-//        } // iterate over columns and add optimality cut if needed
-//      }
   } // PARTIAL_BB
   else if (mode == CglVPC::VPCMode::SPLITS) {
     if (generateSplitDisjunctions(disjVec, si, params)) {
