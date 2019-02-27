@@ -139,10 +139,10 @@ public:
 
   double ip_obj;
 //  int num_cgs, num_cgs_actually_used, num_cgs_leading_to_cuts;
-  int num_cuts;
+  int init_num_cuts, num_cuts;
   int num_obj_tried, num_failures;
 
-  bool ownsDisjunction;
+  bool ownsDisjunction, canReplaceGivenCuts;
 
   /** Default constructor */
   CglVPC();
@@ -251,6 +251,7 @@ protected:
     }
   } prlpData;
 
+  void setupAsNew();
   void initialize(const CglVPC* const source = NULL, const VPCParameters* const param = NULL);
   void getProblemData(OsiSolverInterface* const solver, ProblemData& probData,
       const ProblemData* const origProbData = NULL,

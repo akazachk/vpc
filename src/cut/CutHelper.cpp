@@ -540,12 +540,13 @@ double getOrthogonality(const int numElem, const double* vec1,
 /** 
  * Check whether a cut is duplicate or too orthogonal to a previous cut in the collection
  */
-int howDuplicate(const OsiCuts& cuts, const OsiRowCut& tmpCut, int& duplicateCutIndex,
-    int& minOrthoIndex, double& minOrtho, const double MIN_ORTHO, const double EPS) {
+int howDuplicate(const OsiCuts& cuts, const OsiRowCut& tmpCut,
+    const int startIndex, int& duplicateCutIndex, int& minOrthoIndex,
+    double& minOrtho, const double MIN_ORTHO, const double EPS) {
   duplicateCutIndex = -1;
   minOrthoIndex = -1;
   minOrtho = 2.;
-  for (int i = 0; i < cuts.sizeCuts(); i++) {
+  for (int i = startIndex; i < cuts.sizeCuts(); i++) {
     const OsiRowCut* currCut = cuts.rowCutPtr(i);
     if (MIN_ORTHO > 0) {
       const double this_ortho = getOrthogonality(tmpCut.row(), currCut->row());

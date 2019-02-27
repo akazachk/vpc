@@ -627,6 +627,7 @@ int PRLP::genCutHelper(OsiCuts& cuts,
 
   // Ensure the cut is not a duplicate, and some other checks
   const bool generateAnywayIfDuplicateSIC = true; // in principle, when this is true, we do not need to check ortho with SICs; in our tests, we might anyway if we want to get the relevant stats
+  const bool replaceOldWorseCut = owner->canReplaceGivenCuts;
   const bool checkIfDuplicateSIC = false && (structSICs != NULL);
   const double currCutNorm = currCut.row().twoNorm();
   const double violation = currCut.violated(origSolver->getColSolution()); // beta normalization fixes the violation in nb-space
@@ -634,22 +635,25 @@ int PRLP::genCutHelper(OsiCuts& cuts,
   int minOrthogonalityIndex = -1;
   double orthogonalityWithSICs = 1., orthogonalityWithGICs = 1.;
   if (checkIfDuplicateSIC) {
-    howDuplicate(*structSICs, currCut, duplicateSICIndex, minOrthogonalityIndex,
+    howDuplicate(*structSICs, currCut, 0, duplicateSICIndex, minOrthogonalityIndex,
         orthogonalityWithSICs, owner->params.get(MIN_ORTHOGONALITY),
         owner->probData.EPS);
   }
   const bool duplicateSICFlag = (duplicateSICIndex >= 0);
   const bool orthogonalitySICFailFlag = !duplicateSICFlag
       && (orthogonalityWithSICs < owner->params.get(MIN_ORTHOGONALITY));
+  const int startIndex = replaceOldWorseCut ? 0 : owner->init_num_cuts;
   if (generateAnywayIfDuplicateSIC || (!duplicateSICFlag && !orthogonalitySICFailFlag)) {
-    howDuplicate(cuts, currCut, duplicateGICIndex, minOrthogonalityIndex,
-        orthogonalityWithGICs, owner->params.get(MIN_ORTHOGONALITY),
-        owner->probData.EPS);
+    // Check again all of the cuts because we don't want a cut duplicate to an old one,
+    // even if we are not replacing the old ones
+    howDuplicate(cuts, currCut, 0, duplicateGICIndex,
+        minOrthogonalityIndex, orthogonalityWithGICs,
+        owner->params.get(MIN_ORTHOGONALITY), owner->probData.EPS);
   }
   const bool duplicateGICFlag = (duplicateGICIndex >= 0);
   bool orthogonalityGICFailFlag = !duplicateGICFlag
       && (orthogonalityWithGICs < owner->params.get(MIN_ORTHOGONALITY));
-  if (orthogonalityGICFailFlag) {
+  if (orthogonalityGICFailFlag && (minOrthogonalityIndex >= startIndex)) {
     // If rhs is better or sparser than existing cut, replace the cut
     OsiRowCut* oldCut = cuts.rowCutPtr(minOrthogonalityIndex);
     const int cut_num_el = oldCut->row().getNumElements();
@@ -658,45 +662,47 @@ int PRLP::genCutHelper(OsiCuts& cuts,
     const bool isMoreEffective = (violation / currCutNorm) > old_effectiveness;
     if (isSparser || isMoreEffective) {
       // Adjust statistics
-      owner->numCutsFromHeur[static_cast<int>(owner->cutHeurVec[minOrthogonalityIndex])]--;
+      owner->numCutsFromHeur[static_cast<int>(owner->cutHeurVec[minOrthogonalityIndex - startIndex])]--;
       owner->numCutsFromHeur[static_cast<int>(cutHeur)]++;
 
       // Replace old cut
-      owner->cutHeurVec[minOrthogonalityIndex] = cutHeur;
+      owner->cutHeurVec[minOrthogonalityIndex - startIndex] = cutHeur;
       currCut.setEffectiveness(violation / currCutNorm);
       *oldCut = currCut; // TODO double check this works
 
       orthogonalityGICFailFlag = true;
     }
   } // orthogonalityGICFail (replace cut possibly)
-  const bool toAdd = (generateAnywayIfDuplicateSIC || (!duplicateSICFlag && !orthogonalitySICFailFlag))
-      && !duplicateGICFlag && !orthogonalityGICFailFlag;
-  if (toAdd) {
-    owner->cutHeurVec.push_back(cutHeur);
-    currCut.setEffectiveness(violation / currCutNorm);
-    owner->numCutsFromHeur[static_cast<int>(cutHeur)]++;
-    cuts.insert(currCut);
-    this->num_cuts++;
-    owner->num_cuts++;
-    num_cuts_generated++;
-    owner->numFails[static_cast<int>(CglVPC::FailureType::DUPLICATE_SIC)] += duplicateSICFlag;
-    owner->numFails[static_cast<int>(CglVPC::FailureType::ORTHOGONALITY_SIC)] += orthogonalitySICFailFlag;
-    return num_cuts_generated;
-  } else {
-    // Note that these are all mutually exclusive IF we are checking for duplicates
-    if (generateAnywayIfDuplicateSIC) {
+  else {
+    const bool toAdd = (generateAnywayIfDuplicateSIC || (!duplicateSICFlag && !orthogonalitySICFailFlag))
+        && !duplicateGICFlag && !orthogonalityGICFailFlag;
+    if (toAdd) {
+      owner->cutHeurVec.push_back(cutHeur);
+      currCut.setEffectiveness(violation / currCutNorm);
+      owner->numCutsFromHeur[static_cast<int>(cutHeur)]++;
+      cuts.insert(currCut);
+      this->num_cuts++;
+      owner->num_cuts++;
+      num_cuts_generated++;
       owner->numFails[static_cast<int>(CglVPC::FailureType::DUPLICATE_SIC)] += duplicateSICFlag;
       owner->numFails[static_cast<int>(CglVPC::FailureType::ORTHOGONALITY_SIC)] += orthogonalitySICFailFlag;
-    } else if (duplicateSICFlag) {
-      return -1 * (static_cast<int>(CglVPC::FailureType::DUPLICATE_SIC) + 1);
-    } else if (orthogonalitySICFailFlag) {
-      return -1 * (static_cast<int>(CglVPC::FailureType::ORTHOGONALITY_SIC) + 1);
-    }
-    if (duplicateGICFlag) {
-      return -1 * (static_cast<int>(CglVPC::FailureType::DUPLICATE_VPC) + 1);
-    }
-    if (orthogonalityGICFailFlag) {
-      return -1 * (static_cast<int>(CglVPC::FailureType::ORTHOGONALITY_VPC) + 1);
+      return num_cuts_generated;
+    } else {
+      // Note that these are all mutually exclusive IF we are checking for duplicates
+      if (generateAnywayIfDuplicateSIC) {
+        owner->numFails[static_cast<int>(CglVPC::FailureType::DUPLICATE_SIC)] += duplicateSICFlag;
+        owner->numFails[static_cast<int>(CglVPC::FailureType::ORTHOGONALITY_SIC)] += orthogonalitySICFailFlag;
+      } else if (duplicateSICFlag) {
+        return -1 * (static_cast<int>(CglVPC::FailureType::DUPLICATE_SIC) + 1);
+      } else if (orthogonalitySICFailFlag) {
+        return -1 * (static_cast<int>(CglVPC::FailureType::ORTHOGONALITY_SIC) + 1);
+      }
+      if (duplicateGICFlag) {
+        return -1 * (static_cast<int>(CglVPC::FailureType::DUPLICATE_VPC) + 1);
+      }
+      if (orthogonalityGICFailFlag) {
+        return -1 * (static_cast<int>(CglVPC::FailureType::ORTHOGONALITY_VPC) + 1);
+      }
     }
   }
   return num_cuts_generated;

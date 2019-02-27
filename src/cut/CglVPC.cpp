@@ -172,6 +172,27 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     return;
   }
 
+  // Reset things in preparation for round of cuts, in case a previous round was done using this generator
+  setupAsNew();
+  init_num_cuts = cuts.sizeCuts();
+  if (this->canReplaceGivenCuts) {
+    // If we are going to be able to replace given cuts,
+    // then it must be the case that the current cutType and cutHeurVec should correspond to those old cuts
+    int num_old_cut_type = cutType.size();
+    if (num_old_cut_type != init_num_cuts) {
+      error_msg(errorstring,
+          "# given cuts: %d. Num old cuts: %d. "
+          "Either set canReplaceGivenCuts to false, or ensure that old cuts are "
+          "accounted for in the cutType and cutHeurVec members.\n",
+          init_num_cuts, num_old_cut_type);
+      writeErrorToLog(errorstring, params.logfile);
+      exit(1);
+    }
+  } else {
+    this->cutType.resize(0);
+    this->cutHeurVec.resize(0);
+  }
+
   // Set cut limit if needed
   if (params.get(CUTLIMIT) < 0) {
     params.set(CUTLIMIT,
@@ -310,6 +331,30 @@ void CglVPC::addCut(const OsiRowCut& cut, const CutType& type, OsiCuts& cuts) {
 
 /****************** PROTECTED **********************/
 
+/**
+ * Reset _some_ things (those corresponding to a previous run of this generator)
+ * E.g., we do not reset timing, the cutType vector, or the cutHeurVec
+ * The latter two should not be changed and need to correspond to the cuts passed into generateCuts
+ * (in order to enable replacing the cuts in PRLP)
+ */
+void CglVPC::setupAsNew() {
+  this->exitReason = ExitReason::UNKNOWN;
+  this->numCutsOfType.clear();
+  this->numCutsOfType.resize(static_cast<int>(CutType::NUM_CUT_TYPES), 0);
+  this->numObjFromHeur.clear();
+  this->numObjFromHeur.resize(static_cast<int>(CutHeuristics::NUM_CUT_HEUR), 0);
+  this->numCutsFromHeur.clear();
+  this->numCutsFromHeur.resize(static_cast<int>(CutHeuristics::NUM_CUT_HEUR), 0);
+  this->numFailsFromHeur.clear();
+  this->numFailsFromHeur.resize(static_cast<int>(CutHeuristics::NUM_CUT_HEUR), 0);
+  this->numFails.clear();
+  this->numFails.resize(static_cast<int>(FailureType::NUM_FAILURES), 0);
+  this->num_cuts = 0;
+  this->num_obj_tried = 0;
+  this->num_failures = 0;
+  this->probData.EPS = this->params.get(EPS);
+} /* setupAsNew */
+
 void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const param) {
   if (param != NULL)
     setParams(*param);
@@ -317,6 +362,7 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     if (param == NULL)
       setParams(source->params);
     setDisjunction(source->disjunction, source->ownsDisjunction);
+    this->canReplaceGivenCuts = source->canReplaceGivenCuts;
     this->mode = source->mode;
     this->exitReason = source->exitReason;
     this->timer = source->timer;
@@ -328,6 +374,7 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     this->numFailsFromHeur = source->numFailsFromHeur;
     this->numFails = source->numFails;
     this->ip_obj = source->ip_obj;
+    this->init_num_cuts = source->init_num_cuts;
     this->num_cuts = source->num_cuts;
     this->num_obj_tried = source->num_obj_tried;
     this->num_failures = source->num_failures;
@@ -337,8 +384,8 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
   else {
     this->mode = VPCMode::PARTIAL_BB;
     this->ownsDisjunction = false;
+    this->canReplaceGivenCuts = true;
     this->disjunction = NULL;
-    this->exitReason = ExitReason::UNKNOWN;
     for (int t = 0; t < static_cast<int>(VPCTimeStats::NUM_TIME_STATS); t++) {
       timer.register_name(VPCTimeStatsName[t]);
     }
@@ -347,16 +394,9 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     }
     this->cutType.resize(0);
     this->cutHeurVec.resize(0);
-    this->numCutsOfType.resize(static_cast<int>(CutType::NUM_CUT_TYPES), 0);
-    this->numObjFromHeur.resize(static_cast<int>(CutHeuristics::NUM_CUT_HEUR), 0);
-    this->numCutsFromHeur.resize(static_cast<int>(CutHeuristics::NUM_CUT_HEUR), 0);
-    this->numFailsFromHeur.resize(static_cast<int>(CutHeuristics::NUM_CUT_HEUR), 0);
-    this->numFails.resize(static_cast<int>(FailureType::NUM_FAILURES), 0);
+    this->init_num_cuts = 0;
     this->ip_obj = std::numeric_limits<double>::max();
-    this->num_cuts = 0;
-    this->num_obj_tried = 0;
-    this->num_failures = 0;
-    this->probData.EPS = this->params.get(EPS);
+    setupAsNew();
   }
 } /* initialize */
 

@@ -48,5 +48,6 @@ double getOrthogonality(const CoinPackedVectorBase& vec1, const int numElem, con
 double getOrthogonality(const int numElem, const double* vec1, const double* vec2);
 
 /** Check whether a cut is duplicate or too orthogonal to a previous cut in the collection */
-int howDuplicate(const OsiCuts& cuts, const OsiRowCut& tmpCut, int& duplicateCutIndex,
-    int& minOrthoIndex, double& minOrtho, const double MIN_ORTHO, const double EPS);
+int howDuplicate(const OsiCuts& cuts, const OsiRowCut& tmpCut,
+    const int startIndex, int& duplicateCutIndex, int& minOrthoIndex,
+    double& minOrtho, const double MIN_ORTHO, const double EPS);
