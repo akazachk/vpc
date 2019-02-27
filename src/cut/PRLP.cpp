@@ -5,7 +5,7 @@
 #include "PRLP.hpp"
 #include "CutHelper.hpp"
 #include "nbspace.hpp"
-#include "PartialBBDisjunction.hpp" // TODO Change to Disjunction
+#include "Disjunction.hpp"
 #include "SolverHelper.hpp"
 
 #include <numeric> // inner_product

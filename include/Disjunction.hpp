@@ -52,10 +52,9 @@ public:
   // Optional members
   std::string name;
   double best_obj, worst_obj; // value of term with best and worst objective
-//  double min_nb_obj_val; // value of best nonbasic objective (simply best_obj - initial_lp_obj)
   double integer_obj;  // value of best integer-feasible solution
   std::vector<double> integer_sol; // integer-feasible solution
-  TimeStats* timer;
+  TimeStats* timer; // not owned by Disjunction
 
   // Save changed variable bounds at root node (bound <= 0 is LB, bound = 1 is UB)
   std::vector<int> common_changed_var;

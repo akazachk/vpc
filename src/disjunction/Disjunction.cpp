@@ -53,7 +53,6 @@ void Disjunction::initialize(const Disjunction* const source) {
     this->name = source->name;
     this->best_obj = source->best_obj;
     this->worst_obj = source->worst_obj;
-//    this->min_nb_obj_val = source->min_nb_obj_val;
     this->integer_obj = source->integer_obj;
     this->integer_sol = source->integer_sol;
     this->timer = source->timer;

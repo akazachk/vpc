@@ -297,7 +297,7 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     if (param == NULL)
       setParams(source->params);
     this->mode = source->mode;
-    this->disj = source->disj;
+    this->disj = source->disj->clone();
     this->exitReason = source->exitReason;
     this->timer = source->timer;
     this->cutType = source->cutType;

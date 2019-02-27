@@ -17,7 +17,7 @@
 
 class PRLP : public SolverInterface {
 public:
-  CglVPC* owner;
+  CglVPC* owner; // not owned by PRLP
   std::vector<int> nonZeroColIndex;
   std::vector<double> ortho;
   int numPoints, numRays;
