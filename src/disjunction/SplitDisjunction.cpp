@@ -114,7 +114,21 @@ ExitReason SplitDisjunction::prepareDisjunction(const OsiSolverInterface* const 
     }
   }
   else { // loop through variables and find a split disjunction we can use
-    OsiVectorInt fracCore = si->getFractionalIndices(params.get(doubleConst::AWAY));
+    std::vector<int> fracCore;
+    std::vector<double> fractionality(fracCore.size());
+    for (int col = 0; col < solver->getNumCols(); col++) {
+      if (!solver->isInteger(col))
+        continue;
+      const double val = solver->getColSolution()[col];
+      const double floorxk = std::floor(val);
+      const double ceilxk = std::ceil(val);
+      if (!isVal(val, floorxk, params.get(doubleConst::AWAY))
+          && !isVal(val, ceilxk, params.get(doubleConst::AWAY))) {
+        fracCore.push_back(col);
+        fractionality.push_back(CoinMin(val - floorxk, ceilxk - val));
+      }
+    }
+    
     if (fracCore.size() == 0) {
       if (solver)
         delete solver;
@@ -122,18 +136,17 @@ ExitReason SplitDisjunction::prepareDisjunction(const OsiSolverInterface* const 
     }
 
     // Sort by fractionality
-    std::vector<double> fractionality(fracCore.size());
+    std::vector<unsigned> sortIndex(fracCore.size());
     for (unsigned i = 0; i < fracCore.size(); i++) {
-      const int col = fracCore[i];
-      const double val = solver->getColSolution()[col];
-      const double floorxk = std::floor(val);
-      const double ceilxk = std::ceil(val);
-      fractionality[i] = CoinMin(val - floorxk, ceilxk - val);
+      sortIndex[i] = i;
     }
-    std::sort(fracCore.begin(), fracCore.end(),
-        index_cmp_dsc<const std::vector<double>&>(fractionality)); // descending
+    std::sort(sortIndex.begin(), sortIndex.end(),
+        [&](const int i, const int j)
+        { return fractionality[i] > fractionality[j]; }); 
+        //index_cmp_dsc<const std::vector<double>&>(fractionality)); // descending
 
-    for (int col : fracCore) {
+    for (unsigned i : sortIndex) {
+      int col = fracCore[i];
       if (checkVar(solver, col)) {
 #ifdef TRACE
         printf("Selected var %d (value %1.3f) for split variable to branch on.\n", col, solver->getColSolution()[col]);
@@ -169,6 +182,7 @@ void SplitDisjunction::initialize(const SplitDisjunction* const source,
     }
     this->var = source->var;
   } else {
+    this->var = -1;
     setupAsNew();
   }
 } /* initialize */
