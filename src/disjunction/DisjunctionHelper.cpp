@@ -66,7 +66,7 @@ ExitReason setDisjunctions(std::vector<Disjunction*>& disjVec,
 } /* setDisjunctions */
 
 int generateSplitDisjunctions(std::vector<Disjunction*>& disjVec, const OsiSolverInterface* const si, const VPCParameters& params) {
-  OsiVectorInt fracCore = si->getFractionalIndices(params.get(doubleConst::AWAY));
+  std::vector<int> fracCore = si->getFractionalIndices(params.get(doubleConst::AWAY));
   if (fracCore.size() == 0)
     return 0;
 
@@ -99,10 +99,9 @@ int generateSplitDisjunctions(std::vector<Disjunction*>& disjVec, const OsiSolve
   solver->enableFactorization();
   solver->markHotStart();
 
+  std::vector<double> sortCriterion;
+  sortCriterion.reserve(fracCore.size());
   for (int var : fracCore) {
-    if (num_splits >= params.get(DISJ_TERMS))
-      break;
-
     const double val = solver->getColSolution()[var];
     const double floorxk = std::floor(val);
     const double ceilxk = std::ceil(val);
@@ -122,12 +121,14 @@ int generateSplitDisjunctions(std::vector<Disjunction*>& disjVec, const OsiSolve
     const double origLB = solver->getColLower()[var];
     const double origUB = solver->getColUpper()[var];
     bool downBranchFeasible = true, upBranchFeasible = true;
+    double downBound = std::numeric_limits<double>::max();
+    double upBound = std::numeric_limits<double>::max();
 
     // Check down branch
     solver->setColUpper(var, floorxk);
     solveFromHotStart(solver, var, true, origUB, floorxk);
     if (solver->isProvenOptimal()) {
-//      addTerm(var, 1, floorxk, solver);
+      downBound = solver->getObjValue();
     } else if (solver->isProvenPrimalInfeasible()) {
       downBranchFeasible = false;
     } else {
@@ -147,7 +148,7 @@ int generateSplitDisjunctions(std::vector<Disjunction*>& disjVec, const OsiSolve
     solver->setColLower(var, ceilxk);
     solveFromHotStart(solver, var, false, origLB, ceilxk);
     if (solver->isProvenOptimal()) {
-//      addTerm(var, 0, ceilxk, solver);
+      upBound = solver->getObjValue();
     } else if (solver->isProvenPrimalInfeasible()) {
       upBranchFeasible = false;
     } else {
@@ -185,8 +186,9 @@ int generateSplitDisjunctions(std::vector<Disjunction*>& disjVec, const OsiSolve
       }
     } // check infeasibility
     else {
-      num_splits++;
+      //num_splits++;
       fracCoreSelected.push_back(var);
+      sortCriterion.push_back(CoinMin(downBound, upBound));
     }
   } // loop through fractional core
   solver->unmarkHotStart();
@@ -194,15 +196,29 @@ int generateSplitDisjunctions(std::vector<Disjunction*>& disjVec, const OsiSolve
   if (solver)
     delete solver;
 
-  for (int var : fracCoreSelected) {
+  // Sort by decreasing strong branching lb
+  std::vector<unsigned> sortIndex(fracCoreSelected.size());
+  for (unsigned i = 0; i < sortIndex.size(); i++)
+    sortIndex[i] = i;
+  std::sort(sortIndex.begin(), sortIndex.end(),
+      [&](const unsigned i, const unsigned j)
+      { return sortCriterion[i] > sortCriterion[j]; } );
+
+  for (unsigned i : sortIndex) {
+    if (num_splits >= params.get(DISJ_TERMS))
+      break;
+
+    const int var = fracCoreSelected[i];
     SplitDisjunction* disj = new SplitDisjunction;
     disj->var = var;
     disj->prepareDisjunction(si);
     disjVec.push_back(disj);
+    num_splits++;
   }
   { // DEBUG
     for (int i = 0; i < num_splits; ++i) {
-      printf("Var: %d\n", dynamic_cast<SplitDisjunction*>(disjVec[i])->var);
+      printf("Var: %d", dynamic_cast<SplitDisjunction*>(disjVec[i])->var);
+      printf("\tSort criterion: %f\n", sortCriterion[sortIndex[i]]);
     }
   }
   return num_splits;

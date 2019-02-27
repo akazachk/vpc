@@ -119,7 +119,7 @@ int main(int argc, char** argv) {
     if (params.get(MODE) == static_cast<int>(CglVPC::VPCMode::CUSTOM)) {
       std::vector<Disjunction*> disjVec;
       gen.timer.start_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
-      ExitReason setDisjExitReason = setDisjunctions(disjVec, solver, params, CglVPC::VPCMode::PARTIAL_BB);
+      ExitReason setDisjExitReason = setDisjunctions(disjVec, solver, params, CglVPC::VPCMode::SPLITS);
       gen.timer.end_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
 
       // If integer-optimal solution was found, all disjunctions but one will have been deleted
@@ -159,6 +159,9 @@ int main(int argc, char** argv) {
         for (Disjunction* disj : disjVec) {
           if (!disj)
             continue;
+#ifdef TRACE
+          printf("\n## Generating cuts from disj %s ##\n", disj->name.c_str());
+#endif
           gen.params.set(CUTLIMIT, cutLimit);
           gen.setDisjunction(disj, false);
           gen.generateCuts(*solver, vpcs[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
@@ -167,9 +170,6 @@ int main(int argc, char** argv) {
           if (best_disj_obj < gen.disj()->best_obj)
             best_disj_obj = gen.disj()->best_obj;
           ip_obj = gen.ip_obj;
-          if (exitReason != ExitReason::SUCCESS_EXIT) {
-            break;
-          }
         }
       }  // if successful generation of disjunction, generate cuts
       else {

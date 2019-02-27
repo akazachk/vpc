@@ -570,9 +570,9 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
   }
 
 #ifdef TRACE
-  printf(
-      "\n## Total number changed bounds: %d. Number fixed: %d. Number added inequalities: %d. ##\n",
-      num_changed_bounds, num_fixed, num_added_ineqs);
+//  printf(
+//      "\n## Total number changed bounds: %d. Number fixed: %d. Number added inequalities: %d. ##\n",
+//      num_changed_bounds, num_fixed, num_added_ineqs);
 #endif
   if (num_changed_bounds + num_fixed + num_added_ineqs > 0) {
     vpcsolver->resolve();
@@ -806,7 +806,7 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
 
 #ifdef TRACE
   printf(
-      "\nFinished generating cgs from partial BB. Min obj val: Structural: %1.3f, NB: %1.3f.\n",
+      "\nFinished setting up constraints. Min obj val: Structural: %1.3f, NB: %1.3f.\n",
       this->disjunction->best_obj, this->disjunction->best_obj - this->probData.lp_opt);
 #endif
   if (vpcsolver) { delete vpcsolver; }
