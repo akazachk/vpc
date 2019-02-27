@@ -127,7 +127,6 @@ public:
   // Class variables
   VPCParameters params;
   VPCMode mode;
-  Disjunction* disj;
   ExitReason exitReason;
   TimeStats timer;
 
@@ -142,6 +141,8 @@ public:
 //  int num_cgs, num_cgs_actually_used, num_cgs_leading_to_cuts;
   int num_cuts;
   int num_obj_tried, num_failures;
+
+  bool ownsDisjunction;
 
   /** Default constructor */
   CglVPC();
@@ -163,6 +164,11 @@ public:
 
   /** setParams based on VPCParameters */
   void setParams(const VPCParameters& param);
+
+  /** get/set disjunction */
+  inline Disjunction* const disj() { return this->disjunction; }
+  inline Disjunction* const getDisjunction() { return this->disj(); } // alias
+  void setDisjunction(Disjunction* const sourceDisj, int ownIt = -1);
 
   /** generateCuts */
   virtual void generateCuts(const OsiSolverInterface&, OsiCuts&, const CglTreeInfo = CglTreeInfo());
@@ -211,6 +217,7 @@ public:
   } /* printFailures */
 
 protected:
+  Disjunction* disjunction;
   struct ProblemData {
     int num_cols;
     double lp_opt;
@@ -259,7 +266,7 @@ protected:
       const std::string& timeName);
 
   int getCutLimit(const int numDisj = 1) const;
-  inline bool reachedCutLimit(const int num_cuts) const {
+  inline bool reachedCutLimit() const {
     const bool reached_limit = (num_cuts >= getCutLimit());
     return reached_limit;
   } /* reachedCutLimit */

@@ -58,7 +58,7 @@ OsiSolverInterface* PRLP::clone(bool copyData) const {
 bool PRLP::setup(const double scale) {
   owner->timer.start_timer(static_cast<int>(CglVPC::VPCTimeStats::PRLP_SETUP_TIME));
   const int num_constraints = owner->prlpData.rhs.size();
-  const int num_disj_terms = owner->disj->num_terms;
+  const int num_disj_terms = owner->disj()->num_terms;
   const int num_cols = owner->probData.num_cols;
 
   // Build the matrix as well as col lower/upper bounds
@@ -538,7 +538,7 @@ int PRLP::genCut(OsiCuts& cuts, const OsiSolverInterface* const origSolver,
   owner->timer.start_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::PRLP_SOLVE_TIME)]);
   this->num_obj_tried++;
   owner->numObjFromHeur[static_cast<int>(cutHeur)]++;
-  if (owner->reachedCutLimit(cuts.sizeCuts())) {
+  if (owner->reachedCutLimit()) {
     return exitGenCut(-1 * (static_cast<int>(CglVPC::FailureType::CUT_LIMIT) + 1), cutHeur);
   }
 
@@ -600,7 +600,7 @@ int PRLP::genCutHelper(OsiCuts& cuts,
   if (!this->isProvenOptimal()) {
     return 0; // errors are tabulated in exitGenCutsFromCutSolver
   } // may have run into issues
-  if (owner->reachedCutLimit(cuts.sizeCuts())) {
+  if (owner->reachedCutLimit()) {
     return -1 * (static_cast<int>(CglVPC::FailureType::CUT_LIMIT) + 1);
   }
 
@@ -1112,7 +1112,7 @@ int PRLP::findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
 
   for (int try_ind = 1; try_ind < MAX_NUM_OBJ_PER_POINT; try_ind++) {
     if (tmp_return_code == BAD_RETURN_CODE
-        || owner->reachedCutLimit(cuts.sizeCuts())
+        || owner->reachedCutLimit()
         || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
         || owner->reachedFailureLimit(num_cuts, num_failures)) {
       ret_val = 0;
@@ -1254,7 +1254,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
     const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs,
     const std::string& timeName) {
   const bool inNBSpace = owner->params.get(intConst::NB_SPACE);
-  if (owner->reachedCutLimit(cuts.sizeCuts())
+  if (owner->reachedCutLimit()
       || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))) {
     return 0;
   }
@@ -1304,7 +1304,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
     owner->timer.end_timer(currTimeName);
 
     if (return_code == BAD_RETURN_CODE
-        || owner->reachedCutLimit(cuts.sizeCuts())
+        || owner->reachedCutLimit()
         || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
         || owner->reachedFailureLimit(num_cuts, num_failures)) {
       return num_cuts; // abandon
@@ -1331,7 +1331,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
     owner->timer.end_timer(currTimeName);
 
     if (return_code == BAD_RETURN_CODE
-        || owner->reachedCutLimit(cuts.sizeCuts())
+        || owner->reachedCutLimit()
         || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
         || owner->reachedFailureLimit(num_cuts, num_failures)) {
       return num_cuts; // abandon
@@ -1372,7 +1372,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
     owner->timer.end_timer(currTimeName);
 
     if (!goodReturn || return_code == BAD_RETURN_CODE
-        || owner->reachedCutLimit(cuts.sizeCuts())
+        || owner->reachedCutLimit()
         || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
         || owner->reachedFailureLimit(num_cuts, num_failures)) {
       return num_cuts; // abandon
@@ -1392,7 +1392,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
 #endif
     for (int ind = 1; ind < (int) pointIndex.size() - 1; ind++) { // skip the first point (same as the strong lb point)
       if (!goodReturn || return_code == BAD_RETURN_CODE
-          || owner->reachedCutLimit(cuts.sizeCuts())
+          || owner->reachedCutLimit()
           || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
           || owner->reachedFailureLimit(num_cuts, num_failures)) {
         owner->timer.end_timer(currTimeName);
@@ -1415,7 +1415,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
   } // MAX_NUM_POINTS_TO_TRY > 0
 
   if (return_code == BAD_RETURN_CODE
-      || owner->reachedCutLimit(cuts.sizeCuts())
+      || owner->reachedCutLimit()
       || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
       || owner->reachedFailureLimit(num_cuts, num_failures)) {
     return num_cuts; // abandon
@@ -1446,7 +1446,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
         break;
       }
       if (return_code == BAD_RETURN_CODE
-          || owner->reachedCutLimit(cuts.sizeCuts())
+          || owner->reachedCutLimit()
           || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
           || owner->reachedFailureLimit(num_cuts, num_failures)) {
         owner->timer.end_timer(currTimeName);
@@ -1473,7 +1473,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
   } // try axis directions in the PRLP
 
   if (return_code == BAD_RETURN_CODE
-      || owner->reachedCutLimit(cuts.sizeCuts())
+      || owner->reachedCutLimit()
       || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
       || owner->reachedFailureLimit(num_cuts, num_failures)) {
     return num_cuts; // abandon
@@ -1495,7 +1495,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
         break;
       }
       if (return_code == BAD_RETURN_CODE
-          || owner->reachedCutLimit(cuts.sizeCuts())
+          || owner->reachedCutLimit()
           || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
           || owner->reachedFailureLimit(num_cuts, num_failures)) {
         owner->timer.end_timer(currTimeName);
@@ -1524,7 +1524,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
   } // MAX_NUM_RAYS_TO_TRY > 0
 
   if (return_code == BAD_RETURN_CODE
-      || owner->reachedCutLimit(cuts.sizeCuts())
+      || owner->reachedCutLimit()
       || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
       || owner->reachedFailureLimit(num_cuts, num_failures)) {
     return num_cuts; // abandon
@@ -1546,7 +1546,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
 #endif
     for (int ind = 0; ind < (int) pointIndex.size(); ind++) {
       if (!goodReturn || return_code == BAD_RETURN_CODE
-          || owner->reachedCutLimit(cuts.sizeCuts())
+          || owner->reachedCutLimit()
           || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
           || owner->reachedFailureLimit(num_cuts, num_failures)) {
         owner->timer.end_timer(currTimeName);
@@ -1573,7 +1573,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
   } // any objectives left for points?
 
   if (return_code == BAD_RETURN_CODE
-      || owner->reachedCutLimit(cuts.sizeCuts())
+      || owner->reachedCutLimit()
       || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
       || owner->reachedFailureLimit(num_cuts, num_failures)) {
     return num_cuts; // abandon
@@ -1591,7 +1591,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
 #endif
     for (int ind = 0; ind < (int) rayIndex.size(); ind++) {
       if (return_code == BAD_RETURN_CODE
-          || owner->reachedCutLimit(cuts.sizeCuts())
+          || owner->reachedCutLimit()
           || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
           || owner->reachedFailureLimit(num_cuts, num_failures)) {
         owner->timer.end_timer(currTimeName);
@@ -1631,7 +1631,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
 int PRLP::iterateDeepestCutPostGomory(OsiCuts & cuts,
     const OsiSolverInterface* const origSolver, const double beta,
     const OsiCuts* structSICs, const bool inNBSpace) {
-  if (owner->reachedCutLimit(cuts.sizeCuts())
+  if (owner->reachedCutLimit()
       || (owner->params.get(USE_ITER_BILINEAR) <= 0)) {
     return 0;
   }
@@ -1695,7 +1695,7 @@ int PRLP::iterateDeepestCutPostGomory(OsiCuts & cuts,
   int i, j;
   for (j = 1; j < MAX_NUM_ITER_BIL_CUTS; j++) {
     for (i = 0; i < ITER_PER_CUT; i++) {
-      if (owner->reachedCutLimit(cuts.sizeCuts())
+      if (owner->reachedCutLimit()
           || owner->reachedFailureLimit(num_cuts, num_failures)) {
         break;
       }

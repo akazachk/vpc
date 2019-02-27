@@ -98,6 +98,8 @@ int main(int argc, char** argv) {
   const double init_obj_value = solver->getObjValue();
 
   std::vector<OsiCuts> vpcs(params.get(ROUNDS));
+  int num_cuts_total = 0;
+  double disj_lb = std::numeric_limits<double>::lowest();
   for (int round_ind = 0; round_ind < params.get(ROUNDS); ++round_ind) {
     if (params.get(ROUNDS) > 1) {
       printf("\n## Starting round %d/%d. ##\n", round_ind+1, params.get(ROUNDS));
@@ -110,27 +112,22 @@ int main(int argc, char** argv) {
     if (params.get(MODE) == static_cast<int>(CglVPC::VPCMode::CUSTOM)) {
       std::vector<Disjunction*> disjVec;
       gen.timer.start_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
-      ExitReason exitReason = setDisjunctions(disjVec, solver, params, CglVPC::VPCMode::PARTIAL_BB);
+      ExitReason setDisjExitReason = setDisjunctions(disjVec, solver, params, CglVPC::VPCMode::PARTIAL_BB);
       gen.timer.end_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
-      const int numDisj = disjVec.size();
-      int cutLimit = gen.getCutLimit(params.get(CUTLIMIT), numDisj);// distribute cut limit over the disjunctions
-      if (exitReason == ExitReason::SUCCESS_EXIT) {
-        for (Disjunction* disj : disjVec) {
-          gen.params.set(CUTLIMIT, cutLimit);
-          gen.disj = disj;
-          gen.generateCuts(*solver, vpcs[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
-          if (gen.exitReason != ExitReason::SUCCESS_EXIT) {
-            break;
-          }
-        }
-      }
+
       // If integer-optimal solution was found, all disjunctions but one will have been deleted
-      if (exitReason == ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT) {
+      if (setDisjExitReason == ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT) {
         warning_msg(warnstr,
-            "An integer (optimal) solution was found prior while getting disjunction. " "We will generate between n and 2n cuts, restricting the value of each variable.\n");
+            "An integer (optimal) solution was found prior while getting disjunction. "
+            "We will generate between n and 2n cuts, restricting the value of each variable.\n");
         const double* solution = disjVec[0]->integer_sol.data();
-        for (int col = 0; col < static_cast<int>(disjVec[0]->integer_sol.size());
-            col++) {
+        if (!solution) {
+          error_msg(errorstring,
+              "Though status is that optimal integer solution found, unable to find this solution.\n");
+          writeErrorToLog(errorstring, params.logfile);
+          exit(1);
+        }
+        for (int col = 0; col < solver->getNumCols(); col++) {
           const double val = solution[col];
 
           // Check which of the bounds needs to be fixed
@@ -143,34 +140,73 @@ int main(int argc, char** argv) {
               OsiRowCut currCut;
               currCut.setLb(mult * val);
               currCut.setRow(1, &col, &el, false);
-              gen.addCut(currCut, CglVPC::CutType::OPTIMALITY_CUT, vpcs[round_ind]);
+              gen.addCut(currCut, CglVPC::CutType::OPTIMALITY_CUT,
+                  vpcs[round_ind]);
             }
           }
         } // iterate over columns and add optimality cut if needed
       } // check if integer-optimal solution
-    } else {
+      else if (setDisjExitReason == ExitReason::SUCCESS_EXIT) {
+        const int numDisj = disjVec.size();
+        const int cutLimit = gen.getCutLimit(params.get(CUTLIMIT), numDisj); // distribute cut limit over the disjunctions
+        for (Disjunction* disj : disjVec) {
+          if (!disj)
+            continue;
+          gen.params.set(CUTLIMIT, cutLimit);
+          gen.setDisjunction(disj, false);
+          gen.generateCuts(*solver, vpcs[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
+          exitReason = gen.exitReason;
+          num_cuts_total += gen.num_cuts;
+          if (disj_lb < gen.disj()->best_obj)
+            disj_lb = gen.disj()->best_obj;
+          if (exitReason != ExitReason::SUCCESS_EXIT) {
+            break;
+          }
+        }
+      }  // if successful generation of disjunction, generate cuts
+      else {
+        error_msg(errorstring, "Unknown exit reason (%s) from setDisjunctions.\n", ExitReasonName[static_cast<int>(setDisjExitReason)].c_str());
+        writeErrorToLog(errorstring, params.logfile);
+        exit(1);
+      }
+
+      // Delete disjunctions
+      for (Disjunction* disj : disjVec) {
+        if (disj) {
+          delete disj;
+          disj = NULL;
+        }
+      }
+    } // check if mode is CUSTOM
+    else {
       gen.generateCuts(*solver, vpcs[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
+      exitReason = gen.exitReason;
+      num_cuts_total += gen.num_cuts;
+      if (disj_lb < gen.disj()->best_obj)
+        disj_lb = gen.disj()->best_obj;
     }
     timer.end_timer(OverallTimeStats::GEN_VPC_TIME);
 
-    exitReason = gen.exitReason;
+    applyCutsCustom(solver, vpcs[round_ind]);
+
     printf(
-        "\n## Round %d/%d: Completed VPC generation (exit reason: %s) using partial tree with # disjunctive terms = %d, # cuts generated = %d.\n",
-        round_ind+1, params.get(ROUNDS),
+        "\n## Round %d/%d: Completed round of VPC generation (exit reason: %s). # cuts generated = %d.\n",
+        round_ind + 1, params.get(ROUNDS),
         ExitReasonName[static_cast<int>(exitReason)].c_str(),
-        gen.disj->num_terms, vpcs[round_ind].sizeCuts());
+        vpcs[round_ind].sizeCuts());
     fflush(stdout);
-
-    const double new_obj_value = applyCutsCustom(solver, vpcs[round_ind]);
-
-    printf(
-        "Initial obj value: %1.6f. New obj value: %1.6f. Disj lb: %s. ##\n",
-        init_obj_value, new_obj_value,
-        stringValue(gen.disj->best_obj, "%1.6f").c_str());
+    printf("Initial obj value: %1.6f. New obj value: %s. Disj lb: %s. ##\n",
+        init_obj_value, stringValue(solver->getObjValue(), "%1.6f").c_str(),
+        stringValue(disj_lb, "%1.6f").c_str());
 
 //    printf("\n## Failures ##\n");
 //    gen.printFailures();
   } // loop over rounds of cuts
+  printf(
+      "\n## Finished VPC generation with %d cuts. Initial obj value: %1.6f. Final obj value: %s. Disj lb: %s. ##\n",
+      num_cuts_total, init_obj_value,
+      stringValue(solver->getObjValue(), "%1.6f").c_str(),
+      stringValue(disj_lb, "%1.6f").c_str());
   timer.end_timer(OverallTimeStats::TOTAL_TIME);
   return wrapUp(0);
 } /* main */
@@ -221,6 +257,92 @@ void startUp(int argc, char** argv) {
     }
   }
 } /* startUp */
+
+void initializeSolver(OsiSolverInterface* &solver) {
+  std::string fullfilename = params.get(stringParam::FILENAME);
+  // Get file name stub
+  size_t found_dot = fullfilename.find_last_of(".");
+  std::string filename = fullfilename.substr(0, found_dot);
+
+  // Put string after last '.' into string in_file_ext
+  if (found_dot >= fullfilename.length()) {
+    error_msg(errorstring, "Cannot find the file extension (no '.' in input file name: %s).\n", fullfilename.c_str());
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
+
+  // Check if archived file
+  std::string in_file_ext(fullfilename.substr(found_dot + 1));
+  if (in_file_ext.compare("gz") == 0 || in_file_ext.compare("bz2") == 0) {
+    unsigned found_dot_tmp = filename.find_last_of('.');
+
+    // Put string after last '.' into string in_file_ext
+    if (found_dot_tmp >= filename.length()) {
+      error_msg(errorstring,
+          "Other than gz or bz2, cannot find the file extension (no '.' in input file name: %s).\n",
+          fullfilename.c_str());
+      writeErrorToLog(errorstring, params.logfile);
+      exit(1);
+    }
+
+    in_file_ext = filename.substr(found_dot_tmp + 1);
+    filename = filename.substr(0, found_dot_tmp);
+  }
+
+//  size_t slashindex = fullfilename.find_last_of("/\\");
+//  const std::string dir = (slashindex != std::string::npos) ? fullfilename.substr(0, slashindex+1) : "./";
+//  const std::string filestub = (slashindex != std::string::npos) ? fullfilename.substr(slashindex+1) : fullfilename;
+  size_t slashindex = filename.find_last_of("/\\");
+  instname = (slashindex != std::string::npos) ? filename.substr(slashindex+1) : filename;
+
+  // Generate cuts
+  solver = new SolverInterface;
+  setLPSolverParameters(solver, params.get(VERBOSITY));
+
+  if (in_file_ext.compare("lp") == 0) {
+#ifdef TRACE
+    printf("\n## Reading LP file. ##\n");
+#endif
+    solver->readLp(fullfilename.c_str());
+  } else {
+    if (in_file_ext.compare("mps") == 0) {
+#ifdef TRACE
+      printf("\n## Reading MPS file. ##\n");
+#endif
+      solver->readMps(fullfilename.c_str());
+    } else {
+      error_msg(errorstring, "Unrecognized extension: %s.\n",
+          in_file_ext.c_str());
+      exit(1);
+    }
+  } // read file
+} /* initializeSolver */
+
+/**
+ * Close the logfile and print to it
+ */
+int wrapUp(int retCode /*= 0*/) {
+  std::time_t end_time_t;
+  time(&end_time_t);
+  struct tm* timeinfo = localtime(&end_time_t);
+  char end_time_string[25];
+  snprintf(end_time_string, sizeof(end_time_string) / sizeof(char), "%s",
+      asctime(timeinfo));
+  const int exitReasonInt = static_cast<int>(exitReason);
+  printf("\n## %s: Successfully exiting with reason %s. ##\n", end_time_string, ExitReasonName[exitReasonInt].c_str());
+
+  FILE* logfile = params.logfile;
+  if (logfile != NULL) {
+    fprintf(logfile, "%s,", ExitReasonName[exitReasonInt].c_str());
+    fprintf(logfile, "%s", end_time_string);
+    fprintf(logfile, "\n");
+    fclose(logfile); // closes params.logfile
+  }
+  if (solver) {
+    delete solver;
+  }
+  return retCode;
+} /* wrapUp */
 
 /**
  * See params.hpp for descriptions of the parameters
@@ -438,37 +560,37 @@ void processArgs(int argc, char** argv) {
       case '?':
       default: {
                  // print help
-								std::string helpstring;
-								helpstring += "\n## DESCRIPTION ##\n";
-								helpstring += "Code for generating V-polyhedral disjunctive cuts.\n";
-								helpstring += "\n## OPTIONS ##\n";
-								helpstring += "-h, --help\n\tPrint this help message.\n";
-								helpstring += "\n# Input/output #\n";
-								helpstring += "-f file, --file=file\n\tFilename.\n";
-								helpstring += "-l logfile, --logfile=logfile\n\tWhere to print log messages.\n";
-								helpstring += "-o optfile, --optfile=optfile\n\tWhere to find integer optimum value information (a csv file formatted as \"instance_name,value\" on each row).\n";
-								helpstring += "-v level, --verbosity=level\n\tVerbosity level (0: print little, 1: let solver output be visible).\n";
-								helpstring += "\n# General VPC options #\n";
-								helpstring += "-c num cuts, --cutlimit=num cuts\n\tMaximum number of cuts to generate (0 = no limit, -k = k * # fractional variables at root).\n";
-								helpstring += "-d num terms, --disj_terms=num terms\n\tMaximum number of disjunctive terms or disjunctions to generate (depending on mode).\n";
-								helpstring += "-m mode, --mode=mode\n\tMode for generating disjunction(s). 0: partial b&b tree, 1: splits, 2: crosses (not implemented), 3: custom.\n";
-								helpstring += "-r num rounds, --rounds=num rounds\n\tNumber of rounds of cuts to apply.\n";
-								helpstring += "-R num seconds, --prlp_timelimit=num seconds\n\tNumber of seconds allotted for solving the PRLP.\n";
-								helpstring += "-t num seconds, --timelimit=num seconds\n\tTotal number of seconds allotted for cut generation.\n";
-								helpstring += "\n# Partial branch-and-bound options #\n";
-								helpstring += "-s strategy, --partial_bb_strategy=strategy\n\tPartial branch-and-bound strategy; this is a complicated parameter, and the user should check params.hpp for the description.\n";
-								helpstring += "-S num strong, --partial_bb_num_strong=num strong\n\tNumber of candidates for strong branching to consider during the creation of the partial branch-and-bound tree.\n";
-								helpstring += "-T num seconds, --partial_bb_timelimit=num seconds\n\tTotal number of seconds allotted for generating the partial branch-and-bound tree.\n";
-								helpstring += "\n# Objective options #\n";
-								helpstring += "--use_all_ones=0/1\n\tUse all ones objective.\n";
-								helpstring += "--use_disj_lb=0/1\n\tUse disjunctive lower bound objective.\n";
-								helpstring += "--use_iter_bilinear=num iters to do\n\tNumber of iterations to do in iterative bilinear procedure (1 = cut off the optimal post-SIC point).\n";
-								helpstring += "--use_tight_points=0/1\n\tUse objectives for being tight on points in collection.\n";
-								helpstring += "--use_tight_rays=0/1\n\tUse objectives for being tight on rays in collection.\n";
-								helpstring += "--use_unit_vectors=0/1\n\tUse unit vectors in nonbasic space.\n";
-								helpstring += "## END OF HELP ##\n";
-								std::cout << helpstring << std::endl;
-								exit(1);
+                std::string helpstring;
+                helpstring += "\n## DESCRIPTION ##\n";
+                helpstring += "Code for generating V-polyhedral disjunctive cuts.\n";
+                helpstring += "\n## OPTIONS ##\n";
+                helpstring += "-h, --help\n\tPrint this help message.\n";
+                helpstring += "\n# Input/output #\n";
+                helpstring += "-f file, --file=file\n\tFilename.\n";
+                helpstring += "-l logfile, --logfile=logfile\n\tWhere to print log messages.\n";
+                helpstring += "-o optfile, --optfile=optfile\n\tWhere to find integer optimum value information (a csv file formatted as \"instance_name,value\" on each row).\n";
+                helpstring += "-v level, --verbosity=level\n\tVerbosity level (0: print little, 1: let solver output be visible).\n";
+                helpstring += "\n# General VPC options #\n";
+                helpstring += "-c num cuts, --cutlimit=num cuts\n\tMaximum number of cuts to generate (0 = no limit, -k = k * # fractional variables at root).\n";
+                helpstring += "-d num terms, --disj_terms=num terms\n\tMaximum number of disjunctive terms or disjunctions to generate (depending on mode).\n";
+                helpstring += "-m mode, --mode=mode\n\tMode for generating disjunction(s). 0: partial b&b tree, 1: splits, 2: crosses (not implemented), 3: custom.\n";
+                helpstring += "-r num rounds, --rounds=num rounds\n\tNumber of rounds of cuts to apply.\n";
+                helpstring += "-R num seconds, --prlp_timelimit=num seconds\n\tNumber of seconds allotted for solving the PRLP.\n";
+                helpstring += "-t num seconds, --timelimit=num seconds\n\tTotal number of seconds allotted for cut generation.\n";
+                helpstring += "\n# Partial branch-and-bound options #\n";
+                helpstring += "-s strategy, --partial_bb_strategy=strategy\n\tPartial branch-and-bound strategy; this is a complicated parameter, and the user should check params.hpp for the description.\n";
+                helpstring += "-S num strong, --partial_bb_num_strong=num strong\n\tNumber of candidates for strong branching to consider during the creation of the partial branch-and-bound tree.\n";
+                helpstring += "-T num seconds, --partial_bb_timelimit=num seconds\n\tTotal number of seconds allotted for generating the partial branch-and-bound tree.\n";
+                helpstring += "\n# Objective options #\n";
+                helpstring += "--use_all_ones=0/1\n\tUse all ones objective.\n";
+                helpstring += "--use_disj_lb=0/1\n\tUse disjunctive lower bound objective.\n";
+                helpstring += "--use_iter_bilinear=num iters to do\n\tNumber of iterations to do in iterative bilinear procedure (1 = cut off the optimal post-SIC point).\n";
+                helpstring += "--use_tight_points=0/1\n\tUse objectives for being tight on points in collection.\n";
+                helpstring += "--use_tight_rays=0/1\n\tUse objectives for being tight on rays in collection.\n";
+                helpstring += "--use_unit_vectors=0/1\n\tUse unit vectors in nonbasic space.\n";
+                helpstring += "## END OF HELP ##\n";
+                std::cout << helpstring << std::endl;
+                exit(1);
                }
     } // switch statement for input
   } // process args
@@ -477,89 +599,3 @@ void processArgs(int argc, char** argv) {
   //}
   //std::cout << std::endl;
 } /* processArgs */
-
-void initializeSolver(OsiSolverInterface* &solver) {
-  std::string fullfilename = params.get(stringParam::FILENAME);
-  // Get file name stub
-  size_t found_dot = fullfilename.find_last_of(".");
-  std::string filename = fullfilename.substr(0, found_dot);
-
-  // Put string after last '.' into string in_file_ext
-  if (found_dot >= fullfilename.length()) {
-    error_msg(errorstring, "Cannot find the file extension (no '.' in input file name: %s).\n", fullfilename.c_str());
-    writeErrorToLog(errorstring, params.logfile);
-    exit(1);
-  }
-
-  // Check if archived file
-  std::string in_file_ext(fullfilename.substr(found_dot + 1));
-  if (in_file_ext.compare("gz") == 0 || in_file_ext.compare("bz2") == 0) {
-    unsigned found_dot_tmp = filename.find_last_of('.');
-
-    // Put string after last '.' into string in_file_ext
-    if (found_dot_tmp >= filename.length()) {
-      error_msg(errorstring,
-          "Other than gz or bz2, cannot find the file extension (no '.' in input file name: %s).\n",
-          fullfilename.c_str());
-      writeErrorToLog(errorstring, params.logfile);
-      exit(1);
-    }
-
-    in_file_ext = filename.substr(found_dot_tmp + 1);
-    filename = filename.substr(0, found_dot_tmp);
-  }
-
-//  size_t slashindex = fullfilename.find_last_of("/\\");
-//  const std::string dir = (slashindex != std::string::npos) ? fullfilename.substr(0, slashindex+1) : "./";
-//  const std::string filestub = (slashindex != std::string::npos) ? fullfilename.substr(slashindex+1) : fullfilename;
-  size_t slashindex = filename.find_last_of("/\\");
-  instname = (slashindex != std::string::npos) ? filename.substr(slashindex+1) : filename;
-
-  // Generate cuts
-  solver = new SolverInterface;
-  setLPSolverParameters(solver, params.get(VERBOSITY));
-
-  if (in_file_ext.compare("lp") == 0) {
-#ifdef TRACE
-    printf("\n## Reading LP file. ##\n");
-#endif
-    solver->readLp(fullfilename.c_str());
-  } else {
-    if (in_file_ext.compare("mps") == 0) {
-#ifdef TRACE
-      printf("\n## Reading MPS file. ##\n");
-#endif
-      solver->readMps(fullfilename.c_str());
-    } else {
-      error_msg(errorstring, "Unrecognized extension: %s.\n",
-          in_file_ext.c_str());
-      exit(1);
-    }
-  } // read file
-} /* initializeSolver */
-
-/**
- * Close the logfile and print to it
- */
-int wrapUp(int retCode /*= 0*/) {
-  std::time_t end_time_t;
-  time(&end_time_t);
-  struct tm* timeinfo = localtime(&end_time_t);
-  char end_time_string[25];
-  snprintf(end_time_string, sizeof(end_time_string) / sizeof(char), "%s",
-      asctime(timeinfo));
-  const int exitReasonInt = static_cast<int>(exitReason);
-  printf("\n## %s: Successfully exiting with reason %s. ##\n", end_time_string, ExitReasonName[exitReasonInt].c_str());
-
-  FILE* logfile = params.logfile;
-  if (logfile != NULL) {
-    fprintf(logfile, "%s,", ExitReasonName[exitReasonInt].c_str());
-    fprintf(logfile, "%s", end_time_string);
-    fprintf(logfile, "\n");
-    fclose(logfile); // closes params.logfile
-  }
-  if (solver) {
-    delete solver;
-  }
-  return retCode;
-} /* wrapUp */

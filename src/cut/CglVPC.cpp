@@ -120,7 +120,7 @@ CglVPC::CglVPC(const CglVPC& source) : CglCutGenerator(source) {
 
 /** Destructor */
 CglVPC::~CglVPC() {
-  if (disj) { delete disj; }
+  if (disjunction && ownsDisjunction) { delete disjunction; }
 } /* destructor */
 
 /** Assignment operator */
@@ -141,6 +141,20 @@ void CglVPC::setParams(const VPCParameters& param) {
   this->params = param;
 } /* setParams */
 
+/** setDisjunction (ownIt = 0 or 1; -1 means use ownsDisjunction value from class) */
+void CglVPC::setDisjunction(Disjunction* const sourceDisj, int ownIt) {
+  if (ownIt < 0) {
+    ownIt = this->ownsDisjunction;
+  }
+  if (this->disjunction && this->ownsDisjunction)
+    delete disjunction;
+  this->ownsDisjunction = ownIt;
+  if (ownIt)
+    this->disjunction = sourceDisj->clone();
+  else
+    this->disjunction = sourceDisj;
+} /* setDisjunction */
+
 /**
  * @brief Generate VPCs from a partial branch-and-bound tree
  */
@@ -157,41 +171,45 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     finish(status);
     return;
   }
-  if (reachedCutLimit(cuts.sizeCuts())) {
+  if (reachedCutLimit()) {
     status = ExitReason::CUT_LIMIT_EXIT;
     finish(status);
     return;
   }
 
-  mode = static_cast<VPCMode>(params.get(MODE));
-  if (mode == VPCMode::PARTIAL_BB) {
-    if (params.get(intParam::DISJ_TERMS) < 2) {
-      status = ExitReason::NO_DISJUNCTION_EXIT;
-      finish(status);
-      return;
-    }
-    printf("\n## Starting VPC generation from partial branch-and-bound tree with up to %d disjunctive terms. ##\n", params.get(intParam::DISJ_TERMS));
-    disj = new PartialBBDisjunction(this->params);
-    disj->timer = &timer;
-  }
-  else if (mode== VPCMode::SPLITS) {
-    printf("\n## Starting VPC generation from one split. ##\n");
-    disj = new SplitDisjunction(this->params);
-    disj->timer = &timer;
-  }
-  else if (mode == VPCMode::CUSTOM) {
-    if (!disj) {
-      error_msg(errorstring, "Mode chosen is CUSTOM but no disjunction is set.\n");
+  if (!disjunction) {
+    mode = static_cast<VPCMode>(params.get(MODE));
+    if (mode == VPCMode::CUSTOM) {
+      error_msg(errorstring,
+          "Mode chosen is CUSTOM but no disjunction is set.\n");
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
     }
-  }
-  else {
-    error_msg(errorstring,
-        "Mode that is chosen has not yet been implemented for VPC generation: %s.\n",
-        VPCModeName[static_cast<int>(mode)].c_str());
-    writeErrorToLog(errorstring, params.logfile);
-    exit(1);
+    ownsDisjunction = true;
+    if (mode == VPCMode::PARTIAL_BB) {
+      if (params.get(intParam::DISJ_TERMS) < 2) {
+        status = ExitReason::NO_DISJUNCTION_EXIT;
+        finish(status);
+        return;
+      }
+      printf(
+          "\n## Starting VPC generation from partial branch-and-bound tree with up to %d disjunctive terms. ##\n",
+          params.get(intParam::DISJ_TERMS));
+      disjunction = new PartialBBDisjunction(this->params);
+      disjunction->timer = &timer;
+    } else if (mode == VPCMode::SPLITS) {
+      printf("\n## Starting VPC generation from one split. ##\n");
+      disjunction = new SplitDisjunction(this->params);
+      disjunction->timer = &timer;
+    } else {
+      error_msg(errorstring,
+          "Mode that is chosen has not yet been implemented for VPC generation: %s.\n",
+          VPCModeName[static_cast<int>(mode)].c_str());
+      writeErrorToLog(errorstring, params.logfile);
+      exit(1);
+    }
+  } else {
+    mode = VPCMode::CUSTOM;
   }
 
   // Solver can't be const because custom enableFactorization function might do initialSolve or resolve
@@ -239,29 +257,31 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     // Get disjunctive terms and obtain their optimal bases
     // (If mode is custom, i.e., disjunction is given to us,
     // then we assume that the disjunction is already prepared)
-    status = disj->prepareDisjunction(solver);
+    status = disjunction->prepareDisjunction(solver);
     if (status == ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT) {
       warning_msg(warnstr,
           "An integer (optimal) solution was found prior while getting disjunction. "
           "We will generate between n and 2n cuts, restricting the value of each variable.\n");
-      const double* solution = disj->integer_sol.data();
-      for (int col = 0; col < static_cast<int>(disj->integer_sol.size()); col++) {
-        const double val = solution[col];
+      const double* solution = disjunction->integer_sol.data();
+      if (solution) {
+        for (int col = 0; col < solver->getNumCols(); col++) {
+          const double val = solution[col];
 
-        // Check which of the bounds needs to be fixed
-        for (int b = 0; b < 2; b++) {
-          if ((b == 0 && greaterThanVal(val, solver->getColLower()[col]))
-              || (b == 1 && lessThanVal(val, solver->getColUpper()[col]))) {
-            const double mult = (b == 0) ? 1. : -1.;
-            const double el = mult * 1.;
+          // Check which of the bounds needs to be fixed
+          for (int b = 0; b < 2; b++) {
+            if ((b == 0 && greaterThanVal(val, solver->getColLower()[col]))
+                || (b == 1 && lessThanVal(val, solver->getColUpper()[col]))) {
+              const double mult = (b == 0) ? 1. : -1.;
+              const double el = mult * 1.;
 
-            OsiRowCut currCut;
-            currCut.setLb(mult * val);
-            currCut.setRow(1, &col, &el, false);
-            addCut(currCut, CutType::OPTIMALITY_CUT, cuts);
+              OsiRowCut currCut;
+              currCut.setLb(mult * val);
+              currCut.setRow(1, &col, &el, false);
+              addCut(currCut, CutType::OPTIMALITY_CUT, cuts);
+            }
           }
-        }
-      } // iterate over columns and add optimality cut if needed
+        } // iterate over columns and add optimality cut if needed
+      }
     } // exit out early if integer-optimal solution found
     if (status != ExitReason::SUCCESS_EXIT) {
       finish(status);
@@ -296,8 +316,8 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
   if (source != NULL) {
     if (param == NULL)
       setParams(source->params);
+    setDisjunction(source->disjunction, source->ownsDisjunction);
     this->mode = source->mode;
-    this->disj = source->disj->clone();
     this->exitReason = source->exitReason;
     this->timer = source->timer;
     this->cutType = source->cutType;
@@ -316,7 +336,8 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
   }
   else {
     this->mode = VPCMode::PARTIAL_BB;
-    this->disj = NULL;
+    this->ownsDisjunction = false;
+    this->disjunction = NULL;
     this->exitReason = ExitReason::UNKNOWN;
     for (int t = 0; t < static_cast<int>(VPCTimeStats::NUM_TIME_STATS); t++) {
       timer.register_name(VPCTimeStatsName[t]);
@@ -518,19 +539,19 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
    ***********************************************************************************/
   // Make a copy of the solver to allow for fixing variables and changed bounds at root
   SolverInterface* vpcsolver = dynamic_cast<SolverInterface*>(si->clone());
-  const int num_changed_bounds = this->disj->common_changed_var.size();
+  const int num_changed_bounds = this->disjunction->common_changed_var.size();
   int num_fixed = 0;
   for (int i = 0; i < num_changed_bounds; i++) {
-    const int col = this->disj->common_changed_var[i];
-    if (this->disj->common_changed_bound[i] <= 0) {
-      vpcsolver->setColLower(col, this->disj->common_changed_value[i]);
+    const int col = this->disjunction->common_changed_var[i];
+    if (this->disjunction->common_changed_bound[i] <= 0) {
+      vpcsolver->setColLower(col, this->disjunction->common_changed_value[i]);
     } else {
-      vpcsolver->setColUpper(col, this->disj->common_changed_value[i]);
+      vpcsolver->setColUpper(col, this->disjunction->common_changed_value[i]);
     }
 
-    const double mult = (this->disj->common_changed_bound[i] <= 0) ? 1. : -1.;
+    const double mult = (this->disjunction->common_changed_bound[i] <= 0) ? 1. : -1.;
     const double el = mult * 1.;
-    const double val = this->disj->common_changed_value[i];
+    const double val = this->disjunction->common_changed_value[i];
     OsiRowCut currCut;
     currCut.setLb(mult * val);
     currCut.setRow(1, &col, &el, false);
@@ -541,9 +562,9 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
     }
   } // account for bounds changed at root
 
-  const int num_added_ineqs = this->disj->common_ineqs.size();
+  const int num_added_ineqs = this->disjunction->common_ineqs.size();
   for (int i = 0; i < num_added_ineqs; i++) {
-    OsiRowCut* currCut = &disj->common_ineqs[i];
+    OsiRowCut* currCut = &(this->disjunction->common_ineqs[i]);
     vpcsolver->applyRowCuts(1, currCut); // hopefully this works
     addCut(*currCut, CutType::ONE_SIDED_CUT, cuts);
   }
@@ -616,18 +637,18 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
   /***********************************************************************************
    * Get bases and generate VPCs
    ***********************************************************************************/
-  const int num_disj_terms = disj->num_terms;
+  const int num_disj_terms = this->disjunction->num_terms;
   const int dim = si->getNumCols(); // NB: treating fixed vars as at bound
 
   int terms_added = -1;
   std::vector<bool> calcAndFeasTerm(num_disj_terms);
 
   // Start with the integer-feasible solution
-  if (!(disj->integer_sol.empty())) {
+  if (!(this->disjunction->integer_sol.empty())) {
     terms_added++;
 
     // Get solution and calculate slacks
-    const double* sol = disj->integer_sol.data();
+    const double* sol = this->disjunction->integer_sol.data();
     std::vector<double> slack(vpcsolver->getNumRows(), 0.);
     const CoinPackedMatrix* mx = vpcsolver->getMatrixByRow();
     mx->times(sol, &slack[0]);
@@ -656,19 +677,19 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
     vpcsolver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
     const double objVal =
         dotProduct(vpcsolver->getObjCoefficients(), sol, dim) - objOffset;
-    this->disj->updateObjValue(objVal);
-//    this->disj->updateNBObjValue(curr_nb_obj_val);
+    this->disjunction->updateObjValue(objVal);
+//    this->disjunction->updateNBObjValue(curr_nb_obj_val);
   } // integer-feasible solution
 
   // Now we handle the normal terms
-  const int num_normal_terms = disj->terms.size();
+  const int num_normal_terms = this->disjunction->terms.size();
   for (int tmp_ind = 0; tmp_ind < num_normal_terms; tmp_ind++) {
     terms_added++;
     SolverInterface* tmpSolver = dynamic_cast<SolverInterface*>(vpcsolver->clone());
     tmpSolver->disableFactorization();
 
     // Change bounds in the solver
-    DisjunctiveTerm* term = &this->disj->terms[tmp_ind];
+    DisjunctiveTerm* term = &this->disjunction->terms[tmp_ind];
     const int curr_num_changed_bounds = term->changed_var.size();
     std::vector < std::vector<int> > commonTermIndices(curr_num_changed_bounds);
     std::vector < std::vector<double> > commonTermCoeff(curr_num_changed_bounds);
@@ -757,8 +778,8 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
       // This is here rather than in the Disjunction class,
       // because it is unclear whether, in that class,
       // the user computes with the variables changed at the root
-      this->disj->updateObjValue(tmpSolver->getObjValue());
-//      this->disj->updateNBObjValue(tmpSolver->getObjValue() - vpcsolver->getObjValue());
+      this->disjunction->updateObjValue(tmpSolver->getObjValue());
+//      this->disjunction->updateNBObjValue(tmpSolver->getObjValue() - vpcsolver->getObjValue());
 
       timer.register_name(CglVPC::time_T1 + std::to_string(terms_added));
       timer.register_name(CglVPC::time_T2 + std::to_string(terms_added));
@@ -786,7 +807,7 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
 #ifdef TRACE
   printf(
       "\nFinished generating cgs from partial BB. Min obj val: Structural: %1.3f, NB: %1.3f.\n",
-      this->disj->best_obj, this->disj->best_obj - this->probData.lp_opt);
+      this->disjunction->best_obj, this->disjunction->best_obj - this->probData.lp_opt);
 #endif
   return ExitReason::SUCCESS_EXIT;
 } /* setupConstraints */
@@ -942,12 +963,12 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
   if (reachedTimeLimit(time_T1 + "TOTAL", params.get(TIMELIMIT))) {
     return ExitReason::TIME_LIMIT_EXIT;
   }
-  if (reachedCutLimit(cuts.sizeCuts())) {
+  if (reachedCutLimit()) {
     return ExitReason::CUT_LIMIT_EXIT;
   }
 
   // We can scale the rhs for points by min_nb_obj_val
-  const double min_nb_obj_val = this->disj->best_obj - this->probData.lp_opt;
+  const double min_nb_obj_val = this->disjunction->best_obj - this->probData.lp_opt;
   const bool useScale = true && !isInfinity(std::abs(min_nb_obj_val));
   const double scale = (!useScale || lessThanVal(min_nb_obj_val, 1.)) ? 1. : min_nb_obj_val;
   double beta = params.get(intParam::PRLP_FLIP_BETA) >= 0 ? scale : -1. * scale;
@@ -955,7 +976,7 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
   // Check that we can actually use this disjunction
   // We reject it if the best term and worst term have the same obj value as the LP opt
   const bool LP_OPT_IS_NOT_CUT = !greaterThanVal(min_nb_obj_val, 0.0);
-  const bool DLB_EQUALS_DUB = !greaterThanVal(disj->worst_obj, disj->best_obj);
+  const bool DLB_EQUALS_DUB = !greaterThanVal(this->disjunction->worst_obj, this->disjunction->best_obj);
   const bool flipBeta = params.get(PRLP_FLIP_BETA) > 0; // if the PRLP is infeasible, we will try flipping the beta
   if (LP_OPT_IS_NOT_CUT) {
     this->numFails[static_cast<int>(FailureType::DLB_EQUALS_LPOPT_NO_OBJ)]++;
@@ -1016,7 +1037,7 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
   if (reachedTimeLimit(time_T1 + "TOTAL", params.get(TIMELIMIT))) {
     return ExitReason::TIME_LIMIT_EXIT;
   }
-  if (reachedCutLimit(cuts.sizeCuts())) {
+  if (reachedCutLimit()) {
     return ExitReason::CUT_LIMIT_EXIT;
   }
   if (reachedFailureLimit(num_cuts - init_num_cuts, num_failures - init_num_failures)) {
