@@ -418,11 +418,9 @@ void setCompNBCoor(CoinPackedVector& vec, double& objViolation,
     const int currVar = nonBasicVarIndex[i];
     const int currVarTmpIndex = (currVar < deletedVar) ? currVar : currVar + deletedVarAdjustment;
     double tmpVal = 0., origVal = 0.;
-    double objCoeff = 0.;
     if (currVar < numCols) {
       tmpVal = currColValue[currVarTmpIndex];
       origVal = origSolver->getColSolution()[currVar];
-      objCoeff = origSolver->getObjCoefficients()[currVar];
     } else {
       const int currRow = currVar - numCols;
       if (currSlackValue) {
