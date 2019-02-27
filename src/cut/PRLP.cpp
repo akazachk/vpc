@@ -4,11 +4,13 @@
 //-----------------------------------------------------------------------------
 #include "PRLP.hpp"
 #include "CutHelper.hpp"
+#include "nbspace.hpp"
 #include "PartialBBDisjunction.hpp" // TODO Change to Disjunction
 #include "SolverHelper.hpp"
 
 #include <numeric> // inner_product
 
+#include <CglGMI.hpp>
 #include <CoinTime.hpp>
 
 #ifdef TRACE
@@ -53,7 +55,7 @@ OsiSolverInterface* PRLP::clone(bool copyData) const {
  * The rows are \alpha (p or r) \ge \beta = 1 (or 0 or -1)
  * @return Is prlp primal feasible?
  */
-bool PRLP::setup(const double scale, const bool fixFirstPoint) {
+bool PRLP::setup(const double scale) {
   owner->timer.start_timer(static_cast<int>(CglVPC::VPCTimeStats::PRLP_SETUP_TIME));
   const int num_constraints = owner->prlpData.rhs.size();
   const int num_disj_terms = owner->disj->num_terms;
@@ -74,83 +76,71 @@ bool PRLP::setup(const double scale, const bool fixFirstPoint) {
   rowOfRay.reserve(num_disj_terms * num_cols);
   objDepthPoints.reserve(num_disj_terms);
   objDepthRays.reserve(num_disj_terms * num_cols);
-//  disjTermOfPoint.reserve(num_disj_terms);
-//  disjTermOfRay.reserve(num_disj_terms * num_cols);
-//  std::vector<int> disjTermStart(num_disj_terms, 0), rowToDelete;
 
   // First pass is just to get the orthogonalities and fill the vectors,
   // but we will also remove any singleton rows by setting them as bounds
-//  for (int t = first_term; t < num_disj_terms; t++) {
-//    disjTermStart[t] = mx.getNumRows();
-//    mx.bottomAppendPackedMatrix(interPtsAndRays[t]);
-    for (int r = 0; r < num_constraints; r++) {
-      const int num_vec_el = owner->prlpData.constraints[r].getNumElements();
-      const double vec_rhs =
-          (owner->prlpData.rhs[r] != 0.) ?
-              owner->prlpData.rhs[r] * scale : owner->prlpData.rhs[r];
-      // Check if it is a bound
-      if (num_vec_el == 1) {
-        // row is coeff * var >= rhs
-        const double coeff = owner->prlpData.constraints[r].getElements()[0];
-        const int var = owner->prlpData.constraints[r].getIndices()[0];
-        const double old_lb = colLB[var];
-        const double old_ub = colUB[var];
-        if (isZero(vec_rhs)) {
-          if (lessThanVal(coeff, 0.)) {
-            if (old_ub > 0.) {
-              colUB[var] = 0.;
-            }
-          } else if (greaterThanVal(coeff, 0.)) {
-            if (old_lb < 0.) {
-              colLB[var] = 0.;
-            }
-          } else {
-            // Do nothing, because this is a 0 >= 0 row (shouldn't happen... but who knows)
+  for (int r = 0; r < num_constraints; r++) {
+    const int num_vec_el = owner->prlpData.constraints[r].getNumElements();
+    const double vec_rhs =
+        (owner->prlpData.rhs[r] != 0.) ?
+            owner->prlpData.rhs[r] * scale : owner->prlpData.rhs[r];
+    // Check if it is a bound
+    if (num_vec_el == 1) {
+      // row is coeff * var >= rhs
+      const double coeff = owner->prlpData.constraints[r].getElements()[0];
+      const int var = owner->prlpData.constraints[r].getIndices()[0];
+      const double old_lb = colLB[var];
+      const double old_ub = colUB[var];
+      if (isZero(vec_rhs)) {
+        if (lessThanVal(coeff, 0.)) {
+          if (old_ub > 0.) {
+            colUB[var] = 0.;
           }
-        } /* if zero rhs */
-        else {
-          if (isVal(coeff, 0.)) {
-            // Do nothing, because this is 0 >= something
-            if (lessThanVal(vec_rhs, 0.)) {
-              error_msg(errorstring,
-                  "We have an infeasible row: %.2f * x%d >= %.2f.\n", coeff,
-                  var, vec_rhs);
-              writeErrorToLog(errorstring, owner->params.logfile);
-              exit(1);
-            }
-          } else {
-            const double new_bound = vec_rhs / coeff;
-            if (lessThanVal(coeff, 0.)) {
-              if (old_ub > new_bound) {
-                colUB[var] = new_bound;
-              }
-            } else {
-              if (old_lb < new_bound) {
-                colLB[var] = new_bound;
-              }
-            }
+        } else if (greaterThanVal(coeff, 0.)) {
+          if (old_lb < 0.) {
+            colLB[var] = 0.;
           }
-        } /* else it is a non-zero rhs */
-      } /* if num_vec_el == 1, it is a bound */
-
-      // When rhs non-zero, we input it anyway, to keep for objective function purposes
-      if (num_vec_el > 1 || !isZero(vec_rhs)) {
-        numElementsEstimate += num_vec_el;
-        if (!isZero(vec_rhs)) {
-//          disjTermOfPoint.push_back(t);
-          rowOfPoint.push_back(r);
-          objDepthPoints.push_back(owner->prlpData.objViolation[r]);
         } else {
-//          disjTermOfRay.push_back(t);
-          rowOfRay.push_back(r);
-          objDepthRays.push_back(owner->prlpData.objViolation[r]);
+          // Do nothing, because this is a 0 >= 0 row (shouldn't happen... but who knows)
         }
-      } /* we add it for processing */
-//      else {
-//        rowToDelete.push_back(disjTermStart[t] + r);
-//      }
-    } /* iterate over the rows in the matrix */
-//  } /* iterate over the disjunctive terms we are adding in */
+      } /* if zero rhs */
+      else {
+        if (isVal(coeff, 0.)) {
+          // Do nothing, because this is 0 >= something
+          if (lessThanVal(vec_rhs, 0.)) {
+            error_msg(errorstring,
+                "We have an infeasible row: %.2f * x%d >= %.2f.\n", coeff,
+                var, vec_rhs);
+            writeErrorToLog(errorstring, owner->params.logfile);
+            exit(1);
+          }
+        } else {
+          const double new_bound = vec_rhs / coeff;
+          if (lessThanVal(coeff, 0.)) {
+            if (old_ub > new_bound) {
+              colUB[var] = new_bound;
+            }
+          } else {
+            if (old_lb < new_bound) {
+              colLB[var] = new_bound;
+            }
+          }
+        }
+      } // else it is a non-zero rhs
+    } // if num_vec_el == 1, it is a bound
+
+    // When rhs non-zero, we input it anyway, to keep for objective function purposes
+    if (num_vec_el > 1 || !isZero(vec_rhs)) {
+      numElementsEstimate += num_vec_el;
+      if (!isZero(vec_rhs)) {
+        rowOfPoint.push_back(r);
+        objDepthPoints.push_back(owner->prlpData.objViolation[r]);
+      } else {
+        rowOfRay.push_back(r);
+        objDepthRays.push_back(owner->prlpData.objViolation[r]);
+      }
+    } // we add it for processing
+  } // iterate over the rows in the matrix
 
   // Sort by orthogonality
   const int numPointsToProcess = objDepthPoints.size();
@@ -177,7 +167,6 @@ bool PRLP::setup(const double scale, const bool fixFirstPoint) {
     isDuplicatePoint.resize(numPointsToProcess, false);
     for (int p1 = 1; p1 < numPointsToProcess; p1++) {
       const int ind1 = sortIndexPoints[p1];
-//      const int t1 = disjTermOfPoint[ind1];
       const int r1 = rowOfPoint[ind1];
       const double ortho1 = objDepthPoints[ind1];
       if (!isVal(objDepthPoints[sortIndexPoints[p1-1]], ortho1)) {
@@ -209,22 +198,19 @@ bool PRLP::setup(const double scale, const bool fixFirstPoint) {
           // This means the current row is better somehow, and we should replace r2
           isDuplicatePoint[p2] = true;
           numElementsEstimate -= vec2.getNumElements();
-//          rowToDelete.push_back(disjTermStart[t2] + r2);
         }
         if (howDissimilar != 2) {
           isDuplicatePoint[p1] = true;
           numElementsEstimate -= vec1.getNumElements();
-//          rowToDelete.push_back(disjTermStart[t1] + r1);
           break;
         }
-      } /* iterate over previously added points that have same objDepth */
-    } /* iterate over points to find duplicates */
+      } // iterate over previously added points that have same objDepth
+    } // iterate over points to find duplicates
 
     // Check rays for duplicates
     isDuplicateRay.resize(numRaysToProcess, false);
     for (int p1 = 1; p1 < numRaysToProcess; p1++) {
       const int ind1 = sortIndexRays[p1];
-//      const int t1 = disjTermOfRay[ind1];
       const int r1 = rowOfRay[ind1];
       const CoinShallowPackedVector vec1 = owner->prlpData.constraints[r1];
       const double rhs1 = owner->prlpData.rhs[r1];
@@ -240,7 +226,6 @@ bool PRLP::setup(const double scale, const bool fixFirstPoint) {
         if (!isVal(ortho1, ortho2)) {
           break;
         }
-//        const int t2 = disjTermOfRay[ind2];
         const int r2 = rowOfRay[ind2];
         const CoinShallowPackedVector vec2 = owner->prlpData.constraints[r2];
         const double rhs2 = owner->prlpData.rhs[r2];
@@ -254,29 +239,19 @@ bool PRLP::setup(const double scale, const bool fixFirstPoint) {
         if (howDissimilar != 2) {
           isDuplicateRay[p1] = true;
           numElementsEstimate -= vec1.getNumElements();
-//          rowToDelete.push_back(disjTermStart[t1] + r1);
           break;
         }
-      } /* iterate over previously added rays that have same objDepth */
-    } /* iterate over rays to find duplicates */
-  } /* check for duplicates */
-
-//  // Sort rowToDelete and delete the corresponding rows from mx
-//  std::sort(rowToDelete.begin(), rowToDelete.end());
-//  mx.deleteRows(rowToDelete.size(), rowToDelete.data());
+      } // iterate over previously added rays that have same objDepth
+    } // iterate over rays to find duplicates
+  } // check for duplicates
 
   // Now input into the matrix
   CoinPackedMatrix mx; // create a new col-ordered matrix
   mx.reverseOrdering(); // make it row-ordered
   mx.setDimensions(0, num_cols);
   mx.reserve(numPointsToProcess + numRaysToProcess, numElementsEstimate, false);
-  //    (numPointsToProcess + numRaysToProcess) * num_cols, false);
 
   // First the points
-  std::vector<int> rowInMxOfPoint;
-  if (fixFirstPoint) {
-    rowInMxOfPoint.resize(numPointsToProcess, -1);
-  }
   ortho.clear();
   ortho.reserve(numPointsToProcess + numRaysToProcess);
   for (int p = 0; p < numPointsToProcess; p++) {
@@ -284,22 +259,15 @@ bool PRLP::setup(const double scale, const bool fixFirstPoint) {
       continue;
     }
     const int ind = sortIndexPoints[p];
-//    const int t = disjTermOfPoint[ind];
     const int r = rowOfPoint[ind];
     const double rhs = owner->prlpData.rhs[r] * scale;
-    //const CoinShallowPackedVector vec = interPtsAndRays[t].getVector(r);
-    //mx.appendRow(vec);
     mx.appendRow(owner->prlpData.constraints[r].getNumElements(),
         owner->prlpData.constraints[r].getIndices(),
         owner->prlpData.constraints[r].getElements());
     rowLB.push_back(rhs);
     numPoints++;
     ortho.push_back(objDepthPoints[ind]);
-
-    if (fixFirstPoint) {
-      rowInMxOfPoint[p] = mx.getNumRows() - 1; // index of point whose rhs we will fix
-    }
-  } /* input points */
+  } // input points
 
   // Then the rays
   for (int p = 0; p < numRaysToProcess; p++) {
@@ -310,15 +278,13 @@ bool PRLP::setup(const double scale, const bool fixFirstPoint) {
 //    const int t = disjTermOfRay[ind];
     const int r = rowOfRay[ind];
     const double rhs = owner->prlpData.rhs[r];
-    //const CoinShallowPackedVector vec = interPtsAndRays[t].getVector(r);
-    //mx.appendRow(vec);
     mx.appendRow(owner->prlpData.constraints[r].getNumElements(),
         owner->prlpData.constraints[r].getIndices(),
         owner->prlpData.constraints[r].getElements());
     rowLB.push_back(rhs);
     numRays++;
     ortho.push_back(objDepthRays[ind]);
-  } /* input rays */
+  } // input rays
 
   // Clean matrix
   mx.cleanMatrix();
@@ -366,60 +332,14 @@ bool PRLP::setup(const double scale, const bool fixFirstPoint) {
   this->disableFactorization();
   //this->getModelPtr()->cleanMatrix();
 
-//  // Set to equality the first point if so desired
-//  if (fixFirstPoint) {
-//    std::vector<int> haveFixedPoint(num_disj_terms, false);
-//    for (int p = 0; p < numPointsToProcess; p++) {
-//      const int row_ind = rowInMxOfPoint[p];
-//      if (row_ind < 0) {
-//        continue;
-//      }
-//      const int ind = sortIndexPoints[p];
-//      const int t = disjTermOfPoint[ind];
-//      if (haveFixedPoint[t]) {
-//        continue;
-//      }
-//      const double curr_rhs = rowLB[row_ind];
-//      if (!isZero(curr_rhs)) {
-//        this->setRowUpper(row_ind, curr_rhs);
-//      }
-//      haveFixedPoint[t] = true;
-//    }
-//  } /* fix first point in each disj term */
-
 #ifdef TRACE
   printf(
       "\n## Check feasibility using all zeroes objective. ##\n");
 #endif
 
   owner->timer.end_timer(static_cast<int>(CglVPC::VPCTimeStats::PRLP_SETUP_TIME));
-  return setupHelper();
-} /* setup */
 
-/****************** PROTECTED **********************/
 
-void PRLP::initialize(const PRLP* const source) {
-  if (source != NULL) {
-    this->owner = source->owner;
-    this->nonZeroColIndex = source->nonZeroColIndex;
-    this->ortho = source->ortho;
-    this->numPoints = source->numPoints;
-    this->numRays = source->numRays;
-    this->density = source->density;
-    this->num_failures = source->num_failures;
-  }
-  else {
-    this->owner = NULL;
-    this->nonZeroColIndex.resize(0);
-    this->ortho.resize(0);
-    this->numPoints = 0;
-    this->numRays = 0;
-    this->density = 0.;
-    this->num_failures = 0;
-  }
-} /* initialize */
-
-bool PRLP::setupHelper() {
   if (numPoints < 0 || numRays < 0) {
     return true;
   }
@@ -427,18 +347,14 @@ bool PRLP::setupHelper() {
     (double) this->getMatrixByCol()->getNumElements()
     / (this->getNumRows() * this->getNumCols());
 
-  setLPSolverParameters(this);
+  const double max_time = CoinMax(60., 10 * owner->params.get(PRLP_TIMELIMIT));
+  setLPSolverParameters(this, owner->params.get(VERBOSITY), max_time);
 #ifdef USE_CLP
-  this->getModelPtr()->setMaximumIterations(std::numeric_limits<int>::max());
+  this->getModelPtr()->setMaximumIterations(static_cast<int>(std::numeric_limits<int>::max()));
   this->getModelPtr()->setNumberIterations(0);
-  this->getModelPtr()->setMaximumSeconds(CoinMax(60., 10 * owner->params.get(PRLP_TIMELIMIT)));
 #endif
   this->setHintParam(OsiDoPresolveInInitial, true);
-      //(param.getParamVal(ParamIndices::CUT_PRESOLVE_PARAM_IND) > 0) ?
-          //true : false);
   this->setHintParam(OsiDoPresolveInResolve, true);
-      //(param.getParamVal(ParamIndices::CUT_PRESOLVE_PARAM_IND) > 1) ?
-          //true : false);
 
   // Check that the prlp is feasible for the zero objective function
   owner->timer.start_timer(CglVPC::CutHeuristicsName[static_cast<int>(CglVPC::CutHeuristics::DUMMY_OBJ)] + "_TIME");
@@ -451,6 +367,7 @@ bool PRLP::setupHelper() {
   if (isVal(owner->params.get(PRLP_TIMELIMIT), -1.)) {
     owner->params.set(PRLP_TIMELIMIT,
         CoinMax(owner->params.get(doubleConst::MIN_PRLP_TIMELIMIT), (end - start)));
+    setTimeLimit(this, owner->params.get(PRLP_TIMELIMIT));
   }
 
   owner->timer.end_timer(CglVPC::CutHeuristicsName[static_cast<int>(CglVPC::CutHeuristics::DUMMY_OBJ)] + "_TIME");
@@ -487,33 +404,73 @@ bool PRLP::setupHelper() {
     retval = false;
   }
   return retval;
-} /* setupHelper */
+} /* setup */
 
-/**
- * @brief Generate a cut, if possible, from the solver
- * Rhs is given as beta
- *
- * @return -1 * (fail index + 1) if it is something that means to discontinue this solver
- */
-int PRLP::genCut(OsiCuts& cuts, const OsiSolverInterface* const origSolver,
-    const double beta, const OsiCuts* const structSICs, int& num_cuts_total,
-    const bool inNBSpace, const CglVPC::CutHeuristics cutHeur, const bool tryExtraHard) {
-  owner->timer.start_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::PRLP_SOLVE_TIME)]);
-  owner->numObjFromHeur[static_cast<int>(cutHeur)]++;
-  if (owner->reachedCutLimit(num_cuts_total)) {
-    return exitGenCut(-1 * (static_cast<int>(CglVPC::FailureType::CUT_LIMIT) + 1));
+/****************** PROTECTED **********************/
+
+void PRLP::initialize(const PRLP* const source) {
+  if (source != NULL) {
+    this->owner = source->owner;
+    this->nonZeroColIndex = source->nonZeroColIndex;
+    this->ortho = source->ortho;
+    this->numPoints = source->numPoints;
+    this->numRays = source->numRays;
+    this->density = source->density;
+    this->num_obj_tried = source->num_obj_tried;
+    this->num_cuts = source->num_cuts;
+    this->num_failures = source->num_failures;
   }
-
-  // First we save the old solution; this is just to have a quick way to check that the same solution was found
-  std::vector<double> old_solution;
-  if (cuts.sizeCuts() > 0 && this->isProvenOptimal()) {
-    old_solution.assign(this->getColSolution(), this->getColSolution() + this->getNumCols());
+  else {
+    this->owner = NULL;
+    this->nonZeroColIndex.resize(0);
+    this->ortho.resize(0);
+    this->numPoints = 0;
+    this->numRays = 0;
+    this->density = 0.;
+    this->num_obj_tried = 0;
+    this->num_cuts = 0;
+    this->num_failures = 0;
   }
+} /* initialize */
 
-  // Resolve
+void PRLP::setObjectiveFromStructuralPoint(const double* const pointVals,
+    const double* const pointSlack, const OsiSolverInterface* const origSolver,
+    const bool inNBSpace) {
+  CoinPackedVector vec;
+  if (inNBSpace) {
+    double obj_viol;
+    setCompNBCoor(vec, obj_viol, owner->params, pointVals, pointSlack,
+        origSolver, owner->probData.NBVarIndex, owner->probData.NBReducedCost);
+    addToObjectiveFromPackedVector(this, &vec, true);
+  } else {
+    if (nonZeroColIndex.size() > 0) {
+      for (int i : nonZeroColIndex) {
+        this->setObjCoeff(i, pointVals[nonZeroColIndex[i]]);
+      }
+    } else {
+      this->setObjective(pointVals);
+    }
+  }
+} /* setObjectiveFromStructuralPoint */
+
+int PRLP::tryOneObjective(std::vector<int>& numTimesTightRow,
+    std::vector<int>& numTimesTightColLB, std::vector<int>& numTimesTightColUB,
+    OsiCuts& cuts, const OsiSolverInterface* const origSolver,
+    const double beta, const OsiCuts* const structSICs, const bool inNBSpace,
+    const CglVPC::CutHeuristics cutHeur, const bool tryExtraHard) {
+  int return_code = genCut(cuts, origSolver, beta, structSICs,
+      inNBSpace, cutHeur, tryExtraHard);
+  if (this->isProvenOptimal()) {
+    updateStepForTargetedCutGeneration(numTimesTightRow, numTimesTightColLB,
+        numTimesTightColUB);
+  }
+  return return_code;
+} /* tryOneObjective */
+
+int PRLP::resolvePRLP(const bool tryExtraHard) {
   this->getModelPtr()->setNumberIterations(0);
   const double timeLimit = (tryExtraHard) ?  -1. : owner->params.get(PRLP_TIMELIMIT); // maybe go unlimited time this round
-  this->getModelPtr()->setMaximumSeconds(timeLimit);
+  setTimeLimit(this, timeLimit);
   this->resolve();
 
 //  // If the objective value seems weird, we may want to try an initial solve
@@ -522,35 +479,22 @@ int PRLP::genCut(OsiCuts& cuts, const OsiSolverInterface* const origSolver,
 //    if (isZero(objValue, owner->params.get(EPS))
 //        && !isZero(objValue, owner->params.get(doubleConst::DIFFEPS))) {
 //      this->getModelPtr()->setNumberIterations(0);
-//      this->getModelPtr()->setMaximumSeconds(owner->params.get(PRLP_TIMELIMIT));
+//      setTimeLimit(this, timeLimit);
 //      this->initialSolve();
 //    }
 //  }
 
-  if (!checkSolverOptimality(this, false, timeLimit)) {
-    if (this->isIterationLimitReached()) {
-      return exitGenCut(-1 * (static_cast<int>(CglVPC::FailureType::ITERATION_LIMIT) + 1));
-    }
-    else if (this->getModelPtr()->hitMaximumIterations()) {
-      return exitGenCut(-1 * (static_cast<int>(CglVPC::FailureType::TIME_LIMIT) + 1));
-    }
-    else if (this->isAbandoned()) {
-      return exitGenCut(-1 * (static_cast<int>(CglVPC::FailureType::ABANDONED) + 1));
-    }
-    else {
-      return exitGenCut(-1 * (static_cast<int>(CglVPC::FailureType::UNKNOWN) + 1));
-    }
-  }
+  checkSolverOptimality(this, false, timeLimit);
 
   // If "nan" objective, then something went terribly wrong; try again
   // This can happen when repeatedly solving an OsiClpSolverInterface LP
-  if (std::isnan(this->getObjValue())) {
+  if (!this->isProvenPrimalInfeasible() && std::isnan(this->getObjValue())) {
 #ifdef TRACE
     warning_msg(warnstr,
         "Encountered NaN objective value.\n");
 #endif
     this->getModelPtr()->setNumberIterations(0);
-    this->getModelPtr()->setMaximumSeconds(timeLimit);
+    setTimeLimit(this, timeLimit);
     this->initialSolve();
     checkSolverOptimality(this, false, timeLimit);
   }
@@ -559,19 +503,57 @@ int PRLP::genCut(OsiCuts& cuts, const OsiSolverInterface* const origSolver,
       && isNegInfinity(this->getObjValue(), owner->params.get(doubleConst::INF))) {
     // We essentially have a ray, though it is not being reported as such
     // Try resolving because this fixes the issue sometimes
-    this->getModelPtr()->setMaximumSeconds(timeLimit);
+    setTimeLimit(this, timeLimit);
     this->initialSolve();
     checkSolverOptimality(this, false, timeLimit);
   }
 
-  if (this->isProvenDualInfeasible()) {
-    // Homogeneous cuts never cut the LP optimum in NB space so no point trying rays
-    if (this->isProvenDualInfeasible() && inNBSpace) {
-      return exitGenCut(-1 * (static_cast<int>(CglVPC::FailureType::DUAL_INFEASIBLE) + 1));
-    }
+  if (this->isProvenOptimal()) {
+    return 0;
+  }
+  else if (this->isProvenDualInfeasible()) {
+    return -1 * (static_cast<int>(CglVPC::FailureType::DUAL_INFEASIBLE) + 1);
+  }
+  else if (this->isIterationLimitReached()) {
+    return -1 * (static_cast<int>(CglVPC::FailureType::ITERATION_LIMIT) + 1);
+  }
+  else if (this->getModelPtr()->hitMaximumIterations()) {
+    return -1 * (static_cast<int>(CglVPC::FailureType::TIME_LIMIT) + 1);
+  }
+  else if (this->isAbandoned()) {
+    return -1 * (static_cast<int>(CglVPC::FailureType::ABANDONED) + 1);
+  }
+  return -1 * (static_cast<int>(CglVPC::FailureType::UNKNOWN) + 1);
+} /* resolvePRLP */
+
+/**
+ * @brief Generate a cut, if possible, from the solver
+ * Rhs is given as beta
+ *
+ * @return -1 * (fail index + 1) if it is something that means to discontinue this solver
+ */
+int PRLP::genCut(OsiCuts& cuts, const OsiSolverInterface* const origSolver,
+    const double beta, const OsiCuts* const structSICs, const bool inNBSpace,
+    const CglVPC::CutHeuristics cutHeur, const bool tryExtraHard) {
+  owner->timer.start_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::PRLP_SOLVE_TIME)]);
+  this->num_obj_tried++;
+  owner->numObjFromHeur[static_cast<int>(cutHeur)]++;
+  if (owner->reachedCutLimit(cuts.sizeCuts())) {
+    return exitGenCut(-1 * (static_cast<int>(CglVPC::FailureType::CUT_LIMIT) + 1), cutHeur);
   }
 
-  int num_cuts_generated = 0;
+  // First we save the old solution; this is just to have a quick way to check that the same solution was found
+  std::vector<double> old_solution;
+  if (this->num_obj_tried > 0 && this->isProvenOptimal()) {
+    old_solution.assign(this->getColSolution(), this->getColSolution() + this->getNumCols());
+  }
+
+  // Resolve
+  int return_code = resolvePRLP(tryExtraHard);
+  if (return_code < 0 && return_code != -1 * (static_cast<int>(CglVPC::FailureType::DUAL_INFEASIBLE) + 1)) {
+    // Homogeneous cuts never cut the LP optimum in NB space, but we leave that decision to later
+    return exitGenCut(return_code, cutHeur);
+  }
 
   // If it is proven optimal, we can simply obtain the solution
   // If it is dual infeasible, then it is unbounded (or infeasible, but it would say so)
@@ -587,50 +569,45 @@ int PRLP::genCut(OsiCuts& cuts, const OsiSolverInterface* const origSolver,
         }
       }
       if (isZero(maxDiff, owner->probData.EPS)) {
-        return exitGenCut(-1 * (static_cast<int>(CglVPC::FailureType::DUPLICATE_VPC) + 1));
+        return exitGenCut(-1 * (static_cast<int>(CglVPC::FailureType::DUPLICATE_VPC) + 1), cutHeur);
       }
     } // check whether it is the same solution as before
 
-    const int return_code = genCutHelper(cuts, origSolver, beta, structSICs,
-        num_cuts_total, inNBSpace, cutHeur);
-    if (return_code > 0) {
-      num_cuts_generated += return_code;
-    } else {
-      return exitGenCut(return_code);
-    }
+    return_code = genCutHelper(cuts, origSolver, beta, structSICs,
+        inNBSpace, cutHeur);
   } // check if proven optimal
-  else if (this->isProvenDualInfeasible() && !inNBSpace) {
+  else if (this->isProvenDualInfeasible()) {
     // For the time being this seems to not be working well
     // For bell3a for instance, when cutting 64 rays, there is a cut that appears
     // both as a primal ray and as a feasible solution, so it has both >= 0 and >= -1
     // constant sides, and it causes infeasibility of the original problem when added
-    return exitGenCut(-1 * (static_cast<int>(CglVPC::FailureType::DUAL_INFEASIBLE) + 1));
+    return_code = -1 * (static_cast<int>(CglVPC::FailureType::DUAL_INFEASIBLE) + 1);
   } // generate rays? (currently non-functional)
 
   if (!this->isProvenOptimal() && !this->isProvenDualInfeasible()) {
     warning_msg(errorstring,
-        "This is not proven optimal or dual infeasible. Primal infeasible? %d.\n",
+        "PRLP is not proven optimal or dual infeasible. Primal infeasible? %d.\n",
         this->isProvenPrimalInfeasible());
   }
-  return exitGenCut(num_cuts_generated);
+  return exitGenCut(return_code, cutHeur);
 } /* genCut */
 
 int PRLP::genCutHelper(OsiCuts& cuts,
     const OsiSolverInterface* const origSolver, const double beta,
-    const OsiCuts* const structSICs, int& num_cuts_total, const bool inNBSpace,
+    const OsiCuts* const structSICs, const bool inNBSpace,
     const CglVPC::CutHeuristics cutHeur) {
   // We might get here without this being optimal
   if (!this->isProvenOptimal()) {
     return 0; // errors are tabulated in exitGenCutsFromCutSolver
-  } /* may have run into issues */
-  if (owner->reachedCutLimit(num_cuts_total)) {
+  } // may have run into issues
+  if (owner->reachedCutLimit(cuts.sizeCuts())) {
     return -1 * (static_cast<int>(CglVPC::FailureType::CUT_LIMIT) + 1);
   }
 
   int num_cuts_generated = 0;
   OsiRowCut currCut;
   if (inNBSpace) {
-    setCutFromJSpaceCoefficients(&currCut, this->nonZeroColIndex,
+    setCutFromNBCoefficients(&currCut, this->nonZeroColIndex,
         this->getColSolution(), beta, origSolver,
         owner->probData.NBVarIndex, true, owner->probData.EPS);
   } else {
@@ -690,7 +667,7 @@ int PRLP::genCutHelper(OsiCuts& cuts,
 
       orthogonalityGICFailFlag = true;
     }
-  } /* orthogonalityGICFail (replace cut possibly) */
+  } // orthogonalityGICFail (replace cut possibly)
   const bool toAdd = (generateAnywayIfDuplicateSIC || (!duplicateSICFlag && !orthogonalitySICFailFlag))
       && !duplicateGICFlag && !orthogonalityGICFailFlag;
   if (toAdd) {
@@ -698,8 +675,8 @@ int PRLP::genCutHelper(OsiCuts& cuts,
     currCut.setEffectiveness(violation / currCutNorm);
     owner->numCutsFromHeur[static_cast<int>(cutHeur)]++;
     cuts.insert(currCut);
+    this->num_cuts++;
     num_cuts_generated++;
-    num_cuts_total++;
     owner->numFails[static_cast<int>(CglVPC::FailureType::DUPLICATE_SIC)] += duplicateSICFlag;
     owner->numFails[static_cast<int>(CglVPC::FailureType::ORTHOGONALITY_SIC)] += orthogonalitySICFailFlag;
     return num_cuts_generated;
@@ -726,7 +703,7 @@ int PRLP::genCutHelper(OsiCuts& cuts,
 /**
  * Returns error status or num_cuts_generated
  */
-int PRLP::exitGenCut(const int num_cuts_generated) {
+int PRLP::exitGenCut(const int num_cuts_generated, const CglVPC::CutHeuristics cutHeur) {
   owner->timer.end_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::PRLP_SOLVE_TIME)]);
   int return_status = num_cuts_generated;
   if (return_status >= 0 && !this->isProvenOptimal()) {
@@ -735,7 +712,7 @@ int PRLP::exitGenCut(const int num_cuts_generated) {
       return_status = -1 * (static_cast<int>(CglVPC::FailureType::ITERATION_LIMIT)+ 1);
     }
     // The next will be true if either # iterations or time limit reached
-    else if (this->getModelPtr()->hitMaximumIterations()) {
+    else if (hitTimeLimit(this)) {
       return_status = -1 * (static_cast<int>(CglVPC::FailureType::TIME_LIMIT)+ 1);
     }
     // Numerical difficulties may have been encountered
@@ -757,20 +734,27 @@ int PRLP::exitGenCut(const int num_cuts_generated) {
 
     // Make sure we did not generate cuts
     if (num_cuts_generated  > 0) {
-      error_msg(errorstring, "Somehow we generated %d cuts from a non-optimal PRLP; not possible. Error: %d.\n", num_cuts_generated, -1 * (return_status + 1));
+      error_msg(errorstring,
+          "Somehow we generated %d cuts from a non-optimal PRLP; not possible. Error: %d.\n",
+          num_cuts_generated, -1 * (return_status + 1));
       writeErrorToLog(errorstring, owner->params.logfile);
       exit(1);
     }
-  } /* may have run into issues */
+  } // may have run into issues
 
   if (return_status < 0) {
     const int error_index = -1 * (return_status + 1);
     owner->numFails[error_index]++;
   }
 
+  if (return_status <= 0){
+    this->num_failures++;
+    owner->numFailsFromHeur[static_cast<int>(cutHeur)]++;
+  }
+
   // Reset timer and number iterations
   this->getModelPtr()->setNumberIterations(0);
-  this->getModelPtr()->setMaximumSeconds(owner->params.get(PRLP_TIMELIMIT));
+  setTimeLimit(this, owner->params.get(PRLP_TIMELIMIT));
   return return_status;
 } /* exitGenCutsFromCutSolver */
 
@@ -782,16 +766,12 @@ void PRLP::setupForTargetedCutGeneration(std::vector<rowAndActivity>& pointIndex
   pointIndex.clear();
   rayIndex.clear();
   for (int row_ind = 0; row_ind < this->getNumRows(); row_ind++) {
+    rowAndActivity tmp;
+    tmp.row = row_ind;
+    tmp.activity = ortho[row_ind];
     if (isZero(this->getRightHandSide()[row_ind])) {
-      rowAndActivity tmp;
-      tmp.row = row_ind;
-      tmp.activity = ortho[row_ind];
-//      sortedRays.insert(compareRayInfo { (int) rayIndex.size(), 1., 0. });
       rayIndex.push_back(tmp);
     } else {
-      rowAndActivity tmp;
-      tmp.row = row_ind;
-      tmp.activity = ortho[row_ind];
       pointIndex.push_back(tmp);
     }
   }
@@ -823,11 +803,11 @@ int PRLP::updateStepForTargetedCutGeneration(std::vector<int>& numTimesTightRow,
         numTimesTightRow[row_ind]--;
       }
     }
-  } /* check rows */
+  } // check rows
 
   // Also process the axis directions
-  for (int col_ind = 0; col_ind < this->getNumCols(); col_ind++) {
-//    const int col_ind = nonZeroColIndex[ind];
+//  for (int col_ind = 0; col_ind < this->getNumCols(); col_ind++) {
+  for (int col_ind : nonZeroColIndex) {
     const double val = this->getColSolution()[col_ind];
     const double lb = this->getColLower()[col_ind];
     const double ub = this->getColUpper()[col_ind];
@@ -851,7 +831,7 @@ int PRLP::updateStepForTargetedCutGeneration(std::vector<int>& numTimesTightRow,
         numTimesTightColUB[col_ind]--;
       }
     }
-  } /* check columns */
+  } // check columns
 
   return num_changed;
 } /* updateStepForTargetedCutGeneration */
@@ -876,7 +856,6 @@ void PRLP::updateRaySetForTargetedCutGeneration(std::set<compareRayInfo>& sorted
       continue;  // not a candidate; already has been tight
     }
 
-//    double this_min_ortho = 1.;
     double this_total_ortho = 0.;
     const CoinShallowPackedVector vec = this->getMatrixByRow()->getVector(row_ind);
     for (int cut_ind = num_old_cuts; cut_ind < num_cuts; cut_ind++) {
@@ -898,40 +877,19 @@ void PRLP::updateRaySetForTargetedCutGeneration(std::set<compareRayInfo>& sorted
         * (num_old_cuts - init_num_cuts + 1) + this_total_ortho)
         / (num_cuts - init_num_cuts + 1);
     newSortedRays.insert(curr_ray_info);
-  } /* update the sorted rays set */
+  } // update the sorted rays set
   sortedRays.swap(newSortedRays);
   num_old_cuts = num_cuts;
 } /* updateRaySetForTargetedCutGeneration */
-
-int PRLP::tryOneObjective(int& num_failures, std::vector<int>& numTimesTightRow,
-    std::vector<int>& numTimesTightColLB, std::vector<int>& numTimesTightColUB,
-    const CglVPC::CutHeuristics& cutHeur, const double beta, OsiCuts& cuts,
-    int& num_cuts_total, int& num_obj_tried,
-    const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs,
-    const bool inNBSpace, const bool tryExtraHard) {
-  num_obj_tried++;
-  int return_code = genCut(cuts, origSolver, beta, structSICs, num_cuts_total,
-      inNBSpace, cutHeur, tryExtraHard);
-//  if (return_code > 0) {
-  if (this->isProvenOptimal()) {
-    updateStepForTargetedCutGeneration(numTimesTightRow, numTimesTightColLB,
-        numTimesTightColUB);
-  }
-  if (return_code <= 0){
-    num_failures++;
-  }
-  return return_code;
-} /* tryOneObjective */
 
 /**
  * Try getting cuts tight on the branching lb
  * Returns 0 if error, 1 if no error
  */
-int PRLP::findCutsTightOnPoint(int& num_failures,
-    std::vector<int>& numTimesTightRow, std::vector<int>& numTimesTightColLB,
-    std::vector<int>& numTimesTightColUB, const int point_row_ind,
-    const int init_num_cuts, const CglVPC::CutHeuristics& cutHeur, const double beta,
-    OsiCuts& cuts, int& num_cuts_total, int& num_obj_tried,
+int PRLP::findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
+    std::vector<int>& numTimesTightColLB, std::vector<int>& numTimesTightColUB,
+    const int point_row_ind, const CglVPC::CutHeuristics& cutHeur,
+    const double beta, OsiCuts& cuts,
     const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs,
     const std::string& timeName, const bool inNBSpace,
     const int MAX_NUM_OBJ_PER_POINT) {
@@ -944,11 +902,9 @@ int PRLP::findCutsTightOnPoint(int& num_failures,
 
 #ifdef TRACE_CUT_BOUND
   // Add a debug solver in order to track the bound after adding the cuts we have generated
-  OsiSolverInterface* tmpSolver =
-      dynamic_cast<OsiSolverInterface*>(origSolver->clone());
-  AdvCuts tmpCuts = cuts;
-  tmpCuts.setOsiCuts();
-  applyCuts(tmpSolver, tmpCuts, 0, tmpCuts.size(), origSolver->getObjValue());
+  OsiSolverInterface* tmpSolver = origSolver->clone();
+  OsiCuts tmpCuts = cuts;
+  applyCutsCustom(tmpSolver, tmpCuts);
 #endif
 
   const CoinPackedMatrix* mat = this->getMatrixByRow();
@@ -956,17 +912,17 @@ int PRLP::findCutsTightOnPoint(int& num_failures,
   CoinPackedVector* vec = NULL; // ray that will be added/subtracted
   addToObjectiveFromPackedVector(this, &orig_point, false);
 
-  int tmp_return_code = tryOneObjective(num_failures,
-      numTimesTightRow, numTimesTightColLB, numTimesTightColUB, cutHeur,
-      beta, cuts, num_cuts_total, num_obj_tried,
-      origSolver, structSICs, inNBSpace, true);
+  // Try orig_point as an objective
+  int tmp_return_code = tryOneObjective(numTimesTightRow, numTimesTightColLB,
+      numTimesTightColUB, cuts, origSolver, beta, structSICs,
+      inNBSpace, cutHeur, true);
   if (tmp_return_code > 0) {
     num_cuts_per_point += tmp_return_code;
 #ifdef TRACE_CUT_BOUND
     for (int add_ind = 0; add_ind < tmp_return_code; add_ind++) {
-      tmpCuts.insert(cuts.cuts[tmpCuts.sizeCuts() + add_ind]);
+      tmpCuts.insert(tmpCuts.rowCut(tmpCuts.sizeCuts() + add_ind));
     }
-    applyCuts(tmpSolver, tmpCuts, tmpCuts.sizeCuts() - tmp_return_code,
+    applyCutsCustom(tmpSolver, tmpCuts, tmpCuts.sizeCuts() - tmp_return_code,
         tmp_return_code, tmpSolver->getObjValue());
 #endif
   }
@@ -974,12 +930,8 @@ int PRLP::findCutsTightOnPoint(int& num_failures,
 
   // There better exist a cut that is tight on the point, or we give up
   if (!this->isProvenOptimal()
-      || !isVal(this->getRowActivity()[point_row_ind],
-          this->getRightHandSide()[point_row_ind])
+      || !isVal(this->getRowActivity()[point_row_ind], this->getRightHandSide()[point_row_ind])
       || MAX_NUM_OBJ_PER_POINT <= 1) {
-//    if (vec) {
-//      delete vec;
-//    }
 #ifdef TRACE_CUT_BOUND
     if (tmpSolver) {
       delete tmpSolver;
@@ -1092,7 +1044,7 @@ int PRLP::findCutsTightOnPoint(int& num_failures,
         }
       }
     }
-  } /* set up slack and rhs vectors */
+  } // set up slack and rhs vectors
   this->disableFactorization();
 
   // The real # to check
@@ -1121,25 +1073,16 @@ int PRLP::findCutsTightOnPoint(int& num_failures,
       vec = NULL;
     }
     if (curr_index < num_rows) {
-//      if (numTimesTightRow[curr_index] != 0) {
-//        continue;
-//      }
       vec = new CoinPackedVector(mat->getVectorSize(curr_index),
           mat->getIndices() + mat->getVectorFirst(curr_index),
           mat->getElements() + mat->getVectorFirst(curr_index), false);
     } else if (curr_index < num_rows + num_cols) {
       const int col = curr_index - num_rows;
-//      if (numTimesTightColLB[col] != 0) {
-//        continue;
-//      }
       const int index[1] = { col };
       const double value[1] = { 1. };
       vec = new CoinPackedVector(1, index, value);
     } else {
       const int col = curr_index - num_rows - num_cols;
-//      if (numTimesTightColUB[col] != 0) {
-//        continue;
-//      }
       const int index[1] = { col };
       const double value[1] = { -1. };
       vec = new CoinPackedVector(1, index, value);
@@ -1150,7 +1093,7 @@ int PRLP::findCutsTightOnPoint(int& num_failures,
     } else {
       indexAddedToObjective.push_back(check_ind);
     }
-  } /* prepare first new objective */
+  } // prepare first new objective
 
   if ((mode_ones > 0 && check_ind >= numToCheck - 1)
       || (mode_ones == 0 && indexAddedToObjective.empty())) {
@@ -1169,32 +1112,29 @@ int PRLP::findCutsTightOnPoint(int& num_failures,
 
   for (int try_ind = 1; try_ind < MAX_NUM_OBJ_PER_POINT; try_ind++) {
     if (tmp_return_code == BAD_RETURN_CODE
-        || owner->reachedCutLimit(num_cuts_total)
+        || owner->reachedCutLimit(cuts.sizeCuts())
         || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
-        || owner->reachedFailureLimit(cuts.sizeCuts() - init_num_cuts, num_failures)) {
+        || owner->reachedFailureLimit(num_cuts, num_failures)) {
       ret_val = 0;
       break;
     }
     if (mode_ones > 0 && check_ind >= numToCheck - 1) {
       break;
     }
-    tmp_return_code = tryOneObjective(num_failures, numTimesTightRow,
-        numTimesTightColLB, numTimesTightColUB, cutHeur, beta, cuts,
-        num_cuts_total, num_obj_tried, origSolver, structSICs, inNBSpace);
+    tmp_return_code = tryOneObjective(numTimesTightRow, numTimesTightColLB,
+        numTimesTightColUB, cuts, origSolver, beta, structSICs, inNBSpace,
+        cutHeur);
     if (tmp_return_code > 0) {
       num_cuts_per_point += tmp_return_code;
 #ifdef TRACE_CUT_BOUND
       for (int add_ind = 0; add_ind < tmp_return_code; add_ind++) {
-        tmpCuts.insert(cuts.cuts[tmpCuts.sizeCuts() + add_ind]);
+        tmpCuts.insert(tmpCuts.rowCut(tmpCuts.sizeCuts() + add_ind));
       }
-      applyCuts(tmpSolver, tmpCuts, tmpCuts.sizeCuts() - tmp_return_code,
+      applyCutsCustom(tmpSolver, tmpCuts, tmpCuts.sizeCuts() - tmp_return_code,
           tmp_return_code, tmpSolver->getObjValue());
 #endif
     }
     if (try_ind + 1 < MAX_NUM_OBJ_PER_POINT) { //&& this->isProvenOptimal()) {
-      //    for (int row_ind = 0; row_ind < this->getNumRows(); row_ind++) {
-//      if (return_code == -1 * (CutSolverFails::DUAL_CUTSOLVER_FAIL_IND + 1)) {
-        // Last vector caused dual infeasibility, so scrap it
       if (mode_ones > 0) {
         addToObjectiveFromPackedVector(this, vec, false, -1.);
         while (check_ind < numToCheck - 1) {
@@ -1235,7 +1175,7 @@ int PRLP::findCutsTightOnPoint(int& num_failures,
           addToObjectiveFromPackedVector(this, vec, false, 1.);
           break;
         }
-      } /* mode = 0 */
+      } // mode = 0
       else {
         // Remove all rows that are tight but were not before
         int num_removed = 0, num_to_remove = 0;
@@ -1288,9 +1228,9 @@ int PRLP::findCutsTightOnPoint(int& num_failures,
         if (num_removed * num_to_remove == 0 || (num_to_remove - num_removed == 0)) {
           break;
         }
-      } /* mode = 1 */
-    } /* try_ind = 1 ... MAX_NUM_TRIES */
-  } /* try max_depth times */
+      } // mode = 1
+    } // try_ind = 1 ... MAX_NUM_TRIES
+  } // try max_depth times
   if (ret_val) {
     setConstantObjectiveFromPackedVector(this, 0.);
   }
@@ -1311,40 +1251,25 @@ int PRLP::findCutsTightOnPoint(int& num_failures,
  * @return Number generated cuts
  */
 int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
-    int& num_cuts_total, int& num_obj_tried,
     const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs,
-    const std::string& timeName, const bool inNBSpace) {
-  const int init_num_cuts = (int) cuts.sizeCuts();
-  if (owner->reachedCutLimit(num_cuts_total)
+    const std::string& timeName) {
+  const bool inNBSpace = owner->params.get(intConst::NB_SPACE);
+  if (owner->reachedCutLimit(cuts.sizeCuts())
       || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))) {
     return 0;
   }
 
   // Setup step
-//  std::set<compareRayInfo> sortedRays;
   std::vector<rowAndActivity> pointIndex, rayIndex;
   setupForTargetedCutGeneration(pointIndex, rayIndex);
 
   // numTimesTight will keep how frequently that row (or column) was optimal for some objective
   // If the value is < 0, then we should not ever re-try that objective
-//  std::vector<int> numTimesTight(this->getNumRows() + this->getNumCols(), 0);
   std::vector<int> numTimesTightRow(this->getNumRows(), 0);
   std::vector<int> numTimesTightColLB(this->getNumCols(), 0);
   std::vector<int> numTimesTightColUB(this->getNumCols(), 0);
 
-  // Filter out columns that are empty
-//  std::vector<int> nonZeroColIndex;
-//  for (int col_ind = 0; col_ind < this->getNumCols(); col_ind++) {
-//    if (this->getMatrixByCol()->getVectorLengths()[col_ind] == 0) {
-//      numTimesTightColLB[col_ind] = -1;
-//      numTimesTightColUB[col_ind] = -1;
-//    } else {
-//      nonZeroColIndex.push_back(col_ind);
-//    }
-//  }
-
   int num_points_tried = 0, num_rays_tried = 0;
-  this->num_failures = 0;
   int return_code = 0;
   const int BAD_RETURN_CODE = -1 * (static_cast<int>(CglVPC::FailureType::PRIMAL_INFEASIBLE) + 1);
   const int MAX_NUM_POINTS_TO_TRY = owner->params.get(USE_TIGHT_POINTS);
@@ -1372,59 +1297,56 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
         cuts.sizeCuts());
 #endif
     setConstantObjectiveFromPackedVector(this, 1.);
-    return_code = tryOneObjective(num_failures, numTimesTightRow,
-        numTimesTightColLB, numTimesTightColUB, cutHeur, beta, cuts,
-        num_cuts_total, num_obj_tried, origSolver, structSICs, inNBSpace);
+    return_code = tryOneObjective(numTimesTightRow, numTimesTightColLB,
+        numTimesTightColUB, cuts, origSolver, beta, structSICs, inNBSpace,
+        cutHeur);
     setConstantObjectiveFromPackedVector(this, 0.);
     owner->timer.end_timer(currTimeName);
 
     if (return_code == BAD_RETURN_CODE
-        || owner->reachedCutLimit(num_cuts_total)
+        || owner->reachedCutLimit(cuts.sizeCuts())
         || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
-        || owner->reachedFailureLimit(cuts.sizeCuts() - init_num_cuts, num_failures)) {
-      return cuts.sizeCuts() - init_num_cuts; // abandon
+        || owner->reachedFailureLimit(num_cuts, num_failures)) {
+      return num_cuts; // abandon
     }
-  } /* all ones heuristic */
+  } // all ones heuristic
 
-//  // Next we try the iterative bilinear heuristic
-//  if (param.getParamVal(ParamIndices::NUM_CUTS_ITER_BILINEAR_PARAM_IND) >= 1) {
-//    // Try the bilinear optimization; this usually does not add many cuts
-//    GlobalVariables::timeStats.start_timer(
-//        CglVPC::CutHeuristicsName[CutHeuristics::ITER_BILINEAR_CUT_HEUR] + "_TIME");
-//#ifdef TRACE
-//    printf(
-//        "\n## Using iterative procedure to get deepest cut post SICs; cuts so far: %d. (cgs %d/%d). ##\n",
-//        (int) cuts.size(), cgsIndex + 1,
-//        param.getParamVal(ParamIndices::NUM_CGS_PARAM_IND));
-//#endif
+  // Cut away the post-Gomory cut optimum
+  if (owner->params.get(USE_ITER_BILINEAR) >= 1) {
+    // Try the bilinear optimization; this usually does not add many cuts
+    const CglVPC::CutHeuristics cutHeur = CglVPC::CutHeuristics::ITER_BILINEAR;
+    const std::string currTimeName = CglVPC::CutHeuristicsName[static_cast<int>(cutHeur)] + "_TIME";
+    owner->timer.start_timer(currTimeName);
+#ifdef TRACE
+    printf(
+        "\n## Using iterative procedure to get deepest cut after adding Gomory cuts; cuts so far: %d. ##\n",
+        cuts.sizeCuts());
+#endif
 //    const int init_num_iter_bil_obj = num_obj_tried;
-//    const int init_num_iter_bil_cuts = cuts.size();
-//    iterateDeepestCutPostMSIC(cuts, num_cuts_this_cgs, num_cuts_total,
-//        num_obj_tried, this, nonZeroColIndex, origSolver, probData, beta,
-//        cgsIndex, cgsName, structSICs, inNBSpace);
-//    setConstantObjectiveFromPackedVector(this, 0.);
+//    const int init_num_iter_bil_cuts = cuts.sizeCuts();
+    iterateDeepestCutPostGomory(cuts, origSolver, beta, structSICs, inNBSpace);
+    setConstantObjectiveFromPackedVector(this, 0.);
 //    const int final_num_iter_bil_obj = num_obj_tried - init_num_iter_bil_obj;
-//    const int final_num_iter_bil_cuts = cuts.size() - init_num_iter_bil_cuts;
-//    num_failures += (final_num_iter_bil_obj - final_num_iter_bil_cuts);
-//    GlobalVariables::timeStats.end_timer(
-//        CglVPC::CutHeuristicsName[CutHeuristics::ITER_BILINEAR_CUT_HEUR] + "_TIME");
-//
-//    if (return_code == BAD_RETURN_CODE
-//        || reachedCutLimit(num_cuts_this_cgs, num_cuts_total)
-//        || reachedTimeLimit(timeStats, timeName, param.getTIMELIMIT())
-//        || reachedFailureLimit(cuts.size() - init_num_cuts, num_failures,
-//            GlobalVariables::timeStats.get_total_time(GlobalConstants::SOLVE_PRLP_TIME))) {
-//      return (int) cuts.size() - init_num_cuts; // abandon
-//    }
-//  } /* iterative bilinear procedure */
+//    const int final_num_iter_bil_cuts = cuts.sizeCuts() - init_num_iter_bil_cuts;
+    owner->timer.end_timer(currTimeName);
+
+    if (return_code == BAD_RETURN_CODE
+        || owner->reachedCutLimit(cuts.sizeCuts())
+        || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
+        || owner->reachedFailureLimit(num_cuts, num_failures)) {
+      return num_cuts; // abandon
+    }
+  } // separate post-Gomory cut optimum
 
   // Reset things with unlimited time
 #ifdef TRACE
-  printf("\n## Resetting solver before using subsequent heuristics. ##\n");
+  printf(
+      "\n## Resetting solver before using subsequent heuristics; cuts so far: %d. ##\n",
+      cuts.sizeCuts());
 #endif
   owner->timer.start_timer(PRLP_SOLVE_TIME);
   this->getModelPtr()->setNumberIterations(0);
-  this->getModelPtr()->setMaximumSeconds(-1.);
+  setTimeLimit(this, -1.);
   this->initialSolve();
   owner->timer.end_timer(PRLP_SOLVE_TIME);
 
@@ -1443,49 +1365,19 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
         "\n## Try finding a cut tight on the branching lb point; cuts so far: %d. ##\n",
         cuts.sizeCuts());
 #endif
-    const int goodReturn = findCutsTightOnPoint(num_failures, numTimesTightRow,
-        numTimesTightColLB, numTimesTightColUB, disj_lb_row_ind,
-        init_num_cuts, cutHeur, beta, cuts, num_cuts_total, num_obj_tried,
-        origSolver, structSICs, timeName, inNBSpace, MAX_NUM_OBJ_PER_POINT);
+    const int goodReturn = findCutsTightOnPoint(numTimesTightRow,
+        numTimesTightColLB, numTimesTightColUB, disj_lb_row_ind, cutHeur, beta,
+        cuts, origSolver, structSICs, timeName, inNBSpace,
+        MAX_NUM_OBJ_PER_POINT);
     owner->timer.end_timer(currTimeName);
 
     if (!goodReturn || return_code == BAD_RETURN_CODE
-        || owner->reachedCutLimit(num_cuts_total)
+        || owner->reachedCutLimit(cuts.sizeCuts())
         || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
-        || owner->reachedFailureLimit(cuts.sizeCuts() - init_num_cuts, num_failures)) {
-      return cuts.sizeCuts() - init_num_cuts; // abandon
+        || owner->reachedFailureLimit(num_cuts, num_failures)) {
+      return num_cuts; // abandon
     }
-  } /* branching lb heuristic */
-
-//  // Zero out the objective
-//  std::fill(obj.begin(), obj.end(), 0.);
-//
-//  // These are the rays emanating from that strong lb point
-//  for (int row_ind = strong_lb_row_ind + 1; row_ind < this->getNumRows();
-//      row_ind++) {
-//    if (!isZero(this->getRightHandSide()[row_ind])
-//        || return_code == BAD_RETURN_CODE
-//        || reachedCutLimit(num_cuts_this_cgs, num_cuts_total)
-//        || reachedTimeLimit(timeStats, timeName, param.getTIMELIMIT())
-//        || reachedFailureLimit(cuts.size() - init_num_cuts, num_failures)) {
-//      break;
-//    }
-//    setFullVecFromPackedVec(obj, mat->getVector(row_ind));
-//    this->setObjective(obj.data());
-//    num_obj_tried++;
-//    return_code = genCutsFromCutSolver(cuts, this, solver, probData, beta,
-//        cgsIndex, cgsName, structSICs, num_cuts_this_cgs, num_cuts_total,
-//        inNBSpace, CglVPC::CutHeuristics::STRONG_LB_CUT_HEUR);
-//    if (return_code > 0) {
-//        updateStepForTargetedCutGeneration(numTimesTight, //pointIndex, rayIndex,
-//            this);
-//    } else {
-//      num_failures++;
-//    }
-//
-//    // Zero out the objective
-//    std::fill(obj.begin(), obj.end(), 0.);
-//  }
+  } // branching lb heuristic
 
   // For each of the points that has not been tight so far, try it
   if (MAX_NUM_POINTS_TO_TRY > 0) {
@@ -1500,11 +1392,11 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
 #endif
     for (int ind = 1; ind < (int) pointIndex.size() - 1; ind++) { // skip the first point (same as the strong lb point)
       if (!goodReturn || return_code == BAD_RETURN_CODE
-          || owner->reachedCutLimit(num_cuts_total)
+          || owner->reachedCutLimit(cuts.sizeCuts())
           || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
-          || owner->reachedFailureLimit(cuts.sizeCuts() - init_num_cuts, num_failures)) {
+          || owner->reachedFailureLimit(num_cuts, num_failures)) {
         owner->timer.end_timer(currTimeName);
-        return cuts.sizeCuts() - init_num_cuts; // abandon
+        return num_cuts; // abandon
       }
       if (num_points_tried >= MAX_NUM_POINTS_TO_TRY) {
         break;
@@ -1515,19 +1407,18 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
       }
       num_points_tried++;
       pointIndex[ind].row = -1 * (row_ind + 1);
-      goodReturn = findCutsTightOnPoint(num_failures, numTimesTightRow,
-          numTimesTightColLB, numTimesTightColUB, disj_lb_row_ind,
-          init_num_cuts, cutHeur, beta, cuts, num_cuts_total, num_obj_tried,
-          origSolver, structSICs, timeName, inNBSpace, MAX_NUM_OBJ_PER_POINT);
-    } /* tight on points */
+      goodReturn = findCutsTightOnPoint(numTimesTightRow, numTimesTightColLB,
+          numTimesTightColUB, disj_lb_row_ind, cutHeur, beta, cuts, origSolver,
+          structSICs, timeName, inNBSpace, MAX_NUM_OBJ_PER_POINT);
+    } // tight on points
     owner->timer.end_timer(currTimeName);
-  } /* MAX_NUM_POINTS_TO_TRY > 0 */
+  } // MAX_NUM_POINTS_TO_TRY > 0
 
   if (return_code == BAD_RETURN_CODE
-      || owner->reachedCutLimit(num_cuts_total)
+      || owner->reachedCutLimit(cuts.sizeCuts())
       || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
-      || owner->reachedFailureLimit(cuts.sizeCuts() - init_num_cuts, num_failures)) {
-    return cuts.sizeCuts() - init_num_cuts; // abandon
+      || owner->reachedFailureLimit(num_cuts, num_failures)) {
+    return num_cuts; // abandon
   }
 
   // Next, we should try the nonbasic directions individually, because these have worked well before
@@ -1555,11 +1446,11 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
         break;
       }
       if (return_code == BAD_RETURN_CODE
-          || owner->reachedCutLimit(num_cuts_total)
+          || owner->reachedCutLimit(cuts.sizeCuts())
           || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
-          || owner->reachedFailureLimit(cuts.sizeCuts() - init_num_cuts, num_failures)) {
+          || owner->reachedFailureLimit(num_cuts, num_failures)) {
         owner->timer.end_timer(currTimeName);
-        return cuts.sizeCuts() - init_num_cuts; // abandon
+        return num_cuts; // abandon
       }
       const int nb_dir = sortIndex[tmp_ind];
       if (numTimesTightColLB[nb_dir] != 0) {
@@ -1567,9 +1458,9 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
       }
       this->setObjCoeff(nb_dir, 1.);
       num_unit_vectors_tried++;
-      return_code = tryOneObjective(num_failures, numTimesTightRow,
-          numTimesTightColLB, numTimesTightColUB, cutHeur, beta, cuts,
-          num_cuts_total, num_obj_tried, origSolver, structSICs, inNBSpace);
+      return_code = tryOneObjective(numTimesTightRow, numTimesTightColLB,
+          numTimesTightColUB, cuts, origSolver, beta, structSICs, inNBSpace,
+          cutHeur);
       if (this->isProvenOptimal()) {
         if (greaterThanVal(this->getColSolution()[nb_dir],
             this->getColLower()[nb_dir])) {
@@ -1577,15 +1468,15 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
         }
       }
       this->setObjCoeff(nb_dir, 0.);
-    } /* nb directions */
+    } // nb directions
     owner->timer.end_timer(currTimeName);
-  } /* try axis directions in the PRLP */
+  } // try axis directions in the PRLP
 
   if (return_code == BAD_RETURN_CODE
-      || owner->reachedCutLimit(num_cuts_total)
+      || owner->reachedCutLimit(cuts.sizeCuts())
       || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
-      || owner->reachedFailureLimit(cuts.sizeCuts() - init_num_cuts, num_failures)) {
-    return cuts.sizeCuts() - init_num_cuts; // abandon
+      || owner->reachedFailureLimit(num_cuts, num_failures)) {
+    return num_cuts; // abandon
   }
 
   const CoinPackedMatrix* mat = this->getMatrixByRow();
@@ -1600,44 +1491,43 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
         cuts.sizeCuts(), (int) rayIndex.size(), MAX_NUM_RAYS_TO_TRY);
   #endif
     for (int ind = 0; ind < (int) rayIndex.size(); ind++) {
-        if (num_rays_tried >= MAX_NUM_RAYS_TO_TRY) {
-          break;
-        }
-        if (return_code == BAD_RETURN_CODE
-            || owner->reachedCutLimit(num_cuts_total)
-            || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
-            || owner->reachedFailureLimit(cuts.sizeCuts() - init_num_cuts, num_failures)) {
-          owner->timer.end_timer(currTimeName);
-          return cuts.sizeCuts() - init_num_cuts; // abandon
-        }
-        const int curr_index = ind; //curr_ray_info.index
-        const int row_ind = rayIndex[curr_index].row;
-        if (row_ind < 0 || numTimesTightRow[row_ind] != 0) {
-          continue;
-        }
-        rayIndex[curr_index].row = -1 * (row_ind + 1);
-  //      setFullVecFromPackedVec(obj, mat->getVector(row_ind));
-  //      this->setObjective(obj.data());
-        const CoinShallowPackedVector vec = mat->getVector(row_ind);
-        addToObjectiveFromPackedVector(this, &vec, false);
-        num_rays_tried++;
-      return_code = tryOneObjective(num_failures, numTimesTightRow,
-          numTimesTightColLB, numTimesTightColUB, cutHeur, beta, cuts,
-          num_cuts_total, num_obj_tried, origSolver, structSICs, inNBSpace);
+      if (num_rays_tried >= MAX_NUM_RAYS_TO_TRY) {
+        break;
+      }
+      if (return_code == BAD_RETURN_CODE
+          || owner->reachedCutLimit(cuts.sizeCuts())
+          || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
+          || owner->reachedFailureLimit(num_cuts, num_failures)) {
+        owner->timer.end_timer(currTimeName);
+        return num_cuts; // abandon
+      }
+      const int curr_index = ind; //curr_ray_info.index
+      const int row_ind = rayIndex[curr_index].row;
+      if (row_ind < 0 || numTimesTightRow[row_ind] != 0) {
+        continue;
+      }
+      rayIndex[curr_index].row = -1 * (row_ind + 1);
+      const CoinShallowPackedVector vec = mat->getVector(row_ind);
+      addToObjectiveFromPackedVector(this, &vec, false);
+      num_rays_tried++;
+      return_code = tryOneObjective(numTimesTightRow, numTimesTightColLB,
+          numTimesTightColUB, cuts, origSolver, beta, structSICs, inNBSpace,
+          cutHeur);
       if (return_code < 0) {
         numTimesTightRow[row_ind]++;
         numTimesTightRow[row_ind] *= -1;
       }
-      setConstantObjectiveFromPackedVector(this, 0., vec.getNumElements(), vec.getIndices());
-    } /* tight on rays */
+      setConstantObjectiveFromPackedVector(this, 0., vec.getNumElements(),
+          vec.getIndices());
+    } // tight on rays
     owner->timer.end_timer(currTimeName);
-  } /* MAX_NUM_RAYS_TO_TRY > 0 */
+  } // MAX_NUM_RAYS_TO_TRY > 0
 
   if (return_code == BAD_RETURN_CODE
-      || owner->reachedCutLimit(num_cuts_total)
+      || owner->reachedCutLimit(cuts.sizeCuts())
       || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
-      || owner->reachedFailureLimit(cuts.sizeCuts() - init_num_cuts, num_failures)) {
-    return cuts.sizeCuts() - init_num_cuts; // abandon
+      || owner->reachedFailureLimit(num_cuts, num_failures)) {
+    return num_cuts; // abandon
   }
 
   if (num_points_tried < MAX_NUM_POINTS_TO_TRY) {
@@ -1656,11 +1546,11 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
 #endif
     for (int ind = 0; ind < (int) pointIndex.size(); ind++) {
       if (!goodReturn || return_code == BAD_RETURN_CODE
-          || owner->reachedCutLimit(num_cuts_total)
+          || owner->reachedCutLimit(cuts.sizeCuts())
           || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
-          || owner->reachedFailureLimit(cuts.sizeCuts() - init_num_cuts, num_failures)) {
+          || owner->reachedFailureLimit(num_cuts, num_failures)) {
         owner->timer.end_timer(currTimeName);
-        return cuts.sizeCuts() - init_num_cuts; // abandon
+        return num_cuts; // abandon
       }
       if (num_points_tried >= MAX_NUM_POINTS_TO_TRY) {
         break;
@@ -1675,19 +1565,18 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
         continue;
       }
       num_points_tried++;
-      goodReturn = findCutsTightOnPoint(num_failures, numTimesTightRow,
-          numTimesTightColLB, numTimesTightColUB, disj_lb_row_ind,
-          init_num_cuts, cutHeur, beta, cuts, num_cuts_total, num_obj_tried,
-          origSolver, structSICs, timeName, inNBSpace, MAX_NUM_OBJ_PER_POINT);
-    } /* tight on points */
+      goodReturn = findCutsTightOnPoint(numTimesTightRow, numTimesTightColLB,
+          numTimesTightColUB, disj_lb_row_ind, cutHeur, beta, cuts, origSolver,
+          structSICs, timeName, inNBSpace, MAX_NUM_OBJ_PER_POINT);
+    } // tight on points
     owner->timer.end_timer(currTimeName);
-  } /* any objectives left for points? */
+  } // any objectives left for points?
 
   if (return_code == BAD_RETURN_CODE
-      || owner->reachedCutLimit(num_cuts_total)
+      || owner->reachedCutLimit(cuts.sizeCuts())
       || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
-      || owner->reachedFailureLimit(cuts.sizeCuts() - init_num_cuts, num_failures)) {
-    return cuts.sizeCuts() - init_num_cuts; // abandon
+      || owner->reachedFailureLimit(num_cuts, num_failures)) {
+    return num_cuts; // abandon
   }
 
   if (num_rays_tried < MAX_NUM_RAYS_TO_TRY) {
@@ -1702,11 +1591,11 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
 #endif
     for (int ind = 0; ind < (int) rayIndex.size(); ind++) {
       if (return_code == BAD_RETURN_CODE
-          || owner->reachedCutLimit(num_cuts_total)
+          || owner->reachedCutLimit(cuts.sizeCuts())
           || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
-          || owner->reachedFailureLimit(cuts.sizeCuts() - init_num_cuts, num_failures)) {
+          || owner->reachedFailureLimit(num_cuts, num_failures)) {
         owner->timer.end_timer(currTimeName);
-        return cuts.sizeCuts() - init_num_cuts; // abandon
+        return num_cuts; // abandon
       }
       if (num_rays_tried >= MAX_NUM_RAYS_TO_TRY) {
         break;
@@ -1717,19 +1606,310 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
       if (numTimesTightRow[row_ind] < 0) {
         continue;
       }
-      ////    setFullVecFromPackedVec(obj, mat->getVector(row_ind));
-      ////    this->setObjective(obj.data());
       const CoinShallowPackedVector vec = mat->getVector(row_ind);
       addToObjectiveFromPackedVector(this, &vec, false);
-      num_obj_tried++;
       num_rays_tried++;
-      return_code = tryOneObjective(num_failures, numTimesTightRow,
-          numTimesTightColLB, numTimesTightColUB, cutHeur, beta, cuts,
-          num_cuts_total, num_obj_tried, origSolver, structSICs, inNBSpace);
+      return_code = tryOneObjective(numTimesTightRow, numTimesTightColLB,
+          numTimesTightColUB, cuts, origSolver, beta, structSICs, inNBSpace,
+          cutHeur);
       setConstantObjectiveFromPackedVector(this, 0., vec.getNumElements(), vec.getIndices());
-    } /* tight on rays again */
+    } // tight on rays again
     owner->timer.end_timer(currTimeName);
-  } /* any objectives left for rays? */
+  } // any objectives left for rays?
 
-  return (int) cuts.sizeCuts() - init_num_cuts;
+  return num_cuts;
 } /* targetStrongAndDifferentCuts */
+
+/**
+ * We want to solve the bilinear program
+ * min <\alpha, x>
+ * s.t.
+ * <\alpha, p> \ge 1 \forall p \in \pointset
+ * <\alpha, r> \ge 0 \forall r \in \rayset
+ * x \in Pbar (P + all SICs)
+ */
+int PRLP::iterateDeepestCutPostGomory(OsiCuts & cuts,
+    const OsiSolverInterface* const origSolver, const double beta,
+    const OsiCuts* structSICs, const bool inNBSpace) {
+  if (owner->reachedCutLimit(cuts.sizeCuts())
+      || (owner->params.get(USE_ITER_BILINEAR) <= 0)) {
+    return 0;
+  }
+
+  int num_cuts_gen = 0;
+  const int MAX_NUM_ITER_BIL_CUTS = owner->params.get(intParam::USE_ITER_BILINEAR);
+  const int ITER_PER_CUT = 1;
+  const CglVPC::CutHeuristics cutHeur = CglVPC::CutHeuristics::ITER_BILINEAR;
+  bool stationary_point_flag = false;
+  const double initSolveTime =
+      owner->timer.get_time(
+          CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::INIT_SOLVE_TIME)]);
+  const double timeLimit = owner->params.get(PRLP_TIMELIMIT);
+
+  SolverInterface* PostGomorySolver = dynamic_cast<SolverInterface*>(origSolver->clone());
+  setLPSolverParameters(PostGomorySolver, owner->params.get(VERBOSITY), 2 * initSolveTime);
+
+  // Add GMICs
+  OsiCuts GMICs;
+  if (structSICs == NULL) {
+    PostGomorySolver->initialSolve();
+    CglGMI GMIGen;
+    GMIGen.generateCuts(*PostGomorySolver, GMICs);
+  } else {
+    GMICs = *structSICs;
+  }
+  applyCutsCustom(PostGomorySolver, GMICs);
+  if (hitTimeLimit(PostGomorySolver) || PostGomorySolver->isIterationLimitReached()) {
+    return exitFromIterateDeepestCutPostGomory(num_cuts_gen, PostGomorySolver);
+  }
+  if (!PostGomorySolver->isProvenOptimal()) {
+    error_msg(error_str, "Adding Gomory cuts causes LP (with original objective) to not be optimal. This cannot happen!\n"); // NB: could actually happen in subspace
+    exit(1);
+  }
+  setTimeLimit(PostGomorySolver, timeLimit);
+
+  // Save this post-Gomory point as the objective for the PRLP
+  setObjectiveFromStructuralPoint(PostGomorySolver->getColSolution(), NULL, origSolver, inNBSpace);
+  num_cuts_gen = genCut(cuts, origSolver, beta, structSICs, inNBSpace, cutHeur);
+  if (num_cuts_gen < 0) {
+    if (PostGomorySolver) {
+      delete PostGomorySolver;
+    }
+    return 0;
+  }
+  if (MAX_NUM_ITER_BIL_CUTS == 1) {
+    return exitFromIterateDeepestCutPostGomory(num_cuts_gen, PostGomorySolver);
+  }
+
+  // We may need to get primal rays
+  // In case of dual infeasibility, there should be at least one
+  // During this procedure, since we are using dual rays, do not use presolve
+  this->setHintParam(OsiDoPresolveInInitial, false);
+  this->setHintParam(OsiDoPresolveInResolve, false);
+  PostGomorySolver->setHintParam(OsiDoPresolveInInitial, false);
+  PostGomorySolver->setHintParam(OsiDoPresolveInResolve, false);
+
+  std::vector<double> prevSolution(PostGomorySolver->getColSolution(),
+      PostGomorySolver->getColSolution() + PostGomorySolver->getNumCols());
+  OsiRowCut structSpaceCut;
+  int i, j;
+  for (j = 1; j < MAX_NUM_ITER_BIL_CUTS; j++) {
+    for (i = 0; i < ITER_PER_CUT; i++) {
+      if (owner->reachedCutLimit(cuts.sizeCuts())
+          || owner->reachedFailureLimit(num_cuts, num_failures)) {
+        break;
+      }
+
+      /***********
+       *  STEP 1
+       ***********/
+      { // First set the objective for PostGomorySolver using the PRLP solution
+        std::vector<double*> PRLPPrimalRay;
+        const double* sol = NULL;
+        if (this->isProvenOptimal()) {
+          sol = this->getColSolution();
+        } else if (this->isProvenDualInfeasible()) {
+          PRLPPrimalRay = this->getPrimalRays(1); // there may be more than one, which all lead to cuts
+
+          // It has happened (e.g., instance rlp2)
+          if (PRLPPrimalRay[0] == NULL) {
+            this->getModelPtr()->setNumberIterations(0);
+            setTimeLimit(this, timeLimit);
+            this->initialSolve();
+            checkSolverOptimality(this, false, timeLimit);
+            if (this->isProvenDualInfeasible()) {
+              // Free memory
+              if (PRLPPrimalRay.size() > 0 && PRLPPrimalRay[0]) {
+                delete[] PRLPPrimalRay[0];
+                PRLPPrimalRay.clear();
+              }
+              PRLPPrimalRay = this->getPrimalRays(1);
+            }
+            if (!this->isProvenDualInfeasible() || !PRLPPrimalRay[0]) {
+              warning_msg(warnstring,
+                  "Cut %d, iter %d: "
+                  "Issues obtaining ray when PRLP is unbounded when trying to find deepest post-Gomory cut. "
+                  "Abandoning this function.\n",
+                  j, i);
+              // Free memory
+              if (PRLPPrimalRay.size() > 0 && PRLPPrimalRay[0]) {
+                delete[] PRLPPrimalRay[0];
+                PRLPPrimalRay.clear();
+              }
+              return exitFromIterateDeepestCutPostGomory(num_cuts_gen, PostGomorySolver);
+            }
+          }
+
+  //        scalePrimalRay(this->getNumCols(), &PRLPPrimalRay[0]); // amk 2019-02-26: should reimplement
+          sol = PRLPPrimalRay[0];
+        } // check if PRLP is bounded
+
+        // Recall that PostGomorySolver is in the structural space,
+        // while the PRLP is potentially in the NB space
+        if (sol) {
+          if (inNBSpace) {
+            setCutFromNBCoefficients(&structSpaceCut, this->nonZeroColIndex,
+                sol, beta, origSolver, owner->probData.NBVarIndex, true,
+                owner->probData.EPS);
+            addToObjectiveFromPackedVector(PostGomorySolver,
+                &structSpaceCut.row(), true);
+          } else {
+            if ((int) nonZeroColIndex.size() > 0) {
+              for (int i = 0; i < (int) nonZeroColIndex.size(); i++) {
+                PostGomorySolver->setObjCoeff(nonZeroColIndex[i],
+                    this->getColSolution()[i]);
+              }
+            } else {
+              PostGomorySolver->setObjective(this->getColSolution());
+            }
+          }
+        } // check that sol exists
+
+        // Free memory
+        if (PRLPPrimalRay.size() > 0 && PRLPPrimalRay[0]) {
+          delete[] PRLPPrimalRay[0];
+          PRLPPrimalRay.clear();
+        }
+      } // set PostGomorySolver objective from the PRLP solution
+
+      /***********
+       *  STEP 2
+       ***********/
+      { // Resolve PostGomorySolver so that we can extract the new solution from it
+        setTimeLimit(PostGomorySolver, timeLimit);
+        PostGomorySolver->resolve();
+        checkSolverOptimality(PostGomorySolver, false, timeLimit); // with pk1, it has happened that the PostGomorySolver is dual infeasible but does not say it is proven so
+        if (!PostGomorySolver->isProvenOptimal()
+            && !PostGomorySolver->isProvenDualInfeasible()) {
+          error_msg(errorstring,
+              "Cut %d, iter %d: Iterative solver not proven optimal or dual infeasible.\n",
+              j, i);
+          writeErrorToLog(errorstring, owner->params.logfile);
+          exit(1);
+        }
+
+        if (isNegInfinity(PostGomorySolver->getObjValue(), owner->params.get(doubleConst::INF))) {
+          // We essentially have a ray, though it is not being reported as such
+          // Try resolving because this fixes the issue sometimes
+          setTimeLimit(PostGomorySolver, timeLimit);
+          PostGomorySolver->initialSolve();
+          checkSolverOptimality(PostGomorySolver, false, timeLimit);
+
+          if (!PostGomorySolver->isProvenDualInfeasible()) {
+            warning_msg(warnstring,
+                "Cut %d, iter %d: Scaling issues when trying to find deepest post-Gomory cut. "
+                "Abandoning this function.\n",
+                j, i);
+            return exitFromIterateDeepestCutPostGomory(num_cuts_gen, PostGomorySolver);
+          }
+        }
+      } // get new PostGomorySolver solution
+
+      /***********
+       *  STEP 3
+       ***********/
+      { // Set PRLP objective from PostGomorySolution
+        const double* sol = NULL;
+        std::vector<double*> PostGomorySolverPrimalRay;
+        if (PostGomorySolver->isProvenOptimal()) {
+          sol = PostGomorySolver->getColSolution();
+        } else if (PostGomorySolver->isProvenDualInfeasible()) {
+          // Obtain the dual ray
+          PostGomorySolverPrimalRay = PostGomorySolver->getPrimalRays(1);
+
+          // It has happened (e.g., instance rlp2)
+          if (PostGomorySolverPrimalRay[0] == NULL) {
+            setTimeLimit(PostGomorySolver, timeLimit);
+            PostGomorySolver->initialSolve();
+            checkSolverOptimality(PostGomorySolver, false, timeLimit);
+            if (PostGomorySolver->isProvenDualInfeasible()) {
+              // Free memory
+              if (PostGomorySolverPrimalRay.size() > 0 && PostGomorySolverPrimalRay[0]) {
+                delete[] PostGomorySolverPrimalRay[0];
+                PostGomorySolverPrimalRay.clear();
+              }
+              PostGomorySolverPrimalRay = PostGomorySolver->getPrimalRays(1);
+            }
+            if (!PostGomorySolver->isProvenDualInfeasible()
+                || !PostGomorySolverPrimalRay[0]) {
+              warning_msg(warnstring,
+                  "Cut %d, iter %d: "
+                  "Issues obtaining ray when PostGomorySolver is unbounded while getting deepest post-Gomory cut. "
+                  "Abandoning this function.\n",
+                  j, i);
+              // Free memory
+              if (PostGomorySolverPrimalRay.size() > 0 && PostGomorySolverPrimalRay[0]) {
+                delete[] PostGomorySolverPrimalRay[0];
+                PostGomorySolverPrimalRay.clear();
+              }
+              return exitFromIterateDeepestCutPostGomory(num_cuts_gen, PostGomorySolver);
+            }
+          } // exit early if issues arise getting the primal ray
+  //        scalePrimalRay(PostGomorySolver->getNumCols(), &SICSolverPrimalRay[0]); // NB: again, should reimplement
+          sol = PostGomorySolverPrimalRay[0];
+        } // check whether PostGomorySolver is optimal or unbdd
+
+        // Check if we have reached a stationary point
+        const double parallelism = getParallelism(
+            PostGomorySolver->getNumCols(), prevSolution.data(), sol);
+
+        // Reset prevSolution to be current solution, so we can set objective
+        prevSolution.assign(sol, sol + PostGomorySolver->getNumCols());
+
+        // Free memory
+        if (PostGomorySolverPrimalRay.size() > 0 && PostGomorySolverPrimalRay[0]) {
+          delete[] PostGomorySolverPrimalRay[0];
+          PostGomorySolverPrimalRay.clear();
+        }
+
+        // Break if we reached the stationary point (after freeing memory)
+        if (isVal(parallelism, 1.)) {
+          stationary_point_flag = true;
+          break;
+        }
+      } // set PRLP objective from PostGomorySolver solution
+
+      /***********
+       *  STEP 4
+       ***********/
+      // Resolve PRLP without generating a cut
+      setObjectiveFromStructuralPoint(prevSolution.data(), NULL, origSolver, inNBSpace);
+      if (resolvePRLP() < 0) {
+        warning_msg(warnstring,
+            "Cut %d, iter %d: Issues resolving PRLP when finding deepest post-Gomory cut. "
+            "Abandoning this function.\n",
+            j, i);
+        return exitFromIterateDeepestCutPostGomory(num_cuts_gen,
+            PostGomorySolver);
+      }
+    } // possibly do several iterations before trying to get a cut again
+
+    if (i == 0) break; // no iterations done
+    const int return_code = genCut(cuts, origSolver, beta, structSICs, inNBSpace, cutHeur);
+    if (return_code >= 0) {
+      num_cuts_gen += return_code;
+    } else {
+      return exitFromIterateDeepestCutPostGomory(num_cuts_gen, PostGomorySolver);
+    }
+    if (stationary_point_flag)
+      break;
+  } // loop at most MAX_NUM_ITER_BIL_CUTS times
+
+  return exitFromIterateDeepestCutPostGomory(num_cuts_gen, PostGomorySolver);
+} /* iterateDeepestCutPostMSIC */
+
+int PRLP::exitFromIterateDeepestCutPostGomory(const int num_cuts_gen,
+    OsiSolverInterface* const PostGomorySolver) {
+  // Delete solvers
+  if (PostGomorySolver) {
+    delete PostGomorySolver;
+  }
+
+  this->getModelPtr()->setNumberIterations(0);
+  this->getModelPtr()->setMaximumSeconds(owner->params.get(PRLP_TIMELIMIT));
+
+  this->setHintParam(OsiDoPresolveInInitial, true);
+  this->setHintParam(OsiDoPresolveInResolve, true);
+
+  return num_cuts_gen;
+} /* exitFromIterateDeepestCutPostGomory */

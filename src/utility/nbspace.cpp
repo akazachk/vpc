@@ -3,12 +3,18 @@
 // Date:     2019-Feb-20
 //-----------------------------------------------------------------------------
 #include "nbspace.hpp"
+
 #include <cmath> // abs
 #include <CoinPackedVector.hpp>
+
+#include "CutHelper.hpp" // setOsiRowCut
 #include "SolverHelper.hpp"
+#include "VPCParameters.hpp"
+#include "utility.hpp" // dotProduct
 
 /**
  * Assumed to be on the same set of variables
+ * We also need that the right-hand side of the original solver remains unchanged (except the bounds)
  */
 void setCompNBCoorPoint(CoinPackedVector& vec, double& objViolation,
     const VPCParameters& params, const OsiSolverInterface* const tmpSolver,
@@ -20,7 +26,7 @@ void setCompNBCoorPoint(CoinPackedVector& vec, double& objViolation,
   const int deletedVarAdjustment = (deletedVar >= 0) ? -1 : 0;
 
   const int numCols = origSolver->getNumCols();
-  const int numNB = numCols; // TODO again assuming that nb fixed vars are treated as ub vars
+  const int numNB = numCols; // again that nb fixed vars are treated as nb
 
   // For keeping the packed coordinates to input as a new point
   std::vector<int> packedIndex;
@@ -42,7 +48,7 @@ void setCompNBCoorPoint(CoinPackedVector& vec, double& objViolation,
   double tinyObjOffset = 0.; // how much c . p changes when tiny values are ignored
   double nonTinyObj = 0.;
 
-  // All coefficients are going to be non-negative, since we work in the complemented NB space
+  // All coefficients are going to be nonnegative, since we work in the complemented NB space
   for (int i = 0; i < numNB; i++) {
     const int currVar = nonBasicVarIndex[i];
     const int currVarTmpIndex = (currVar < deletedVar) ? currVar : currVar + deletedVarAdjustment;
@@ -52,8 +58,7 @@ void setCompNBCoorPoint(CoinPackedVector& vec, double& objViolation,
       origVal = origSolver->getColSolution()[currVar];
     } else {
       const int currRow = currVar - numCols;
-      tmpVal = tmpSolver->getRightHandSide()[currRow]
-          - tmpSolver->getRowActivity()[currRow];
+      tmpVal = tmpSolver->getRightHandSide()[currRow] - tmpSolver->getRowActivity()[currRow];
       origVal = 0.0;
     }
     // ***
@@ -66,7 +71,7 @@ void setCompNBCoorPoint(CoinPackedVector& vec, double& objViolation,
     // In the former case, thinking of it as a lower-bounded variable, it will simply be zero
     // in any solution, including in the original one at v, in which case we don't need to
     // worry about it for the packed ray.
-    // I think the latter case we could have handled by preprocessing the free variables out
+    // NB: The latter case we could have handled by preprocessing the free variables out
     // ****
     // For *slack* var:
     // In the original NB space at v, all slacks were at zero.
@@ -76,17 +81,17 @@ void setCompNBCoorPoint(CoinPackedVector& vec, double& objViolation,
     // We take absolute value to deal with this
     const double newVal = std::abs(tmpVal - origVal);
 
-    if (!isZero(newVal)) {
+    if (!isZero(newVal, params.get(EPS))) {
       packedIndex.push_back(i);
       packedElem.push_back(newVal);
       nonTinyObj += newVal * nonBasicReducedCost[i];
     } // non-tiny
-    else if (!isZero(newVal * nonBasicReducedCost[i])) {
+    else if (!isZero(newVal * nonBasicReducedCost[i], params.get(EPS))) {
       tinyIndex.push_back(i);
       tinyElem.push_back(newVal);
       tinyObjOffset += newVal * nonBasicReducedCost[i];
     } // tiny
-  } /* end iterating over non-basic elements from original basis */
+  } // end iterating over nonbasic elements from original basis
 
   // Check whether tiny elements are needed
   bool useTinyElements = //lessThanVal(nonTinyObj, 0., param.getEPS())
@@ -110,7 +115,7 @@ void setCompNBCoorPoint(CoinPackedVector& vec, double& objViolation,
     std::vector<int> newPackedIndex(numNonTiny + numTiny, 0);
     std::vector<double> newPackedElem(numNonTiny + numTiny, 0);
     int ind = 0, ind1 = 0, ind2 = 0;
-    const int scale = 1.; // perhaps in a future version we will scale things
+    const double scale = 1.; // perhaps in a future version we will scale things
     while (ind1 < numNonTiny) {
       while (ind2 < numTiny && tinyIndex[ind2] < packedIndex[ind1]) {
         newPackedIndex[ind] = tinyVec.getIndices()[ind2];
@@ -138,7 +143,7 @@ void setCompNBCoorPoint(CoinPackedVector& vec, double& objViolation,
   }
 
   if (!isVal(nonTinyObj, objViolation, params.get(EPS))) {
-    if (!isVal(nonTinyObj, objViolation, 1e-3)) {
+    if (!isVal(nonTinyObj, objViolation, params.get(doubleConst::DIFFEPS))) {
       error_msg(errorstring,
           "Point: Calculated dot product with obj differs from solver's. Obj viol from solver: %.8f. Calculated: %.8f.\n",
           objViolation, nonTinyObj);
@@ -369,6 +374,12 @@ void setCompNBCoorRay(CoinPackedVector& vec, const double* ray, double& objViola
   }
 } /* setCompNBCoor (Ray) */
 
+/**
+ * @brief Puts currColValue (necessary to provide) into complemented nonbasic space form
+ *
+ * Assumed to be for the same set of variables as in originalSolver
+ * We also need that the right-hand side of the original solver remains unchanged (except the bounds)
+ */
 void setCompNBCoor(CoinPackedVector& vec, double& objViolation,
     const VPCParameters& params, const double* const currColValue,
     const double* const currSlackValue,
@@ -380,7 +391,7 @@ void setCompNBCoor(CoinPackedVector& vec, double& objViolation,
   const int deletedVarAdjustment = (deletedVar >= 0) ? -1 : 0;
 
   const int numCols = origSolver->getNumCols();
-  const int numNB = numCols; // TODO again assuming that nb fixed vars are treated as ub vars
+  const int numNB = numCols; // assuming that nb fixed vars are treated as nb
 
   // For keeping the packed coordinates to input as a new point
   std::vector<int> packedIndex;
@@ -389,10 +400,21 @@ void setCompNBCoor(CoinPackedVector& vec, double& objViolation,
   packedIndex.reserve(numNB);
   packedElem.reserve(numNB);
 
-  objViolation = 0.;
+  objViolation = dotProduct(currColValue, origSolver->getObjCoefficients(), numCols) - origSolver->getObjValue();
 
-  // All coefficients are going to be non-negative, since we work in the complemented NB space
-  for (int i = 0; i < (int) nonBasicVarIndex.size(); i++) {
+  // Sometimes points have tiny values
+  // These may be "necessary" for validity
+  // E.g., if the point is (p1,p2), and c is the nb obj, we need c1 * p1 + c2 * p2 >= 1 (actually 1 - 1e-7)
+  // It may be that p1 is tiny, but c1 is very large, and c2 * p2 < 0 by that amount, roughly
+  // Other times, if the non-tiny values satisfy the objective cut on their own, let's ignore the tiny ones
+  // We will not add the tiny indices + values until the end, when we check if they are necessary
+  std::vector<int> tinyIndex;
+  std::vector<double> tinyElem;
+  double tinyObjOffset = 0.; // how much c . p changes when tiny values are ignored
+  double nonTinyObj = 0.;
+
+  // All coefficients are going to be nonnegative, since we work in the complemented NB space
+  for (int i = 0; i < numNB; i++) {
     const int currVar = nonBasicVarIndex[i];
     const int currVarTmpIndex = (currVar < deletedVar) ? currVar : currVar + deletedVarAdjustment;
     double tmpVal = 0., origVal = 0.;
@@ -403,7 +425,13 @@ void setCompNBCoor(CoinPackedVector& vec, double& objViolation,
       objCoeff = origSolver->getObjCoefficients()[currVar];
     } else {
       const int currRow = currVar - numCols;
-      tmpVal = currSlackValue[currRow];
+      if (currSlackValue) {
+        tmpVal = currSlackValue[currRow];
+      } else {
+        // Need to calculate the slack value if it is not provided to us
+        const CoinShallowPackedVector vec = origSolver->getMatrixByRow()->getVector(currRow);
+        tmpVal = origSolver->getRightHandSide()[currRow] - dotProduct(vec, currColValue);
+      }
       origVal = 0.0;
     }
     // ***
@@ -416,7 +444,7 @@ void setCompNBCoor(CoinPackedVector& vec, double& objViolation,
     // In the former case, thinking of it as a lower-bounded variable, it will simply be zero
     // in any solution, including in the original one at v, in which case we don't need to
     // worry about it for the packed ray.
-    // TODO The latter case we have handled by preprocessing the free variables out
+    // NB: The latter case we could have handled by preprocessing the free variables out
     // ****
     // For *slack* var:
     // In the original NB space at v, all slacks were at zero.
@@ -425,13 +453,231 @@ void setCompNBCoor(CoinPackedVector& vec, double& objViolation,
     // For <= rows, slack is non-negative
     // We take absolute value to deal with this
     const double newVal = std::abs(tmpVal - origVal);
-    objViolation += newVal * nonBasicReducedCost[i];
 
-    if (!isZero(newVal) || !isZero(newVal * objCoeff)) {
+    if (!isZero(newVal, params.get(EPS))) {
       packedIndex.push_back(i);
       packedElem.push_back(newVal);
+      nonTinyObj += newVal * nonBasicReducedCost[i];
+    } // non-tiny
+    else if (!isZero(newVal * nonBasicReducedCost[i], params.get(EPS))) {
+      tinyIndex.push_back(i);
+      tinyElem.push_back(newVal);
+      tinyObjOffset += newVal * nonBasicReducedCost[i];
+    } // tiny
+  } // end iterating over nonbasic elements from original basis
+
+  // Check whether tiny elements are needed
+  bool useTinyElements = //lessThanVal(nonTinyObj, 0., param.getEPS())
+      !isVal(nonTinyObj, objViolation, params.get(EPS));
+  const int numNonTiny = packedIndex.size();
+  if (useTinyElements) {
+    // We may not need all of the tiny elements
+    // Sort the tiny elements in decreasing order and keep adding them until the criterion is reached
+    const int numTinyTotal = tinyIndex.size();
+    CoinPackedVector tinyVec(numTinyTotal, tinyIndex.data(), tinyElem.data());
+    tinyVec.sortDecrElement();
+    int numTiny = 0;
+    for (int i = 0; i < numTinyTotal && useTinyElements; i++) {
+      const double val = tinyVec.getElements()[i];
+      numTiny++;
+      nonTinyObj += val * nonBasicReducedCost[tinyVec.getIndices()[i]];
+      useTinyElements = //lessThanVal(nonTinyObj, 0., param.getEPS())
+          !isVal(nonTinyObj, objViolation, params.get(EPS));
+    }
+
+    std::vector<int> newPackedIndex(numNonTiny + numTiny, 0);
+    std::vector<double> newPackedElem(numNonTiny + numTiny, 0);
+    int ind = 0, ind1 = 0, ind2 = 0;
+    const double scale = 1.; // perhaps in a future version we will scale things
+    while (ind1 < numNonTiny) {
+      while (ind2 < numTiny && tinyIndex[ind2] < packedIndex[ind1]) {
+        newPackedIndex[ind] = tinyVec.getIndices()[ind2];
+        newPackedElem[ind] = tinyVec.getElements()[ind2] * scale;
+        ind++;
+        ind2++;
+      }
+      newPackedIndex[ind] = packedIndex[ind1];
+      newPackedElem[ind] = packedElem[ind1] * scale;
+      ind++;
+      ind1++;
+    }
+    while (ind2 < numTiny) {
+      newPackedIndex[ind] = tinyVec.getIndices()[ind2];
+      newPackedElem[ind] = tinyVec.getElements()[ind2] * scale;
+      ind++;
+      ind2++;
+    }
+
+    vec.setVector((int) newPackedIndex.size(), newPackedIndex.data(),
+        newPackedElem.data(), false);
+  } else {
+    vec.setVector((int) packedIndex.size(), packedIndex.data(),
+        packedElem.data(), false);
+  }
+
+  if (!isVal(nonTinyObj, objViolation, params.get(EPS))) {
+    if (!isVal(nonTinyObj, objViolation, params.get(doubleConst::DIFFEPS))) {
+      error_msg(errorstring,
+          "Calculated dot product with obj differs from solver's. Obj viol from solver: %.8f. Calculated: %.8f.\n",
+          objViolation, nonTinyObj);
+      writeErrorToLog(errorstring, params.logfile);
+      exit(1);
+    } else {
+      warning_msg(warnstring,
+          "Calculated dot product with obj differs from solver's. Obj viol from solver: %.8f. Calculated: %.8f.\n",
+          objViolation, nonTinyObj);
     }
   }
-  vec.setVector((int) packedIndex.size(), packedIndex.data(),
-      packedElem.data(), false);
 } /* setCompNBCoor (generic) */
+
+//void setStructCoor(const std::vector<int>& nonZeroColIndex, const double* const coeff,
+//    const double beta, const OsiSolverInterface* const solver,
+//    const std::vector<int> &nonBasicVarIndex, const bool inCompSpace,
+//    const double EPS) {
+//  // Useful info
+//  const int num_cols = solver->getNumCols();
+//  const int num_sparse_cols =
+//      (nonZeroColIndex.size() > 0) ? nonZeroColIndex.size() : num_cols;
+//
+//  // Allocate space
+//  double StructCutRHS = beta;
+//  const double* rowRHS = solver->getRightHandSide();
+//  const char* rowSense = solver->getRowSense();
+//  const CoinPackedMatrix* mat = solver->getMatrixByRow();
+//
+//  std::vector<double> struct_coeff(num_cols);
+//  for (int tmp_ind = 0; tmp_ind < num_sparse_cols; tmp_ind++) {
+//    const int curr_ind =
+//        (nonZeroColIndex.size() > 0) ? nonZeroColIndex[tmp_ind] : tmp_ind;
+//    const int curr_var = nonBasicVarIndex[curr_ind];
+//    const double curr_val = coeff[tmp_ind];
+//
+//    // If we are in the complemented space,
+//    // at this point we need to do the complementing
+//    // ub: y_j = u_j - x_j
+//    // lb: y_j = x_j - l_j
+//    if (curr_var < num_cols) {
+//      struct_coeff[curr_var] = curr_val;
+//      if (inCompSpace) {
+//        if (isNonBasicUBCol(solver, curr_var)) {
+//          StructCutRHS -= curr_val * solver->getColUpper()[curr_var];
+//          struct_coeff[curr_var] *= -1;
+//        } else if (isNonBasicLBCol(solver, curr_var)) {
+//          StructCutRHS += curr_val * solver->getColLower()[curr_var];
+//        }
+//        //        if (solver->getModelPtr()->getColumnStatus(curr_var)
+//        //            == ClpSimplex::atUpperBound) {
+//        //          StructCutRHS -= curr_val * solver->getColUpper()[curr_var];
+//        //          struct_coeff[curr_var] *= -1;
+//        //        } else if (solver->getModelPtr()->getColumnStatus(curr_var)
+//        //            == ClpSimplex::atLowerBound
+//        //            || solver->getModelPtr()->getColumnStatus(curr_var)
+//        //                == ClpSimplex::isFixed) {
+//        //          StructCutRHS += curr_val * solver->getColLower()[curr_var];
+//        //        }
+//      }
+//    } else {
+//      const int curr_row = curr_var - num_cols;
+//      const double mult =
+//      //          (inCompSpace && isNonBasicLBSlack(solver, curr_row)) ? 1.0 : -1.0;
+//          (inCompSpace && rowSense[curr_row] == 'G') ? 1.0 : -1.0; // TODO check
+//
+//      const CoinShallowPackedVector slackRow = mat->getVector(curr_row);
+//      int slackRowNumElements = slackRow.getNumElements();
+//      const int* slackRowIndices = slackRow.getIndices();
+//      const double* slackRowCoeffs = slackRow.getElements();
+//
+//      StructCutRHS += mult * rowRHS[curr_row] * curr_val;
+//      for (int j = 0; j < slackRowNumElements; j++) {
+//        struct_coeff[slackRowIndices[j]] += mult * slackRowCoeffs[j] * curr_val;
+//      }
+//    }
+//  } // iterate over columns
+//
+//} /* setStructCoor */
+
+/***********************************************************************/
+/**
+ * @brief Set current cut by converting it from nonbasic coeffs given in coeff
+ */
+void setCutFromNBCoefficients(OsiRowCut* const cut,
+    const std::vector<int>& nonZeroColIndex, const double* const coeff,
+    const double beta, const OsiSolverInterface* const solver,
+    const std::vector<int> &nonBasicVarIndex, const bool inCompSpace,
+    const double EPS) {
+  // Useful info
+  const int num_cols = solver->getNumCols();
+  const int num_sparse_cols =
+      (nonZeroColIndex.size() > 0) ? nonZeroColIndex.size() : num_cols;
+
+  // Allocate space
+  double StructCutRHS = beta;
+  const double* rowRHS = solver->getRightHandSide();
+  const char* rowSense = solver->getRowSense();
+  const CoinPackedMatrix* mat = solver->getMatrixByRow();
+
+  std::vector<double> struct_coeff(num_cols);
+  for (int tmp_ind = 0; tmp_ind < num_sparse_cols; tmp_ind++) {
+    const int curr_ind = (nonZeroColIndex.size() > 0) ? nonZeroColIndex[tmp_ind] : tmp_ind;
+    const int curr_var = nonBasicVarIndex[curr_ind];
+    const double curr_val = coeff[tmp_ind];
+
+    // If we are in the complemented space,
+    // at this point we need to do the complementing
+    // ub: y_j = u_j - x_j
+    // lb: y_j = x_j - l_j
+    if (curr_var < num_cols) {
+      struct_coeff[curr_var] = curr_val;
+      if (inCompSpace) {
+        if (isNonBasicUBCol(solver, curr_var)) {
+          StructCutRHS -= curr_val * solver->getColUpper()[curr_var];
+          struct_coeff[curr_var] *= -1;
+        } else if (isNonBasicLBCol(solver, curr_var)) {
+          StructCutRHS += curr_val * solver->getColLower()[curr_var];
+        }
+//        if (solver->getModelPtr()->getColumnStatus(curr_var)
+//            == ClpSimplex::atUpperBound) {
+//          StructCutRHS -= curr_val * solver->getColUpper()[curr_var];
+//          struct_coeff[curr_var] *= -1;
+//        } else if (solver->getModelPtr()->getColumnStatus(curr_var)
+//            == ClpSimplex::atLowerBound
+//            || solver->getModelPtr()->getColumnStatus(curr_var)
+//                == ClpSimplex::isFixed) {
+//          StructCutRHS += curr_val * solver->getColLower()[curr_var];
+//        }
+      }
+    } else {
+      const int curr_row = curr_var - num_cols;
+      const double mult =
+//          (inCompSpace && isNonBasicLBSlack(solver, curr_row)) ? 1.0 : -1.0;
+          (inCompSpace && rowSense[curr_row] == 'G') ? 1.0 : -1.0; // TODO check
+
+      const CoinShallowPackedVector slackRow = mat->getVector(curr_row);
+      int slackRowNumElements = slackRow.getNumElements();
+      const int* slackRowIndices = slackRow.getIndices();
+      const double* slackRowCoeffs = slackRow.getElements();
+
+      StructCutRHS += mult * rowRHS[curr_row] * curr_val;
+      for (int j = 0; j < slackRowNumElements; j++) {
+        struct_coeff[slackRowIndices[j]] += mult * slackRowCoeffs[j] * curr_val;
+      }
+    }
+  } // iterate over columns
+
+  // Normalize
+  /*
+  const double absRHS = std::abs(StructCutRHS);
+  if (!isZero(absRHS)) {
+    for (int i = 0; i < numcols; i++) {
+      struct_coeff[i] = struct_coeff[i] / absRHS;
+    }
+
+    if (greaterThanVal(StructCutRHS, 0.0)) {
+      StructCutRHS = 1.0;
+    } else if (lessThanVal(StructCutRHS, 0.0)) {
+      StructCutRHS = -1.0;
+    }
+  }
+  */
+  setOsiRowCut(cut, std::vector<int>(), struct_coeff.size(), struct_coeff.data(), StructCutRHS, EPS);
+} /* setCutFromJspaceCoefficients */

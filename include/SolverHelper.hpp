@@ -30,6 +30,9 @@ void setLPSolverParameters(OsiSolverInterface* const solver,
 #endif
     const double max_time = std::numeric_limits<double>::max());
 
+void setTimeLimit(OsiSolverInterface* const solver, const double timeLimit);
+bool hitTimeLimit(const OsiSolverInterface* const solver);
+
 #ifdef USE_CLP
 /**
  * We need to be careful with the strong branching options;

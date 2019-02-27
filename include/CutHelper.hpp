@@ -5,27 +5,30 @@
 #pragma once
 
 #include <OsiRowCut.hpp>
+#include <OsiCuts.hpp>
 #include <OsiSolverInterface.hpp>
 
 struct VPCParameters; // defined in VPCParameters.hpp
 
-void setCutFromJSpaceCoefficients(OsiRowCut* const cut,
-    const std::vector<int>& nonZeroColIndex,
-    const double* const coeff, const double beta,
-    const OsiSolverInterface* const solver,
-    const std::vector<int> &nonBasicVarIndex, const bool inCompSpace,
-    const double EPS);
+/**
+ * Generic way to apply a set of cuts to a solver
+ * @return Solver value after adding the cuts, if they were added successfully
+ */
+double applyCutsCustom(OsiSolverInterface* solver, const OsiCuts& cs,
+    const int startCutIndex, const int numCutsOverload, double compare_obj);
+double applyCutsCustom(OsiSolverInterface* solver, const OsiCuts& cs,
+    const int numCutsOverload = -1,
+    double compare_obj = std::numeric_limits<double>::lowest());
 
 void setOsiRowCut(OsiRowCut* const cut, const std::vector<int>& nonZeroColIndex,
     const int num_coeff, const double* coeff, const double rhs,
     const double EPS);
 
-void addToObjectiveFromPackedVector(OsiSolverInterface* const cutSolver,
+void addToObjectiveFromPackedVector(OsiSolverInterface* const solver,
     const CoinPackedVectorBase* vec, const bool zeroOut = false,
     const double mult = 1.);
-void setConstantObjectiveFromPackedVector(
-    OsiSolverInterface* const cutSolver, const double val = 0.,
-    const int numIndices = 0, const int* indices = NULL);
+void setConstantObjectiveFromPackedVector(OsiSolverInterface* const solver,
+    const double val = 0., const int numIndices = 0, const int* indices = NULL);
 
 int cleanCut(OsiRowCut* const cut, const OsiSolverInterface* const solver,
     const VPCParameters& params, const double min_abs_coeff,

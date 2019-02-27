@@ -4,14 +4,17 @@
 //-----------------------------------------------------------------------------
 #pragma once
 
-/**
- * This file contains the parameters/constants that are used in the CglVPC class (also in the PRLP class)
+/********************************************************************************************************************
+ * This file contains the parameters/constants that are used in the CglVPC class
+ * (also in the PRLP and Disjunction classes)
+ *
  * To add a new parameter/constant:
  * 1. Add it to the relevant enum (intParam, doubleParam, stringParam, intConst, doubleConst) or create a new enum
  * 2. Add the name of the parameter/constant (in the same position) in *ParamName
  * 3. In the struct VPCParameters, add the default value of the parameter/constant in the relevant place
  * 4. Optionally, add a way to set the parameter in the option handling part of the code
- */
+ ********************************************************************************************************************/
+
 #include <map>
 #include <string>
 #include <vector>
@@ -338,32 +341,95 @@ inline void readParams(VPCParameters& params, std::string infilename) {
 
 /**
  * Print parameters and constants
+ * amountToPrint: 0 = all (also adds a newline after each param/constant), 1 = only names, 2 = only values
  */
-inline void printParams(VPCParameters& params, FILE* outfile = stdout) {
+inline void printParams(VPCParameters& params, FILE* logfile = stdout, const int amountToPrint = 0) {
+  if (!logfile)
+    return;
   for (int i = 0; i < intParam::NUM_INT_PARAMS; i++) {
     intParam param = static_cast<intParam>(i);
-    fprintf(outfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
-        stringValue(params.get(param)).c_str());
+    switch (amountToPrint) {
+      case 1: {
+        fprintf(logfile, "%s,", lowerCaseString(params.name(param)).c_str());
+        break;
+      }
+      case 2: {
+        fprintf(logfile, "%s,", stringValue(params.get(param)).c_str());
+        break;
+      }
+      default: {
+        fprintf(logfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
+            stringValue(params.get(param)).c_str());
+      }
+    }
   }
   for (int i = 0; i < doubleParam::NUM_DOUBLE_PARAMS; i++) {
     doubleParam param = static_cast<doubleParam>(i);
-    fprintf(outfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
-        stringValue(params.get(param), "%e").c_str());
+    switch (amountToPrint) {
+      case 1: {
+        fprintf(logfile, "%s,", lowerCaseString(params.name(param)).c_str());
+        break;
+      }
+      case 2: {
+        fprintf(logfile, "%s,", stringValue(params.get(param)).c_str());
+        break;
+      }
+      default: {
+        fprintf(logfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
+            stringValue(params.get(param)).c_str());
+      }
+    }
   }
   for (int i = 0; i < stringParam::NUM_STRING_PARAMS; i++) {
     stringParam param = static_cast<stringParam>(i);
-    fprintf(outfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
-        params.get(param).c_str());
+    switch (amountToPrint) {
+      case 1: {
+        fprintf(logfile, "%s,", lowerCaseString(params.name(param)).c_str());
+        break;
+      }
+      case 2: {
+        fprintf(logfile, "%s,", params.get(param).c_str());
+        break;
+      }
+      default: {
+        fprintf(logfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
+            params.get(param).c_str());
+      }
+    }
   }
   for (int i = 0; i < static_cast<int>(intConst::NUM_INT_CONST); i++) {
     intConst param = static_cast<intConst>(i);
-    fprintf(outfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
-        stringValue(params.get(param)).c_str());
+    switch (amountToPrint) {
+      case 1: {
+        fprintf(logfile, "%s,", lowerCaseString(params.name(param)).c_str());
+        break;
+      }
+      case 2: {
+        fprintf(logfile, "%s,", stringValue(params.get(param)).c_str());
+        break;
+      }
+      default: {
+        fprintf(logfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
+            stringValue(params.get(param)).c_str());
+      }
+    }
   }
   for (int i = 0; i < static_cast<int>(doubleConst::NUM_DOUBLE_CONST); i++) {
     doubleConst param = static_cast<doubleConst>(i);
-    fprintf(outfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
-        stringValue(params.get(param), "%e").c_str());
+    switch (amountToPrint) {
+      case 1: {
+        fprintf(logfile, "%s,", lowerCaseString(params.name(param)).c_str());
+        break;
+      }
+      case 2: {
+        fprintf(logfile, "%s,", stringValue(params.get(param)).c_str());
+        break;
+      }
+      default: {
+        fprintf(logfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
+            stringValue(params.get(param)).c_str());
+      }
+    }
   }
-  fflush(outfile);
+  fflush(logfile);
 } /* printParams */

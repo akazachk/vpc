@@ -5,23 +5,24 @@
 #pragma once
 #include "CglVPC.hpp"
 #include "utility.hpp"
-#include <OsiClpSolverInterface.hpp>
+#include "VPCParameters.hpp"
 
-/**
+/**********************************************************************************************************
  * PRLP Class
- * Specific adaptation of OsiClpSolverInterface to iteratively generate V-polyhedral cuts
+ * Specific adaptation of an OsiSolverInterface to iteratively generate V-polyhedral cuts
  * by selecting objectives for a given disjunction and point-ray collection derived from that disjunction
  *
- * This class can be changed to work with other OsiSolverInterfaces
- */
-class PRLP : public OsiClpSolverInterface {
+ * Though it is designed as an OsiClpSolverInterface, it can be adapted for other OsiSolverInterfaces
+ **********************************************************************************************************/
+
+class PRLP : public SolverInterface {
 public:
   CglVPC* owner;
   std::vector<int> nonZeroColIndex;
   std::vector<double> ortho;
   int numPoints, numRays;
   double density;
-  int num_failures;
+  int num_obj_tried, num_cuts, num_failures;
 
   /** Default constructor */
   PRLP();
@@ -42,27 +43,14 @@ public:
   virtual OsiSolverInterface* clone(bool copyData = true) const;
 
   /** Setup PRLP */
-  bool setup(const double scale, const bool fixFirstPoint = false);
+  bool setup(const double scale);
 
-  /** Loop for generating cuts */
+  /** Loop for generating cuts; return # cuts generated */
   int targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
-      int& num_cuts_total, int& num_obj_tried,
       const OsiSolverInterface* const origSolver,
-      const OsiCuts* const structSICs, const std::string& timeName,
-      const bool inNBSpace);
+      const OsiCuts* const structSICs, const std::string& timeName);
 
 protected:
-  void initialize(const PRLP* const source = NULL);
-  bool setupHelper();
-  int genCut(OsiCuts& cuts,
-      const OsiSolverInterface* const origSolver, const double beta,
-      const OsiCuts* const structSICs, int& num_cuts_total, const bool inNBSpace,
-      const CglVPC::CutHeuristics cutHeur, const bool tryExtraHard);
-  int genCutHelper(OsiCuts & cuts, const OsiSolverInterface* const origSolver,
-      const double beta, const OsiCuts* const structSICs, int& num_cuts_total,
-      const bool inNBSpace, const CglVPC::CutHeuristics cutHeur);
-  int exitGenCut(const int num_cuts_generated);
-
   struct rowAndActivity {
     int row;
     double activity;
@@ -92,6 +80,28 @@ protected:
     }
   };
 
+  void initialize(const PRLP* const source = NULL);
+
+  void setObjectiveFromStructuralPoint(const double* const pointVals,
+      const double* const pointSlack, const OsiSolverInterface* const origSolver,
+      const bool inNBSpace);
+  int tryOneObjective(std::vector<int>& numTimesTightRow,
+      std::vector<int>& numTimesTightColLB,
+      std::vector<int>& numTimesTightColUB, OsiCuts& cuts,
+      const OsiSolverInterface* const origSolver, const double beta,
+      const OsiCuts* const structSICs, const bool inNBSpace,
+      const CglVPC::CutHeuristics cutHeur, const bool tryExtraHard = false);
+
+  int resolvePRLP(const bool tryExtraHard = false);
+  int genCut(OsiCuts& cuts,
+      const OsiSolverInterface* const origSolver, const double beta,
+      const OsiCuts* const structSICs, const bool inNBSpace,
+      const CglVPC::CutHeuristics cutHeur, const bool tryExtraHard = false);
+  int genCutHelper(OsiCuts & cuts, const OsiSolverInterface* const origSolver,
+      const double beta, const OsiCuts* const structSICs, const bool inNBSpace,
+      const CglVPC::CutHeuristics cutHeur);
+  int exitGenCut(const int num_cuts_generated, const CglVPC::CutHeuristics cutHeur);
+
   void setupForTargetedCutGeneration(std::vector<rowAndActivity>& pointIndex,
       std::vector<rowAndActivity>& rayIndex);
   int updateStepForTargetedCutGeneration(std::vector<int>& numTimesTightRow,
@@ -99,18 +109,18 @@ protected:
   void updateRaySetForTargetedCutGeneration(std::set<compareRayInfo>& sortedRays,
       const std::vector<rowAndActivity>& rayIndex, const int init_num_cuts, int& num_old_cuts,
       const OsiCuts& cuts);
-  int tryOneObjective(int& num_failures, std::vector<int>& numTimesTightRow,
-      std::vector<int>& numTimesTightColLB, std::vector<int>& numTimesTightColUB,
-      const CglVPC::CutHeuristics& cutHeur, const double beta, OsiCuts& cuts,
-      int& num_cuts_total, int& num_obj_tried,
-      const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs,
-      const bool inNBSpace, const bool tryExtraHard = false);
-  int findCutsTightOnPoint(int& num_failures,
-      std::vector<int>& numTimesTightRow, std::vector<int>& numTimesTightColLB,
+  int findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
+      std::vector<int>& numTimesTightColLB,
       std::vector<int>& numTimesTightColUB, const int point_row_ind,
-      const int init_num_cuts, const CglVPC::CutHeuristics& cutHeur, const double beta,
-      OsiCuts& cuts, int& num_cuts_total, int& num_obj_tried,
-      const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs,
-      const std::string& timeName, const bool inNBSpace,
-      const int MAX_NUM_OBJ_PER_POINT);
+      const CglVPC::CutHeuristics& cutHeur,
+      const double beta, OsiCuts& cuts,
+      const OsiSolverInterface* const origSolver,
+      const OsiCuts* const structSICs, const std::string& timeName,
+      const bool inNBSpace, const int MAX_NUM_OBJ_PER_POINT);
+
+  int iterateDeepestCutPostGomory(OsiCuts & cuts,
+      const OsiSolverInterface* const origSolver, const double beta,
+      const OsiCuts* structSICs, const bool inNBSpace);
+  int exitFromIterateDeepestCutPostGomory(const int num_cuts_gen,
+      OsiSolverInterface* const MSICSolver);
 }; /* class PRLP */

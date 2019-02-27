@@ -305,10 +305,12 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     this->numCutsOfType = source->numCutsOfType;
     this->numObjFromHeur = source->numObjFromHeur;
     this->numCutsFromHeur = source->numCutsFromHeur;
+    this->numFailsFromHeur = source->numFailsFromHeur;
     this->numFails = source->numFails;
     this->ip_opt = source->ip_opt;
     this->num_cuts = source->num_cuts;
     this->num_obj_tried = source->num_obj_tried;
+    this->num_failures = source->num_failures;
     this->probData = source->probData;
     this->prlpData = source->prlpData;
   }
@@ -327,10 +329,12 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     this->numCutsOfType.resize(static_cast<int>(CutType::NUM_CUT_TYPES), 0);
     this->numObjFromHeur.resize(static_cast<int>(CutHeuristics::NUM_CUT_HEUR), 0);
     this->numCutsFromHeur.resize(static_cast<int>(CutHeuristics::NUM_CUT_HEUR), 0);
+    this->numFailsFromHeur.resize(static_cast<int>(CutHeuristics::NUM_CUT_HEUR), 0);
     this->numFails.resize(static_cast<int>(FailureType::NUM_FAILURES), 0);
     this->ip_opt = std::numeric_limits<double>::max();
     this->num_cuts = 0;
     this->num_obj_tried = 0;
+    this->num_failures = 0;
     this->probData.EPS = this->params.get(EPS);
   }
 } /* initialize */
@@ -968,21 +972,22 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
 #endif
   const int init_num_cuts = this->num_cuts;
   const int init_num_obj = this->num_obj_tried;
-  int num_failures = 0;
+  const int init_num_failures = 0;
 
   if (!LP_OPT_IS_NOT_CUT || !DLB_EQUALS_DUB) {
     PRLP* prlp = new PRLP(this);
     setLPSolverParameters(prlp, params.get(VERBOSITY));
-    const bool isCutSolverPrimalFeas = prlp->setup(scale, false);
+    const bool isCutSolverPrimalFeas = prlp->setup(scale);
   //  printf("# rows: %d\t # cols: %d\n", prlp->getNumRows(), prlp->getNumCols());
   //  printf("# points: %d\t # rays: %d\n", prlp->numPoints, prlp->numRays);
 
     if (isCutSolverPrimalFeas) {
-      prlp->targetStrongAndDifferentCuts(beta, cuts, this->num_cuts,
-          this->num_obj_tried, origSolver, structSICs, timeName,
-          params.get(intConst::NB_SPACE));
+      prlp->targetStrongAndDifferentCuts(beta, cuts,
+          origSolver, structSICs, timeName);
     }
-    num_failures += prlp->num_failures;
+    this->num_obj_tried += prlp->num_obj_tried;
+    this->num_failures += prlp->num_failures;
+    this->num_cuts += prlp->num_cuts;
 
     if (prlp)
       delete prlp;
@@ -997,8 +1002,16 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
 
 #ifdef TRACE
   printf("\n## CglVPC: Finished trying %d objectives. Generated %d cuts. Total num cuts: %d. ##\n",
-      this->num_obj_tried - init_num_obj, this->num_cuts - init_num_cuts, this->num_cuts);
+      this->num_obj_tried - init_num_obj, this->num_cuts - init_num_cuts, cuts.sizeCuts());
 #endif
+
+  if (this->num_obj_tried != this->num_cuts + this->num_failures) {
+    error_msg(errorstring,
+        "num_obj_tried (%d) \ne num_cuts (%d) + num_failures (%d)\n",
+        num_obj_tried, num_cuts, num_failures);
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
 
   if (reachedTimeLimit(time_T1 + "TOTAL", params.get(TIMELIMIT))) {
     return ExitReason::TIME_LIMIT_EXIT;
@@ -1006,7 +1019,7 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
   if (reachedCutLimit(cuts.sizeCuts())) {
     return ExitReason::CUT_LIMIT_EXIT;
   }
-  if (reachedFailureLimit(num_cuts - init_num_cuts, num_failures)) {
+  if (reachedFailureLimit(num_cuts - init_num_cuts, num_failures - init_num_failures)) {
     return ExitReason::FAIL_LIMIT_EXIT;
   }
   return ExitReason::SUCCESS_EXIT;

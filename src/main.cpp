@@ -18,14 +18,10 @@
 
 // COIN-OR
 #include <OsiCuts.hpp>
-//#include <CoinPackedMatrix.hpp>
-//#include <CglGomory.hpp>
-//#include <CglGMI.hpp>
-//#include <CglLandP.hpp>
-//#include <OsiCuts.hpp>
 
 // Project files
 #include "CglVPC.hpp"
+#include "CutHelper.hpp"
 #include "Disjunction.hpp" // needed to access disjunction properties
 #include "SolverHelper.hpp" // defines SolverInterface
 #include "VPCParameters.hpp"
@@ -38,9 +34,11 @@
 VPCParameters params;
 OsiSolverInterface* solver;
 std::string instname;
+ExitReason exitReason;
 
 enum OverallTimeStats {
-  INITIAL_SOLVE_TIME,
+  TOTAL_TIME,
+  INIT_SOLVE_TIME,
   GEN_VPC_TIME,
   APPLY_VPC_TIME,
   BB_NOVPC_TIME,
@@ -48,7 +46,8 @@ enum OverallTimeStats {
   NUM_TIME_STATS
 }; /* OverallTimeStats */
 const std::vector<std::string> OverallTimeStatsName {
-  "INITIAL_SOLVE_TIME",
+  "TOTAL_TIME",
+  "INIT_SOLVE_TIME",
   "GEN_VPC_TIME",
   "APPLY_VPC_TIME",
   "BB_NOVPC_TIME",
@@ -70,6 +69,7 @@ void signal_handler_with_error_msg(int signal_number) {
   exit(1);
 } /* signal_handler_with_error_msg */
 
+void startUp(int argc, char** argv);
 void processArgs(int argc, char** argv);
 void initializeSolver(OsiSolverInterface* &solver);
 int wrapUp(int retCode);
@@ -79,48 +79,21 @@ int main(int argc, char** argv) {
   std::signal(SIGABRT, signal_handler_with_error_msg);
   std::signal(SIGSEGV, signal_handler_with_error_msg);
 
-  // Input handling
-  printf("## V-Polyhedral Disjunctive Cuts ##\n");
-  printf("Aleksandr M. Kazachkov\n");
-  printf("Based on joint work with Egon Balas\n");
-  processArgs(argc, argv);
-
-  printf("Instance file: %s.\n", params.get(stringParam::FILENAME).c_str());
-  for (int i = 0; i < argc; i++) {
-    std::cout << argv[i] << " ";
-  }
-  std::cout << std::endl;
-
-#ifdef TRACE
-  // Print parameters
-  printf("\n## Parameter values ##\n");
-  printParams(params, stdout);
-#endif
-
-  // Prepare logfile
-  const std::string logname = params.get(stringParam::LOGFILE);
-  if (!logname.empty()) {
-    const bool logexists = fexists(logname.c_str());
-    params.logfile = fopen(logname.c_str(), "a");
-    if (!logexists) {
-      fprintf(params.logfile, "Instance,");
-      fprintf(params.logfile, "\n");
-      fprintf(params.logfile, "%s,", instname.c_str());
-      fflush(params.logfile);
-    }
-  }
-
   // Set up timing
   for (int t = 0; t < OverallTimeStats::NUM_TIME_STATS; t++) {
     timer.register_name(OverallTimeStatsName[t]);
   }
 
-  initializeSolver(solver);
+  // Print welcome message, set up logfile
+  timer.start_timer(OverallTimeStats::TOTAL_TIME);
+  startUp(argc, argv);
 
-  timer.start_timer(OverallTimeStats::INITIAL_SOLVE_TIME);
+  // Set up solver and get initial solution
+  initializeSolver(solver);
+  timer.start_timer(OverallTimeStats::INIT_SOLVE_TIME);
   solver->initialSolve();
   checkSolverOptimality(solver, false);
-  timer.end_timer(OverallTimeStats::INITIAL_SOLVE_TIME);
+  timer.end_timer(OverallTimeStats::INIT_SOLVE_TIME);
 
   const double init_obj_value = solver->getObjValue();
 
@@ -131,6 +104,9 @@ int main(int argc, char** argv) {
     }
     timer.start_timer(OverallTimeStats::GEN_VPC_TIME);
     CglVPC gen(params);
+    gen.timer.add_value(
+        CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::INIT_SOLVE_TIME)],
+        timer.get_value(OverallTimeStats::INIT_SOLVE_TIME));
     if (params.get(MODE) == static_cast<int>(CglVPC::VPCMode::CUSTOM)) {
       std::vector<Disjunction*> disjVec;
       gen.timer.start_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
@@ -177,22 +153,74 @@ int main(int argc, char** argv) {
     }
     timer.end_timer(OverallTimeStats::GEN_VPC_TIME);
 
+    exitReason = gen.exitReason;
     printf(
-        "\n## Finished VPC generation (exit reason: %s) using partial tree with # disjunctive terms = %d, # cuts generated = %d. Now solving for new objective value. ##\n",
-        ExitReasonName[static_cast<int>(gen.exitReason)].c_str(),
+        "\n## Round %d/%d: Completed VPC generation (exit reason: %s) using partial tree with # disjunctive terms = %d, # cuts generated = %d.\n",
+        round_ind+1, params.get(ROUNDS),
+        ExitReasonName[static_cast<int>(exitReason)].c_str(),
         gen.disj->num_terms, vpcs[round_ind].sizeCuts());
-    solver->applyCuts(vpcs[round_ind]);
-    solver->resolve();
-    checkSolverOptimality(solver, false);
-    const double new_obj_value = solver->getObjValue();
+    fflush(stdout);
+
+    const double new_obj_value = applyCutsCustom(solver, vpcs[round_ind]);
 
     printf(
-        "\n## Initial obj value: %1.6f. New obj value: %1.6f. Disj lb: %s. ##\n",
+        "Initial obj value: %1.6f. New obj value: %1.6f. Disj lb: %s. ##\n",
         init_obj_value, new_obj_value,
         stringValue(gen.disj->best_obj, "%1.6f").c_str());
-  }
+
+//    printf("\n## Failures ##\n");
+//    gen.printFailures();
+  } // loop over rounds of cuts
+  timer.end_timer(OverallTimeStats::TOTAL_TIME);
   return wrapUp(0);
 } /* main */
+
+/**
+ * Call this early to print welcome message, etc.
+ */
+void startUp(int argc, char** argv) {
+  // Input handling
+  printf("## V-Polyhedral Disjunctive Cuts ##\n");
+  printf("Aleksandr M. Kazachkov\n");
+  printf("Based on joint work with Egon Balas\n");
+
+  std::time_t start_time_t;
+  time(&start_time_t);
+  struct tm* timeinfo = localtime(&start_time_t);
+  char start_time_string[25];
+  snprintf(start_time_string, sizeof(start_time_string) / sizeof(char), "%s",
+      asctime(timeinfo));
+  printf("Start time: %s\n", start_time_string);
+
+  processArgs(argc, argv);
+
+  printf("Instance file: %s.\n", params.get(stringParam::FILENAME).c_str());
+  for (int i = 0; i < argc; i++) {
+    std::cout << argv[i] << " ";
+  }
+  std::cout << std::endl;
+
+//#ifdef TRACE
+//  // Print parameters
+//  printf("\n## Parameter values ##\n");
+//  printParams(params, stdout);
+//#endif
+
+  // Prepare logfile
+  const std::string logname = params.get(stringParam::LOGFILE);
+  if (!logname.empty()) {
+    const bool logexists = fexists(logname.c_str());
+    params.logfile = fopen(logname.c_str(), "a");
+    if (!logexists) {
+      fprintf(params.logfile, "Instance,");
+      printParams(params, params.logfile, 1); // only names
+      fprintf(params.logfile, "\n");
+      fprintf(params.logfile, "%s,", instname.c_str());
+      printParams(params, params.logfile, 2); // only values
+      fflush(params.logfile);
+    }
+  }
+} /* startUp */
 
 /**
  * See params.hpp for descriptions of the parameters
@@ -514,20 +542,20 @@ void initializeSolver(OsiSolverInterface* &solver) {
  * Close the logfile and print to it
  */
 int wrapUp(int retCode /*= 0*/) {
+  std::time_t end_time_t;
+  time(&end_time_t);
+  struct tm* timeinfo = localtime(&end_time_t);
+  char end_time_string[25];
+  snprintf(end_time_string, sizeof(end_time_string) / sizeof(char), "%s",
+      asctime(timeinfo));
+  const int exitReasonInt = static_cast<int>(exitReason);
+  printf("\n## %s: Successfully exiting with reason %s. ##\n", end_time_string, ExitReasonName[exitReasonInt].c_str());
+
   FILE* logfile = params.logfile;
   if (logfile != NULL) {
-    printParams(params, logfile);
-//    const int exitReasonInt = static_cast<int>(exitReason);
-//    fprintf(logfile, "%s,", ExitReasonName[exitReasonInt].c_str());
-    std::time_t end_time_t;
-    time(&end_time_t);
-    struct tm* timeinfo = localtime(&end_time_t);
-    char end_time_string[25];
-    snprintf(end_time_string, sizeof(end_time_string) / sizeof(char), "%s",
-        asctime(timeinfo));
+    fprintf(logfile, "%s,", ExitReasonName[exitReasonInt].c_str());
     fprintf(logfile, "%s", end_time_string);
     fprintf(logfile, "\n");
-
     fclose(logfile); // closes params.logfile
   }
   if (solver) {

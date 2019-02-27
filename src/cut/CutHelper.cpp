@@ -2,99 +2,121 @@
 // Author:   A. M. Kazachkov
 // Date:     2019-Feb-20
 //-----------------------------------------------------------------------------
+#include "CutHelper.hpp"
 
 #include <numeric> // inner_product, sqrt
 
-#include "CutHelper.hpp"
 #include "CglVPC.hpp" // For FailureType
 #include "SolverHelper.hpp"
 #include "VPCParameters.hpp"
 
-/***********************************************************************/
 /**
- * @brief Set current cut by converting it from non-basic coeffs given in coeff
+ * Generic way to apply a set of cuts to a solver
+ * @return Solver value after adding the cuts, if they were added successfully
  */
-void setCutFromJSpaceCoefficients(OsiRowCut* const cut,
-    const std::vector<int>& nonZeroColIndex, const double* const coeff,
-    const double beta, const OsiSolverInterface* const solver,
-    const std::vector<int> &nonBasicVarIndex, const bool inCompSpace,
-    const double EPS) {
-  // Useful info
-  const int num_cols = solver->getNumCols();
-  const int num_sparse_cols =
-      (nonZeroColIndex.size() > 0) ? nonZeroColIndex.size() : num_cols;
-
-  // Allocate space
-  double StructCutRHS = beta;
-  const double* rowRHS = solver->getRightHandSide();
-  const char* rowSense = solver->getRowSense();
-  const CoinPackedMatrix* mat = solver->getMatrixByRow();
-
-  std::vector<double> struct_coeff(num_cols);
-  for (int tmp_ind = 0; tmp_ind < num_sparse_cols; tmp_ind++) {
-    const int curr_ind = (nonZeroColIndex.size() > 0) ? nonZeroColIndex[tmp_ind] : tmp_ind;
-    const int curr_var = nonBasicVarIndex[curr_ind];
-    const double curr_val = coeff[tmp_ind];
-
-    // If we are in the complemented space,
-    // at this point we need to do the complementing
-    // ub: y_j = u_j - x_j
-    // lb: y_j = x_j - l_j
-    if (curr_var < num_cols) {
-      struct_coeff[curr_var] = curr_val;
-      if (inCompSpace) {
-        if (isNonBasicUBCol(solver, curr_var)) {
-          StructCutRHS -= curr_val * solver->getColUpper()[curr_var];
-          struct_coeff[curr_var] *= -1;
-        } else if (isNonBasicLBCol(solver, curr_var)) {
-          StructCutRHS += curr_val * solver->getColLower()[curr_var];
-        }
-//        if (solver->getModelPtr()->getColumnStatus(curr_var)
-//            == ClpSimplex::atUpperBound) {
-//          StructCutRHS -= curr_val * solver->getColUpper()[curr_var];
-//          struct_coeff[curr_var] *= -1;
-//        } else if (solver->getModelPtr()->getColumnStatus(curr_var)
-//            == ClpSimplex::atLowerBound
-//            || solver->getModelPtr()->getColumnStatus(curr_var)
-//                == ClpSimplex::isFixed) {
-//          StructCutRHS += curr_val * solver->getColLower()[curr_var];
-//        }
-      }
-    } else {
-      const int curr_row = curr_var - num_cols;
-      const double mult =
-//          (inCompSpace && isNonBasicLBSlack(solver, curr_row)) ? 1.0 : -1.0;
-          (inCompSpace && rowSense[curr_row] == 'G') ? 1.0 : -1.0; // TODO check
-
-      const CoinShallowPackedVector slackRow = mat->getVector(curr_row);
-      int slackRowNumElements = slackRow.getNumElements();
-      const int* slackRowIndices = slackRow.getIndices();
-      const double* slackRowCoeffs = slackRow.getElements();
-
-      StructCutRHS += mult * rowRHS[curr_row] * curr_val;
-      for (int j = 0; j < slackRowNumElements; j++) {
-        struct_coeff[slackRowIndices[j]] += mult * slackRowCoeffs[j] * curr_val;
-      }
-    }
-  } /* iterate over columns */
-
-  // Normalize
-  /*
-  const double absRHS = std::abs(StructCutRHS);
-  if (!isZero(absRHS)) {
-    for (int i = 0; i < numcols; i++) {
-      struct_coeff[i] = struct_coeff[i] / absRHS;
-    }
-
-    if (greaterThanVal(StructCutRHS, 0.0)) {
-      StructCutRHS = 1.0;
-    } else if (lessThanVal(StructCutRHS, 0.0)) {
-      StructCutRHS = -1.0;
-    }
+double applyCutsCustom(OsiSolverInterface* solver, const OsiCuts& cs,
+    const int startCutIndex, const int numCutsOverload, double compare_obj) {
+  const int numCuts = (numCutsOverload >= 0) ? numCutsOverload : cs.sizeCuts();
+  if (solver && !solver->isProvenOptimal()) {
+    solver->resolve();
+    checkSolverOptimality(solver, false);
   }
-  */
-  setOsiRowCut(cut, std::vector<int>(), struct_coeff.size(), struct_coeff.data(), StructCutRHS, EPS);
-} /* setCutFromJspaceCoefficients */
+  if (solver == NULL || !solver->isProvenOptimal()) {
+    return solver->getInfinity();
+  }
+
+  const double initObjValue = solver->getObjValue();
+  if (isNegInfinity(compare_obj)) {
+    compare_obj = initObjValue;
+  }
+
+  // If the number of cuts is 0, we simply get the value without these cuts applied
+  if (numCuts > 0) {
+#ifdef TRACE
+    OsiSolverInterface::ApplyCutsReturnCode code;
+    int num_applied = 0;
+#endif
+    if ((startCutIndex == 0) && (numCuts == cs.sizeCuts())) {
+#ifdef TRACE
+      code = solver->applyCuts(cs);
+      num_applied = code.getNumApplied();
+#else
+      solver->applyCuts(cs);
+#endif
+    } else {
+#ifdef TRACE
+      const int old_num_rows = solver->getNumRows();
+#endif
+      OsiRowCut* cuts;
+      if (numCuts > 0) {
+        cuts = new OsiRowCut[numCuts];
+
+        for (int i = startCutIndex; i < startCutIndex + numCuts; i++) {
+          cuts[i - startCutIndex] = cs.rowCut(i);
+        }
+        solver->applyRowCuts(numCuts, cuts);
+        delete[] cuts;
+      }
+#ifdef TRACE
+      num_applied = (solver->getNumRows() - old_num_rows);
+#endif
+    }
+
+#ifdef TRACE
+    printf("Cuts applied: %d (of the %d possible).\n",
+        num_applied, numCuts);
+#endif
+  } /* check if num cuts > 0 */
+
+  const bool useResolve = solver->isProvenOptimal();
+  if (useResolve) {
+    solver->resolve();
+  } else {
+    solver->initialSolve();
+  }
+  checkSolverOptimality(solver, false);
+
+  // At this point it is useful to check for integer feasibility quickly
+  // NB: If we reintroduce the subspace notion, then this could actually happen
+  bool inSubspace = false;
+  if (!inSubspace && !solver->isProvenOptimal() && !hitTimeLimit(solver) && !solver->isIterationLimitReached()) {
+    try {
+      error_msg(errstr,
+          "Not in subspace and solver not optimal after adding cuts, so we may have an integer infeasible problem. Exit status: %d.\n",
+          dynamic_cast<OsiClpSolverInterface*>(solver)->getModelPtr()->status());
+    } catch (std::exception& e) {
+      error_msg(errstr,
+          "Not in subspace and solver not optimal after adding cuts, so we may have an integer infeasible problem.\n");
+    }
+#ifdef SAVE_INFEASIBLE_LP
+    std::string infeas_f_name = "infeasible_lp";
+    solver->writeMps(infeas_f_name.c_str(), "mps", 1);
+#endif
+    exit(1);
+  }
+
+  // Sometimes there are slight inaccuracies at the end that we can get rid of
+  if (solver->isProvenOptimal() && solver->getObjValue() < compare_obj) {
+    solver->resolve();
+    checkSolverOptimality(solver, false);
+  }
+
+  if (solver->isProvenOptimal()) {
+    return solver->getObjValue();
+  } else {
+    return solver->getInfinity();  // Minimization problem, so this means infeas
+  }
+} /* applyCutsCustom */
+
+/**
+ * Generic way to apply a set of cuts to a solver
+ * @return Solver value after adding the cuts, if they were added successfully
+ */
+double applyCutsCustom(OsiSolverInterface* solver, const OsiCuts& cs,
+    const int numCutsOverload, double compare_obj) {
+  const int numCuts = (numCutsOverload >= 0) ? numCutsOverload : cs.sizeCuts();
+  return applyCutsCustom(solver, cs, 0, numCuts, compare_obj);
+} /* applyCutsCustom */
 
 /**
  * The cut is stored as alpha x >= beta.
@@ -122,35 +144,35 @@ void setOsiRowCut(OsiRowCut* const cut, const std::vector<int>& nonZeroColIndex,
  * Set the cut solver objective coefficients based on a packed vector
  * We do not zero out the other coefficients unless requested
  */
-void addToObjectiveFromPackedVector(OsiSolverInterface* const cutSolver,
+void addToObjectiveFromPackedVector(OsiSolverInterface* const solver,
     const CoinPackedVectorBase* vec, const bool zeroOut, const double mult) {
   if (zeroOut) {
-    for (int i = 0; i < cutSolver->getNumCols(); i++) {
-      cutSolver->setObjCoeff(i, 0.);
+    for (int i = 0; i < solver->getNumCols(); i++) {
+      solver->setObjCoeff(i, 0.);
     }
   }
 
   if (vec) {
-    const double twoNorm = vec->twoNorm() / cutSolver->getNumCols();
+    const double twoNorm = vec->twoNorm() / solver->getNumCols();
     for (int i = 0; i < (*vec).getNumElements(); i++) {
       const int col = (*vec).getIndices()[i];
       const double elem = (*vec).getElements()[i];
-      const double coeff = cutSolver->getObjCoefficients()[col];
-      cutSolver->setObjCoeff(col, coeff + elem * mult / twoNorm);
+      const double coeff = solver->getObjCoefficients()[col];
+      solver->setObjCoeff(col, coeff + elem * mult / twoNorm);
     }
   }
 } /* addToObjectiveFromPackedVector */
 
 void setConstantObjectiveFromPackedVector(
-    OsiSolverInterface* const cutSolver, const double val,
+    OsiSolverInterface* const solver, const double val,
     const int numIndices, const int* indices) {
   if (numIndices > 0 && indices) {
     for (int i = 0; i < numIndices; i++) {
-      cutSolver->setObjCoeff(indices[i], val);
+      solver->setObjCoeff(indices[i], val);
     }
   } else {
-    for (int i = 0; i < cutSolver->getNumCols(); i++) {
-      cutSolver->setObjCoeff(i, val);
+    for (int i = 0; i < solver->getNumCols(); i++) {
+      solver->setObjCoeff(i, val);
     }
   }
 } /* setConstantObjectiveFromPackedVector */

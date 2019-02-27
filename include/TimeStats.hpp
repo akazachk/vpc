@@ -10,6 +10,7 @@
 #pragma once
 
 #include <assert.h>
+#include <cstdio>
 #include <cstdlib>
 #include <string>
 #include <ctime>
@@ -97,6 +98,9 @@ public:
 
   /** Return id of name */
   int get_id(const std::string &name) const;
+
+  /** Print times */
+  void print(FILE* logfile = stdout) const;
 
 private:
   std::map<std::string, data_t, ltstr> name_to_id; /** map from name to stat identifier */ // string key should probably be const
@@ -290,3 +294,15 @@ inline int TimeStats::get_id(const std::string &name) const {
     return -1;
   }
 } /* get_id */
+
+inline void TimeStats::print(FILE* logfile) const {
+  if (logfile == NULL)
+    return;
+  std::map<std::string, data_t, ltstr>::const_iterator it = name_to_id.begin();
+  while (it != name_to_id.end()) {
+    if (it->second.id != UNINITIALIZED_STAT) {
+      fprintf(logfile, "%s,%f\n", it->first.c_str(), this->get_time(it->second.id));
+    }
+  }
+  fflush(logfile);
+} /* print */

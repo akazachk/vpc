@@ -4,6 +4,12 @@
 //-----------------------------------------------------------------------------
 #pragma once
 
+/*********************************************************************
+ * Utility functions
+ * The header is going to be included in many places,
+ * so ideally it will not have too much included that is unnecessary
+ *********************************************************************/
+
 #include <cstdio>
 #include <iostream> // cerr
 #include <string>
@@ -11,8 +17,9 @@
 #include <cmath> // abs
 #include <limits> // numeric_limits
 
-// COIN-OR includes
-#include <OsiSolverInterface.hpp>
+class CoinPackedVectorBase;
+class CoinPackedVector;
+class CoinPackedMatrix;
 
 /**
  * NOTE: the below sorting functions will only work when the index list given is {0,...,size}
@@ -192,6 +199,11 @@ inline const std::string stringValue(const double value,
     }
   }
 } /* stringValue (double) */
+
+/** The below is mostly for ease of use with params; in the future we may way to format strings though */
+inline const std::string stringValue(const std::string value, const char* format = "%s") {
+  return value;
+} /* stringValue (string) */
 
 /**********************************************************
  * The following code is for dot product with compensation,

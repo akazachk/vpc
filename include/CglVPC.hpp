@@ -2,8 +2,12 @@
 // Author:   A. M. Kazachkov
 // Date:     2018-Dec-24
 //-----------------------------------------------------------------------------
-
 #pragma once
+
+/**********************************************************************************************************
+ * CglVPC Class, implemented as a CglCutGenerator
+ * Takes a Disjunction as an input and generates cuts from it based on the relaxed V-polyhedral strategy
+ **********************************************************************************************************/
 
 #include <vector>
 #include <string>
@@ -131,13 +135,13 @@ public:
   std::vector<CutHeuristics> cutHeurVec; // one entry per cut
 
   std::vector<int> numCutsOfType;
-  std::vector<int> numObjFromHeur, numCutsFromHeur;
+  std::vector<int> numObjFromHeur, numCutsFromHeur, numFailsFromHeur;
   std::vector<int> numFails;
 
   double ip_opt;
 //  int num_cgs, num_cgs_actually_used, num_cgs_leading_to_cuts;
   int num_cuts;
-  int num_obj_tried;
+  int num_obj_tried, num_failures;
 
   /** Default constructor */
   CglVPC();
@@ -164,6 +168,48 @@ public:
   virtual void generateCuts(const OsiSolverInterface&, OsiCuts&, const CglTreeInfo = CglTreeInfo());
 
   void addCut(const OsiRowCut& cut, const CutType& type, OsiCuts& cuts);
+
+  inline void printCutsOfType(FILE* logfile = stdout) const {
+    for (int i = 0; i < static_cast<int>(CutType::NUM_CUT_TYPES); i++) {
+      fprintf(logfile, "%s,", CutTypeName[i].c_str());
+      fprintf(logfile, "%d,", numCutsOfType[i]);
+      fprintf(logfile, "\n");
+    }
+    fflush(logfile);
+  } /* printCutsOfType */
+  inline void printObjFromHeur(FILE* logfile = stdout) const {
+      for (int i = 0; i < static_cast<int>(CutHeuristics::NUM_CUT_HEUR); i++) {
+        fprintf(logfile, "OBJ_%s,", CutHeuristicsName[i].c_str());
+        fprintf(logfile, "%d,", numObjFromHeur[i]);
+        fprintf(logfile, "\n");
+      }
+      fflush(logfile);
+    } /* printObjFromHeur */
+  inline void printCutsFromHeur(FILE* logfile = stdout) const {
+      for (int i = 0; i < static_cast<int>(CutHeuristics::NUM_CUT_HEUR); i++) {
+        fprintf(logfile, "CUTS_%s,", CutHeuristicsName[i].c_str());
+        fprintf(logfile, "%d,", numCutsFromHeur[i]);
+        fprintf(logfile, "\n");
+      }
+      fflush(logfile);
+    } /* printCutsFromHeur */
+  inline void printFailsFromHeur(FILE* logfile = stdout) const {
+    for (int i = 0; i < static_cast<int>(CutHeuristics::NUM_CUT_HEUR); i++) {
+      fprintf(logfile, "FAILS_%s,", CutHeuristicsName[i].c_str());
+      fprintf(logfile, "%d,", numFailsFromHeur[i]);
+      fprintf(logfile, "\n");
+    }
+    fflush(logfile);
+  } /* printFailsFromHeur */
+  inline void printFailures(FILE* logfile = stdout) const {
+    for (int i = 0; i < static_cast<int>(FailureType::NUM_FAILURES); i++) {
+      fprintf(logfile, "%s,", FailureTypeName[i].c_str());
+      fprintf(logfile, "%d,", numFails[i]);
+      fprintf(logfile, "\n");
+    }
+    fflush(logfile);
+  } /* printFailures */
+
 protected:
   struct ProblemData {
     int num_cols;

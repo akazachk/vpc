@@ -6,6 +6,10 @@
 #include <sstream>
 #include <sys/stat.h> // for fexists
 
+#include <CoinPackedVectorBase.hpp>
+#include <CoinPackedVector.hpp>
+#include <CoinPackedMatrix.hpp>
+
 /** We assume it is comma separated */
 double getObjValueFromFile(std::string opt_filename, std::string fullfilename, FILE* logfile) {
   // Take the full filename of the instance and remove any directory information

@@ -28,16 +28,32 @@ void setLPSolverParameters(OsiSolverInterface* const solver,
     }
 #endif
   }
+  setTimeLimit(solver, max_time);
+  // Try turning on scaling with enableFactorization
+//  solver->setSpecialOptions(solver->specialOptions() | 512);
+} /* setLPSolverParameters */
+
+void setTimeLimit(OsiSolverInterface* const solver, const double timeLimit) {
 #ifdef USE_CLP
   try {
-    dynamic_cast<OsiClpSolverInterface*>(solver)->getModelPtr()->setMaximumSeconds(max_time);
+    dynamic_cast<OsiClpSolverInterface*>(solver)->getModelPtr()->setMaximumSeconds(timeLimit);
   } catch (std::exception& e) {
 
   }
 #endif
-  // Try turning on scaling with enableFactorization
-//  solver->setSpecialOptions(solver->specialOptions() | 512);
-} /* setLPSolverParameters */
+} /* setTimeLimit */
+
+bool hitTimeLimit(const OsiSolverInterface* const solver) {
+#ifdef USE_CLP
+  try {
+    if (dynamic_cast<const OsiClpSolverInterface* const>(solver)->getModelPtr()->hitMaximumIterations())
+      return true;
+  } catch (std::exception& e) {
+
+  }
+#endif
+  return false;
+} /* hitTimeLimit */
 
 #ifdef USE_CLP
 /**
