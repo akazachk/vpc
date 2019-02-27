@@ -809,6 +809,7 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
       "\nFinished generating cgs from partial BB. Min obj val: Structural: %1.3f, NB: %1.3f.\n",
       this->disjunction->best_obj, this->disjunction->best_obj - this->probData.lp_opt);
 #endif
+  if (vpcsolver) { delete vpcsolver; }
   return ExitReason::SUCCESS_EXIT;
 } /* setupConstraints */
 

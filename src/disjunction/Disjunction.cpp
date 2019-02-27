@@ -21,6 +21,12 @@ Disjunction::Disjunction(const Disjunction& source) {
 
 /** Destructor */
 Disjunction::~Disjunction() {
+  for (DisjunctiveTerm term : terms) {
+    if (term.basis) {
+      delete term.basis;
+      term.basis = NULL;
+    }
+  }
 } /* destructor */
 
 /** Assignment operator */

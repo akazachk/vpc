@@ -1081,6 +1081,8 @@ void VPCEventHandler::saveInformation() {
 
     if (tmpSolverBase)
       delete tmpSolverBase;
+    if (parent_basis)
+      delete parent_basis;
   } // loop over num nodes on tree // DONE
 
   if (original_basis) {
