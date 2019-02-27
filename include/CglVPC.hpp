@@ -137,7 +137,7 @@ public:
   std::vector<int> numObjFromHeur, numCutsFromHeur, numFailsFromHeur;
   std::vector<int> numFails;
 
-  double ip_opt;
+  double ip_obj;
 //  int num_cgs, num_cgs_actually_used, num_cgs_leading_to_cuts;
   int num_cuts;
   int num_obj_tried, num_failures;

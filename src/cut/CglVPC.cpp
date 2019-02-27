@@ -99,7 +99,7 @@ int CglVPC::getCutLimit(const int CUTLIMIT, const int numDisj) {
   } else if (CUTLIMIT > 0) {
     return CUTLIMIT;
   } else {
-    return (numDisj <= 0) ? 0 : (-1. * CUTLIMIT / numDisj);
+    return (numDisj <= 0) ? 0 : std::ceil((-1. * CUTLIMIT / numDisj));
   }
 } /* getCutLimit */
 
@@ -171,6 +171,14 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     finish(status);
     return;
   }
+
+  // Set cut limit if needed
+  if (params.get(CUTLIMIT) < 0) {
+    params.set(CUTLIMIT,
+        -1 * params.get(CUTLIMIT) * si.getFractionalIndices().size());
+  } else if (params.get(CUTLIMIT) == 0) {
+    params.set(CUTLIMIT, std::numeric_limits<int>::max());
+  }
   if (reachedCutLimit()) {
     status = ExitReason::CUT_LIMIT_EXIT;
     finish(status);
@@ -227,25 +235,17 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     exit(1);
   }
 
-  // Set cut limit if needed
-  if (params.get(CUTLIMIT) < 0) {
-    params.set(CUTLIMIT,
-        -1 * params.get(CUTLIMIT) * si.getFractionalIndices().size());
-  } else if (params.get(CUTLIMIT) == 0) {
-    params.set(CUTLIMIT, std::numeric_limits<int>::max());
-  }
-
   // Read opt value (if not yet inputted)
-  if (isInfinity(ip_opt)) {
+  if (isInfinity(ip_obj)) {
     if (!params.get(stringParam::OPTFILE).empty()) {
   #ifdef TRACE
       std::cout << "Reading objective information from \"" + params.get(stringParam::OPTFILE) + "\"" << std::endl;
   #endif
-      ip_opt = getObjValueFromFile(params.get(stringParam::OPTFILE), params.get(stringParam::FILENAME), params.logfile);
+      ip_obj = getObjValueFromFile(params.get(stringParam::OPTFILE), params.get(stringParam::FILENAME), params.logfile);
   #ifdef TRACE
-      std::cout << "Best known objective value is " << ip_opt << std::endl;
+      std::cout << "Best known objective value is " << ip_obj << std::endl;
   #endif
-      if (isInfinity(ip_opt)) {
+      if (isInfinity(ip_obj)) {
         warning_msg(warnstring, "Did not find objective value.\n");
       }
     }
@@ -327,7 +327,7 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     this->numCutsFromHeur = source->numCutsFromHeur;
     this->numFailsFromHeur = source->numFailsFromHeur;
     this->numFails = source->numFails;
-    this->ip_opt = source->ip_opt;
+    this->ip_obj = source->ip_obj;
     this->num_cuts = source->num_cuts;
     this->num_obj_tried = source->num_obj_tried;
     this->num_failures = source->num_failures;
@@ -352,7 +352,7 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     this->numCutsFromHeur.resize(static_cast<int>(CutHeuristics::NUM_CUT_HEUR), 0);
     this->numFailsFromHeur.resize(static_cast<int>(CutHeuristics::NUM_CUT_HEUR), 0);
     this->numFails.resize(static_cast<int>(FailureType::NUM_FAILURES), 0);
-    this->ip_opt = std::numeric_limits<double>::max();
+    this->ip_obj = std::numeric_limits<double>::max();
     this->num_cuts = 0;
     this->num_obj_tried = 0;
     this->num_failures = 0;
@@ -1006,9 +1006,6 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
       prlp->targetStrongAndDifferentCuts(beta, cuts,
           origSolver, structSICs, timeName);
     }
-    this->num_obj_tried += prlp->num_obj_tried;
-    this->num_failures += prlp->num_failures;
-    this->num_cuts += prlp->num_cuts;
 
     if (prlp)
       delete prlp;

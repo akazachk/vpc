@@ -116,6 +116,7 @@ enum class intConst {
   MODE_OBJ_PER_POINT,
   NUM_OBJ_PER_POINT, // # cuts to try to generate for the strong branching lb point (and others)
   NB_SPACE, // whether to generate cuts in the nonbasic space (currently must be set to true)
+  PRLP_PRESOLVE, // 0: no presolve, 1: only initial solve, 2: both initial solve and resolve
   NUM_INT_CONST
 }; /* intConst */
 const std::vector<std::string> intConstName {
@@ -137,8 +138,8 @@ const std::vector<std::string> intConstName {
   // 3xx: large to small slack (descending)
   "MODE_OBJ_PER_POINT",
   "NUM_OBJ_PER_POINT",
-  // Currently not changed
   "NB_SPACE",
+  "PRLP_PRESOLVE"
 }; /* intConstName */
 enum class doubleConst {
   AWAY,
@@ -218,7 +219,8 @@ struct VPCParameters {
     {intConst::MAX_SUPPORT_ABS, std::numeric_limits<int>::max()},
     {intConst::MODE_OBJ_PER_POINT, 121}, // one ray at a time, points+rays+variables, large to small angle (descending)
     {intConst::NUM_OBJ_PER_POINT, -2}, // sqrt(n)
-    {intConst::NB_SPACE, 1} // currently only works with true
+    {intConst::NB_SPACE, 1}, // currently only works with true
+    {intConst::PRLP_PRESOLVE, 2}, // use presolve when solving PRLP (either initial or resolve)
   }; /* intConstValues */
   std::map<doubleConst, double> doubleConstValues {
     {doubleConst::AWAY, 1e-3},
@@ -248,12 +250,12 @@ struct VPCParameters {
   int         get(intConst param) const { return intConstValues.find(param)->second; }
   double      get(doubleConst param) const { return doubleConstValues.find(param)->second; }
 
-  void set(intParam param, int value) { intParamValues[param] = value; }
-  void set(doubleParam param, double value) { doubleParamValues[param] = value; }
-  void set(stringParam param, std::string value) { stringParamValues[param] = value; }
+  void        set(intParam param, int value) { intParamValues[param] = value; }
+  void        set(doubleParam param, double value) { doubleParamValues[param] = value; }
+  void        set(stringParam param, std::string value) { stringParamValues[param] = value; }
 
   /** Set parameters by name */
-  bool set(std::string tmpname, const std::string tmp) {
+  bool        set(std::string tmpname, const std::string tmp) {
     std::string name = upperCaseStringNoUnderscore(tmpname);
     for (unsigned i = 0; i < intParamName.size(); i++) {
       std::string str1 = upperCaseStringNoUnderscore(intParamName[i]);

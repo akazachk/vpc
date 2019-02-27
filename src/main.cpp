@@ -54,6 +54,10 @@ const std::vector<std::string> OverallTimeStatsName {
   "BB_VPC_TIME"
 };
 TimeStats timer;
+std::time_t start_time_t, end_time_t;
+
+int num_vpc_total, num_gmic_total;
+double init_obj, gmic_obj, vpc_obj, best_disj_obj, ip_obj;
 
 // Catch abort signal if it ever gets sent
 /**
@@ -95,11 +99,14 @@ int main(int argc, char** argv) {
   checkSolverOptimality(solver, false);
   timer.end_timer(OverallTimeStats::INIT_SOLVE_TIME);
 
-  const double init_obj_value = solver->getObjValue();
+  init_obj = solver->getObjValue();
+  gmic_obj = std::numeric_limits<double>::lowest();
+  vpc_obj = std::numeric_limits<double>::lowest();
+  best_disj_obj = std::numeric_limits<double>::lowest();
+  ip_obj = std::numeric_limits<double>::lowest(); // will be set in CglVPC
 
+  num_vpc_total = 0, num_gmic_total = 0;
   std::vector<OsiCuts> vpcs(params.get(ROUNDS));
-  int num_cuts_total = 0;
-  double disj_lb = std::numeric_limits<double>::lowest();
   for (int round_ind = 0; round_ind < params.get(ROUNDS); ++round_ind) {
     if (params.get(ROUNDS) > 1) {
       printf("\n## Starting round %d/%d. ##\n", round_ind+1, params.get(ROUNDS));
@@ -156,9 +163,10 @@ int main(int argc, char** argv) {
           gen.setDisjunction(disj, false);
           gen.generateCuts(*solver, vpcs[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
           exitReason = gen.exitReason;
-          num_cuts_total += gen.num_cuts;
-          if (disj_lb < gen.disj()->best_obj)
-            disj_lb = gen.disj()->best_obj;
+          num_vpc_total += gen.num_cuts;
+          if (best_disj_obj < gen.disj()->best_obj)
+            best_disj_obj = gen.disj()->best_obj;
+          ip_obj = gen.ip_obj;
           if (exitReason != ExitReason::SUCCESS_EXIT) {
             break;
           }
@@ -181,9 +189,10 @@ int main(int argc, char** argv) {
     else {
       gen.generateCuts(*solver, vpcs[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
       exitReason = gen.exitReason;
-      num_cuts_total += gen.num_cuts;
-      if (disj_lb < gen.disj()->best_obj)
-        disj_lb = gen.disj()->best_obj;
+      num_vpc_total += gen.num_cuts;
+      if (best_disj_obj < gen.disj()->best_obj)
+        best_disj_obj = gen.disj()->best_obj;
+      ip_obj = gen.ip_obj;
     }
     timer.end_timer(OverallTimeStats::GEN_VPC_TIME);
 
@@ -196,17 +205,19 @@ int main(int argc, char** argv) {
         vpcs[round_ind].sizeCuts());
     fflush(stdout);
     printf("Initial obj value: %1.6f. New obj value: %s. Disj lb: %s. ##\n",
-        init_obj_value, stringValue(solver->getObjValue(), "%1.6f").c_str(),
-        stringValue(disj_lb, "%1.6f").c_str());
+        init_obj, stringValue(solver->getObjValue(), "%1.6f").c_str(),
+        stringValue(best_disj_obj, "%1.6f").c_str());
 
 //    printf("\n## Failures ##\n");
 //    gen.printFailures();
   } // loop over rounds of cuts
+  vpc_obj = solver->getObjValue();
   printf(
-      "\n## Finished VPC generation with %d cuts. Initial obj value: %1.6f. Final obj value: %s. Disj lb: %s. ##\n",
-      num_cuts_total, init_obj_value,
-      stringValue(solver->getObjValue(), "%1.6f").c_str(),
-      stringValue(disj_lb, "%1.6f").c_str());
+      "\n## Finished VPC generation with %d cuts. Initial obj value: %s. Final obj value: %s. Disj lb: %s. ##\n",
+      num_vpc_total,
+      stringValue(init_obj, "%1.6f").c_str(),
+      stringValue(vpc_obj, "%1.6f").c_str(),
+      stringValue(best_disj_obj, "%1.6f").c_str());
   timer.end_timer(OverallTimeStats::TOTAL_TIME);
   return wrapUp(0);
 } /* main */
@@ -220,13 +231,11 @@ void startUp(int argc, char** argv) {
   printf("Aleksandr M. Kazachkov\n");
   printf("Based on joint work with Egon Balas\n");
 
-  std::time_t start_time_t;
   time(&start_time_t);
   struct tm* timeinfo = localtime(&start_time_t);
-  char start_time_string[25];
-  snprintf(start_time_string, sizeof(start_time_string) / sizeof(char), "%s",
-      asctime(timeinfo));
-  printf("Start time: %s\n", start_time_string);
+  char time_string[25];
+  snprintf(time_string, sizeof(time_string) / sizeof(char), "%s", asctime(timeinfo));
+  printf("Start time: %s\n", time_string);
 
   processArgs(argc, argv);
 
@@ -257,6 +266,75 @@ void startUp(int argc, char** argv) {
     }
   }
 } /* startUp */
+
+/**
+ * Close the logfile and print to it
+ */
+int wrapUp(int retCode /*= 0*/) {
+  const int exitReasonInt = static_cast<int>(exitReason);
+
+  time(&end_time_t);
+  struct tm* start_timeinfo = localtime(&start_time_t);
+  struct tm* end_timeinfo = localtime(&end_time_t);
+  char start_time_string[25], end_time_string[25];
+  snprintf(start_time_string, sizeof(start_time_string) / sizeof(char), "%s", asctime(start_timeinfo));
+  snprintf(end_time_string, sizeof(end_time_string) / sizeof(char), "%s", asctime(end_timeinfo));
+
+  FILE* logfile = params.logfile;
+  if (logfile != NULL) {
+    fprintf(logfile, "%s,", ExitReasonName[exitReasonInt].c_str());
+    fprintf(logfile, "%s,", end_time_string);
+    fprintf(logfile, "%s,", instname.c_str());
+    fprintf(logfile, "\n");
+    fclose(logfile); // closes params.logfile
+  }
+
+  // Print results from adding cuts
+  const int NAME_WIDTH = 25;
+  const int NUM_DIGITS_BEFORE_DEC = 7;
+  const int NUM_DIGITS_AFTER_DEC = 7;
+  char tmpstring[300];
+  std::string output = "";
+  sprintf(tmpstring, "\n## Results from adding cuts ##\n");
+  output += tmpstring;
+  sprintf(tmpstring, "%-*.*s%s\n", NAME_WIDTH, NAME_WIDTH, "LP: ",
+      stringValue(init_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+  output += tmpstring;
+  if (!isInfinity(std::abs(best_disj_obj))) {
+    sprintf(tmpstring, "%-*.*s%s\n", NAME_WIDTH, NAME_WIDTH, "Disjunctive lb: ",
+        stringValue(best_disj_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    output += tmpstring;
+  }
+  if (!isInfinity(std::abs(gmic_obj))) {
+    sprintf(tmpstring, "%-*.*s%s (%d cuts)\n", NAME_WIDTH, NAME_WIDTH, "GMICs: ",
+        stringValue(best_disj_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str(),
+        num_gmic_total);
+    output += tmpstring;
+  }
+  if (!isInfinity(std::abs(vpc_obj))) {
+    sprintf(tmpstring, "%-*.*s%s (%d cuts)\n", NAME_WIDTH, NAME_WIDTH, "VPCs: ",
+        stringValue(best_disj_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str(),
+        num_vpc_total);
+    output += tmpstring;
+  }
+  if (!isInfinity(std::abs(ip_obj))) {
+    sprintf(tmpstring, "%-*.*s%s\n", NAME_WIDTH, NAME_WIDTH, "IP: ",
+        stringValue(ip_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    output += tmpstring;
+  }
+  printf("%s", output.c_str());
+
+  printf("\n## Successfully exiting VPC generation with reason %s. ##\n", ExitReasonName[exitReasonInt].c_str());
+  printf("Instance: %s\n", instname.c_str());
+  printf("Start time: %s\n", start_time_string);
+  printf("End time: %s\n", end_time_string);
+  printf("Elapsed time: %.f seconds\n", difftime(end_time_t, start_time_t));
+
+  if (solver) {
+    delete solver;
+  }
+  return retCode;
+} /* wrapUp */
 
 void initializeSolver(OsiSolverInterface* &solver) {
   std::string fullfilename = params.get(stringParam::FILENAME);
@@ -317,32 +395,6 @@ void initializeSolver(OsiSolverInterface* &solver) {
     }
   } // read file
 } /* initializeSolver */
-
-/**
- * Close the logfile and print to it
- */
-int wrapUp(int retCode /*= 0*/) {
-  std::time_t end_time_t;
-  time(&end_time_t);
-  struct tm* timeinfo = localtime(&end_time_t);
-  char end_time_string[25];
-  snprintf(end_time_string, sizeof(end_time_string) / sizeof(char), "%s",
-      asctime(timeinfo));
-  const int exitReasonInt = static_cast<int>(exitReason);
-  printf("\n## %s: Successfully exiting with reason %s. ##\n", end_time_string, ExitReasonName[exitReasonInt].c_str());
-
-  FILE* logfile = params.logfile;
-  if (logfile != NULL) {
-    fprintf(logfile, "%s,", ExitReasonName[exitReasonInt].c_str());
-    fprintf(logfile, "%s", end_time_string);
-    fprintf(logfile, "\n");
-    fclose(logfile); // closes params.logfile
-  }
-  if (solver) {
-    delete solver;
-  }
-  return retCode;
-} /* wrapUp */
 
 /**
  * See params.hpp for descriptions of the parameters

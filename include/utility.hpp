@@ -182,11 +182,19 @@ inline const std::string stringValue(const long value,
   }
 } /* stringValue (long) */
 
-inline const std::string stringValue(const double value,
-    const char* format = "%f") {
+inline const std::string stringValue(const double value, const char* format = "%f",
+    const int NUM_DIGITS_BEFORE_DEC = -1, const int NUM_DIGITS_AFTER_DEC = -1) {
   if (!isInfinity(std::abs(value))) {
     char temp[500];
-    snprintf(temp, sizeof(temp) / sizeof(char), format, value);
+    if (NUM_DIGITS_BEFORE_DEC == -1 && NUM_DIGITS_AFTER_DEC == -1) {
+      snprintf(temp, sizeof(temp) / sizeof(char), format, value);
+    } else if (NUM_DIGITS_BEFORE_DEC >= 0 && NUM_DIGITS_AFTER_DEC >= 0) {
+      snprintf(temp, sizeof(temp) / sizeof(char), format, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC, value);
+    } else if (NUM_DIGITS_BEFORE_DEC >= 0) {
+      snprintf(temp, sizeof(temp) / sizeof(char), format, NUM_DIGITS_BEFORE_DEC, value);
+    } else {
+      snprintf(temp, sizeof(temp) / sizeof(char), format, NUM_DIGITS_AFTER_DEC, value);
+    }
     std::string tmp(temp);
     return tmp;
   } else {

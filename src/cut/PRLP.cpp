@@ -353,8 +353,8 @@ bool PRLP::setup(const double scale) {
   this->getModelPtr()->setMaximumIterations(static_cast<int>(std::numeric_limits<int>::max()));
   this->getModelPtr()->setNumberIterations(0);
 #endif
-  this->setHintParam(OsiDoPresolveInInitial, true);
-  this->setHintParam(OsiDoPresolveInResolve, true);
+  this->setHintParam(OsiDoPresolveInInitial, owner->params.get(intConst::PRLP_PRESOLVE) >= 1);
+  this->setHintParam(OsiDoPresolveInResolve, owner->params.get(intConst::PRLP_PRESOLVE) >= 2);
 
   // Check that the prlp is feasible for the zero objective function
   owner->timer.start_timer(CglVPC::CutHeuristicsName[static_cast<int>(CglVPC::CutHeuristics::DUMMY_OBJ)] + "_TIME");
@@ -537,6 +537,7 @@ int PRLP::genCut(OsiCuts& cuts, const OsiSolverInterface* const origSolver,
     const CglVPC::CutHeuristics cutHeur, const bool tryExtraHard) {
   owner->timer.start_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::PRLP_SOLVE_TIME)]);
   this->num_obj_tried++;
+  owner->num_obj_tried++;
   owner->numObjFromHeur[static_cast<int>(cutHeur)]++;
   if (owner->reachedCutLimit()) {
     return exitGenCut(-1 * (static_cast<int>(CglVPC::FailureType::CUT_LIMIT) + 1), cutHeur);
@@ -676,6 +677,7 @@ int PRLP::genCutHelper(OsiCuts& cuts,
     owner->numCutsFromHeur[static_cast<int>(cutHeur)]++;
     cuts.insert(currCut);
     this->num_cuts++;
+    owner->num_cuts++;
     num_cuts_generated++;
     owner->numFails[static_cast<int>(CglVPC::FailureType::DUPLICATE_SIC)] += duplicateSICFlag;
     owner->numFails[static_cast<int>(CglVPC::FailureType::ORTHOGONALITY_SIC)] += orthogonalitySICFailFlag;
@@ -749,6 +751,7 @@ int PRLP::exitGenCut(const int num_cuts_generated, const CglVPC::CutHeuristics c
 
   if (return_status <= 0){
     this->num_failures++;
+    owner->num_failures++;
     owner->numFailsFromHeur[static_cast<int>(cutHeur)]++;
   }
 
@@ -928,6 +931,18 @@ int PRLP::findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
   }
   setConstantObjectiveFromPackedVector(this, 0., orig_point.getNumElements(), orig_point.getIndices());
 
+  if (tmp_return_code == BAD_RETURN_CODE
+      || owner->reachedCutLimit()
+      || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
+      || owner->reachedFailureLimit(num_cuts, num_failures)) {
+#ifdef TRACE_CUT_BOUND
+    if (tmpSolver) {
+      delete tmpSolver;
+    }
+#endif
+    return tmp_return_code != BAD_RETURN_CODE;
+  }
+
   // There better exist a cut that is tight on the point, or we give up
   if (!this->isProvenOptimal()
       || !isVal(this->getRowActivity()[point_row_ind], this->getRightHandSide()[point_row_ind])
@@ -975,6 +990,8 @@ int PRLP::findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
   this->enableFactorization(); // note that this changes things slightly sometimes
   std::vector<int> varBasicInRow(num_rows);
   this->getBasics(varBasicInRow.data());
+
+  // Set up slack and rhs vectors (how to sort which points/rays to try)
   for (int row_ind = 0; row_ind < num_rows; row_ind++) {
     const int var = varBasicInRow[row_ind];
     double curr_activity = 0., curr_rhs = 0.;
@@ -1115,7 +1132,7 @@ int PRLP::findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
         || owner->reachedCutLimit()
         || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
         || owner->reachedFailureLimit(num_cuts, num_failures)) {
-      ret_val = 0;
+      ret_val = tmp_return_code != BAD_RETURN_CODE;
       break;
     }
     if (mode_ones > 0 && check_ind >= numToCheck - 1) {
@@ -1231,9 +1248,7 @@ int PRLP::findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
       } // mode = 1
     } // try_ind = 1 ... MAX_NUM_TRIES
   } // try max_depth times
-  if (ret_val) {
-    setConstantObjectiveFromPackedVector(this, 0.);
-  }
+  setConstantObjectiveFromPackedVector(this, 0.);
   this->setRowUpper(point_row_ind, orig_ub);
   if (vec) {
     delete vec;
@@ -1908,8 +1923,8 @@ int PRLP::exitFromIterateDeepestCutPostGomory(const int num_cuts_gen,
   this->getModelPtr()->setNumberIterations(0);
   this->getModelPtr()->setMaximumSeconds(owner->params.get(PRLP_TIMELIMIT));
 
-  this->setHintParam(OsiDoPresolveInInitial, true);
-  this->setHintParam(OsiDoPresolveInResolve, true);
+  this->setHintParam(OsiDoPresolveInInitial, owner->params.get(intConst::PRLP_PRESOLVE) >= 1);
+  this->setHintParam(OsiDoPresolveInResolve, owner->params.get(intConst::PRLP_PRESOLVE) >= 2);
 
   return num_cuts_gen;
 } /* exitFromIterateDeepestCutPostGomory */
