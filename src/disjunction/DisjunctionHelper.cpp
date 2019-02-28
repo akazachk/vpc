@@ -54,6 +54,8 @@ ExitReason setDisjunctions(std::vector<Disjunction*>& disjVec,
   else if (mode == CglVPC::VPCMode::SPLITS) {
     if (generateSplitDisjunctions(disjVec, si, params)) {
       return ExitReason::SUCCESS_EXIT;
+    } else {
+      return ExitReason::NO_DISJUNCTION_EXIT;
     }
   } else {
     error_msg(errorstring,
@@ -65,6 +67,9 @@ ExitReason setDisjunctions(std::vector<Disjunction*>& disjVec,
   return ExitReason::UNKNOWN;
 } /* setDisjunctions */
 
+/**
+ * Return number of split disjunctions generated
+ */
 int generateSplitDisjunctions(std::vector<Disjunction*>& disjVec, const OsiSolverInterface* const si, const VPCParameters& params) {
   std::vector<int> fracCore = si->getFractionalIndices(params.get(doubleConst::AWAY));
   if (fracCore.size() == 0)

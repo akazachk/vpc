@@ -114,7 +114,7 @@ public:
     NUM_FAILURES
   }; /* FailureType */
 
-  // Static variables
+  // Static variables/functions
   static const std::vector<std::string> VPCModeName;
   static const std::vector<std::string> VPCTimeStatsName;
   static const std::vector<std::string> CutTypeName;
@@ -122,7 +122,7 @@ public:
   static const std::vector<std::string> FailureTypeName;
   static const std::string time_T1; // = "TIME_TYPE1_";
   static const std::string time_T2; // = "TIME_TYPE2_";
-  static int getCutLimit(const int CUTLIMIT, const int numDisj);
+  static int getCutLimit(const int CUTLIMIT, const int numFracVar);
 
   // Class variables
   VPCParameters params;
@@ -138,11 +138,15 @@ public:
   std::vector<int> numFails;
 
   double ip_obj;
-//  int num_cgs, num_cgs_actually_used, num_cgs_leading_to_cuts;
   int init_num_cuts, num_cuts;
   int num_obj_tried, num_failures;
 
-  bool ownsDisjunction, canReplaceGivenCuts;
+  bool ownsDisjunction; // default is false
+  bool isSetupForRepeatedUse; // default is false
+  // It can be the case that the instance is setup for repeated use, but we do not wish to replace any given cuts (merely prevent duplicating them)
+  // On the other hand, if the instance is not setup for repeated use, we require that canReplaceGivenCuts is false
+  // (Though the user can still give a set of old cuts to prevent duplicating them)
+  bool canReplaceGivenCuts; // default is false
 
   /** Default constructor */
   CglVPC();
@@ -162,8 +166,16 @@ public:
   /** Clone */
   virtual CglCutGenerator* clone() const;
 
-  /** setParams based on VPCParameters */
+  /** Set params based on VPCParameters */
   void setParams(const VPCParameters& param);
+
+  /** Prepare for repeated use (i.e., multiple disjunctions in one round) */
+  inline void setupRepeatedUse(bool useRepeatedly = true) {
+    isSetupForRepeatedUse = useRepeatedly;
+  }
+
+  /** Get the cut limit for this generator */
+  int getCutLimit() const;
 
   /** get/set disjunction */
   inline Disjunction* const disj() { return this->disjunction; }
@@ -173,8 +185,10 @@ public:
   /** generateCuts */
   virtual void generateCuts(const OsiSolverInterface&, OsiCuts&, const CglTreeInfo = CglTreeInfo());
 
+  /** Any time a cut is added, it should go through this method */
   void addCut(const OsiRowCut& cut, OsiCuts& cuts, const CutType& type, const CutHeuristic& cutHeur);
 
+  /** Print methods */
   inline void printCutsOfType(FILE* logfile = stdout) const {
     for (int i = 0; i < static_cast<int>(CutType::NUM_CUT_TYPES); i++) {
       fprintf(logfile, "%s,", CutTypeName[i].c_str());
@@ -251,8 +265,12 @@ protected:
     }
   } prlpData;
 
+  /** Clear old information before another round of cuts */
   void setupAsNew();
+
+  /** Initialize everything */
   void initialize(const CglVPC* const source = NULL, const VPCParameters* const param = NULL);
+
   void getProblemData(OsiSolverInterface* const solver, ProblemData& probData,
       const ProblemData* const origProbData = NULL,
       const bool enable_factorization = true);
@@ -266,7 +284,6 @@ protected:
       const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs,
       const std::string& timeName);
 
-  int getCutLimit(const int numDisj = 1) const;
   inline bool reachedCutLimit() const {
     const bool reached_limit = (num_cuts >= getCutLimit());
     return reached_limit;

@@ -30,12 +30,6 @@
 
 #include "DisjunctionHelper.hpp"
 
-// Main file variables
-VPCParameters params;
-OsiSolverInterface* solver;
-std::string instname;
-ExitReason exitReason;
-
 enum OverallTimeStats {
   TOTAL_TIME,
   INIT_SOLVE_TIME,
@@ -53,8 +47,6 @@ const std::vector<std::string> OverallTimeStatsName {
   "BB_NOVPC_TIME",
   "BB_VPC_TIME"
 };
-TimeStats timer;
-std::time_t start_time_t, end_time_t;
 
 struct RoundInfo {
   double old_obj, new_obj;
@@ -65,8 +57,20 @@ struct RoundInfo {
   std::vector<int> numFails;
 };
 
-int num_vpc_total, num_gmic_total;
-double init_obj, gmic_obj, vpc_obj, best_disj_obj, ip_obj;
+// Main file variables
+VPCParameters params;
+OsiSolverInterface* solver;
+std::string instname;
+ExitReason exitReason;
+TimeStats timer;
+std::time_t start_time_t, end_time_t;
+
+int num_vpc_total = 0, num_gmic_total = 0;
+double init_obj;
+double gmic_obj = std::numeric_limits<double>::lowest();
+double vpc_obj = std::numeric_limits<double>::lowest();
+double best_disj_obj = std::numeric_limits<double>::lowest();
+double ip_obj = std::numeric_limits<double>::lowest(); // will be set in CglVPC
 
 // Catch abort signal if it ever gets sent
 /**
@@ -87,6 +91,7 @@ void processArgs(int argc, char** argv);
 void initializeSolver(OsiSolverInterface* &solver);
 int wrapUp(int retCode);
 
+/****************** MAIN FUNCTION **********************/
 int main(int argc, char** argv) {
   // Do this early in your program's initialization
   std::signal(SIGABRT, signal_handler_with_error_msg);
@@ -101,7 +106,7 @@ int main(int argc, char** argv) {
   timer.start_timer(OverallTimeStats::TOTAL_TIME);
   startUp(argc, argv);
 
-  // Do a few checks (eventually incorporated into Parameter class
+  // Do a few checks (TODO eventually incorporate into Parameter class)
   if (params.get(MODE) == static_cast<int>(CglVPC::VPCMode::CROSSES)) {
     error_msg(errorstring, "Generating cuts from crosses is not currently implemented.\n");
     writeErrorToLog(errorstring, params.logfile);
@@ -114,13 +119,9 @@ int main(int argc, char** argv) {
   solver->initialSolve();
   checkSolverOptimality(solver, false);
   timer.end_timer(OverallTimeStats::INIT_SOLVE_TIME);
-
   init_obj = solver->getObjValue();
-  gmic_obj = std::numeric_limits<double>::lowest();
-  vpc_obj = std::numeric_limits<double>::lowest();
-  best_disj_obj = std::numeric_limits<double>::lowest();
-  ip_obj = std::numeric_limits<double>::lowest(); // will be set in CglVPC
 
+  // Now do rounds of cuts, until a limit is reached (e.g., time, number failures, number cuts, or all rounds are exhausted)
   num_vpc_total = 0, num_gmic_total = 0;
   std::vector<OsiCuts> vpcs(params.get(ROUNDS));
   for (int round_ind = 0; round_ind < params.get(ROUNDS); ++round_ind) {
@@ -132,11 +133,15 @@ int main(int argc, char** argv) {
     gen.timer.add_value(
         CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::INIT_SOLVE_TIME)],
         timer.get_value(OverallTimeStats::INIT_SOLVE_TIME));
+
+    // Proceed with custom disjunctions if specified; otherwise, the disjunction will be set up in the CglVPC class
     if (params.get(MODE) == static_cast<int>(CglVPC::VPCMode::CUSTOM)) {
       std::vector<Disjunction*> disjVec;
+      printf("\n## Setting up disjunction(s) ##\n");
       gen.timer.start_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
       ExitReason setDisjExitReason = setDisjunctions(disjVec, solver, params, CglVPC::VPCMode::SPLITS);
       gen.timer.end_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
+      const int numDisj = disjVec.size();
 
       // If integer-optimal solution was found, all disjunctions but one will have been deleted
       if (setDisjExitReason == ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT) {
@@ -170,9 +175,11 @@ int main(int argc, char** argv) {
           }
         } // iterate over columns and add optimality cut if needed
       } // check if integer-optimal solution
-      else if (setDisjExitReason == ExitReason::SUCCESS_EXIT) {
-        const int numDisj = disjVec.size();
-        const int cutLimit = gen.getCutLimit(params.get(CUTLIMIT), numDisj); // distribute cut limit over the disjunctions
+      else if (setDisjExitReason == ExitReason::SUCCESS_EXIT && numDisj > 0) {
+        const int cutLimit = std::ceil(
+            gen.getCutLimit(params.get(CUTLIMIT),
+                solver->getFractionalIndices().size()) / numDisj); // distribute cut limit over the disjunctions
+        gen.setupRepeatedUse(true);
         for (Disjunction* disj : disjVec) {
           if (!disj)
             continue;
@@ -188,7 +195,11 @@ int main(int argc, char** argv) {
             best_disj_obj = gen.disj()->best_obj;
           ip_obj = gen.ip_obj;
         }
+        gen.setupRepeatedUse(false);
       }  // if successful generation of disjunction, generate cuts
+      else if (setDisjExitReason == ExitReason::NO_DISJUNCTION_EXIT) {
+        // Do nothing
+      }
       else {
         error_msg(errorstring, "Unknown exit reason (%s) from setDisjunctions.\n", ExitReasonName[static_cast<int>(setDisjExitReason)].c_str());
         writeErrorToLog(errorstring, params.logfile);

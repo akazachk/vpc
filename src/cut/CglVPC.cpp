@@ -88,7 +88,7 @@ const std::string CglVPC::time_T2 = "TIME_TYPE2_";
  * @brief Universal way to check whether we reached the limit for the number of cuts for each split
  * This allows us to change between restricting number of cuts per split and total number of cuts easily
  */
-int CglVPC::getCutLimit(const int CUTLIMIT, const int numDisj) {
+int CglVPC::getCutLimit(const int CUTLIMIT, const int numFracVar) {
   // The cut limit is either across all cut-generating sets
   // or it is divided among the cut-generating sets (either as the limit / numFracVars, or as a fixed number per cgs)
   // If CUTLIMIT = 0 => no cut limit
@@ -99,8 +99,13 @@ int CglVPC::getCutLimit(const int CUTLIMIT, const int numDisj) {
   } else if (CUTLIMIT > 0) {
     return CUTLIMIT;
   } else {
-    return (numDisj <= 0) ? 0 : std::ceil((-1. * CUTLIMIT / numDisj));
+    return (numFracVar <= 0) ? 0 : std::ceil((-1. * CUTLIMIT * numFracVar));
   }
+} /* getCutLimit */
+
+/** getCutLimit */
+int CglVPC::getCutLimit() const {
+  return params.get(CUTLIMIT);
 } /* getCutLimit */
 
 /** Default constructor */
@@ -175,35 +180,30 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   // Reset things in preparation for round of cuts, in case a previous round was done using this generator
   setupAsNew();
   init_num_cuts = cuts.sizeCuts();
-  if (this->canReplaceGivenCuts) {
+  if (init_num_cuts == 0) {
+    this->cutType.resize(0);
+    this->cutHeurVec.resize(0);
+  }
+  else if (this->canReplaceGivenCuts) {
     // If we are going to be able to replace given cuts,
-    // then it must be the case that the current cutType and cutHeurVec should correspond to those old cuts
+    // then it must be the case that the current cutType and cutHeurVec
+    // should correspond to those old cuts
     const int num_old_cut_type = cutType.size();
-    if (init_num_cuts == 0) {
-      this->cutType.resize(0);
-      this->cutHeurVec.resize(0);
-    }
-    else if (num_old_cut_type != init_num_cuts) {
+    if (num_old_cut_type != init_num_cuts) {
       error_msg(errorstring,
-          "# given cuts: %d. Num old cuts: %d. "
+          "# given cuts: %d. # old cuts: %d. "
           "Either set canReplaceGivenCuts to false, or ensure that old cuts are "
           "accounted for in the cutType and cutHeurVec members.\n",
           init_num_cuts, num_old_cut_type);
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
     }
-  } else {
-    this->cutType.resize(0);
-    this->cutHeurVec.resize(0);
   }
 
-  // Set cut limit if needed
-  if (params.get(CUTLIMIT) < 0) {
-    params.set(CUTLIMIT,
-        -1 * params.get(CUTLIMIT) * si.getFractionalIndices().size());
-  } else if (params.get(CUTLIMIT) == 0) {
-    params.set(CUTLIMIT, std::numeric_limits<int>::max());
-  }
+  // Set cut limit
+  params.set(CUTLIMIT,
+      CglVPC::getCutLimit(params.get(CUTLIMIT),
+          si.getFractionalIndices().size()));
   if (reachedCutLimit()) {
     status = ExitReason::CUT_LIMIT_EXIT;
     finish(status);
@@ -357,10 +357,16 @@ void CglVPC::setupAsNew() {
   this->numFailsFromHeur.resize(static_cast<int>(CutHeuristic::NUM_CUT_HEUR), 0);
   this->numFails.clear();
   this->numFails.resize(static_cast<int>(FailureType::NUM_FAILURES), 0);
+  this->init_num_cuts = 0;
   this->num_cuts = 0;
   this->num_obj_tried = 0;
   this->num_failures = 0;
   this->probData.EPS = this->params.get(EPS);
+  if (!this->isSetupForRepeatedUse) {
+    this->canReplaceGivenCuts = false;
+    this->cutType.resize(0);
+    this->cutHeurVec.resize(0);
+  }
 } /* setupAsNew */
 
 void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const param) {
@@ -371,6 +377,7 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
       setParams(source->params);
     setDisjunction(source->disjunction, source->ownsDisjunction);
     this->canReplaceGivenCuts = source->canReplaceGivenCuts;
+    this->isSetupForRepeatedUse = source->isSetupForRepeatedUse;
     this->mode = source->mode;
     this->exitReason = source->exitReason;
     this->timer = source->timer;
@@ -392,7 +399,7 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
   else {
     this->mode = VPCMode::PARTIAL_BB;
     this->ownsDisjunction = false;
-    this->canReplaceGivenCuts = true;
+    this->isSetupForRepeatedUse = false;
     this->disjunction = NULL;
     for (int t = 0; t < static_cast<int>(VPCTimeStats::NUM_TIME_STATS); t++) {
       timer.register_name(VPCTimeStatsName[t]);
@@ -400,9 +407,6 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     for (int t = 0; t < static_cast<int>(CutHeuristic::NUM_CUT_HEUR); t++) {
       timer.register_name(CutHeuristicName[t] + "_TIME");
     }
-    this->cutType.resize(0);
-    this->cutHeurVec.resize(0);
-    this->init_num_cuts = 0;
     this->ip_obj = std::numeric_limits<double>::max();
     setupAsNew();
   }
@@ -765,7 +769,7 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
     // Set the warm start
     if (!(tmpSolver->setWarmStart(term->basis))) {
       error_msg(errorstring,
-          "Warm start information not accepted for leaf node %d/%d.\n",
+          "Warm start information not accepted for term %d/%d.\n",
           tmp_ind + 1, num_normal_terms);
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
@@ -773,7 +777,7 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
 
     // Resolve and check the objective matches
 #ifdef TRACE
-    printf("\n## Solving for leaf node %d/%d. ##\n",
+    printf("\n## Solving for term %d/%d. ##\n",
         tmp_ind + 1, num_normal_terms);
 #endif
     tmpSolver->resolve();
@@ -792,14 +796,14 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
       // Allow it to be up to 3% off without causing an error
       if (greaterThanVal(ratio, 1.03)) {
         error_msg(errorstring,
-            "Objective at leaf node %d/%d is incorrect. During BB, it was %s, now it is %s.\n",
+            "Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
             tmp_ind, num_normal_terms, stringValue(term->obj, "%1.3f").c_str(),
             stringValue(tmpSolver->getObjValue(), "%1.3f").c_str());
         writeErrorToLog(errorstring, params.logfile);
         exit(1);
       } else {
         warning_msg(warnstring,
-            "Objective at disjunctive term %d/%d is incorrect. During BB, it was %s, now it is %s.\n",
+            "Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
             tmp_ind, num_normal_terms, stringValue(term->obj, "%1.3f").c_str(),
             stringValue(tmpSolver->getObjValue(), "%1.3f").c_str());
       }
@@ -1093,14 +1097,6 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
 } /* tryObjectives */
 
 /**
- * @brief Universal way to check whether we reached the limit for the number of cuts for each split
- * This allows us to change between restricting number of cuts per split and total number of cuts easily
- */
-int CglVPC::getCutLimit(const int numDisj) const {
-  return CglVPC::getCutLimit(params.get(CUTLIMIT), numDisj);
-} /* getCutLimit */
-
-/**
  * @brief Checks whether too many unsuccessful objective attempts have been made
  *
  * There are four types of checks. The first three have non-decreasing success requirements.
@@ -1142,9 +1138,11 @@ bool CglVPC::reachedFailureLimit(const int num_cuts, const int num_fails, //cons
   const int FEW_CUTS = 1;
   const int NO_CUTS_OBJ_LIMIT = std::ceil(FEW_CUTS / (1. - few_cuts_fail_threshold));
   const int MANY_CUTS = std::ceil(.25 * CUT_LIMIT);
-  const int MANY_OBJ = CoinMax(
+  int MANY_OBJ = CoinMax(
       std::ceil(FEW_CUTS / (1. - few_cuts_fail_threshold)),
       std::ceil(MANY_CUTS / (1. - many_cuts_fail_threshold)));
+  if (MANY_OBJ < 0) // in case of overflow
+    MANY_OBJ = std::numeric_limits<int>::max();
   const double fail_ratio = (double) num_fails / num_obj_tried;
   bool reached_limit = false;
   if (num_obj_tried >= MANY_OBJ && greaterThanVal(fail_ratio, many_obj_fail_threshold)) {
