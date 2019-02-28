@@ -664,9 +664,12 @@ int PRLP::genCutHelper(OsiCuts& cuts,
       // Adjust statistics
       owner->numCutsFromHeur[static_cast<int>(owner->cutHeurVec[minOrthogonalityIndex - startIndex])]--;
       owner->numCutsFromHeur[static_cast<int>(cutHeur)]++;
+      owner->numCutsOfType[static_cast<int>(owner->cutType[minOrthogonalityIndex - startIndex])]--;
+      owner->numCutsOfType[static_cast<int>(CglVPC::CutType::VPC)]++;
 
       // Replace old cut
       owner->cutHeurVec[minOrthogonalityIndex - startIndex] = cutHeur;
+      owner->cutType[minOrthogonalityIndex - startIndex] = CglVPC::CutType::VPC;
       currCut.setEffectiveness(violation / currCutNorm);
       *oldCut = currCut; // TODO double check this works
 

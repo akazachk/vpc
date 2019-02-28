@@ -56,6 +56,15 @@ const std::vector<std::string> OverallTimeStatsName {
 TimeStats timer;
 std::time_t start_time_t, end_time_t;
 
+struct RoundInfo {
+  double old_obj, new_obj;
+  int num_frac_vars;
+  double min_frac, max_frac;
+  int num_disj_terms;
+  int num_obj_tried, num_cuts, num_failures;
+  std::vector<int> numFails;
+};
+
 int num_vpc_total, num_gmic_total;
 double init_obj, gmic_obj, vpc_obj, best_disj_obj, ip_obj;
 
@@ -91,6 +100,13 @@ int main(int argc, char** argv) {
   // Print welcome message, set up logfile
   timer.start_timer(OverallTimeStats::TOTAL_TIME);
   startUp(argc, argv);
+
+  // Do a few checks (eventually incorporated into Parameter class
+  if (params.get(MODE) == static_cast<int>(CglVPC::VPCMode::CROSSES)) {
+    error_msg(errorstring, "Generating cuts from crosses is not currently implemented.\n");
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
 
   // Set up solver and get initial solution
   initializeSolver(solver);
@@ -325,7 +341,7 @@ int wrapUp(int retCode /*= 0*/) {
   }
   printf("%s", output.c_str());
 
-  printf("\n## Successfully exiting VPC generation with reason %s. ##\n", ExitReasonName[exitReasonInt].c_str());
+  printf("\n## Exiting VPC generation with reason %s. ##\n", ExitReasonName[exitReasonInt].c_str());
   printf("Instance: %s\n", instname.c_str());
   printf("Start time: %s\n", start_time_string);
   printf("End time: %s\n", end_time_string);
