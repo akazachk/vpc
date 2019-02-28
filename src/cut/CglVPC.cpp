@@ -47,7 +47,7 @@ const std::vector<std::string> CglVPC::VPCTimeStatsName {
 const std::vector<std::string> CglVPC::CutTypeName {
   "ONE_SIDED_CUT", "OPTIMALITY_CUT", "VPC"
 }; /* CutTypeName */
-const std::vector<std::string> CglVPC::CutHeuristicsName {
+const std::vector<std::string> CglVPC::CutHeuristicName {
   "DUMMY_OBJ",
   "ALL_ONES",
   "CUT_VERTICES",
@@ -178,8 +178,12 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   if (this->canReplaceGivenCuts) {
     // If we are going to be able to replace given cuts,
     // then it must be the case that the current cutType and cutHeurVec should correspond to those old cuts
-    int num_old_cut_type = cutType.size();
-    if (num_old_cut_type != init_num_cuts) {
+    const int num_old_cut_type = cutType.size();
+    if (init_num_cuts == 0) {
+      this->cutType.resize(0);
+      this->cutHeurVec.resize(0);
+    }
+    else if (num_old_cut_type != init_num_cuts) {
       error_msg(errorstring,
           "# given cuts: %d. Num old cuts: %d. "
           "Either set canReplaceGivenCuts to false, or ensure that old cuts are "
@@ -298,7 +302,8 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
               OsiRowCut currCut;
               currCut.setLb(mult * val);
               currCut.setRow(1, &col, &el, false);
-              addCut(currCut, CutType::OPTIMALITY_CUT, cuts);
+              addCut(currCut, cuts, CutType::OPTIMALITY_CUT,
+                  CutHeuristic::ONE_SIDED);
             }
           }
         } // iterate over columns and add optimality cut if needed
@@ -322,10 +327,13 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   finish(status);
 } /* generateCuts */
 
-void CglVPC::addCut(const OsiRowCut& cut, const CutType& type, OsiCuts& cuts) {
+void CglVPC::addCut(const OsiRowCut& cut, OsiCuts& cuts, const CutType& type,
+    const CutHeuristic& cutHeur) {
   cuts.insert(cut);
   cutType.push_back(type);
   numCutsOfType[static_cast<int>(type)]++;
+  cutHeurVec.push_back(cutHeur);
+  numCutsFromHeur[static_cast<int>(cutHeur)]++;
   num_cuts++;
 } /* addCut */
 
@@ -341,12 +349,12 @@ void CglVPC::setupAsNew() {
   this->exitReason = ExitReason::UNKNOWN;
   this->numCutsOfType.clear();
   this->numCutsOfType.resize(static_cast<int>(CutType::NUM_CUT_TYPES), 0);
-  this->numObjFromHeur.clear();
-  this->numObjFromHeur.resize(static_cast<int>(CutHeuristics::NUM_CUT_HEUR), 0);
   this->numCutsFromHeur.clear();
-  this->numCutsFromHeur.resize(static_cast<int>(CutHeuristics::NUM_CUT_HEUR), 0);
+  this->numCutsFromHeur.resize(static_cast<int>(CutHeuristic::NUM_CUT_HEUR), 0);
+  this->numObjFromHeur.clear();
+  this->numObjFromHeur.resize(static_cast<int>(CutHeuristic::NUM_CUT_HEUR), 0);
   this->numFailsFromHeur.clear();
-  this->numFailsFromHeur.resize(static_cast<int>(CutHeuristics::NUM_CUT_HEUR), 0);
+  this->numFailsFromHeur.resize(static_cast<int>(CutHeuristic::NUM_CUT_HEUR), 0);
   this->numFails.clear();
   this->numFails.resize(static_cast<int>(FailureType::NUM_FAILURES), 0);
   this->num_cuts = 0;
@@ -369,8 +377,8 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     this->cutType = source->cutType;
     this->cutHeurVec = source->cutHeurVec;
     this->numCutsOfType = source->numCutsOfType;
-    this->numObjFromHeur = source->numObjFromHeur;
     this->numCutsFromHeur = source->numCutsFromHeur;
+    this->numObjFromHeur = source->numObjFromHeur;
     this->numFailsFromHeur = source->numFailsFromHeur;
     this->numFails = source->numFails;
     this->ip_obj = source->ip_obj;
@@ -389,8 +397,8 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     for (int t = 0; t < static_cast<int>(VPCTimeStats::NUM_TIME_STATS); t++) {
       timer.register_name(VPCTimeStatsName[t]);
     }
-    for (int t = 0; t < static_cast<int>(CutHeuristics::NUM_CUT_HEUR); t++) {
-      timer.register_name(CutHeuristicsName[t] + "_TIME");
+    for (int t = 0; t < static_cast<int>(CutHeuristic::NUM_CUT_HEUR); t++) {
+      timer.register_name(CutHeuristicName[t] + "_TIME");
     }
     this->cutType.resize(0);
     this->cutHeurVec.resize(0);
@@ -595,7 +603,7 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
     OsiRowCut currCut;
     currCut.setLb(mult * val);
     currCut.setRow(1, &col, &el, false);
-    addCut(currCut, CutType::ONE_SIDED_CUT, cuts);
+    addCut(currCut, cuts, CutType::ONE_SIDED_CUT, CutHeuristic::ONE_SIDED);
 
     if (isVal(vpcsolver->getColLower()[col], vpcsolver->getColUpper()[col])) {
       num_fixed++;
@@ -606,7 +614,7 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
   for (int i = 0; i < num_added_ineqs; i++) {
     OsiRowCut* currCut = &(this->disjunction->common_ineqs[i]);
     vpcsolver->applyRowCuts(1, currCut); // hopefully this works
-    addCut(*currCut, CutType::ONE_SIDED_CUT, cuts);
+    addCut(*currCut, cuts, CutType::ONE_SIDED_CUT, CutHeuristic::ONE_SIDED);
   }
 
 #ifdef TRACE

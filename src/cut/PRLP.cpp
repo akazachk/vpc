@@ -357,7 +357,7 @@ bool PRLP::setup(const double scale) {
   this->setHintParam(OsiDoPresolveInResolve, owner->params.get(intConst::PRLP_PRESOLVE) >= 2);
 
   // Check that the prlp is feasible for the zero objective function
-  owner->timer.start_timer(CglVPC::CutHeuristicsName[static_cast<int>(CglVPC::CutHeuristics::DUMMY_OBJ)] + "_TIME");
+  owner->timer.start_timer(CglVPC::CutHeuristicName[static_cast<int>(CglVPC::CutHeuristic::DUMMY_OBJ)] + "_TIME");
 
   const double start = CoinCpuTime();
   this->initialSolve();
@@ -370,7 +370,7 @@ bool PRLP::setup(const double scale) {
     setTimeLimit(this, owner->params.get(PRLP_TIMELIMIT));
   }
 
-  owner->timer.end_timer(CglVPC::CutHeuristicsName[static_cast<int>(CglVPC::CutHeuristics::DUMMY_OBJ)] + "_TIME");
+  owner->timer.end_timer(CglVPC::CutHeuristicName[static_cast<int>(CglVPC::CutHeuristic::DUMMY_OBJ)] + "_TIME");
 
   // Check that prlp is not primal infeasible
   // This can happen if 0 \in cone(\rayset), for instance, in the nonbasic space.
@@ -457,7 +457,7 @@ int PRLP::tryOneObjective(std::vector<int>& numTimesTightRow,
     std::vector<int>& numTimesTightColLB, std::vector<int>& numTimesTightColUB,
     OsiCuts& cuts, const OsiSolverInterface* const origSolver,
     const double beta, const OsiCuts* const structSICs, const bool inNBSpace,
-    const CglVPC::CutHeuristics cutHeur, const bool tryExtraHard) {
+    const CglVPC::CutHeuristic cutHeur, const bool tryExtraHard) {
   int return_code = genCut(cuts, origSolver, beta, structSICs,
       inNBSpace, cutHeur, tryExtraHard);
   if (this->isProvenOptimal()) {
@@ -534,7 +534,7 @@ int PRLP::resolvePRLP(const bool tryExtraHard) {
  */
 int PRLP::genCut(OsiCuts& cuts, const OsiSolverInterface* const origSolver,
     const double beta, const OsiCuts* const structSICs, const bool inNBSpace,
-    const CglVPC::CutHeuristics cutHeur, const bool tryExtraHard) {
+    const CglVPC::CutHeuristic cutHeur, const bool tryExtraHard) {
   owner->timer.start_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::PRLP_SOLVE_TIME)]);
   this->num_obj_tried++;
   owner->num_obj_tried++;
@@ -596,7 +596,7 @@ int PRLP::genCut(OsiCuts& cuts, const OsiSolverInterface* const origSolver,
 int PRLP::genCutHelper(OsiCuts& cuts,
     const OsiSolverInterface* const origSolver, const double beta,
     const OsiCuts* const structSICs, const bool inNBSpace,
-    const CglVPC::CutHeuristics cutHeur) {
+    const CglVPC::CutHeuristic cutHeur) {
   // We might get here without this being optimal
   if (!this->isProvenOptimal()) {
     return 0; // errors are tabulated in exitGenCutsFromCutSolver
@@ -677,12 +677,9 @@ int PRLP::genCutHelper(OsiCuts& cuts,
     const bool toAdd = (generateAnywayIfDuplicateSIC || (!duplicateSICFlag && !orthogonalitySICFailFlag))
         && !duplicateGICFlag && !orthogonalityGICFailFlag;
     if (toAdd) {
-      owner->cutHeurVec.push_back(cutHeur);
       currCut.setEffectiveness(violation / currCutNorm);
-      owner->numCutsFromHeur[static_cast<int>(cutHeur)]++;
-      cuts.insert(currCut);
+      owner->addCut(currCut, cuts, CglVPC::CutType::VPC, cutHeur);
       this->num_cuts++;
-      owner->num_cuts++;
       num_cuts_generated++;
       owner->numFails[static_cast<int>(CglVPC::FailureType::DUPLICATE_SIC)] += duplicateSICFlag;
       owner->numFails[static_cast<int>(CglVPC::FailureType::ORTHOGONALITY_SIC)] += orthogonalitySICFailFlag;
@@ -711,7 +708,7 @@ int PRLP::genCutHelper(OsiCuts& cuts,
 /**
  * Returns error status or num_cuts_generated
  */
-int PRLP::exitGenCut(const int num_cuts_generated, const CglVPC::CutHeuristics cutHeur) {
+int PRLP::exitGenCut(const int num_cuts_generated, const CglVPC::CutHeuristic cutHeur) {
   owner->timer.end_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::PRLP_SOLVE_TIME)]);
   int return_status = num_cuts_generated;
   if (return_status >= 0 && !this->isProvenOptimal()) {
@@ -897,7 +894,7 @@ void PRLP::updateRaySetForTargetedCutGeneration(std::set<compareRayInfo>& sorted
  */
 int PRLP::findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
     std::vector<int>& numTimesTightColLB, std::vector<int>& numTimesTightColUB,
-    const int point_row_ind, const CglVPC::CutHeuristics& cutHeur,
+    const int point_row_ind, const CglVPC::CutHeuristic& cutHeur,
     const double beta, OsiCuts& cuts,
     const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs,
     const std::string& timeName, const bool inNBSpace,
@@ -1310,8 +1307,8 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
 
   // First, the all ones objective
   if (owner->params.get(USE_ALL_ONES) == 1) {
-    const CglVPC::CutHeuristics cutHeur = CglVPC::CutHeuristics::ALL_ONES;
-    const std::string currTimeName = CglVPC::CutHeuristicsName[static_cast<int>(cutHeur)] + "_TIME";
+    const CglVPC::CutHeuristic cutHeur = CglVPC::CutHeuristic::ALL_ONES;
+    const std::string currTimeName = CglVPC::CutHeuristicName[static_cast<int>(cutHeur)] + "_TIME";
     owner->timer.start_timer(currTimeName);
 #ifdef TRACE
     printf("\n## Try all ones objective; cuts so far: %d. ##\n",
@@ -1335,8 +1332,8 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
   // Cut away the post-Gomory cut optimum
   if (owner->params.get(USE_ITER_BILINEAR) >= 1) {
     // Try the bilinear optimization; this usually does not add many cuts
-    const CglVPC::CutHeuristics cutHeur = CglVPC::CutHeuristics::ITER_BILINEAR;
-    const std::string currTimeName = CglVPC::CutHeuristicsName[static_cast<int>(cutHeur)] + "_TIME";
+    const CglVPC::CutHeuristic cutHeur = CglVPC::CutHeuristic::ITER_BILINEAR;
+    const std::string currTimeName = CglVPC::CutHeuristicName[static_cast<int>(cutHeur)] + "_TIME";
     owner->timer.start_timer(currTimeName);
 #ifdef TRACE
     printf(
@@ -1378,8 +1375,8 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
       (pointIndex[0].row < 0) ?
           (-1 * (pointIndex[0].row + 1)) : pointIndex[0].row;
   if (owner->params.get(USE_DISJ_LB) > 0) {
-    const CglVPC::CutHeuristics cutHeur = CglVPC::CutHeuristics::DISJ_LB;
-    const std::string currTimeName = CglVPC::CutHeuristicsName[static_cast<int>(cutHeur)] + "_TIME";
+    const CglVPC::CutHeuristic cutHeur = CglVPC::CutHeuristic::DISJ_LB;
+    const std::string currTimeName = CglVPC::CutHeuristicName[static_cast<int>(cutHeur)] + "_TIME";
     owner->timer.start_timer(currTimeName);
 #ifdef TRACE
     printf(
@@ -1403,8 +1400,8 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
   // For each of the points that has not been tight so far, try it
   if (MAX_NUM_POINTS_TO_TRY > 0) {
     bool goodReturn = true;
-    const CglVPC::CutHeuristics cutHeur = CglVPC::CutHeuristics::TIGHT_POINTS;
-    const std::string currTimeName = CglVPC::CutHeuristicsName[static_cast<int>(cutHeur)] + "_TIME";
+    const CglVPC::CutHeuristic cutHeur = CglVPC::CutHeuristic::TIGHT_POINTS;
+    const std::string currTimeName = CglVPC::CutHeuristicName[static_cast<int>(cutHeur)] + "_TIME";
     owner->timer.start_timer(currTimeName);
 #ifdef TRACE
     printf(
@@ -1444,8 +1441,8 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
 
   // Next, we should try the nonbasic directions individually, because these have worked well before
   if (MAX_NUM_UNIT_VECTORS_TO_TRY > 0) {
-    const CglVPC::CutHeuristics cutHeur = CglVPC::CutHeuristics::UNIT_VECTORS;
-    const std::string currTimeName = CglVPC::CutHeuristicsName[static_cast<int>(cutHeur)] + "_TIME";
+    const CglVPC::CutHeuristic cutHeur = CglVPC::CutHeuristic::UNIT_VECTORS;
+    const std::string currTimeName = CglVPC::CutHeuristicName[static_cast<int>(cutHeur)] + "_TIME";
     owner->timer.start_timer(currTimeName);
 #ifdef TRACE
     printf(
@@ -1503,8 +1500,8 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
   const CoinPackedMatrix* mat = this->getMatrixByRow();
   if (MAX_NUM_RAYS_TO_TRY > 0) {
     // Continue with rays
-    const CglVPC::CutHeuristics cutHeur = CglVPC::CutHeuristics::TIGHT_RAYS;
-    const std::string currTimeName = CglVPC::CutHeuristicsName[static_cast<int>(cutHeur)] + "_TIME";
+    const CglVPC::CutHeuristic cutHeur = CglVPC::CutHeuristic::TIGHT_RAYS;
+    const std::string currTimeName = CglVPC::CutHeuristicName[static_cast<int>(cutHeur)] + "_TIME";
     owner->timer.start_timer(currTimeName);
   #ifdef TRACE
     printf(
@@ -1557,8 +1554,8 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
     // (sorted by objective value)
     // and hope that we get new cuts along the way?
     bool goodReturn = true;
-    const CglVPC::CutHeuristics cutHeur = CglVPC::CutHeuristics::TIGHT_POINTS2;
-    const std::string currTimeName = CglVPC::CutHeuristicsName[static_cast<int>(cutHeur)] + "_TIME";
+    const CglVPC::CutHeuristic cutHeur = CglVPC::CutHeuristic::TIGHT_POINTS2;
+    const std::string currTimeName = CglVPC::CutHeuristicName[static_cast<int>(cutHeur)] + "_TIME";
     owner->timer.start_timer(currTimeName);
 #ifdef TRACE
     printf(
@@ -1602,8 +1599,8 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
 
   if (num_rays_tried < MAX_NUM_RAYS_TO_TRY) {
     // Continue with rays
-    const CglVPC::CutHeuristics cutHeur = CglVPC::CutHeuristics::TIGHT_RAYS2;
-    const std::string currTimeName = CglVPC::CutHeuristicsName[static_cast<int>(cutHeur)] + "_TIME";
+    const CglVPC::CutHeuristic cutHeur = CglVPC::CutHeuristic::TIGHT_RAYS2;
+    const std::string currTimeName = CglVPC::CutHeuristicName[static_cast<int>(cutHeur)] + "_TIME";
     owner->timer.start_timer(currTimeName);
 #ifdef TRACE
     printf(
@@ -1660,7 +1657,7 @@ int PRLP::iterateDeepestCutPostGomory(OsiCuts & cuts,
   int num_cuts_gen = 0;
   const int MAX_NUM_ITER_BIL_CUTS = owner->params.get(intParam::USE_ITER_BILINEAR);
   const int ITER_PER_CUT = 1;
-  const CglVPC::CutHeuristics cutHeur = CglVPC::CutHeuristics::ITER_BILINEAR;
+  const CglVPC::CutHeuristic cutHeur = CglVPC::CutHeuristic::ITER_BILINEAR;
   bool stationary_point_flag = false;
   const double initSolveTime =
       owner->timer.get_time(

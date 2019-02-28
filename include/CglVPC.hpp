@@ -76,7 +76,7 @@ public:
     NUM_CUT_TYPES
   }; /* CutType */
 
-  enum class CutHeuristics {
+  enum class CutHeuristic {
     DUMMY_OBJ,
     ALL_ONES,
     CUT_VERTICES,
@@ -118,7 +118,7 @@ public:
   static const std::vector<std::string> VPCModeName;
   static const std::vector<std::string> VPCTimeStatsName;
   static const std::vector<std::string> CutTypeName;
-  static const std::vector<std::string> CutHeuristicsName;
+  static const std::vector<std::string> CutHeuristicName;
   static const std::vector<std::string> FailureTypeName;
   static const std::string time_T1; // = "TIME_TYPE1_";
   static const std::string time_T2; // = "TIME_TYPE2_";
@@ -131,10 +131,10 @@ public:
   TimeStats timer;
 
   std::vector<CutType> cutType; // one entry per cut
-  std::vector<CutHeuristics> cutHeurVec; // one entry per cut
+  std::vector<CutHeuristic> cutHeurVec; // one entry per cut
 
   std::vector<int> numCutsOfType;
-  std::vector<int> numObjFromHeur, numCutsFromHeur, numFailsFromHeur;
+  std::vector<int> numCutsFromHeur, numObjFromHeur, numFailsFromHeur;
   std::vector<int> numFails;
 
   double ip_obj;
@@ -173,7 +173,7 @@ public:
   /** generateCuts */
   virtual void generateCuts(const OsiSolverInterface&, OsiCuts&, const CglTreeInfo = CglTreeInfo());
 
-  void addCut(const OsiRowCut& cut, const CutType& type, OsiCuts& cuts);
+  void addCut(const OsiRowCut& cut, OsiCuts& cuts, const CutType& type, const CutHeuristic& cutHeur);
 
   inline void printCutsOfType(FILE* logfile = stdout) const {
     for (int i = 0; i < static_cast<int>(CutType::NUM_CUT_TYPES); i++) {
@@ -184,24 +184,24 @@ public:
     fflush(logfile);
   } /* printCutsOfType */
   inline void printObjFromHeur(FILE* logfile = stdout) const {
-      for (int i = 0; i < static_cast<int>(CutHeuristics::NUM_CUT_HEUR); i++) {
-        fprintf(logfile, "OBJ_%s,", CutHeuristicsName[i].c_str());
+      for (int i = 0; i < static_cast<int>(CutHeuristic::NUM_CUT_HEUR); i++) {
+        fprintf(logfile, "OBJ_%s,", CutHeuristicName[i].c_str());
         fprintf(logfile, "%d,", numObjFromHeur[i]);
         fprintf(logfile, "\n");
       }
       fflush(logfile);
     } /* printObjFromHeur */
   inline void printCutsFromHeur(FILE* logfile = stdout) const {
-      for (int i = 0; i < static_cast<int>(CutHeuristics::NUM_CUT_HEUR); i++) {
-        fprintf(logfile, "CUTS_%s,", CutHeuristicsName[i].c_str());
+      for (int i = 0; i < static_cast<int>(CutHeuristic::NUM_CUT_HEUR); i++) {
+        fprintf(logfile, "CUTS_%s,", CutHeuristicName[i].c_str());
         fprintf(logfile, "%d,", numCutsFromHeur[i]);
         fprintf(logfile, "\n");
       }
       fflush(logfile);
     } /* printCutsFromHeur */
   inline void printFailsFromHeur(FILE* logfile = stdout) const {
-    for (int i = 0; i < static_cast<int>(CutHeuristics::NUM_CUT_HEUR); i++) {
-      fprintf(logfile, "FAILS_%s,", CutHeuristicsName[i].c_str());
+    for (int i = 0; i < static_cast<int>(CutHeuristic::NUM_CUT_HEUR); i++) {
+      fprintf(logfile, "FAILS_%s,", CutHeuristicName[i].c_str());
       fprintf(logfile, "%d,", numFailsFromHeur[i]);
       fprintf(logfile, "\n");
     }

@@ -84,65 +84,15 @@ public:
   virtual ExitReason prepareDisjunction(const OsiSolverInterface* const si) = 0;
 
   /** Set/update name of cut generating set (disjunction) */
-  inline static void setCgsName(std::string& cgsName, const std::string& disjTermName) {
-    if (disjTermName.empty()) {
-      return;
-    }
-    if (!cgsName.empty()) {
-      cgsName += " V ";
-    }
-    cgsName += "(";
-    cgsName += disjTermName;
-    cgsName += ")";
-  } /* setCgsName (given disj term name) */
-
-  inline static void setCgsName(std::string& cgsName, const int num_coeff,
+  static void setCgsName(std::string& cgsName, const std::string& disjTermName);
+  static void setCgsName(std::string& cgsName, const int num_coeff,
       const int* const termIndices, const double* const termCoeff,
-      const double termRHS, const bool append = false) {
-    if (num_coeff == 0) {
-      return;
-    }
-    if (!cgsName.empty()) {
-      if (!append) {
-        cgsName += " V ";
-      } else {
-        cgsName.resize(cgsName.size() - 1); // remove last ")"
-        cgsName += "; ";
-      }
-    }
-    cgsName += append ? "" : "(";
-    for (int coeff_ind = 0; coeff_ind < num_coeff; coeff_ind++) {
-      cgsName += (termCoeff[coeff_ind] > 0) ? "+" : "-";
-      cgsName += "x";
-      cgsName += std::to_string(termIndices[coeff_ind]);
-    }
-    cgsName += " >= ";
-    cgsName += std::to_string((int) termRHS);
-    cgsName += ")";
-  } /* setCgsName (one ineq per term) */
-
-  inline static void setCgsName(std::string& cgsName, const int num_ineq_per_term,
+      const double termRHS, const bool append = false);
+  static void setCgsName(std::string& cgsName, const int num_ineq_per_term,
       const std::vector<std::vector<int> >& termIndices,
       const std::vector<std::vector<double> >& termCoeff,
-      const std::vector<double>& termRHS, const bool append = false) {
-    if (num_ineq_per_term == 0) {
-      return;
-    }
-    if (!cgsName.empty()) {
-      if (!append) {
-        cgsName += " V ";
-      } else {
-        cgsName.resize(cgsName.size() - 1); // remove last ")"
-        cgsName += "; ";
-      }
-    }
-    cgsName += append ? "" : "(";
-    for (int i = 0; i < num_ineq_per_term; i++) {
-      setCgsName(cgsName, termIndices[i].size(), termIndices[i].data(),
-          termCoeff[i].data(), termRHS[i], (i > 0));
-    }
-    cgsName += ")";
-  } /* setCgsName */
+      const std::vector<double>& termRHS, const bool append = false);
+
 protected:
   void initialize(const Disjunction* const source = NULL);
   void updateObjValue(const double obj);

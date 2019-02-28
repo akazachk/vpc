@@ -286,17 +286,20 @@ bool SplitDisjunction::checkVar(OsiSolverInterface* si, int col) {
 void SplitDisjunction::setCgsName(const int var, const double val) {
   if (var < 0)
     return;
-  const double floorxk = std::floor(val);
-  const double ceilxk = std::ceil(val);
-  std::string disjTermName = "(";
+  const int floorxk = static_cast<int>(std::floor(val));
+  const int ceilxk = static_cast<int>(std::ceil(val));
+  std::string disjTermName = "";
   disjTermName += "x" + std::to_string(var);
   disjTermName += " <= ";
   disjTermName += std::to_string(floorxk);
-  disjTermName += ") V (";
+  Disjunction::setCgsName(this->name, disjTermName);
+
+  disjTermName = "";
+//  disjTermName += ") V (";
   disjTermName += "x" + std::to_string(var);
   disjTermName += " >= ";
   disjTermName += std::to_string(ceilxk);
-  disjTermName += ")";
+//  disjTermName += ")";
   Disjunction::setCgsName(this->name, disjTermName);
 } /* setCgsName */
 

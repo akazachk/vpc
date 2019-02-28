@@ -147,8 +147,9 @@ int main(int argc, char** argv) {
               OsiRowCut currCut;
               currCut.setLb(mult * val);
               currCut.setRow(1, &col, &el, false);
-              gen.addCut(currCut, CglVPC::CutType::OPTIMALITY_CUT,
-                  vpcs[round_ind]);
+              gen.addCut(currCut, vpcs[round_ind],
+                  CglVPC::CutType::OPTIMALITY_CUT,
+                  CglVPC::CutHeuristic::ONE_SIDED);
             }
           }
         } // iterate over columns and add optimality cut if needed
@@ -300,21 +301,21 @@ int wrapUp(int retCode /*= 0*/) {
   sprintf(tmpstring, "%-*.*s%s\n", NAME_WIDTH, NAME_WIDTH, "LP: ",
       stringValue(init_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
   output += tmpstring;
-  if (!isInfinity(std::abs(best_disj_obj))) {
-    sprintf(tmpstring, "%-*.*s%s\n", NAME_WIDTH, NAME_WIDTH, "Disjunctive lb: ",
-        stringValue(best_disj_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-    output += tmpstring;
-  }
   if (!isInfinity(std::abs(gmic_obj))) {
     sprintf(tmpstring, "%-*.*s%s (%d cuts)\n", NAME_WIDTH, NAME_WIDTH, "GMICs: ",
-        stringValue(best_disj_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str(),
+        stringValue(gmic_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str(),
         num_gmic_total);
     output += tmpstring;
   }
   if (!isInfinity(std::abs(vpc_obj))) {
     sprintf(tmpstring, "%-*.*s%s (%d cuts)\n", NAME_WIDTH, NAME_WIDTH, "VPCs: ",
-        stringValue(best_disj_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str(),
+        stringValue(vpc_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str(),
         num_vpc_total);
+    output += tmpstring;
+  }
+  if (!isInfinity(std::abs(best_disj_obj))) {
+    sprintf(tmpstring, "%-*.*s%s\n", NAME_WIDTH, NAME_WIDTH, "Disjunctive lb: ",
+        stringValue(best_disj_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
     output += tmpstring;
   }
   if (!isInfinity(std::abs(ip_obj))) {
