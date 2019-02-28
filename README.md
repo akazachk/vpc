@@ -16,6 +16,14 @@ There are two compilation modes: `debug` and `release`. These can be compiled wi
 
 You can test the code by running `scripts/run_test.sh`. This assumes the `Debug` version has been compiled.
 
+In more detail, you run the code with:
+
+```
+[Debug or Release]/vpc -f filename -d num_disj_terms/num_disjunctions
+```
+
+The flag `-f` is used to specify the filename. Then `-d` takes an integer (the number of disjunctive terms to generate, though we also use this for the number of split disjunctions). Other options are described when calling the code with `--help` or `-h`.
+
 ## Details
 
 There are many parameters that can be set from the command line. Run with `-h` or `--help` option to see these parameters. There are several more that are not currently able to be set from the command line, as they are assumed to generally be "constants"; a description of these can be found in `VPCParameters.hpp`.
