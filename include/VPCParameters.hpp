@@ -21,7 +21,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm> // min_element, max_element
-//#include <type_traits>
+#include <type_traits>
 
 #include "utility.hpp" // parseInt/Double, stringValue, and lowerCaseString
 
@@ -42,17 +42,17 @@ public:
   virtual ~Parameter() {}
   virtual std::string to_string(const char* fmt = NULL) const = 0;
 
-  virtual const T get() const { return this->val; }
-  virtual std::string name() const { return this->param_name; }
-  virtual bool set(const T& val) { this->val = val; return check(); }
+  virtual const T get() const final { return this->val; }
+  virtual std::string name() const final { return this->param_name; }
+  virtual bool set(const T& val) final { this->val = val; return check(); }
   virtual bool check() const { return true; }
 protected:
   std::string param_name;
   T val;
 }; /* Parameter */
 
-//template <class T, typename = typename std::enable_if<std::is_arithmetic<T>::value, T>::type>
-template <class T>
+template <class T, typename = typename std::enable_if<std::is_arithmetic<T>::value, T>::type>
+//template <class T>
 class NumericParameter : public Parameter<T> {
 public:
     using Parameter<T>::Parameter;
@@ -170,6 +170,23 @@ enum intParam {
   USE_UNIT_VECTORS, // 0: do not use, 1+: num to try, <0: abs(val) * sqrt(n)
   // Other options
   VERBOSITY,
+  // BB options
+  //  off = 0,
+  //  cbc = 2,
+  //  cplex = 4,
+  //  gurobi = 8,
+  //  user_cuts = 16,
+  //  all_cuts_off = 32,
+  //  all_cuts_on = 64,
+  //  gmics_off = 128,
+  //  gmics_on = 256,
+  //  presolve_off = 512,
+  //  presolve_on = 1024,
+  //  heuristics_off = 2048,
+  //  heuristics_on = 4096,
+  //  use_best_bound = 8192,
+  //  strong_branching_on = 16384
+  BB_STRATEGY, // bit vector; sum of above bits
   NUM_INT_PARAMS
 }; /* intParam */
 enum doubleParam {
@@ -256,6 +273,7 @@ struct VPCParameters {
 #else
     {intParam::VERBOSITY, IntParameter("VERBOSITY", 0, 0, 2)},
 #endif
+    {intParam::BB_STRATEGY, IntParameter("BB_STRATEGY", 0, 0, std::numeric_limits<int>::max())}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
   }; /* intParamValues */
   std::map<doubleParam, DoubleParameter> doubleParamValues {
     {doubleParam::EPS, DoubleParameter("EPS", 1e-7, 0., 1.)},
@@ -286,7 +304,6 @@ struct VPCParameters {
     {doubleConst::DIFFEPS, DoubleParameter("DIFFEPS", 1e-3, 1e-3, 1e-3)}, // to check whether something is different enough to throw an error
     {doubleConst::INF, DoubleParameter("INF", std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max())},
     {doubleConst::RAYEPS, DoubleParameter("RAYEPS", 1e-7, 1e-7, 1e-7)},
-//    {doubleConst::BB_STRATEGY, 0}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
     {doubleConst::BB_TIMELIMIT, DoubleParameter("BB_TIMELIMIT", 3600., 3600., 3600.)},
     {doubleConst::MIN_PRLP_TIMELIMIT, DoubleParameter("MIN_PRLP_TIMELIMIT", 5., 5., 5.)},
     {doubleConst::EPS_COEFF, DoubleParameter("EPS_COEFF", 1e-5, 1e-5, 1e-5)},

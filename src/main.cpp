@@ -434,35 +434,46 @@ void processArgs(int argc, char** argv) {
   // has_arg: 0,1,2 for none, required, or optional
   // *flag: how results are returned; if NULL, getopt_long() returns val (e.g., can be the equivalent short option character), and o/w getopt_long() returns 0, and flag points to a var which is set to val if the option is found, but left unchanged if the option is not found
   // val: value to return, or to load into the variable pointed to by flag
-  const char* const short_opts = "c:d:f:hl:m:o:r:R:s:S:t:T:v:";
+  const char* const short_opts = "b:c:d:f:hl:m:o:r:R:s:S:t:T:v:";
   const struct option long_opts[] =
   {
-    {"cutlimit", required_argument, 0, 'c'},
-    {"disj_terms", required_argument, 0, 'd'},
-    {"file", required_argument, 0, 'f'},
-    {"help", no_argument, 0, 'h'},
-    {"logfile", required_argument, 0, 'l'},
-    {"mode", required_argument, 0, 'm'},
-    {"optfile", required_argument, 0, 'o'},
-    {"partial_bb_strategy", required_argument, 0, 's'},
-    {"partial_bb_num_strong", required_argument, 0, 'S'},
-    {"partial_bb_timelimit", required_argument, 0, 'T'},
-    {"prlp_timelimit", required_argument, 0, 'R'},
-    {"rounds", required_argument, 0, 'r'},
-    {"timelimit", required_argument, 0, 't'},
-    {"use_all_ones", required_argument, 0, 'u'*'1'},
-    {"use_disj_lb", required_argument, 0, 'u'*'2'},
-    {"use_iter_bilinear", required_argument, 0, 'u'*'3'},
-    {"use_tight_points", required_argument, 0, 'u'*'4'},
-    {"use_tight_rays", required_argument, 0, 'u'*'5'},
-    {"use_unit_vectors", required_argument, 0, 'u'*'6'},
-    {"verbosity", required_argument, 0, 'v'},
-    {nullptr, no_argument, nullptr, 0}
+      {"bb_strategy", required_argument, 0, 'b'},
+      {"cutlimit", required_argument, 0, 'c'},
+      {"disj_terms", required_argument, 0, 'd'},
+      {"file", required_argument, 0, 'f'},
+      {"help", no_argument, 0, 'h'},
+      {"logfile", required_argument, 0, 'l'},
+      {"mode", required_argument, 0, 'm'},
+      {"optfile", required_argument, 0, 'o'},
+      {"partial_bb_strategy", required_argument, 0, 's'},
+      {"partial_bb_num_strong", required_argument, 0, 'S'},
+      {"partial_bb_timelimit", required_argument, 0, 'T'},
+      {"rounds", required_argument, 0, 'r'},
+      {"prlp_timelimit", required_argument, 0, 'R'},
+      {"timelimit", required_argument, 0, 't'},
+      {"use_all_ones", required_argument, 0, 'u'*'1'},
+      {"use_disj_lb", required_argument, 0, 'u'*'2'},
+      {"use_iter_bilinear", required_argument, 0, 'u'*'3'},
+      {"use_tight_points", required_argument, 0, 'u'*'4'},
+      {"use_tight_rays", required_argument, 0, 'u'*'5'},
+      {"use_unit_vectors", required_argument, 0, 'u'*'6'},
+      {"verbosity", required_argument, 0, 'v'},
+      {nullptr, no_argument, nullptr, 0}
   };
 
   int inp;
   while ((inp = getopt_long(argc, argv, short_opts, long_opts, nullptr)) != -1) {
     switch (inp) {
+      case 'b': {
+                  int val;
+                  intParam param = intParam::BB_STRATEGY;
+                  if (!parseInt(optarg, val)) {
+                    error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                    exit(1);
+                  }
+                  params.set(param, val);
+                  break;
+                }
       case 'c': {
                   int val;
                   intParam param = intParam::CUTLIMIT;
