@@ -139,52 +139,54 @@ inline double getInfinity() {
 }
 
 inline bool isInfinity(const double val, const double infinity = __DBL_MAX__, const double eps = 1e-7) {
-  return (val >= (infinity - eps));
+  return !lessThanVal(val, infinity, eps);
 } /* isInfinity */
 
-inline bool isNegInfinity(const double val, const double infinity = __DBL_MAX__, const double eps = 1e-7) {
-  return (val <= (-infinity + eps));
+inline bool isNegInfinity(const double val, const double neg_infinity = __DBL_MIN__, const double eps = 1e-7) {
+  return !greaterThanVal(val, neg_infinity, eps);
 } /* isInfinity */
 
 inline const std::string stringValue(const int value,
     const char* format = "%d") {
-  if (!isInfinity(std::abs(value), std::numeric_limits<int>::max())) {
+  if (!lessThanVal(value, std::numeric_limits<int>::max())) {
+    const std::string infty = "\'inf\'";
+    return infty;
+  } else if (!greaterThanVal(value, std::numeric_limits<int>::min())) {
+    const std::string neg_infty = "\'-inf\'";
+    return neg_infty;
+  } else {
     char temp[500];
     snprintf(temp, sizeof(temp) / sizeof(char), format, value);
     std::string tmp(temp);
     return tmp;
-  } else {
-    if (greaterThanVal(value, 0.0)) {
-      const std::string infty = "\'inf\'";
-      return infty;
-    } else {
-      const std::string neg_infty = "\'-inf\'";
-      return neg_infty;
-    }
   }
 } /* stringValue (int) */
 
 inline const std::string stringValue(const long value,
     const char* format = "%ld") {
-  if (!isInfinity(std::abs(value), std::numeric_limits<long>::max())) {
+  if (!lessThanVal(value, std::numeric_limits<long>::max())) {
+    const std::string infty = "\'inf\'";
+    return infty;
+  } else if (!greaterThanVal(value, std::numeric_limits<long>::min())) {
+    const std::string neg_infty = "\'-inf\'";
+    return neg_infty;
+  } else {
     char temp[500];
     snprintf(temp, sizeof(temp) / sizeof(char), format, value);
     std::string tmp(temp);
     return tmp;
-  } else {
-    if (greaterThanVal(value, 0.0)) {
-      const std::string infty = "\'inf\'";
-      return infty;
-    } else {
-      const std::string neg_infty = "\'-inf\'";
-      return neg_infty;
-    }
   }
 } /* stringValue (long) */
 
 inline const std::string stringValue(const double value, const char* format = "%f",
     const int NUM_DIGITS_BEFORE_DEC = -1, const int NUM_DIGITS_AFTER_DEC = -1) {
-  if (!isInfinity(std::abs(value))) {
+  if (!lessThanVal(value, std::numeric_limits<double>::max())) {
+    const std::string infty = "\'inf\'";
+    return infty;
+  } else if (!greaterThanVal(value, std::numeric_limits<double>::lowest())) {
+    const std::string neg_infty = "\'-inf\'";
+    return neg_infty;
+  } else {
     char temp[500];
     if (NUM_DIGITS_BEFORE_DEC == -1 && NUM_DIGITS_AFTER_DEC == -1) {
       snprintf(temp, sizeof(temp) / sizeof(char), format, value);
@@ -197,14 +199,6 @@ inline const std::string stringValue(const double value, const char* format = "%
     }
     std::string tmp(temp);
     return tmp;
-  } else {
-    if (greaterThanVal(value, 0.0)) {
-      const std::string infty = "\'+inf\'";
-      return infty;
-    } else {
-      const std::string neg_infty = "\'-inf\'";
-      return neg_infty;
-    }
   }
 } /* stringValue (double) */
 
