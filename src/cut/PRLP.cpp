@@ -500,7 +500,7 @@ int PRLP::resolvePRLP(const bool tryExtraHard) {
   }
 
   if (this->isProvenOptimal()
-      && isNegInfinity(this->getObjValue(), owner->params.get(doubleConst::INF))) {
+      && isNegInfinity(this->getObjValue(), -owner->params.get(doubleConst::INF))) {
     // We essentially have a ray, though it is not being reported as such
     // Try resolving because this fixes the issue sometimes
     setTimeLimit(this, timeLimit);
@@ -1809,7 +1809,7 @@ int PRLP::iterateDeepestCutPostGomory(OsiCuts & cuts,
           exit(1);
         }
 
-        if (isNegInfinity(PostGomorySolver->getObjValue(), owner->params.get(doubleConst::INF))) {
+        if (isNegInfinity(PostGomorySolver->getObjValue(), -owner->params.get(doubleConst::INF))) {
           // We essentially have a ray, though it is not being reported as such
           // Try resolving because this fixes the issue sometimes
           setTimeLimit(PostGomorySolver, timeLimit);
