@@ -117,6 +117,7 @@ enum class intConst {
   NUM_OBJ_PER_POINT, // # cuts to try to generate for the strong branching lb point (and others)
   NB_SPACE, // whether to generate cuts in the nonbasic space (currently must be set to true)
   PRLP_PRESOLVE, // 0: no presolve, 1: only initial solve, 2: both initial solve and resolve
+  RANDOM_SEED,
   NUM_INT_CONST
 }; /* intConst */
 const std::vector<std::string> intConstName {
@@ -139,14 +140,17 @@ const std::vector<std::string> intConstName {
   "MODE_OBJ_PER_POINT",
   "NUM_OBJ_PER_POINT",
   "NB_SPACE",
-  "PRLP_PRESOLVE"
+  "PRLP_PRESOLVE",
+  "RANDOM_SEED"
 }; /* intConstName */
 enum class doubleConst {
   AWAY,
   DIFFEPS, // to check whether something is different enough to throw an error
   INF, // infinity (INFINITY is taken as a macro from math header)
   RAYEPS, // value for which a ray coefficient will be treated as zero
-  MIN_PRLP_TIMELIMIT,
+  // Time limits
+  BB_TIMELIMIT, // time limit for doing branch-and-bound
+  MIN_PRLP_TIMELIMIT, // minimum amount of time allotted for solving/resolving PRLP
   // Safety related constants:
   EPS_COEFF, // any cut coefficient smaller than this will be replaced by zero
   EPS_COEFF_LUB, // for variables with large upper bound, any cut coefficient smaller than this will be replaced by zero
@@ -162,6 +166,7 @@ const std::vector<std::string> doubleConstName {
   "DIFFEPS",
   "INF",
   "RAYEPS",
+  "BB_TIMELIMIT",
   "MIN_PRLP_TIMELIMIT",
   "EPS_COEFF",
   "EPS_COEFF_LUB",
@@ -221,12 +226,15 @@ struct VPCParameters {
     {intConst::NUM_OBJ_PER_POINT, -2}, // sqrt(n)
     {intConst::NB_SPACE, 1}, // currently only works with true
     {intConst::PRLP_PRESOLVE, 2}, // use presolve when solving PRLP (either initial or resolve)
+    {intConst::RANDOM_SEED, 628}
   }; /* intConstValues */
   std::map<doubleConst, double> doubleConstValues {
     {doubleConst::AWAY, 1e-3},
     {doubleConst::DIFFEPS, 1e-3}, // to check whether something is different enough to throw an error
     {doubleConst::INF, std::numeric_limits<double>::max()},
     {doubleConst::RAYEPS, 1e-7},
+//    {doubleConst::BB_STRATEGY, 0}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
+    {doubleConst::BB_TIMELIMIT, 3600.},
     {doubleConst::MIN_PRLP_TIMELIMIT, 5.},
     {doubleConst::EPS_COEFF, 1e-5},
     {doubleConst::EPS_COEFF_LUB, 1e-13},

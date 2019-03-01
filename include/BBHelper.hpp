@@ -13,7 +13,8 @@
 
 class PartialBBDisjunction;
 
-enum BB_Strategy_Options {
+enum class BB_Strategy_Options {
+  off = 0,
   cbc = 2,
   cplex = 4,
   gurobi = 8,
@@ -28,7 +29,59 @@ enum BB_Strategy_Options {
   heuristics_on = 4096,
   use_best_bound = 8192,
   strong_branching_on = 16384
+}; /* BB_Strategy_Options */
+
+struct BBInfo {
+  double obj;
+  double bound;
+  long iters;
+  long nodes;
+  long root_passes;
+  double first_cut_pass;
+  double last_cut_pass;
+  double root_time;
+  double last_sol_time;
+  double time;
+}; /* BBInfo */
+
+enum BBInfoEnum {
+  OBJ_BB_INFO_IND,
+  BOUND_BB_INFO_IND,
+  ITERS_BB_INFO_IND,
+  NODES_BB_INFO_IND,
+  ROOT_PASSES_BB_INFO_IND,
+  FIRST_CUT_PASS_BB_INFO_IND,
+  LAST_CUT_PASS_BB_INFO_IND,
+  ROOT_TIME_BB_INFO_IND,
+  LAST_SOL_TIME_BB_INFO_IND,
+  TIME_BB_INFO_IND,
+  NUM_BB_INFO
 };
+
+const std::vector<std::string> BB_INFO_CONTENTS = {
+    "OBJ", "BOUND", "ITERS", "NODES", "ROOT_PASSES", "FIRST_CUT_PASS", "LAST_CUT_PASS", "ROOT_TIME", "LAST_SOL_TIME", "TIME"
+};
+
+inline void initializeBBInfo(BBInfo& info, double obj = 0.) {
+  info.obj = obj;
+  info.bound = obj;
+  info.iters = 0;
+  info.nodes = 0;
+  info.root_passes = 0;
+  info.first_cut_pass = 0.;
+  info.last_cut_pass = 0.;
+  info.root_time = 0.;
+  info.last_sol_time = 0.;
+  info.time = 0.;
+}
+void updateBestBBInfo(BBInfo& min_info, const BBInfo& curr_info, const bool first);
+void averageBBInfo(BBInfo& avg_info, const std::vector<BBInfo>& info);
+void printBBInfo(const BBInfo& info, FILE* myfile, const bool print_blanks =
+    false, const char SEP = ',');
+void printBBInfo(const BBInfo& info_mycuts, const BBInfo& info_allcuts,
+    FILE* myfile, const bool print_blanks = false, const char SEP = ',');
+void createStringFromBBInfoVec(const std::vector<BBInfo>& vec_info,
+    std::vector<std::string>& vec_str);
 
 // COIN-OR
 #ifdef USE_CBC

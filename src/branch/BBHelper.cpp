@@ -185,3 +185,109 @@ void generatePartialBBTree(PartialBBDisjunction* const owner, CbcModel* cbc_mode
     delete eventHandler;
   }
 } /* generatePartialBBTree */
+
+/** Methods related to BBInfo */
+void updateBestBBInfo(BBInfo& best_info, const BBInfo& curr_info, const bool first) {
+  best_info.obj = first ? curr_info.obj : CoinMin(best_info.obj, curr_info.obj);
+  best_info.bound = first ? curr_info.bound : CoinMax(best_info.bound, curr_info.bound);
+  best_info.iters = first ? curr_info.iters : CoinMin(best_info.iters, curr_info.iters);
+  best_info.nodes = first ? curr_info.nodes : CoinMin(best_info.nodes, curr_info.nodes);
+  best_info.root_passes = first ? curr_info.root_passes : CoinMin(best_info.root_passes, curr_info.root_passes);
+  best_info.first_cut_pass = first ? curr_info.first_cut_pass : CoinMax(best_info.first_cut_pass, curr_info.first_cut_pass);
+  best_info.last_cut_pass = first ? curr_info.last_cut_pass : CoinMax(best_info.last_cut_pass, curr_info.last_cut_pass);
+  best_info.root_time = first ? curr_info.root_time : CoinMin(best_info.root_time, curr_info.root_time);
+  best_info.last_sol_time = first ? curr_info.last_sol_time : CoinMin(best_info.last_sol_time, curr_info.last_sol_time);
+  best_info.time = first ? curr_info.time : CoinMin(best_info.time, curr_info.time);
+} /* updateMinBBInfo */
+
+void averageBBInfo(BBInfo& avg_info, const std::vector<BBInfo>& info) {
+  for (BBInfo curr_info : info) {
+    avg_info.obj += curr_info.obj;
+    avg_info.bound += curr_info.bound;
+    avg_info.iters += curr_info.iters;
+    avg_info.nodes += curr_info.nodes;
+    avg_info.root_passes += curr_info.root_passes;
+    avg_info.first_cut_pass += curr_info.first_cut_pass;
+    avg_info.last_cut_pass += curr_info.last_cut_pass;
+    avg_info.root_time += curr_info.root_time;
+    avg_info.last_sol_time += curr_info.last_sol_time;
+    avg_info.time += curr_info.time;
+  }
+  const int num_bb_runs = info.size();
+  avg_info.obj /= num_bb_runs;
+  avg_info.bound /= num_bb_runs;
+  avg_info.iters /= num_bb_runs;
+  avg_info.nodes /= num_bb_runs;
+  avg_info.root_passes /= num_bb_runs;
+  avg_info.first_cut_pass /= num_bb_runs;
+  avg_info.last_cut_pass /= num_bb_runs;
+  avg_info.root_time /= num_bb_runs;
+  avg_info.last_sol_time /= num_bb_runs;
+  avg_info.time /= num_bb_runs;
+} /* averageBBInfo */
+
+void printBBInfo(const BBInfo& info, FILE* myfile, const bool print_blanks, const char SEP) {
+  if (!print_blanks) {
+    fprintf(myfile, "%s%c", stringValue(info.obj, "%.20f").c_str(), SEP);
+    fprintf(myfile, "%s%c", stringValue(info.bound, "%.20f").c_str(), SEP);
+    fprintf(myfile, "%ld%c", info.iters, SEP);
+    fprintf(myfile, "%ld%c", info.nodes, SEP);
+    fprintf(myfile, "%ld%c", info.root_passes, SEP);
+    fprintf(myfile, "%.20f%c", info.first_cut_pass, SEP);
+    fprintf(myfile, "%.20f%c", info.last_cut_pass, SEP);
+    fprintf(myfile, "%2.3f%c", info.root_time, SEP);
+    fprintf(myfile, "%2.3f%c", info.last_sol_time, SEP);
+    fprintf(myfile, "%2.3f%c", info.time, SEP);
+  } else {
+    for (int i = 0; i < (int) BB_INFO_CONTENTS.size(); i++) {
+      fprintf(myfile, "%c", SEP);
+    }
+  }
+} /* printBBInfo */
+
+void printBBInfo(const BBInfo& info_mycuts, const BBInfo& info_allcuts,
+    FILE* myfile, const bool print_blanks, const char SEP) {
+  if (!print_blanks) {
+    fprintf(myfile, "%s%c", stringValue(info_mycuts.obj, "%.20f").c_str(), SEP);
+    fprintf(myfile, "%s%c", stringValue(info_allcuts.obj, "%.20f").c_str(), SEP);
+    fprintf(myfile, "%s%c", stringValue(info_mycuts.bound, "%.20f").c_str(), SEP);
+    fprintf(myfile, "%s%c", stringValue(info_allcuts.bound, "%.20f").c_str(), SEP);
+    fprintf(myfile, "%ld%c", info_mycuts.iters, SEP);
+    fprintf(myfile, "%ld%c", info_allcuts.iters, SEP);
+    fprintf(myfile, "%ld%c", info_mycuts.nodes, SEP);
+    fprintf(myfile, "%ld%c", info_allcuts.nodes, SEP);
+    fprintf(myfile, "%ld%c", info_mycuts.root_passes, SEP);
+    fprintf(myfile, "%ld%c", info_allcuts.root_passes, SEP);
+    fprintf(myfile, "%.20f%c", info_mycuts.first_cut_pass, SEP);
+    fprintf(myfile, "%.20f%c", info_allcuts.first_cut_pass, SEP);
+    fprintf(myfile, "%.20f%c", info_mycuts.last_cut_pass, SEP);
+    fprintf(myfile, "%.20f%c", info_allcuts.last_cut_pass, SEP);
+    fprintf(myfile, "%2.3f%c", info_mycuts.root_time, SEP);
+    fprintf(myfile, "%2.3f%c", info_allcuts.root_time, SEP);
+    fprintf(myfile, "%2.3f%c", info_mycuts.last_sol_time, SEP);
+    fprintf(myfile, "%2.3f%c", info_allcuts.last_sol_time, SEP);
+    fprintf(myfile, "%2.3f%c", info_mycuts.time, SEP);
+    fprintf(myfile, "%2.3f%c", info_allcuts.time, SEP);
+  } else {
+    for (int i = 0; i < (int) BB_INFO_CONTENTS.size() * 2; i++) {
+      fprintf(myfile, "%c", SEP);
+    }
+  }
+} /* printBBInfo */
+
+void createStringFromBBInfoVec(const std::vector<BBInfo>& vec_info,
+    std::vector<std::string>& vec_str) {
+  vec_str.resize(BB_INFO_CONTENTS.size());
+  for (BBInfo info : vec_info) {
+    vec_str[OBJ_BB_INFO_IND] += (!vec_str[OBJ_BB_INFO_IND].empty() ? ";" : "") + stringValue(info.obj, "%.20f");
+    vec_str[BOUND_BB_INFO_IND] += (!vec_str[BOUND_BB_INFO_IND].empty() ? ";" : "") + stringValue(info.bound, "%.20f");
+    vec_str[ITERS_BB_INFO_IND] += (!vec_str[ITERS_BB_INFO_IND].empty() ? ";" : "") + std::to_string(info.iters);
+    vec_str[NODES_BB_INFO_IND] += (!vec_str[NODES_BB_INFO_IND].empty() ? ";" : "") + std::to_string(info.nodes);
+    vec_str[ROOT_PASSES_BB_INFO_IND] += (!vec_str[ROOT_PASSES_BB_INFO_IND].empty() ? ";" : "") + std::to_string(info.root_passes);
+    vec_str[FIRST_CUT_PASS_BB_INFO_IND] += (!vec_str[FIRST_CUT_PASS_BB_INFO_IND].empty() ? ";" : "") + std::to_string(info.first_cut_pass);
+    vec_str[LAST_CUT_PASS_BB_INFO_IND] += (!vec_str[LAST_CUT_PASS_BB_INFO_IND].empty() ? ";" : "") + std::to_string(info.last_cut_pass);
+    vec_str[ROOT_TIME_BB_INFO_IND] += (!vec_str[ROOT_TIME_BB_INFO_IND].empty() ? ";" : "") + std::to_string(info.root_time);
+    vec_str[LAST_SOL_TIME_BB_INFO_IND] += (!vec_str[LAST_SOL_TIME_BB_INFO_IND].empty() ? ";" : "") + std::to_string(info.last_sol_time);
+    vec_str[TIME_BB_INFO_IND] += (!vec_str[TIME_BB_INFO_IND].empty() ? ";" : "") + std::to_string(info.time);
+  }
+} /* createStringFromBBInfoVec */
