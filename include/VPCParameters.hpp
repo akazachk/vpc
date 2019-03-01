@@ -34,117 +34,6 @@
   using SolverInterface = OsiSolverInterface;
 #endif
 
-// Definitions
-template <class T>
-class Parameter {
-public:
-  Parameter(std::string name, const T& val) : param_name(name), val(val) {}
-  virtual ~Parameter() {}
-  virtual std::string to_string(const char* fmt = NULL) const = 0;
-
-  virtual const T get() const final { return this->val; }
-  virtual std::string name() const final { return this->param_name; }
-  virtual bool set(const T& val) final { this->val = val; return check(); }
-  virtual bool check() const { return true; }
-protected:
-  std::string param_name;
-  T val;
-}; /* Parameter */
-
-template <class T, typename = typename std::enable_if<std::is_arithmetic<T>::value, T>::type>
-//template <class T>
-class NumericParameter : public Parameter<T> {
-public:
-    using Parameter<T>::Parameter;
-    NumericParameter(const std::string& name, const T& val, const T& min_val, const T& max_val)
-    : Parameter<T>(name, val), min_val(min_val), max_val(max_val) { check(); }
-    NumericParameter(const std::string& name, const T& val, const std::vector<T>& allowed_vals)
-    : Parameter<T>(name, val), allowed_vals(max_val) {
-      this->min_val = *std::min_element(allowed_vals.begin(), allowed_vals.end());
-      this->max_val = *std::max_element(allowed_vals.begin(), allowed_vals.end());
-      check();
-    }
-    virtual ~NumericParameter() {}
-
-    virtual std::string to_string(const char* fmt = NULL) const {
-      if (fmt) {
-        char tmp[25];
-        snprintf(tmp, sizeof(tmp) / sizeof(char), fmt, this->val);
-        std::string str(tmp);
-        return str;
-      } else {
-        return std::to_string(this->val);
-      }
-    }
-
-    virtual const T get_min() const { return this->min_val; }
-    virtual const T get_max() const { return this->max_val; }
-    virtual bool val_is_allowed(const T test_val) const {
-      if (!this->allowed_vals.empty()) {
-        return !(std::find(allowed_vals.begin(), allowed_vals.end(), test_val) == allowed_vals.end());
-      } else {
-        return !(lessThanVal(this->val, this->min_val) || greaterThanVal(this->val, this->max_val));
-      }
-    }
-    virtual const std::vector<T>& get_allowed_vals() const { return this->allowed_vals; }
-    virtual bool check() const {
-      if (val_is_allowed(this->val)) {
-        return true;
-      } else {
-      std::cerr << "*** ERROR: Error setting parameter " << this->name()
-          << ": Val = " << stringValue(this->val)
-          << ". Min = " << stringValue(this->min_val)
-          << ". Max = " << stringValue(this->max_val)
-          << "." << std::endl;
-        exit(1);
-      }
-    }
-
-protected:
-    T min_val, max_val;
-    std::vector<T> allowed_vals;
-}; /* NumericParameter */
-
-class IntParameter : public NumericParameter<int> {
-public:
-  using NumericParameter<int>::NumericParameter;
-  virtual std::string to_string(const char* fmt = NULL) const {
-    if (fmt) {
-      return NumericParameter<int>::to_string(fmt);
-    } else {
-      return NumericParameter<int>::to_string("%d");
-    }
-  }
-}; /* IntParameter */
-
-class DoubleParameter : public NumericParameter<double> {
-public:
-  using NumericParameter<double>::NumericParameter;
-  virtual std::string to_string(const char* fmt = NULL) const {
-    if (fmt) {
-      return NumericParameter<double>::to_string(fmt);
-    } else {
-      return NumericParameter<double>::to_string("%.3e");
-    }
-  }
-}; /* DoubleParameter */
-
-class StringParameter : public Parameter<std::string> {
-public:
-  using Parameter<std::string>::Parameter;
-  virtual ~StringParameter() {}
-  virtual std::string to_string(const char* fmt = NULL) const {
-    if (fmt) {
-      char tmp[25];
-      snprintf(tmp, sizeof(tmp) / sizeof(char), fmt, val.c_str());
-      std::string str(tmp);
-      return str;
-    } else {
-      return val;
-    }
-  }
-}; /* StringParameter */
-
 /********** PARAMETERS **********/
 enum intParam {
   CUTLIMIT, // max number of cuts generated; 0 = no limit, -k = k * # fractional variables at root
@@ -247,6 +136,121 @@ enum class doubleConst {
   MAX_SUPPORT_REL,
   NUM_DOUBLE_CONST
 }; /* doubleConst */
+
+/********** DEFINITIONS **********/
+template <class T>
+class Parameter {
+public:
+  Parameter(std::string name, const T& val) : param_name(name), val(val) {}
+  virtual ~Parameter() {}
+  virtual std::string to_string(const char* fmt = NULL) const = 0;
+
+  virtual const T get() const final { return this->val; }
+  virtual std::string name() const final { return this->param_name; }
+  virtual bool set(const T& val) final { this->val = val; return check(); }
+  virtual bool check() const { return true; }
+
+  bool operator<(const Parameter& other) const {
+    return this->param_name < other.param_name;
+  }
+protected:
+  std::string param_name;
+  T val;
+}; /* Parameter */
+
+template <class T, typename = typename std::enable_if<std::is_arithmetic<T>::value, T>::type>
+//template <class T>
+class NumericParameter : public Parameter<T> {
+public:
+    using Parameter<T>::Parameter;
+    NumericParameter(const std::string& name, const T& val, const T& min_val, const T& max_val)
+    : Parameter<T>(name, val), min_val(min_val), max_val(max_val) { check(); }
+    NumericParameter(const std::string& name, const T& val, const std::vector<T>& allowed_vals)
+    : Parameter<T>(name, val), allowed_vals(max_val) {
+      this->min_val = *std::min_element(allowed_vals.begin(), allowed_vals.end());
+      this->max_val = *std::max_element(allowed_vals.begin(), allowed_vals.end());
+      check();
+    }
+    virtual ~NumericParameter() {}
+
+    virtual std::string to_string(const char* fmt = NULL) const {
+      if (fmt) {
+        char tmp[25];
+        snprintf(tmp, sizeof(tmp) / sizeof(char), fmt, this->val);
+        std::string str(tmp);
+        return str;
+      } else {
+        return std::to_string(this->val);
+      }
+    }
+
+    virtual const T get_min() const { return this->min_val; }
+    virtual const T get_max() const { return this->max_val; }
+    virtual bool val_is_allowed(const T test_val) const {
+      if (!this->allowed_vals.empty()) {
+        return !(std::find(allowed_vals.begin(), allowed_vals.end(), test_val) == allowed_vals.end());
+      } else {
+        return !(lessThanVal(this->val, this->min_val) || greaterThanVal(this->val, this->max_val));
+      }
+    }
+    virtual const std::vector<T>& get_allowed_vals() const { return this->allowed_vals; }
+    virtual bool check() const {
+      if (val_is_allowed(this->val)) {
+        return true;
+      } else {
+      std::cerr << "*** ERROR: Error setting parameter " << this->name()
+          << ": Val = " << stringValue(this->val)
+          << ". Min = " << stringValue(this->min_val)
+          << ". Max = " << stringValue(this->max_val)
+          << "." << std::endl;
+        exit(1);
+      }
+    }
+
+protected:
+    T min_val, max_val;
+    std::vector<T> allowed_vals;
+}; /* NumericParameter */
+
+class IntParameter : public NumericParameter<int> {
+public:
+  using NumericParameter<int>::NumericParameter;
+  virtual std::string to_string(const char* fmt = NULL) const {
+    if (fmt) {
+      return NumericParameter<int>::to_string(fmt);
+    } else {
+      return NumericParameter<int>::to_string("%d");
+    }
+  }
+}; /* IntParameter */
+
+class DoubleParameter : public NumericParameter<double> {
+public:
+  using NumericParameter<double>::NumericParameter;
+  virtual std::string to_string(const char* fmt = NULL) const {
+    if (fmt) {
+      return NumericParameter<double>::to_string(fmt);
+    } else {
+      return NumericParameter<double>::to_string("%.3e");
+    }
+  }
+}; /* DoubleParameter */
+
+class StringParameter : public Parameter<std::string> {
+public:
+  using Parameter<std::string>::Parameter;
+  virtual ~StringParameter() {}
+  virtual std::string to_string(const char* fmt = NULL) const {
+    if (fmt) {
+      char tmp[25];
+      snprintf(tmp, sizeof(tmp) / sizeof(char), fmt, val.c_str());
+      std::string str(tmp);
+      return str;
+    } else {
+      return val;
+    }
+  }
+}; /* StringParameter */
 
 /********** VPC PARAMETERS STRUCT **********/
 struct VPCParameters {
