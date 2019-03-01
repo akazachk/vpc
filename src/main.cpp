@@ -276,7 +276,7 @@ void startUp(int argc, char** argv) {
 //#ifdef TRACE
 //  // Print parameters
 //  printf("\n## Parameter values ##\n");
-//  printParams(params, stdout);
+//  printParams(params, stdout, 0);
 //#endif
 
   // Prepare logfile

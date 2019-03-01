@@ -22,6 +22,8 @@
 #include <sstream>
 #include <algorithm> // min_element, max_element
 #include <type_traits>
+#include <unordered_set>
+#include <functional> // hash
 
 #include "utility.hpp" // parseInt/Double, stringValue, and lowerCaseString
 
@@ -138,12 +140,20 @@ enum class doubleConst {
 }; /* doubleConst */
 
 /********** DEFINITIONS **********/
+template <class T> class Parameter;
+namespace std {
+  template<class T>
+  struct hash<Parameter<T>> {
+  public:
+    size_t operator()(const Parameter<T> &param) const { return std::hash<std::string>{}(param.name()); };
+  };
+}
 template <class T>
 class Parameter {
 public:
   Parameter(std::string name, const T& val) : param_name(name), val(val) {}
   virtual ~Parameter() {}
-  virtual std::string to_string(const char* fmt = NULL) const = 0;
+  virtual std::string to_string(const int amountToPrint = 0, const char* fmt = NULL) const = 0;
 
   virtual const T get() const final { return this->val; }
   virtual std::string name() const final { return this->param_name; }
@@ -151,7 +161,10 @@ public:
   virtual bool check() const { return true; }
 
   bool operator<(const Parameter& other) const {
-    return this->param_name < other.param_name;
+    return this->param_name.compare(other.param_name) < 0;
+  }
+  bool operator==(const Parameter& other) const {
+    return this->param_name == other.param_name;
   }
 protected:
   std::string param_name;
@@ -166,23 +179,37 @@ public:
     NumericParameter(const std::string& name, const T& val, const T& min_val, const T& max_val)
     : Parameter<T>(name, val), min_val(min_val), max_val(max_val) { check(); }
     NumericParameter(const std::string& name, const T& val, const std::vector<T>& allowed_vals)
-    : Parameter<T>(name, val), allowed_vals(max_val) {
+    : Parameter<T>(name, val), allowed_vals(allowed_vals) {
       this->min_val = *std::min_element(allowed_vals.begin(), allowed_vals.end());
       this->max_val = *std::max_element(allowed_vals.begin(), allowed_vals.end());
       check();
     }
     virtual ~NumericParameter() {}
 
-    virtual std::string to_string(const char* fmt = NULL) const {
-      if (fmt) {
-        char tmp[25];
-        snprintf(tmp, sizeof(tmp) / sizeof(char), fmt, this->val);
-        std::string str(tmp);
-        return str;
-      } else {
-        return std::to_string(this->val);
+    /**
+     * to_string
+     * amountToPrint:
+     *  0 = both names and values,
+     *  1 = only names,
+     *  2 = only values
+     */
+    virtual std::string to_string(const int amountToPrint = 2, const char* fmt = NULL) const {
+      std::string retval = "";
+      switch (amountToPrint) {
+        case 1: {
+          retval = lowerCaseString(this->name());
+          break;
+        }
+        case 2: {
+          retval = stringValue(this->val, fmt);
+          break;
+        }
+        default: {
+          retval = lowerCaseString(this->name()) + "," + stringValue(this->val, fmt);
+        }
       }
-    }
+      return retval;
+    } /* to_string */
 
     virtual const T get_min() const { return this->min_val; }
     virtual const T get_max() const { return this->max_val; }
@@ -215,23 +242,29 @@ protected:
 class IntParameter : public NumericParameter<int> {
 public:
   using NumericParameter<int>::NumericParameter;
-  virtual std::string to_string(const char* fmt = NULL) const {
+  IntParameter(intParam num, const std::string& name, const int& val, const int& min_val, const int& max_val)
+  : NumericParameter<int>(name, val, min_val, max_val), param_num(num) {}
+  IntParameter(intParam num, const std::string& name, const int& val, const std::vector<int>& allowed_vals)
+  : NumericParameter<int>(name, val, allowed_vals), param_num(num) {}
+  virtual std::string to_string(const int amountToPrint = 2, const char* fmt = NULL) const {
     if (fmt) {
-      return NumericParameter<int>::to_string(fmt);
+      return NumericParameter<int>::to_string(amountToPrint, fmt);
     } else {
-      return NumericParameter<int>::to_string("%d");
+      return NumericParameter<int>::to_string(amountToPrint, "%d");
     }
   }
+protected:
+  intParam param_num;
 }; /* IntParameter */
 
 class DoubleParameter : public NumericParameter<double> {
 public:
   using NumericParameter<double>::NumericParameter;
-  virtual std::string to_string(const char* fmt = NULL) const {
+  virtual std::string to_string(const int amountToPrint = 2, const char* fmt = NULL) const {
     if (fmt) {
-      return NumericParameter<double>::to_string(fmt);
+      return NumericParameter<double>::to_string(amountToPrint, fmt);
     } else {
-      return NumericParameter<double>::to_string("%.3e");
+      return NumericParameter<double>::to_string(amountToPrint, "%.3e");
     }
   }
 }; /* DoubleParameter */
@@ -240,16 +273,31 @@ class StringParameter : public Parameter<std::string> {
 public:
   using Parameter<std::string>::Parameter;
   virtual ~StringParameter() {}
-  virtual std::string to_string(const char* fmt = NULL) const {
-    if (fmt) {
-      char tmp[25];
-      snprintf(tmp, sizeof(tmp) / sizeof(char), fmt, val.c_str());
-      std::string str(tmp);
-      return str;
-    } else {
-      return val;
+
+  /**
+   * to_string
+   * amountToPrint:
+   * 0 = all (also adds a newline after each param/constant),
+   * 1 = only names,
+   * 2 = only values
+   */
+  virtual std::string to_string(const int amountToPrint = 2, const char* fmt = NULL) const {
+    std::string retval = "";
+    switch (amountToPrint) {
+      case 1: {
+        retval = lowerCaseString(this->name());
+        break;
+      }
+      case 2: {
+        retval = stringValue(this->val, fmt);
+        break;
+      }
+      default: {
+        retval = lowerCaseString(this->name()) + "," + stringValue(this->val, fmt);
+      }
     }
-  }
+    return retval;
+  } /* to_string */
 }; /* StringParameter */
 
 /********** VPC PARAMETERS STRUCT **********/
@@ -279,6 +327,29 @@ struct VPCParameters {
 #endif
     {intParam::BB_STRATEGY, IntParameter("BB_STRATEGY", 0, 0, std::numeric_limits<int>::max())}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
   }; /* intParamValues */
+//  std::unordered_set<IntParameter> intParamValues {
+//    {IntParameter(intParam::CUTLIMIT, "CUTLIMIT", -1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+//    {IntParameter(intParam::DISJ_TERMS, "DISJ_TERMS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+//    {IntParameter(intParam::MODE, "MODE", 0, 0, std::numeric_limits<int>::max())},
+//    {IntParameter(intParam::PARTIAL_BB_STRATEGY, "PARTIAL_BB_STRATEGY", 4, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+//    {IntParameter(intParam::PARTIAL_BB_NUM_STRONG, "PARTIAL_BB_NUM_STRONG", 5, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+//    {IntParameter(intParam::PRLP_FLIP_BETA, "PRLP_FLIP_BETA", 0, -1, 1)},
+//    {IntParameter(intParam::ROUNDS, "ROUNDS", 1, 0, std::numeric_limits<int>::max())},
+//    {IntParameter(intParam::STRENGTHEN, "STRENGTHEN", 1, 0, 2)},
+//    {IntParameter(intParam::TEMP, "TEMP", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+//    {IntParameter(intParam::USE_ALL_ONES, "USE_ALL_ONES", 1, 0, 1)},
+//    {IntParameter(intParam::USE_DISJ_LB, "USE_DISJ_LB", 1, 0, 1)},
+//    {IntParameter(intParam::USE_ITER_BILINEAR, "USE_ITER_BILINEAR", 0, 0, std::numeric_limits<int>::max())},
+//    {IntParameter(intParam::USE_TIGHT_POINTS, "USE_TIGHT_POINTS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+//    {IntParameter(intParam::USE_TIGHT_RAYS, "USE_TIGHT_RAYS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+//    {IntParameter(intParam::USE_UNIT_VECTORS, "USE_UNIT_VECTORS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+//#ifdef TRACE
+//    {IntParameter(intParam::VERBOSITY, "VERBOSITY", 1, 0, 2)},
+//#else
+//    {IntParameter(intParam::VERBOSITY, "VERBOSITY", 0, 0, 2)},
+//#endif
+//    {IntParameter(intParam::BB_STRATEGY, "BB_STRATEGY", 0, 0, std::numeric_limits<int>::max())}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
+//  }; /* intParamValues */
   std::map<doubleParam, DoubleParameter> doubleParamValues {
     {doubleParam::EPS, DoubleParameter("EPS", 1e-7, 0., 1.)},
     {doubleParam::MIN_ORTHOGONALITY, DoubleParameter("MIN_ORTHOGONALITY", 0., 0., 1.)},
@@ -432,94 +503,47 @@ inline void readParams(VPCParameters& params, std::string infilename) {
 
 /**
  * Print parameters and constants
- * amountToPrint: 0 = all (also adds a newline after each param/constant), 1 = only names, 2 = only values
+ * amountToPrint:
+ *  0 = all (newline-separated),
+ *  1 = only names (comma-separated),
+ *  2 = only values (comma-separated)
  */
 inline void printParams(VPCParameters& params, FILE* logfile = stdout, const int amountToPrint = 0) {
   if (!logfile)
     return;
-  for (int i = 0; i < intParam::NUM_INT_PARAMS; i++) {
-    intParam param = static_cast<intParam>(i);
-    switch (amountToPrint) {
-      case 1: {
-        fprintf(logfile, "%s,", lowerCaseString(params.name(param)).c_str());
-        break;
-      }
-      case 2: {
-        fprintf(logfile, "%s,", stringValue(params.get(param)).c_str());
-        break;
-      }
-      default: {
-        fprintf(logfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
-            stringValue(params.get(param)).c_str());
-      }
+  for (auto param : params.intParamValues) {
+    if (amountToPrint == 0) {
+      fprintf(logfile, "%s\n", param.second.to_string(amountToPrint).c_str());
+    } else {
+      fprintf(logfile, "%s,", param.second.to_string(amountToPrint).c_str());
     }
   }
-  for (int i = 0; i < doubleParam::NUM_DOUBLE_PARAMS; i++) {
-    doubleParam param = static_cast<doubleParam>(i);
-    switch (amountToPrint) {
-      case 1: {
-        fprintf(logfile, "%s,", lowerCaseString(params.name(param)).c_str());
-        break;
-      }
-      case 2: {
-        fprintf(logfile, "%s,", stringValue(params.get(param)).c_str());
-        break;
-      }
-      default: {
-        fprintf(logfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
-            stringValue(params.get(param)).c_str());
-      }
+  for (auto param : params.doubleParamValues) {
+    if (amountToPrint == 0) {
+      fprintf(logfile, "%s\n", param.second.to_string(amountToPrint).c_str());
+    } else {
+      fprintf(logfile, "%s,", param.second.to_string(amountToPrint).c_str());
     }
   }
-  for (int i = 0; i < stringParam::NUM_STRING_PARAMS; i++) {
-    stringParam param = static_cast<stringParam>(i);
-    switch (amountToPrint) {
-      case 1: {
-        fprintf(logfile, "%s,", lowerCaseString(params.name(param)).c_str());
-        break;
-      }
-      case 2: {
-        fprintf(logfile, "%s,", params.get(param).c_str());
-        break;
-      }
-      default: {
-        fprintf(logfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
-            params.get(param).c_str());
-      }
+  for (auto param : params.stringParamValues) {
+    if (amountToPrint == 0) {
+      fprintf(logfile, "%s\n", param.second.to_string(amountToPrint).c_str());
+    } else {
+      fprintf(logfile, "%s,", param.second.to_string(amountToPrint).c_str());
     }
   }
-  for (int i = 0; i < static_cast<int>(intConst::NUM_INT_CONST); i++) {
-    intConst param = static_cast<intConst>(i);
-    switch (amountToPrint) {
-      case 1: {
-        fprintf(logfile, "%s,", lowerCaseString(params.name(param)).c_str());
-        break;
-      }
-      case 2: {
-        fprintf(logfile, "%s,", stringValue(params.get(param)).c_str());
-        break;
-      }
-      default: {
-        fprintf(logfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
-            stringValue(params.get(param)).c_str());
-      }
+  for (auto param : params.intConstValues) {
+    if (amountToPrint == 0) {
+      fprintf(logfile, "%s\n", param.second.to_string(amountToPrint).c_str());
+    } else {
+      fprintf(logfile, "%s,", param.second.to_string(amountToPrint).c_str());
     }
   }
-  for (int i = 0; i < static_cast<int>(doubleConst::NUM_DOUBLE_CONST); i++) {
-    doubleConst param = static_cast<doubleConst>(i);
-    switch (amountToPrint) {
-      case 1: {
-        fprintf(logfile, "%s,", lowerCaseString(params.name(param)).c_str());
-        break;
-      }
-      case 2: {
-        fprintf(logfile, "%s,", stringValue(params.get(param)).c_str());
-        break;
-      }
-      default: {
-        fprintf(logfile, "%s,%s\n", lowerCaseString(params.name(param)).c_str(),
-            stringValue(params.get(param)).c_str());
-      }
+  for (auto param : params.doubleConstValues) {
+    if (amountToPrint == 0) {
+      fprintf(logfile, "%s\n", param.second.to_string(amountToPrint).c_str());
+    } else {
+      fprintf(logfile, "%s,", param.second.to_string(amountToPrint).c_str());
     }
   }
   fflush(logfile);
