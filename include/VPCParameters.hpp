@@ -21,9 +21,9 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm> // min_element, max_element
-#include <type_traits>
-#include <unordered_set>
-#include <functional> // hash
+#include <type_traits> // is_arithmetic
+#include <unordered_map>
+//#include <functional> // hash
 
 #include "utility.hpp" // parseInt/Double, stringValue, and lowerCaseString
 
@@ -140,14 +140,24 @@ enum class doubleConst {
 }; /* doubleConst */
 
 /********** DEFINITIONS **********/
-template <class T> class Parameter;
-namespace std {
-  template<class T>
-  struct hash<Parameter<T>> {
-  public:
-    size_t operator()(const Parameter<T> &param) const { return std::hash<std::string>{}(param.name()); };
-  };
-}
+//template <class T> class Parameter;
+//namespace std {
+//  template<class T>
+//  struct hash<Parameter<T>> {
+//  public:
+//    size_t operator()(const Parameter<T> &param) const { return std::hash<std::string>{}(param.name()); };
+//  };
+//}
+/**
+ * EnumClassHash is used in order to hash for unordered_map
+ */
+struct EnumClassHash {
+  template<typename T>
+  std::size_t operator()(const T& t) const {
+    return static_cast<std::size_t>(t);
+  }
+};
+
 template <class T>
 class Parameter {
 public:
@@ -260,6 +270,10 @@ protected:
 class DoubleParameter : public NumericParameter<double> {
 public:
   using NumericParameter<double>::NumericParameter;
+  DoubleParameter(doubleParam num, const std::string& name, const double& val, const double& min_val, const double& max_val)
+  : NumericParameter<double>(name, val, min_val, max_val), param_num(num) {}
+  DoubleParameter(doubleParam num, const std::string& name, const double& val, const std::vector<double>& allowed_vals)
+  : NumericParameter<double>(name, val, allowed_vals), param_num(num) {}
   virtual std::string to_string(const int amountToPrint = 2, const char* fmt = NULL) const {
     if (fmt) {
       return NumericParameter<double>::to_string(amountToPrint, fmt);
@@ -267,12 +281,15 @@ public:
       return NumericParameter<double>::to_string(amountToPrint, "%.3e");
     }
   }
+protected:
+  doubleParam param_num;
 }; /* DoubleParameter */
 
 class StringParameter : public Parameter<std::string> {
 public:
   using Parameter<std::string>::Parameter;
-  virtual ~StringParameter() {}
+  StringParameter(stringParam num, const std::string& name, const std::string& val)
+  : Parameter<std::string>(name, val), param_num(num) {}
 
   /**
    * to_string
@@ -298,96 +315,76 @@ public:
     }
     return retval;
   } /* to_string */
+protected:
+  stringParam param_num;
 }; /* StringParameter */
 
 /********** VPC PARAMETERS STRUCT **********/
 struct VPCParameters {
   FILE* logfile = NULL; // NB: right now this is a shallow copy if this struct gets copied
 
-  std::map<intParam, IntParameter> intParamValues {
-    {intParam::CUTLIMIT, IntParameter("CUTLIMIT", -1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::DISJ_TERMS, IntParameter("DISJ_TERMS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::MODE, IntParameter("MODE", 0, 0, std::numeric_limits<int>::max())},
-    {intParam::PARTIAL_BB_STRATEGY, IntParameter("PARTIAL_BB_STRATEGY", 4, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::PARTIAL_BB_NUM_STRONG, IntParameter("PARTIAL_BB_NUM_STRONG", 5, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::PRLP_FLIP_BETA, IntParameter("PRLP_FLIP_BETA", 0, -1, 1)},
-    {intParam::ROUNDS, IntParameter("ROUNDS", 1, 0, std::numeric_limits<int>::max())},
-    {intParam::STRENGTHEN, IntParameter("STRENGTHEN", 1, 0, 2)},
-    {intParam::TEMP, IntParameter("TEMP", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::USE_ALL_ONES, IntParameter("USE_ALL_ONES", 1, 0, 1)},
-    {intParam::USE_DISJ_LB, IntParameter("USE_DISJ_LB", 1, 0, 1)},
-    {intParam::USE_ITER_BILINEAR, IntParameter("USE_ITER_BILINEAR", 0, 0, std::numeric_limits<int>::max())},
-    {intParam::USE_TIGHT_POINTS, IntParameter("USE_TIGHT_POINTS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::USE_TIGHT_RAYS, IntParameter("USE_TIGHT_RAYS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::USE_UNIT_VECTORS, IntParameter("USE_UNIT_VECTORS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+  /** unordered_map gets printed in reverse order */
+  std::unordered_map<intParam, IntParameter, EnumClassHash> intParamValues {
+    {intParam::BB_STRATEGY, IntParameter("BB_STRATEGY", 0, 0, std::numeric_limits<int>::max())}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
 #ifdef TRACE
     {intParam::VERBOSITY, IntParameter("VERBOSITY", 1, 0, 2)},
 #else
     {intParam::VERBOSITY, IntParameter("VERBOSITY", 0, 0, 2)},
 #endif
-    {intParam::BB_STRATEGY, IntParameter("BB_STRATEGY", 0, 0, std::numeric_limits<int>::max())}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
+    {intParam::USE_UNIT_VECTORS, IntParameter("USE_UNIT_VECTORS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::USE_TIGHT_RAYS, IntParameter("USE_TIGHT_RAYS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::USE_TIGHT_POINTS, IntParameter("USE_TIGHT_POINTS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::USE_ITER_BILINEAR, IntParameter("USE_ITER_BILINEAR", 0, 0, std::numeric_limits<int>::max())},
+    {intParam::USE_DISJ_LB, IntParameter("USE_DISJ_LB", 1, 0, 1)},
+    {intParam::USE_ALL_ONES, IntParameter("USE_ALL_ONES", 1, 0, 1)},
+    {intParam::TEMP, IntParameter("TEMP", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::STRENGTHEN, IntParameter("STRENGTHEN", 1, 0, 2)},
+    {intParam::ROUNDS, IntParameter("ROUNDS", 1, 0, std::numeric_limits<int>::max())},
+    {intParam::PRLP_FLIP_BETA, IntParameter("PRLP_FLIP_BETA", 0, -1, 1)},
+    {intParam::PARTIAL_BB_NUM_STRONG, IntParameter("PARTIAL_BB_NUM_STRONG", 5, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::PARTIAL_BB_STRATEGY, IntParameter("PARTIAL_BB_STRATEGY", 4, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::MODE, IntParameter("MODE", 0, 0, std::numeric_limits<int>::max())},
+    {intParam::DISJ_TERMS, IntParameter("DISJ_TERMS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::CUTLIMIT, IntParameter("CUTLIMIT", -1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
   }; /* intParamValues */
-//  std::unordered_set<IntParameter> intParamValues {
-//    {IntParameter(intParam::CUTLIMIT, "CUTLIMIT", -1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-//    {IntParameter(intParam::DISJ_TERMS, "DISJ_TERMS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-//    {IntParameter(intParam::MODE, "MODE", 0, 0, std::numeric_limits<int>::max())},
-//    {IntParameter(intParam::PARTIAL_BB_STRATEGY, "PARTIAL_BB_STRATEGY", 4, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-//    {IntParameter(intParam::PARTIAL_BB_NUM_STRONG, "PARTIAL_BB_NUM_STRONG", 5, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-//    {IntParameter(intParam::PRLP_FLIP_BETA, "PRLP_FLIP_BETA", 0, -1, 1)},
-//    {IntParameter(intParam::ROUNDS, "ROUNDS", 1, 0, std::numeric_limits<int>::max())},
-//    {IntParameter(intParam::STRENGTHEN, "STRENGTHEN", 1, 0, 2)},
-//    {IntParameter(intParam::TEMP, "TEMP", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-//    {IntParameter(intParam::USE_ALL_ONES, "USE_ALL_ONES", 1, 0, 1)},
-//    {IntParameter(intParam::USE_DISJ_LB, "USE_DISJ_LB", 1, 0, 1)},
-//    {IntParameter(intParam::USE_ITER_BILINEAR, "USE_ITER_BILINEAR", 0, 0, std::numeric_limits<int>::max())},
-//    {IntParameter(intParam::USE_TIGHT_POINTS, "USE_TIGHT_POINTS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-//    {IntParameter(intParam::USE_TIGHT_RAYS, "USE_TIGHT_RAYS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-//    {IntParameter(intParam::USE_UNIT_VECTORS, "USE_UNIT_VECTORS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-//#ifdef TRACE
-//    {IntParameter(intParam::VERBOSITY, "VERBOSITY", 1, 0, 2)},
-//#else
-//    {IntParameter(intParam::VERBOSITY, "VERBOSITY", 0, 0, 2)},
-//#endif
-//    {IntParameter(intParam::BB_STRATEGY, "BB_STRATEGY", 0, 0, std::numeric_limits<int>::max())}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
-//  }; /* intParamValues */
-  std::map<doubleParam, DoubleParameter> doubleParamValues {
-    {doubleParam::EPS, DoubleParameter("EPS", 1e-7, 0., 1.)},
-    {doubleParam::MIN_ORTHOGONALITY, DoubleParameter("MIN_ORTHOGONALITY", 0., 0., 1.)},
-    {doubleParam::PARTIAL_BB_TIMELIMIT, DoubleParameter("PARTIAL_BB_TIMELIMIT", 3600, 0., std::numeric_limits<double>::max())},
-    {doubleParam::PRLP_TIMELIMIT, DoubleParameter("PRLP_TIMELIMIT", -1, -1., std::numeric_limits<double>::max())},
+  std::unordered_map<doubleParam, DoubleParameter, EnumClassHash> doubleParamValues {
     {doubleParam::TIMELIMIT, DoubleParameter("TIMELIMIT", 60, 0., std::numeric_limits<double>::max())},
+    {doubleParam::PRLP_TIMELIMIT, DoubleParameter("PRLP_TIMELIMIT", -1, -1., std::numeric_limits<double>::max())},
+    {doubleParam::PARTIAL_BB_TIMELIMIT, DoubleParameter("PARTIAL_BB_TIMELIMIT", 3600, 0., std::numeric_limits<double>::max())},
+    {doubleParam::MIN_ORTHOGONALITY, DoubleParameter("MIN_ORTHOGONALITY", 0., 0., 1.)},
+    {doubleParam::EPS, DoubleParameter("EPS", 1e-7, 0., 1.)},
   }; /* doubleParamValues */
-  std::map<stringParam, StringParameter> stringParamValues {
-    {stringParam::FILENAME, StringParameter("FILENAME", "")},
+  std::unordered_map<stringParam, StringParameter, EnumClassHash> stringParamValues {
+    {stringParam::OPTFILE, StringParameter("OPTFILE", "")},
     {stringParam::LOGFILE, StringParameter("LOGFILE", "")},
-    {stringParam::OPTFILE, StringParameter("OPTFILE", "")}
+    {stringParam::FILENAME, StringParameter("FILENAME", "")},
   }; /* stringParamValues */
 
   // Constants
-  std::map<intConst, IntParameter> intConstValues {
-    {intConst::CHECK_DUPLICATES, IntParameter("CHECK_DUPLICATES", 1, 1, 1)},
-    {intConst::LUB, IntParameter("LUB", 1e3, 1e3, 1e3)},
-    {intConst::MAX_SUPPORT_ABS, IntParameter("MAX_SUPPORT_ABS", std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), std::numeric_limits<int>::max())},
-    {intConst::MODE_OBJ_PER_POINT, IntParameter("MODE_OBJ_PER_POINT", 121, 121, 121)}, // one ray at a time, points+rays+variables, large to small angle (descending)
-    {intConst::NUM_OBJ_PER_POINT, IntParameter("NUM_OBJ_PER_POINT", -2, -2, -2)}, // sqrt(n)
-    {intConst::NB_SPACE, IntParameter("NB_SPACE", 1, 1, 1)}, // currently only works with true
+  std::unordered_map<intConst, IntParameter, EnumClassHash> intConstValues {
+    {intConst::RANDOM_SEED, IntParameter("RANDOM_SEED", 628, 628, 628)},
     {intConst::PRLP_PRESOLVE, IntParameter("PRLP_PRESOLVE", 2, 2, 2)}, // use presolve when solving PRLP (either initial or resolve)
-    {intConst::RANDOM_SEED, IntParameter("RANDOM_SEED", 628, 628, 628)}
+    {intConst::NB_SPACE, IntParameter("NB_SPACE", 1, 1, 1)}, // currently only works with true
+    {intConst::NUM_OBJ_PER_POINT, IntParameter("NUM_OBJ_PER_POINT", -2, -2, -2)}, // sqrt(n)
+    {intConst::MODE_OBJ_PER_POINT, IntParameter("MODE_OBJ_PER_POINT", 121, 121, 121)}, // one ray at a time, points+rays+variables, large to small angle (descending)
+    {intConst::MAX_SUPPORT_ABS, IntParameter("MAX_SUPPORT_ABS", std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), std::numeric_limits<int>::max())},
+    {intConst::LUB, IntParameter("LUB", 1e3, 1e3, 1e3)},
+    {intConst::CHECK_DUPLICATES, IntParameter("CHECK_DUPLICATES", 1, 1, 1)},
   }; /* intConstValues */
-  std::map<doubleConst, DoubleParameter> doubleConstValues {
-    {doubleConst::AWAY, DoubleParameter("AWAY", 1e-3, 1e-3, 1e-3)},
-    {doubleConst::DIFFEPS, DoubleParameter("DIFFEPS", 1e-3, 1e-3, 1e-3)}, // to check whether something is different enough to throw an error
-    {doubleConst::INF, DoubleParameter("INF", std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max())},
-    {doubleConst::RAYEPS, DoubleParameter("RAYEPS", 1e-7, 1e-7, 1e-7)},
-    {doubleConst::BB_TIMELIMIT, DoubleParameter("BB_TIMELIMIT", 3600., 3600., 3600.)},
-    {doubleConst::MIN_PRLP_TIMELIMIT, DoubleParameter("MIN_PRLP_TIMELIMIT", 5., 5., 5.)},
-    {doubleConst::EPS_COEFF, DoubleParameter("EPS_COEFF", 1e-5, 1e-5, 1e-5)},
-    {doubleConst::EPS_COEFF_LUB, DoubleParameter("EPS_COEFF_LUB", 1e-13, 1e-13, 1e-13)},
-    {doubleConst::MIN_VIOL_ABS, DoubleParameter("MIN_VIOL_ABS", 1e-7, 1e-7, 1e-7)},
-    {doubleConst::MIN_VIOL_REL, DoubleParameter("MIN_VIOL_REL", 1e-7, 1e-7, 1e-7)},
-    {doubleConst::MAX_DYN, DoubleParameter("MAX_DYN", 1e8, 1e8, 1e8)},
+  std::unordered_map<doubleConst, DoubleParameter, EnumClassHash> doubleConstValues {
+    {doubleConst::MAX_SUPPORT_REL, DoubleParameter("MAX_SUPPORT_REL", 0.9, 0.9, 0.9)},
     {doubleConst::MAX_DYN_LUB, DoubleParameter("MAX_DYN_LUB", 1e13, 1e13, 1e13)},
-    {doubleConst::MAX_SUPPORT_REL, DoubleParameter("MAX_SUPPORT_REL", 0.9, 0.9, 0.9)}
+    {doubleConst::MAX_DYN, DoubleParameter("MAX_DYN", 1e8, 1e8, 1e8)},
+    {doubleConst::MIN_VIOL_REL, DoubleParameter("MIN_VIOL_REL", 1e-7, 1e-7, 1e-7)},
+    {doubleConst::MIN_VIOL_ABS, DoubleParameter("MIN_VIOL_ABS", 1e-7, 1e-7, 1e-7)},
+    {doubleConst::EPS_COEFF_LUB, DoubleParameter("EPS_COEFF_LUB", 1e-13, 1e-13, 1e-13)},
+    {doubleConst::EPS_COEFF, DoubleParameter("EPS_COEFF", 1e-5, 1e-5, 1e-5)},
+    {doubleConst::MIN_PRLP_TIMELIMIT, DoubleParameter("MIN_PRLP_TIMELIMIT", 5., 5., 5.)},
+    {doubleConst::BB_TIMELIMIT, DoubleParameter("BB_TIMELIMIT", 3600., 3600., 3600.)},
+    {doubleConst::RAYEPS, DoubleParameter("RAYEPS", 1e-7, 1e-7, 1e-7)},
+    {doubleConst::INF, DoubleParameter("INF", std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max())},
+    {doubleConst::DIFFEPS, DoubleParameter("DIFFEPS", 1e-3, 1e-3, 1e-3)}, // to check whether something is different enough to throw an error
+    {doubleConst::AWAY, DoubleParameter("AWAY", 1e-3, 1e-3, 1e-3)},
   }; /* doubleConstValues */
 
   // Methods (name/get/set)

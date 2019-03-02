@@ -273,12 +273,6 @@ void startUp(int argc, char** argv) {
   }
   std::cout << std::endl;
 
-//#ifdef TRACE
-//  // Print parameters
-//  printf("\n## Parameter values ##\n");
-//  printParams(params, stdout, 0);
-//#endif
-
   // Prepare logfile
   const std::string logname = params.get(stringParam::LOGFILE);
   if (!logname.empty()) {
@@ -316,6 +310,15 @@ int wrapUp(int retCode /*= 0*/) {
     fprintf(logfile, "\n");
     fclose(logfile); // closes params.logfile
   }
+
+#ifdef TRACE
+  // Print parameters
+  printf("\n## Parameter values ##\n");
+  printParams(params, stdout, 1);
+  printf("\n");
+  printParams(params, stdout, 2);
+  printf("\n");
+#endif
 
   // Print results from adding cuts
   const int NAME_WIDTH = 25;
