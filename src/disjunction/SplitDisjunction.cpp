@@ -7,7 +7,6 @@
 // COIN-OR
 
 // Project files
-#include "BBHelper.hpp"
 #include "CglVPC.hpp" // get timer information too
 #include "SolverHelper.hpp"
 #include "utility.hpp"

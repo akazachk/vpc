@@ -25,7 +25,7 @@
 #include <unordered_map>
 //#include <functional> // hash
 
-#include "utility.hpp" // parseInt/Double, stringValue, and lowerCaseString
+#include "utility.hpp" // parseInt/Double, stringValue, lowerCaseString, and overloading << for vectors
 
 // Define SolverInterface that we can later change in a way that will be used in all VPC files
 #ifdef USE_CLP
@@ -242,11 +242,14 @@ public:
         return true;
       } else {
       std::cerr << "*** ERROR: Error setting parameter " << this->name()
-          << ": Val = " << stringValue(this->val)
-          << ". Min = " << stringValue(this->min_val)
-          << ". Max = " << stringValue(this->max_val)
-          << "." << std::endl;
-        exit(1);
+          << ": Val = " << stringValue(this->val) << ".";
+      if (this->allowed_vals.size() > 0 && this->allowed_vals.size() < 10)
+        std::cerr << " Allowed values: " << allowed_vals << ".";
+      else
+        std::cerr << " Min = " << stringValue(this->min_val)
+            << ". Max = " << stringValue(this->max_val) << ".";
+      std::cerr << std::endl;
+      exit(1);
       }
     }
 
@@ -350,7 +353,7 @@ struct VPCParameters {
     {intParam::PRLP_FLIP_BETA, IntParameter("PRLP_FLIP_BETA", 0, -1, 1)},
     {intParam::PARTIAL_BB_NUM_STRONG, IntParameter("PARTIAL_BB_NUM_STRONG", 5, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
     {intParam::PARTIAL_BB_STRATEGY, IntParameter("PARTIAL_BB_STRATEGY", 4, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::MODE, IntParameter("MODE", 0, 0, std::numeric_limits<int>::max())},
+    {intParam::MODE, IntParameter("MODE", 0, {0, 1, 3})},
     {intParam::DISJ_TERMS, IntParameter("DISJ_TERMS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
     {intParam::CUTLIMIT, IntParameter("CUTLIMIT", -1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
   }; /* intParamValues */

@@ -14,27 +14,6 @@
 #include "PartialBBDisjunction.hpp"
 #include "SplitDisjunction.hpp"
 
-//void generateRoundOfCuts(OsiCuts& vpcs, OsiSolverInterface* solver, TimeStats& timer, VPCParameters& params) {
-//  timer.start_timer(OverallTimeStats::GEN_VPC_TIME);
-//  CglVPC gen(params);
-//  gen.generateCuts(*solver, vpcs); // solution may change slightly due to enable factorization called in getProblemData...
-//  timer.end_timer(OverallTimeStats::GEN_VPC_TIME);
-//
-//  printf(
-//      "\n## Finished VPC generation (exit reason: %s) using partial tree with # disjunctive terms = %d, # cuts generated = %d. Now solving for new objective value. ##\n",
-//      ExitReasonName[static_cast<int>(gen.exitReason)].c_str(),
-//      gen.disj->num_terms, vpcs.sizeCuts());
-//  double init_obj_value = solver->getObjValue();
-//  solver->applyCuts(vpcs);
-//  solver->resolve();
-//  checkSolverOptimality(solver, false);
-//  const double new_obj_value = solver->getObjValue();
-//
-//  printf(
-//      "\n## Initial obj value: %1.6f. New obj value: %1.6f. Disj lb: %1.6f. ##\n",
-//      init_obj_value, new_obj_value, gen.disj->best_obj);
-//} /* generateRoundOfCuts */
-
 /**
  * Set disjunctions; if integer-optimal solution is found, delete all but one disjunction, which will have that solution
  */

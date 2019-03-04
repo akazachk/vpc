@@ -13,7 +13,6 @@
 #include <CglGMI.hpp>
 
 // Project files
-#include "BBHelper.hpp"
 #include "VPCEventHandler.hpp"
 #include "PRLP.hpp"
 #include "SolverHelper.hpp"

@@ -75,11 +75,6 @@ const std::vector<std::string> BB_INFO_CONTENTS = {
     "OBJ", "BOUND", "ITERS", "NODES", "ROOT_PASSES", "FIRST_CUT_PASS", "LAST_CUT_PASS", "ROOT_TIME", "LAST_SOL_TIME", "TIME"
 };
 
-//struct SummaryBBInfo {
-//  BBInfo best_bb_info_nocuts, best_bb_info_mycuts, best_bb_info_allcuts;
-//  BBInfo avg_bb_info_nocuts, avg_bb_info_mycuts, avg_bb_info_allcuts;
-//  std::vector<BBInfo> vec_bb_info_mycuts, vec_bb_info_allcuts;
-//};
 struct SummaryBBInfo {
   BBInfo best_bb_info, avg_bb_info;
   std::vector<BBInfo> vec_bb_info;
@@ -120,29 +115,6 @@ void createTmpFileCopy(const VPCParameters& params,
 
 // COIN-OR
 #ifdef USE_CBC
-#include "CbcModel.hpp"
-
-/**
- * Sets message handler and special options when using solver as part of B&B
- * (in which we want to run full strong branching and enable the fixing of variables)
- */
-void setupClpForCbc(OsiClpSolverInterface* const solver,
-    const int hot_start_iter_limit = std::numeric_limits<int>::max()); 
-
-/**
- * Set parameters for Cbc used for VPCs, as well as the custom branching decision
- */
-void setCbcParametersForPartialBB(
-    const VPCParameters& param,
-    CbcModel* const cbc_model,
-    CbcEventHandler* eventHandler = NULL, const int numStrong = 5,
-    const int numBeforeTrusted = 10, const double max_time =
-        std::numeric_limits<double>::max());
-
-void generatePartialBBTree(PartialBBDisjunction* const owner, CbcModel* cbc_model,
-    const OsiSolverInterface* const solver, const int max_nodes,
-    const int num_strong, const int num_before_trusted);
-
 void doBranchAndBoundNoCuts(const VPCParameters& params, const OsiSolverInterface* const solver, BBInfo& info);
 void doBranchAndBoundYesCuts(const VPCParameters& params, const OsiSolverInterface* const solver,
     BBInfo& info, const OsiCuts& structCuts, const bool doCutSelection,

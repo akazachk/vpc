@@ -56,7 +56,6 @@ SOURCES = main.cpp
 DIR_LIST = $(SRC_DIR) $(SRC_DIR)/branch $(SRC_DIR)/cut $(SRC_DIR)/disjunction $(SRC_DIR)/utility
 
 SOURCES += \
-		branch/BBHelper.cpp \
 		branch/CbcBranchStrongDecision.cpp \
 		branch/CbcCompareBFS.cpp \
 		branch/OsiChooseStrongCustom.cpp \
@@ -68,9 +67,12 @@ SOURCES += \
 		cut/CutHelper.cpp \
     cut/PRLP.cpp \
     disjunction/Disjunction.cpp \
-    disjunction/DisjunctionHelper.cpp \
     disjunction/PartialBBDisjunction.cpp \
     disjunction/SplitDisjunction.cpp
+
+# For running tests (need not include these or main if releasing code to others)
+DIR_LIST += $(SRC_DIR)/test
+SOURCES += test/BBHelper.cpp test/DisjunctionHelper.cpp
 
 ### Set build values based on user variables ###
 ifeq ($(BUILD_CONFIG),debug)
@@ -105,7 +107,7 @@ ifeq ($(USE_CBC),1)
 endif
 ifeq ($(USE_GUROBI),1)
   DEFS += -DUSE_GUROBI
-  SOURCES += branch/GurobiHelper.cpp
+  SOURCES += test/GurobiHelper.cpp
   GUROBI_INC="${GUROBI_DIR}/include"
   GUROBI_LIB="${GUROBI_DIR}/lib"
   GUROBI_LINK="gurobi81"

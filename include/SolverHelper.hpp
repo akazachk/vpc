@@ -42,6 +42,13 @@ void setupClpForStrongBranching(OsiClpSolverInterface* const solver,
     const int hot_start_iter_limit = std::numeric_limits<int>::max());
 #endif
 
+/**
+ * Sets message handler and special options when using solver as part of B&B
+ * (in which we want to run full strong branching and enable the fixing of variables)
+ */
+void setupClpForCbc(OsiSolverInterface* const solver,
+    const int hot_start_iter_limit = std::numeric_limits<int>::max());
+
 /** Overload solve from hot start because of issues */
 bool solveFromHotStart(OsiSolverInterface* const solver, const int col,
     const bool isChangedUB, const double origBound, const double newBound);

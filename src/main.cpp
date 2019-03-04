@@ -110,13 +110,6 @@ int main(int argc, char** argv) {
   timer.start_timer(OverallTimeStats::TOTAL_TIME);
   startUp(argc, argv);
 
-  // Do a few checks (TODO eventually incorporate into Parameter class)
-  if (params.get(MODE) == static_cast<int>(CglVPC::VPCMode::CROSSES)) {
-    error_msg(errorstring, "Generating cuts from crosses is not currently implemented.\n");
-    writeErrorToLog(errorstring, params.logfile);
-    exit(1);
-  }
-
   // Set up solver and get initial solution
   initializeSolver(solver);
   timer.start_timer(OverallTimeStats::INIT_SOLVE_TIME);
@@ -277,6 +270,10 @@ void startUp(int argc, char** argv) {
   printf("## V-Polyhedral Disjunctive Cuts ##\n");
   printf("Aleksandr M. Kazachkov\n");
   printf("Based on joint work with Egon Balas\n");
+  for (int i = 0; i < argc; i++) {
+    std::cout << argv[i] << " ";
+  }
+  std::cout << std::endl;
 
   time(&start_time_t);
   struct tm* timeinfo = localtime(&start_time_t);
@@ -287,10 +284,6 @@ void startUp(int argc, char** argv) {
   processArgs(argc, argv);
 
   printf("Instance file: %s.\n", params.get(stringParam::FILENAME).c_str());
-  for (int i = 0; i < argc; i++) {
-    std::cout << argv[i] << " ";
-  }
-  std::cout << std::endl;
 
   // Prepare logfile
   const std::string logname = params.get(stringParam::LOGFILE);
