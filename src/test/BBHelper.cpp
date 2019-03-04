@@ -75,6 +75,9 @@ void runBBTests(const VPCParameters& params, SummaryBBInfo& info_nocuts,
   printf("\n## Performing branch-and-bound tests. ##\n");
 #endif
 
+  info_nocuts.num_cuts = 0;
+  info_mycuts.num_cuts = num_vpcs;
+  info_allcuts.num_cuts = num_vpcs + num_gmics;
   info_nocuts.vec_bb_info.resize(0);
   info_nocuts.vec_bb_info.resize(num_bb_runs);
   info_mycuts.vec_bb_info.resize(0);
@@ -287,6 +290,8 @@ void averageBBInfo(BBInfo& avg_info, const std::vector<BBInfo>& info) {
 } /* averageBBInfo */
 
 void printBBInfo(const BBInfo& info, FILE* myfile, const bool print_blanks, const char SEP) {
+  if (!myfile)
+    return;
   if (!print_blanks) {
     fprintf(myfile, "%s%c", stringValue(info.obj, "%.20f").c_str(), SEP);
     fprintf(myfile, "%s%c", stringValue(info.bound, "%.20f").c_str(), SEP);
@@ -307,6 +312,8 @@ void printBBInfo(const BBInfo& info, FILE* myfile, const bool print_blanks, cons
 
 void printBBInfo(const BBInfo& info_mycuts, const BBInfo& info_allcuts,
     FILE* myfile, const bool print_blanks, const char SEP) {
+  if (!myfile)
+    return;
   if (!print_blanks) {
     fprintf(myfile, "%s%c", stringValue(info_mycuts.obj, "%.20f").c_str(), SEP);
     fprintf(myfile, "%s%c", stringValue(info_allcuts.obj, "%.20f").c_str(), SEP);

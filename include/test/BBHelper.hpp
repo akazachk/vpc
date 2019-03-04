@@ -76,6 +76,7 @@ const std::vector<std::string> BB_INFO_CONTENTS = {
 };
 
 struct SummaryBBInfo {
+  int num_cuts;
   BBInfo best_bb_info, avg_bb_info;
   std::vector<BBInfo> vec_bb_info;
 };

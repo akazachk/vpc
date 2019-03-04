@@ -20,6 +20,7 @@
 #include <OsiCuts.hpp>
 
 // Project files
+#include "analysis.hpp" // analyzeStrength, analalyzeBB
 #include "BBHelper.hpp" // runBBTests
 #include "CglVPC.hpp"
 #include "CutHelper.hpp"
@@ -36,8 +37,6 @@ enum OverallTimeStats {
   GEN_VPC_TIME,
   APPLY_VPC_TIME,
   BB_TIME,
-  BB_NOVPC_TIME,
-  BB_VPC_TIME,
   NUM_TIME_STATS
 }; /* OverallTimeStats */
 const std::vector<std::string> OverallTimeStatsName {
@@ -45,18 +44,7 @@ const std::vector<std::string> OverallTimeStatsName {
   "INIT_SOLVE_TIME",
   "GEN_VPC_TIME",
   "APPLY_VPC_TIME",
-  "BB_TIME",
-  "BB_NOVPC_TIME",
-  "BB_VPC_TIME"
-};
-
-struct RoundInfo {
-  double old_obj, new_obj;
-  int num_frac_vars;
-  double min_frac, max_frac;
-  int num_disj_terms;
-  int num_obj_tried, num_cuts, num_failures;
-  std::vector<int> numFails;
+  "BB_TIME"
 };
 
 // Main file variables
@@ -66,7 +54,6 @@ std::string instname;
 ExitReason exitReason;
 TimeStats timer;
 std::time_t start_time_t, end_time_t;
-std::vector<RoundInfo> roundInfo;
 SummaryBBInfo info_nocuts, info_mycuts, info_allcuts;
 
 int num_vpc_total = 0, num_gmic_total = 0;
@@ -75,6 +62,9 @@ double gmic_obj = std::numeric_limits<double>::lowest();
 double vpc_obj = std::numeric_limits<double>::lowest();
 double best_disj_obj = std::numeric_limits<double>::lowest();
 double ip_obj = std::numeric_limits<double>::lowest(); // will be set in CglVPC
+
+// For output
+std::string cut_output = "", bb_output = "";
 
 // Catch abort signal if it ever gets sent
 /**
@@ -132,12 +122,21 @@ int main(int argc, char** argv) {
     }
     timer.start_timer(OverallTimeStats::GEN_VPC_TIME);
     CglVPC gen(params);
+
+    // Store the initial solve time in order to set a baseline for the PRLP resolve time
     gen.timer.add_value(
         CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::INIT_SOLVE_TIME)],
         timer.get_value(OverallTimeStats::INIT_SOLVE_TIME));
 
     // Proceed with custom disjunctions if specified; otherwise, the disjunction will be set up in the CglVPC class
-    if (params.get(MODE) == static_cast<int>(CglVPC::VPCMode::CUSTOM)) {
+    if (params.get(MODE) != static_cast<int>(CglVPC::VPCMode::CUSTOM)) {
+      gen.generateCuts(*solver, vpcs[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
+      exitReason = gen.exitReason;
+      num_vpc_total += gen.num_cuts;
+      if (best_disj_obj < gen.disj()->best_obj)
+        best_disj_obj = gen.disj()->best_obj;
+      ip_obj = gen.ip_obj;
+    } else {
       std::vector<Disjunction*> disjVec;
       printf("\n## Setting up disjunction(s) ##\n");
       gen.timer.start_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
@@ -216,14 +215,6 @@ int main(int argc, char** argv) {
         }
       }
     } // check if mode is CUSTOM
-    else {
-      gen.generateCuts(*solver, vpcs[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
-      exitReason = gen.exitReason;
-      num_vpc_total += gen.num_cuts;
-      if (best_disj_obj < gen.disj()->best_obj)
-        best_disj_obj = gen.disj()->best_obj;
-      ip_obj = gen.ip_obj;
-    }
     timer.end_timer(OverallTimeStats::GEN_VPC_TIME);
 
     timer.start_timer(OverallTimeStats::APPLY_VPC_TIME);
@@ -253,10 +244,12 @@ int main(int argc, char** argv) {
     timer.start_timer(BB_TIME);
     runBBTests(params, info_nocuts, info_mycuts, info_allcuts,
         params.get(stringParam::FILENAME), solver, ip_obj, &allVPCs, NULL);
+    analyzeBB(params, info_nocuts, info_mycuts, info_allcuts, bb_output);
     timer.end_timer(BB_TIME);
   }
 
   vpc_obj = solver->getObjValue();
+  analyzeStrength(params, init_obj, gmic_obj, vpc_obj, best_disj_obj, ip_obj, num_vpc_total, num_gmic_total, cut_output);
   printf(
       "\n## Finished VPC generation with %d cuts. Initial obj value: %s. Final obj value: %s. Disj lb: %s. ##\n",
       num_vpc_total,
@@ -328,10 +321,6 @@ int wrapUp(int retCode /*= 0*/) {
     fclose(logfile); // closes params.logfile
   }
 
-  int NAME_WIDTH = 25;
-  int NUM_DIGITS_BEFORE_DEC = 7;
-  int NUM_DIGITS_AFTER_DEC = 7;
-
 #ifdef TRACE
   // Print parameters
   printf("\n## Parameter values ##\n");
@@ -341,7 +330,9 @@ int wrapUp(int retCode /*= 0*/) {
   printf("\n");
 #endif
 
+
 #ifdef TRACE
+  int NAME_WIDTH = 25;
   // Print timing
   printf("\n## Time information ##\n");
   for (int i = 0; i < NUM_TIME_STATS; i++) {
@@ -353,108 +344,10 @@ int wrapUp(int retCode /*= 0*/) {
 #endif
 
   // Print results from adding cuts
-  char tmpstring[300];
-  std::string output = "";
-  sprintf(tmpstring, "\n## Results from adding cuts ##\n");
-  output += tmpstring;
-  sprintf(tmpstring, "%-*.*s%s\n", NAME_WIDTH, NAME_WIDTH, "LP: ",
-      stringValue(init_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-  output += tmpstring;
-  if (!isInfinity(std::abs(gmic_obj))) {
-    sprintf(tmpstring, "%-*.*s%s (%d cuts)\n", NAME_WIDTH, NAME_WIDTH, "GMICs: ",
-        stringValue(gmic_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str(),
-        num_gmic_total);
-    output += tmpstring;
-  }
-  if (!isInfinity(std::abs(vpc_obj))) {
-    sprintf(tmpstring, "%-*.*s%s (%d cuts)\n", NAME_WIDTH, NAME_WIDTH, "VPCs: ",
-        stringValue(vpc_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str(),
-        num_vpc_total);
-    output += tmpstring;
-  }
-  if (!isInfinity(std::abs(best_disj_obj))) {
-    sprintf(tmpstring, "%-*.*s%s\n", NAME_WIDTH, NAME_WIDTH, "Disjunctive lb: ",
-        stringValue(best_disj_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-    output += tmpstring;
-  }
-  if (!isInfinity(std::abs(ip_obj))) {
-    sprintf(tmpstring, "%-*.*s%s\n", NAME_WIDTH, NAME_WIDTH, "IP: ",
-        stringValue(ip_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-    output += tmpstring;
-  }
-  printf("%s", output.c_str());
+  printf("%s", cut_output.c_str());
 
-  if (params.get(BB_RUNS) != 0) {
-    // B&B mode: ones bit = no_cuts, tens bit = w/vpcs, hundreds bit = w/gmics
-    const int mode_param = params.get(intParam::BB_MODE);
-    const int mode_ones = mode_param % 10;
-    const int mode_tens = (mode_param % 100 - (mode_param % 10)) / 10;
-    const int mode_hundreds = (mode_param % 1000 - (mode_param % 100)) / 100;
-    const bool branch_with_no_cuts = (mode_ones > 0);
-    const bool branch_with_vpcs = (mode_tens > 0) && (num_vpc_total > 0);
-    const bool branch_with_gmics = (mode_hundreds > 0) && (num_gmic_total > 0);
-    if (branch_with_no_cuts + branch_with_vpcs + branch_with_gmics != 0) {
-      int NAME_WIDTH = 25;
-      int NUM_DIGITS_BEFORE_DEC = 10;
-      int NUM_DIGITS_AFTER_DEC = 2;
-      printf("\n## Branch-and-bound results ##\n");
-      printf("%-*s", NAME_WIDTH, "");
-      if (branch_with_no_cuts) printf("%-*s", NUM_DIGITS_BEFORE_DEC, "Gur");
-      if (branch_with_vpcs) printf("%-*s", NUM_DIGITS_BEFORE_DEC, "Gur+V");
-      if (branch_with_gmics) printf("%-*s", NUM_DIGITS_BEFORE_DEC, "Gur+V+G");
-      printf("\n");
-      printf("%-*.*s", NAME_WIDTH, NAME_WIDTH, "Obj:");
-      if (branch_with_no_cuts) printf("%s", stringValue(info_nocuts.avg_bb_info.obj, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-      if (branch_with_vpcs) printf("%s", stringValue(info_mycuts.avg_bb_info.obj, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-      if (branch_with_gmics) printf("%s", stringValue(info_allcuts.avg_bb_info.obj, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-      printf("\n");
-      printf("%-*.*s", NAME_WIDTH, NAME_WIDTH, "Bound:");
-      if (branch_with_no_cuts) printf("%s", stringValue(info_nocuts.avg_bb_info.bound, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-      if (branch_with_vpcs) printf("%s", stringValue(info_mycuts.avg_bb_info.bound, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-      if (branch_with_gmics) printf("%s", stringValue(info_allcuts.avg_bb_info.bound, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-      printf("\n");
-      printf("%-*.*s", NAME_WIDTH, NAME_WIDTH, "Iters:");
-      if (branch_with_no_cuts) printf("%-*ld", NUM_DIGITS_BEFORE_DEC, info_nocuts.avg_bb_info.iters);
-      if (branch_with_vpcs) printf("%-*ld", NUM_DIGITS_BEFORE_DEC, info_mycuts.avg_bb_info.iters);
-      if (branch_with_gmics) printf("%-*ld", NUM_DIGITS_BEFORE_DEC, info_allcuts.avg_bb_info.iters);
-      printf("\n");
-      printf("%-*.*s", NAME_WIDTH, NAME_WIDTH, "Nodes:");
-      if (branch_with_no_cuts) printf("%-*ld", NUM_DIGITS_BEFORE_DEC, info_nocuts.avg_bb_info.nodes);
-      if (branch_with_vpcs) printf("%-*ld", NUM_DIGITS_BEFORE_DEC, info_mycuts.avg_bb_info.nodes);
-      if (branch_with_gmics) printf("%-*ld", NUM_DIGITS_BEFORE_DEC, info_allcuts.avg_bb_info.nodes);
-      printf("\n");
-      printf("%-*.*s", NAME_WIDTH, NAME_WIDTH, "Root passes:");
-      if (branch_with_no_cuts) printf("%-*ld", NUM_DIGITS_BEFORE_DEC, info_nocuts.avg_bb_info.root_passes);
-      if (branch_with_vpcs) printf("%-*ld", NUM_DIGITS_BEFORE_DEC, info_mycuts.avg_bb_info.root_passes);
-      if (branch_with_gmics) printf("%-*ld", NUM_DIGITS_BEFORE_DEC, info_allcuts.avg_bb_info.root_passes);
-      printf("\n");
-      printf("%-*.*s", NAME_WIDTH, NAME_WIDTH, "First cut pass:");
-      if (branch_with_no_cuts) printf("%s", stringValue(info_nocuts.avg_bb_info.first_cut_pass, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-      if (branch_with_vpcs) printf("%s", stringValue(info_mycuts.avg_bb_info.first_cut_pass, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-      if (branch_with_gmics) printf("%s", stringValue(info_allcuts.avg_bb_info.first_cut_pass, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-      printf("\n");
-      printf("%-*.*s", NAME_WIDTH, NAME_WIDTH, "Last cut pass:");
-      if (branch_with_no_cuts) printf("%s", stringValue(info_nocuts.avg_bb_info.last_cut_pass, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-      if (branch_with_vpcs) printf("%s", stringValue(info_mycuts.avg_bb_info.last_cut_pass, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-      if (branch_with_gmics) printf("%s", stringValue(info_allcuts.avg_bb_info.last_cut_pass, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-      printf("\n");
-      printf("%-*.*s", NAME_WIDTH, NAME_WIDTH, "Root time:");
-      if (branch_with_no_cuts) printf("%s", stringValue(info_nocuts.avg_bb_info.root_time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-      if (branch_with_vpcs) printf("%s", stringValue(info_mycuts.avg_bb_info.root_time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-      if (branch_with_gmics) printf("%s", stringValue(info_allcuts.avg_bb_info.root_time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-      printf("\n");
-      printf("%-*.*s", NAME_WIDTH, NAME_WIDTH, "Last solution time:");
-      if (branch_with_no_cuts) printf("%s", stringValue(info_nocuts.avg_bb_info.last_sol_time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-      if (branch_with_vpcs) printf("%s", stringValue(info_mycuts.avg_bb_info.last_sol_time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-      if (branch_with_gmics) printf("%s", stringValue(info_allcuts.avg_bb_info.last_sol_time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-      printf("\n");
-      printf("%-*.*s", NAME_WIDTH, NAME_WIDTH, "Time:");
-      if (branch_with_no_cuts) printf("%s", stringValue(info_nocuts.avg_bb_info.time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-      if (branch_with_vpcs) printf("%s", stringValue(info_mycuts.avg_bb_info.time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-      if (branch_with_gmics) printf("%s", stringValue(info_allcuts.avg_bb_info.time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
-      printf("\n");
-    } // check that there is something to do
-  } // check that any bb_runs were requested
+  // Print branch-and-bound results
+  printf("%s", bb_output.c_str());
 
   printf("\n## Exiting VPC generation with reason %s. ##\n", ExitReasonName[exitReasonInt].c_str());
   printf("Instance: %s\n", instname.c_str());
