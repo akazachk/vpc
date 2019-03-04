@@ -129,7 +129,7 @@ OUT_OBJECTS = $(addprefix $(OBJ_DIR)/,$(OBJECTS))
 
 # Set includes
 INCL_SRC_DIRS = $(addprefix -I,$(DIR_LIST))
-APPLINCLS = $(INCL_SRC_DIRS) -Iinclude
+APPLINCLS = $(INCL_SRC_DIRS) -Iinclude -Iinclude/test
 
 APPLLIB = -lm -lz -lbz2 -lreadline
 
