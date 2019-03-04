@@ -79,6 +79,7 @@ enum intParam {
   //  use_best_bound = 8192,
   //  strong_branching_on = 16384
   BB_STRATEGY, // bit vector; sum of above bits
+  BB_MODE, // 111: each bit represents whether to branch with gmics, vpcs, and no cuts (from largest to smallest bit)
   NUM_INT_PARAMS
 }; /* intParam */
 enum doubleParam {
@@ -142,7 +143,9 @@ enum class doubleConst {
 
 enum class TempOptions {
   NONE = 0,
-  CHECK_CUTS_AGAINST_BB_OPT = 1,
+  PREPROCESS = 1,
+  CHECK_CUTS_AGAINST_BB_OPT = 2,
+  // Options for generating tikz string
   GEN_TIKZ_STRING_WITH_VPCS = 10,
   GEN_TIKZ_STRING_WITH_GMICS = 11,
   GEN_TIKZ_STRING_WITH_VPCS_AND_GMICS = 12,
@@ -340,6 +343,7 @@ struct VPCParameters {
 
   /** unordered_map gets printed in reverse order */
   std::unordered_map<intParam, IntParameter, EnumClassHash> intParamValues {
+    {intParam::BB_MODE, IntParameter("BB_MODE", 10, 0, 111)}, // 010 = branch with vpcs only
     {intParam::BB_STRATEGY, IntParameter("BB_STRATEGY", 10776, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
     {intParam::BB_RUNS, IntParameter("BB_RUNS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
 #ifdef TRACE

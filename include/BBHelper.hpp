@@ -83,7 +83,7 @@ struct SummaryBBInfo {
 void runBBTests(const VPCParameters& params, SummaryBBInfo& info_nocuts,
     SummaryBBInfo& info_mycuts, SummaryBBInfo& info_allcuts,
     const std::string fullfilename, OsiSolverInterface* const solver,
-    const double best_bound, const OsiCuts& vpcs, const OsiCuts* const gmics = NULL);
+    const double best_bound, const OsiCuts* vpcs, const OsiCuts* const gmics = NULL);
 
 inline void initializeBBInfo(BBInfo& info, double obj = 0.) {
   info.obj = obj;

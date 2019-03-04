@@ -43,18 +43,30 @@
 void runBBTests(const VPCParameters& params, SummaryBBInfo& info_nocuts,
     SummaryBBInfo& info_mycuts, SummaryBBInfo& info_allcuts,
     const std::string fullfilename, OsiSolverInterface* const solver,
-    const double best_bound, const OsiCuts& vpcs, const OsiCuts* const gmics) {
+    const double best_bound, const OsiCuts* vpcs, const OsiCuts* const gmics) {
+  const int num_vpcs = (vpcs != NULL) ? vpcs->sizeCuts() : 0;
   const int num_bb_runs = std::abs(params.get(intParam::BB_RUNS))
-      * ((params.get(intParam::DISJ_TERMS) == 0) || vpcs.sizeCuts() > 0);
+      * ((params.get(intParam::DISJ_TERMS) == 0) || (num_vpcs > 0));
   if (num_bb_runs == 0)
     return;
 
   /***********************************************************************************
    * Perform branch-and-bound
    ***********************************************************************************/
-  const int numCutsToAddPerRound =
-      (gmics != NULL && gmics->sizeCuts() > 0) ? gmics->sizeCuts() : vpcs.sizeCuts();
-  const bool should_test_bb_with_gmics = (params.get(BB_RUNS) < 0) && (gmics != NULL) && (gmics->sizeCuts() > 0);
+  const int num_gmics = (gmics != NULL) ? gmics->sizeCuts() : 0;
+  const int numCutsToAddPerRound = (num_gmics > 0) ? num_gmics : num_vpcs;
+
+  // B&B mode: ones bit = no_cuts, tens bit = w/vpcs, hundreds bit = w/gmics
+  const int mode_param = params.get(intParam::BB_MODE);
+  const int mode_ones = mode_param % 10;
+  const int mode_tens = (mode_param % 100 - (mode_param % 10)) / 10;
+  const int mode_hundreds = (mode_param % 1000 - (mode_param % 100)) / 100;
+  const bool branch_with_no_cuts = (mode_ones > 0);
+  const bool branch_with_vpcs = (mode_tens > 0) && (num_vpcs > 0);
+  const bool branch_with_gmics = (mode_hundreds > 0) && (num_gmics > 0);
+  if (branch_with_no_cuts + branch_with_vpcs + branch_with_gmics == 0)
+    return;
+
   const bool should_permute_rows_and_cols = (num_bb_runs >= 2)
       && !use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::gurobi)
       && !use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::cplex);
@@ -81,10 +93,11 @@ void runBBTests(const VPCParameters& params, SummaryBBInfo& info_nocuts,
     }
   }
 
-  OsiCuts GMICsAndVPCs = vpcs;
-  if (should_test_bb_with_gmics) {
-    if (gmics)
-      GMICsAndVPCs.insert(*gmics);
+  OsiCuts GMICsAndVPCs;
+  if (branch_with_vpcs)
+    GMICsAndVPCs.insert(*vpcs);
+  if (branch_with_gmics) {
+    GMICsAndVPCs.insert(*gmics);
   }
 
   OsiSolverInterface* runSolver = NULL;
@@ -158,7 +171,7 @@ void runBBTests(const VPCParameters& params, SummaryBBInfo& info_nocuts,
     // Do branch and bound
     if (use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::gurobi)) {
 #ifdef USE_GUROBI
-      if (params.get(TEMP) == static_cast<int>(TempOptions::CHECK_CUTS_AGAINST_BB_OPT)) {
+      if (params.get(TEMP) == static_cast<int>(TempOptions::CHECK_CUTS_AGAINST_BB_OPT) && num_vpcs > 0) {
         // Get the original solution
         BBInfo tmp_bb_info;
         std::vector<double> solution;
@@ -166,8 +179,8 @@ void runBBTests(const VPCParameters& params, SummaryBBInfo& info_nocuts,
             fullfilename.c_str(), tmp_bb_info, best_bound, &solution);
 
         // Check cuts
-        for (int cut_ind = 0; cut_ind < vpcs.sizeCuts(); cut_ind++) {
-          OsiRowCut currCut = vpcs.rowCut(cut_ind);
+        for (int cut_ind = 0; cut_ind < num_vpcs; cut_ind++) {
+          OsiRowCut currCut = vpcs->rowCut(cut_ind);
           const double rhs = currCut.rhs();
           const int num_el = currCut.row().getNumElements();
           const int* ind = currCut.row().getIndices();
@@ -179,33 +192,39 @@ void runBBTests(const VPCParameters& params, SummaryBBInfo& info_nocuts,
           }
         }
       } // checking cuts for violating the IP opt
-//      doBranchAndBoundWithGurobi(params, disable_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::user_cuts),
-//          fullfilename.c_str(), info_nocuts.vec_bb_info[run_ind], best_bound);
-      doBranchAndBoundWithUserCutsGurobi(params, params.get(BB_STRATEGY),
-          fullfilename.c_str(), NULL, info_nocuts.vec_bb_info[run_ind],
-          best_bound);
-      doBranchAndBoundWithUserCutsGurobi(params, params.get(BB_STRATEGY),
-          fullfilename.c_str(), &vpcs, info_mycuts.vec_bb_info[run_ind],
-          best_bound);
-      if (should_test_bb_with_gmics) {
+      if (branch_with_no_cuts) {
+        doBranchAndBoundWithUserCutsGurobi(params, params.get(BB_STRATEGY),
+            fullfilename.c_str(), NULL, info_nocuts.vec_bb_info[run_ind],
+            best_bound);
+      }
+      if (branch_with_vpcs) {
+        doBranchAndBoundWithUserCutsGurobi(params, params.get(BB_STRATEGY),
+            fullfilename.c_str(), vpcs, info_mycuts.vec_bb_info[run_ind],
+            best_bound);
+      }
+      if (branch_with_gmics) {
         doBranchAndBoundWithUserCutsGurobi(params, params.get(BB_STRATEGY),
             fullfilename.c_str(), &GMICsAndVPCs,
             info_allcuts.vec_bb_info[run_ind], best_bound);
       }
 #endif // USE_GUROBI
     } else if (use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::cplex)) {
-#ifdef USE_CPLEX
-      doBranchAndBoundWithUserCutsCplexCallable(
-          GlobalVariables::in_f_name.c_str(), &structVPC, vec_bb_info_mycuts[run_ind]);
-      doBranchAndBoundWithUserCutsCplexCallable(
-          GlobalVariables::in_f_name.c_str(), &SICsAndVPCs,
-          vec_bb_info_allcuts[run_ind]);
-#endif // USE_CPLEX
+//#ifdef USE_CPLEX
+//      doBranchAndBoundWithUserCutsCplexCallable(
+//          GlobalVariables::in_f_name.c_str(), &structVPC, vec_bb_info_mycuts[run_ind]);
+//      doBranchAndBoundWithUserCutsCplexCallable(
+//          GlobalVariables::in_f_name.c_str(), &SICsAndVPCs,
+//          vec_bb_info_allcuts[run_ind]);
+//#endif // USE_CPLEX
     } else if (use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::cbc)) {
-      doBranchAndBoundNoCuts(params, runSolver, info_nocuts.vec_bb_info[run_ind]);
-      doBranchAndBoundYesCuts(params, runSolver, info_mycuts.vec_bb_info[run_ind],
-          vpcs, false, numCutsToAddPerRound, 1, "\nBB with VPCs.\n");
-      if (should_test_bb_with_gmics) {
+      if (branch_with_no_cuts) {
+        doBranchAndBoundNoCuts(params, runSolver, info_nocuts.vec_bb_info[run_ind]);
+      }
+      if (branch_with_vpcs) {
+        doBranchAndBoundYesCuts(params, runSolver, info_mycuts.vec_bb_info[run_ind],
+            *vpcs, false, numCutsToAddPerRound, 1, "\nBB with VPCs.\n");
+      }
+      if (branch_with_gmics) {
         doBranchAndBoundYesCuts(params, runSolver, info_allcuts.vec_bb_info[run_ind],
             GMICsAndVPCs, false, numCutsToAddPerRound, 1, "\nBB with VPC+Gomorys.\n");
       }
