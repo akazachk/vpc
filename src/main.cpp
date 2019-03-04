@@ -20,21 +20,22 @@
 #include <OsiCuts.hpp>
 
 // Project files
+#include "BBHelper.hpp" // runBBTests
 #include "CglVPC.hpp"
 #include "CutHelper.hpp"
 #include "Disjunction.hpp" // needed to access disjunction properties
+#include "DisjunctionHelper.hpp" // for custom disjunctions
 #include "SolverHelper.hpp" // defines SolverInterface
 #include "VPCParameters.hpp"
 #include "TimeStats.hpp"
 #include "utility.hpp"
-
-#include "DisjunctionHelper.hpp"
 
 enum OverallTimeStats {
   TOTAL_TIME,
   INIT_SOLVE_TIME,
   GEN_VPC_TIME,
   APPLY_VPC_TIME,
+  BB_TIME,
   BB_NOVPC_TIME,
   BB_VPC_TIME,
   NUM_TIME_STATS
@@ -44,6 +45,7 @@ const std::vector<std::string> OverallTimeStatsName {
   "INIT_SOLVE_TIME",
   "GEN_VPC_TIME",
   "APPLY_VPC_TIME",
+  "BB_TIME",
   "BB_NOVPC_TIME",
   "BB_VPC_TIME"
 };
@@ -64,6 +66,8 @@ std::string instname;
 ExitReason exitReason;
 TimeStats timer;
 std::time_t start_time_t, end_time_t;
+std::vector<RoundInfo> roundInfo;
+SummaryBBInfo info_nocuts, info_mycuts, info_allcuts;
 
 int num_vpc_total = 0, num_gmic_total = 0;
 double init_obj;
@@ -224,7 +228,9 @@ int main(int argc, char** argv) {
     }
     timer.end_timer(OverallTimeStats::GEN_VPC_TIME);
 
+    timer.start_timer(OverallTimeStats::APPLY_VPC_TIME);
     applyCutsCustom(solver, vpcs[round_ind]);
+    timer.end_timer(OverallTimeStats::APPLY_VPC_TIME);
 
     printf(
         "\n## Round %d/%d: Completed round of VPC generation (exit reason: %s). # cuts generated = %d.\n",
@@ -239,6 +245,19 @@ int main(int argc, char** argv) {
 //    printf("\n## Failures ##\n");
 //    gen.printFailures();
   } // loop over rounds of cuts
+
+  // Do branch-and-bound experiments (if requested)
+  if (params.get(BB_RUNS) != 0) {
+    // Collect cuts from all rounds
+    OsiCuts allVPCs;
+    for (int round_ind = 0; round_ind < params.get(ROUNDS); round_ind++)
+      allVPCs.insert(vpcs[round_ind]);
+    timer.start_timer(BB_TIME);
+    runBBTests(params, info_nocuts, info_mycuts, info_allcuts,
+        params.get(stringParam::FILENAME), solver, ip_obj, allVPCs, NULL);
+    timer.end_timer(BB_TIME);
+  }
+
   vpc_obj = solver->getObjValue();
   printf(
       "\n## Finished VPC generation with %d cuts. Initial obj value: %s. Final obj value: %s. Disj lb: %s. ##\n",
@@ -311,6 +330,10 @@ int wrapUp(int retCode /*= 0*/) {
     fclose(logfile); // closes params.logfile
   }
 
+  int NAME_WIDTH = 25;
+  int NUM_DIGITS_BEFORE_DEC = 7;
+  int NUM_DIGITS_AFTER_DEC = 7;
+
 #ifdef TRACE
   // Print parameters
   printf("\n## Parameter values ##\n");
@@ -320,10 +343,18 @@ int wrapUp(int retCode /*= 0*/) {
   printf("\n");
 #endif
 
+#ifdef TRACE
+  // Print timing
+  printf("\n## Time information ##\n");
+  for (int i = 0; i < NUM_TIME_STATS; i++) {
+    std::string name = OverallTimeStatsName[i];
+    if (params.get(intParam::BB_RUNS) == 0 && name.compare(0,2,"BB") == 0)
+      continue;
+    printf("%-*.*s%s\n", NAME_WIDTH, NAME_WIDTH, (name).c_str(), stringValue(timer.get_time(name), "%.3f").c_str());
+  }
+#endif
+
   // Print results from adding cuts
-  const int NAME_WIDTH = 25;
-  const int NUM_DIGITS_BEFORE_DEC = 7;
-  const int NUM_DIGITS_AFTER_DEC = 7;
   char tmpstring[300];
   std::string output = "";
   sprintf(tmpstring, "\n## Results from adding cuts ##\n");
@@ -354,6 +385,68 @@ int wrapUp(int retCode /*= 0*/) {
     output += tmpstring;
   }
   printf("%s", output.c_str());
+
+  if (params.get(BB_RUNS) != 0) {
+    int NAME_WIDTH = 25;
+    int NUM_DIGITS_BEFORE_DEC = 10;
+    int NUM_DIGITS_AFTER_DEC = 2;
+    printf("\n## Branch-and-bound results ##\n");
+    printf("%-*s", NAME_WIDTH, "");
+    printf("%-*s", NUM_DIGITS_BEFORE_DEC, "Gur");
+    if (num_vpc_total > 0) printf("%-*s", NUM_DIGITS_BEFORE_DEC, "Gur+V");
+    if (num_gmic_total > 0) printf("%-*s", NUM_DIGITS_BEFORE_DEC, "Gur+V+G");
+    printf("\n");
+    printf("%-*.*s", NAME_WIDTH, NAME_WIDTH, "Obj:");
+    printf("%s", stringValue(info_nocuts.avg_bb_info.obj, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    if (num_vpc_total > 0) printf("%s", stringValue(info_mycuts.avg_bb_info.obj, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    if (num_gmic_total > 0) printf("%s", stringValue(info_allcuts.avg_bb_info.obj, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    printf("\n");
+    printf("%-*.*s", NAME_WIDTH, NAME_WIDTH, "Bound:");
+    printf("%s", stringValue(info_nocuts.avg_bb_info.bound, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    if (num_vpc_total > 0) printf("%s", stringValue(info_mycuts.avg_bb_info.bound, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    if (num_gmic_total > 0) printf("%s", stringValue(info_allcuts.avg_bb_info.bound, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    printf("\n");
+    printf("%-*.*s", NAME_WIDTH, NAME_WIDTH, "Iters:");
+    printf("%-*ld", NUM_DIGITS_BEFORE_DEC, info_nocuts.avg_bb_info.iters);
+    if (num_vpc_total > 0) printf("%-*ld", NUM_DIGITS_BEFORE_DEC, info_mycuts.avg_bb_info.iters);
+    if (num_gmic_total > 0) printf("%-*ld", NUM_DIGITS_BEFORE_DEC, info_allcuts.avg_bb_info.iters);
+    printf("\n");
+    printf("%-*.*s", NAME_WIDTH, NAME_WIDTH, "Nodes:");
+    printf("%-*ld", NUM_DIGITS_BEFORE_DEC, info_nocuts.avg_bb_info.nodes);
+    if (num_vpc_total > 0) printf("%-*ld", NUM_DIGITS_BEFORE_DEC, info_mycuts.avg_bb_info.nodes);
+    if (num_gmic_total > 0) printf("%-*ld", NUM_DIGITS_BEFORE_DEC, info_allcuts.avg_bb_info.nodes);
+    printf("\n");
+    printf("%-*.*s", NAME_WIDTH, NAME_WIDTH, "Root passes:");
+    printf("%-*ld", NUM_DIGITS_BEFORE_DEC, info_nocuts.avg_bb_info.root_passes);
+    if (num_vpc_total > 0) printf("%-*ld", NUM_DIGITS_BEFORE_DEC, info_mycuts.avg_bb_info.root_passes);
+    if (num_gmic_total > 0) printf("%-*ld", NUM_DIGITS_BEFORE_DEC, info_allcuts.avg_bb_info.root_passes);
+    printf("\n");
+    printf("%-*.*s", NAME_WIDTH, NAME_WIDTH, "First cut pass:");
+    printf("%s", stringValue(info_nocuts.avg_bb_info.first_cut_pass, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    if (num_vpc_total > 0) printf("%s", stringValue(info_mycuts.avg_bb_info.first_cut_pass, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    if (num_gmic_total > 0) printf("%s", stringValue(info_allcuts.avg_bb_info.first_cut_pass, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    printf("\n");
+    printf("%-*.*s", NAME_WIDTH, NAME_WIDTH, "Last cut pass:");
+    printf("%s", stringValue(info_nocuts.avg_bb_info.last_cut_pass, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    if (num_vpc_total > 0) printf("%s", stringValue(info_mycuts.avg_bb_info.last_cut_pass, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    if (num_gmic_total > 0) printf("%s", stringValue(info_allcuts.avg_bb_info.last_cut_pass, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    printf("\n");
+    printf("%-*.*s", NAME_WIDTH, NAME_WIDTH, "Root time:");
+    printf("%s", stringValue(info_nocuts.avg_bb_info.root_time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    if (num_vpc_total > 0) printf("%s", stringValue(info_mycuts.avg_bb_info.root_time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    if (num_gmic_total > 0) printf("%s", stringValue(info_allcuts.avg_bb_info.root_time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    printf("\n");
+    printf("%-*.*s", NAME_WIDTH, NAME_WIDTH, "Last solution time:");
+    printf("%s", stringValue(info_nocuts.avg_bb_info.last_sol_time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    if (num_vpc_total > 0) printf("%s", stringValue(info_mycuts.avg_bb_info.last_sol_time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    if (num_gmic_total > 0) printf("%s", stringValue(info_allcuts.avg_bb_info.last_sol_time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    printf("\n");
+    printf("%-*.*s", NAME_WIDTH, NAME_WIDTH, "Time:");
+    printf("%s", stringValue(info_nocuts.avg_bb_info.time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    if (num_vpc_total > 0) printf("%s", stringValue(info_mycuts.avg_bb_info.time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    if (num_gmic_total > 0) printf("%s", stringValue(info_allcuts.avg_bb_info.time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str());
+    printf("\n");
+  }
 
   printf("\n## Exiting VPC generation with reason %s. ##\n", ExitReasonName[exitReasonInt].c_str());
   printf("Instance: %s\n", instname.c_str());
@@ -437,10 +530,11 @@ void processArgs(int argc, char** argv) {
   // has_arg: 0,1,2 for none, required, or optional
   // *flag: how results are returned; if NULL, getopt_long() returns val (e.g., can be the equivalent short option character), and o/w getopt_long() returns 0, and flag points to a var which is set to val if the option is found, but left unchanged if the option is not found
   // val: value to return, or to load into the variable pointed to by flag
-  const char* const short_opts = "b:c:d:f:hl:m:o:r:R:s:S:t:T:v:";
+  const char* const short_opts = "b:B:c:d:f:hl:m:o:r:R:s:S:t:T:v:";
   const struct option long_opts[] =
   {
-      {"bb_strategy", required_argument, 0, 'b'},
+      {"bb_runs", required_argument, 0, 'b'},
+      {"bb_strategy", required_argument, 0, 'B'},
       {"cutlimit", required_argument, 0, 'c'},
       {"disj_terms", required_argument, 0, 'd'},
       {"file", required_argument, 0, 'f'},
@@ -468,6 +562,16 @@ void processArgs(int argc, char** argv) {
   while ((inp = getopt_long(argc, argv, short_opts, long_opts, nullptr)) != -1) {
     switch (inp) {
       case 'b': {
+                  int val;
+                  intParam param = intParam::BB_RUNS;
+                  if (!parseInt(optarg, val)) {
+                    error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                    exit(1);
+                  }
+                  params.set(param, val);
+                  break;
+                }
+      case 'B': {
                   int val;
                   intParam param = intParam::BB_STRATEGY;
                   if (!parseInt(optarg, val)) {
@@ -682,6 +786,9 @@ void processArgs(int argc, char** argv) {
                 helpstring += "--use_tight_points=0/1\n\tUse objectives for being tight on points in collection.\n";
                 helpstring += "--use_tight_rays=0/1\n\tUse objectives for being tight on rays in collection.\n";
                 helpstring += "--use_unit_vectors=0/1\n\tUse unit vectors in nonbasic space.\n";
+                helpstring += "\n# Branch-and-bound options #\n";
+                helpstring += "-b 0+ --bb_runs=0+\n\tNumber of branch-and-bound repeats.\n";
+                helpstring += "-B strategy --bb_strategy=strategy\n\tBranch-and-bound strategy (see BBHelper.hpp).\n";
                 helpstring += "## END OF HELP ##\n";
                 std::cout << helpstring << std::endl;
                 exit(1);

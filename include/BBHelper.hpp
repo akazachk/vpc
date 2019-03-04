@@ -8,10 +8,15 @@
 //============================================================================
 #pragma once
 
-// Project files
-#include "VPCParameters.hpp"
+#include <vector>
+#include <string>
 
+// Project files
 class PartialBBDisjunction;
+struct VPCParameters;
+class OsiSolverInterface;
+class TimeStats;
+class OsiCuts;
 
 enum class BB_Strategy_Options {
   off = 0,
@@ -31,6 +36,16 @@ enum class BB_Strategy_Options {
   strong_branching_on = 16384
 }; /* BB_Strategy_Options */
 
+inline bool use_bb_option(const int strategy, const BB_Strategy_Options option) {
+  return strategy & static_cast<int>(option);
+}
+inline int enable_bb_option(const int strategy, const BB_Strategy_Options option) {
+  return strategy | static_cast<int>(option);
+}
+inline int disable_bb_option(const int strategy, const BB_Strategy_Options option) {
+  return strategy & ~static_cast<int>(option);
+}
+
 struct BBInfo {
   double obj;
   double bound;
@@ -43,7 +58,6 @@ struct BBInfo {
   double last_sol_time;
   double time;
 }; /* BBInfo */
-
 enum BBInfoEnum {
   OBJ_BB_INFO_IND,
   BOUND_BB_INFO_IND,
@@ -57,10 +71,24 @@ enum BBInfoEnum {
   TIME_BB_INFO_IND,
   NUM_BB_INFO
 };
-
 const std::vector<std::string> BB_INFO_CONTENTS = {
     "OBJ", "BOUND", "ITERS", "NODES", "ROOT_PASSES", "FIRST_CUT_PASS", "LAST_CUT_PASS", "ROOT_TIME", "LAST_SOL_TIME", "TIME"
 };
+
+//struct SummaryBBInfo {
+//  BBInfo best_bb_info_nocuts, best_bb_info_mycuts, best_bb_info_allcuts;
+//  BBInfo avg_bb_info_nocuts, avg_bb_info_mycuts, avg_bb_info_allcuts;
+//  std::vector<BBInfo> vec_bb_info_mycuts, vec_bb_info_allcuts;
+//};
+struct SummaryBBInfo {
+  BBInfo best_bb_info, avg_bb_info;
+  std::vector<BBInfo> vec_bb_info;
+};
+
+void runBBTests(const VPCParameters& params, SummaryBBInfo& info_nocuts,
+    SummaryBBInfo& info_mycuts, SummaryBBInfo& info_allcuts,
+    const std::string fullfilename, OsiSolverInterface* const solver,
+    const double best_bound, const OsiCuts& vpcs, const OsiCuts* const gmics = NULL);
 
 inline void initializeBBInfo(BBInfo& info, double obj = 0.) {
   info.obj = obj;
@@ -82,6 +110,13 @@ void printBBInfo(const BBInfo& info_mycuts, const BBInfo& info_allcuts,
     FILE* myfile, const bool print_blanks = false, const char SEP = ',');
 void createStringFromBBInfoVec(const std::vector<BBInfo>& vec_info,
     std::vector<std::string>& vec_str);
+
+/**
+ * Creates temporary file (in /tmp) so that it can be read by a different solver
+ * It does not delete the file
+ */
+void createTmpFileCopy(const VPCParameters& params,
+    const OsiSolverInterface* const solver, std::string& f_name);
 
 // COIN-OR
 #ifdef USE_CBC
@@ -107,4 +142,14 @@ void setCbcParametersForPartialBB(
 void generatePartialBBTree(PartialBBDisjunction* const owner, CbcModel* cbc_model,
     const OsiSolverInterface* const solver, const int max_nodes,
     const int num_strong, const int num_before_trusted);
-#endif // USE_CBC
+
+void doBranchAndBoundNoCuts(const VPCParameters& params, const OsiSolverInterface* const solver, BBInfo& info);
+void doBranchAndBoundYesCuts(const VPCParameters& params, const OsiSolverInterface* const solver,
+    BBInfo& info, const OsiCuts& structCuts, const bool doCutSelection,
+    const int numCutsToAddPerRound, const int maxRounds,
+    const std::string logstring);
+#endif /* USE_CBC */
+
+void writeBBInforToLog(const SummaryBBInfo& info_mycuts,
+    const SummaryBBInfo& info_allcuts, FILE *myfile, const int amountToPrint,
+    const char SEP = ',');

@@ -21,12 +21,20 @@ USERNAME := ${USER}
 ifeq ($(USERNAME),otherperson)
 	PROJ_DIR = enter/dir/here
 	COIN_OR = enter/dir/here
+  GUROBI_DIR = enter/dir/here
+  GUROBI_INC="${GUROBI_DIR}/include"
+  GUROBI_LIB="${GUROBI_DIR}/lib"
+  GUROBI_LINK="gurobi81"
 else
 	PROJ_DIR = ${REPOS_DIR}/vpc
   ifeq ($(UNAME),Linux)
 	  COIN_OR = $(PROJ_DIR)/lib/Cbc-2.9
 	else
 	  #COIN_OR = $(PROJ_DIR)/coin-or/Cbc-2.9
+    #GUROBI_DIR="/Library/gurobi810/mac64"
+    #GUROBI_INC="${GUROBI_DIR}/include"
+    #GUROBI_LIB="${GUROBI_DIR}/lib"
+    #GUROBI_LINK="gurobi81"
 	endif
 endif
 
@@ -34,7 +42,7 @@ endif
 USE_COIN=1
 USE_CLP=1
 USE_CBC=1
-USE_GUROBI=0
+USE_GUROBI=1
 USE_CPLEX=0
 
 # blas and lapack
@@ -97,6 +105,10 @@ ifeq ($(USE_CBC),1)
 endif
 ifeq ($(USE_GUROBI),1)
   DEFS += -DUSE_GUROBI
+  SOURCES += branch/GurobiHelper.cpp
+  GUROBI_INC="${GUROBI_DIR}/include"
+  GUROBI_LIB="${GUROBI_DIR}/lib"
+  GUROBI_LINK="gurobi81"
 endif
 ifeq ($(USE_CPLEX),1)
   DEFS += -DIL_STD -DUSE_CPLEX
@@ -170,7 +182,7 @@ ifeq ($(USE_COIN),1)
   APPLLIB += -lCoinUtils
 endif
 ifeq ($(USE_GUROBI),1)
-  APPLINCLS += -I${GUROBI_INC}
+  APPLINCLS += -isystem ${GUROBI_INC}
   APPLLIB += -L${GUROBI_LIB} -lgurobi_c++ -l${GUROBI_LINK} -lm
 endif
 ifeq ($(USE_CPLEX),1)

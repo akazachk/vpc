@@ -51,7 +51,7 @@ enum intParam {
   PRLP_FLIP_BETA, // controls rhs in nb space, -1: do not cut away LP opt, 0: cut away LP opt, 1: both
   ROUNDS, // number of VPC rounds to do
   STRENGTHEN, // 0: no, 1: yes, when possible, 2: same as 1 plus add GMICs to strengthen each disjunctive term
-  TEMP, // useful for various temporary parameter changes
+  TEMP, // useful for various temporary parameter changes; see corresponding enum
   // Objective options
   USE_ALL_ONES, // 0: do not use, 1: use
   USE_DISJ_LB, // 0: do not use, 1: use
@@ -62,6 +62,7 @@ enum intParam {
   // Other options
   VERBOSITY,
   // BB options
+  BB_RUNS, // number of times to run b&b
   //  off = 0,
   //  cbc = 2,
   //  cplex = 4,
@@ -138,6 +139,11 @@ enum class doubleConst {
   MAX_SUPPORT_REL,
   NUM_DOUBLE_CONST
 }; /* doubleConst */
+
+enum class TempOptions {
+  NONE = 0,
+  CHECK_CUTS_AGAINST_BB_OPT = 1,
+};
 
 /********** DEFINITIONS **********/
 //template <class T> class Parameter;
@@ -325,7 +331,8 @@ struct VPCParameters {
 
   /** unordered_map gets printed in reverse order */
   std::unordered_map<intParam, IntParameter, EnumClassHash> intParamValues {
-    {intParam::BB_STRATEGY, IntParameter("BB_STRATEGY", 0, 0, std::numeric_limits<int>::max())}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
+    {intParam::BB_STRATEGY, IntParameter("BB_STRATEGY", 10776, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
+    {intParam::BB_RUNS, IntParameter("BB_RUNS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
 #ifdef TRACE
     {intParam::VERBOSITY, IntParameter("VERBOSITY", 1, 0, 2)},
 #else
@@ -400,8 +407,8 @@ struct VPCParameters {
   int         get(intConst param) const { return intConstValues.find(param)->second.get(); }
   double      get(doubleConst param) const { return doubleConstValues.find(param)->second.get(); }
 
-  void        set(intParam param, int value) { intParamValues.find(param)->second.set(value); }
-  void        set(doubleParam param, double value) { doubleParamValues.find(param)->second.set(value); }
+  void        set(intParam param, const int value) { intParamValues.find(param)->second.set(value); }
+  void        set(doubleParam param, const double value) { doubleParamValues.find(param)->second.set(value); }
   void        set(stringParam param, std::string value) { stringParamValues.find(param)->second.set(value); }
 
   /** Set parameters by name */
