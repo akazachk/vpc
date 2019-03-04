@@ -21,6 +21,8 @@ void printVector(const int n, const double* vec) {
   }
 }
 
+#ifdef USE_CBC
+#include <CbcModel.hpp>
 void printTree(PartialBBDisjunction* const orig_owner,
     OsiSolverInterface* solver, OsiCuts* vpcs, OsiCuts* gmics) {
   const int TEMP = orig_owner->params.get(intParam::TEMP);
@@ -118,6 +120,7 @@ void printTree(PartialBBDisjunction* const orig_owner,
     } // loop over num trusted to be tested
   } // check temp for whether to apply cuts and print post-cuts tree
 } /* printTree */
+#endif // USE_CBC
 
 /************************************************************/
 /**

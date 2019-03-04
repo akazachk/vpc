@@ -341,7 +341,7 @@ protected:
 struct VPCParameters {
   FILE* logfile = NULL; // NB: right now this is a shallow copy if this struct gets copied
 
-  /** unordered_map gets printed in reverse order */
+  /** unordered_map gets printed in reverse order; advantage over map is constant access time on average */
   std::unordered_map<intParam, IntParameter, EnumClassHash> intParamValues {
     {intParam::BB_MODE, IntParameter("BB_MODE", 10, 0, 111)}, // 010 = branch with vpcs only
     {intParam::BB_STRATEGY, IntParameter("BB_STRATEGY", 10776, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1

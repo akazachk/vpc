@@ -12,6 +12,10 @@
 #include "VPCParameters.hpp"
 #include "utility.hpp" // isInfinity, stringValue
 
+void printHeader(FILE* logfile) {
+
+} /* printHeader */
+
 /**
  * The cut properties we want to look at are:
  * 1. Gap closed
@@ -79,7 +83,7 @@ void analyzeBB(const VPCParameters& params, SummaryBBInfo& info_nocuts,
   }
 
   // Save results to string and also print to the logfile
-//  printBBInfo(info_mycuts.avg_bb_info, info_allcuts.avg_bb_info, params.logfile);
+  printBBInfo(info_mycuts.avg_bb_info, info_allcuts.avg_bb_info, params.logfile);
   int NAME_WIDTH = 10; //25
   int NUM_DIGITS_BEFORE_DEC = 15; //10
   int NUM_DIGITS_AFTER_DEC = 2; //2

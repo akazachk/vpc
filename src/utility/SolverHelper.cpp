@@ -1,6 +1,10 @@
 #include "SolverHelper.hpp"
 
+#include "utility.hpp"
+
 #ifdef USE_CBC
+#include <CbcModel.hpp>
+
 void setIPSolverParameters(CbcModel* const cbc_model, const int verbosity) {
   if (verbosity > 0) {
     cbc_model->setLogLevel(3);

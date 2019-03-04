@@ -34,16 +34,16 @@
 enum OverallTimeStats {
   TOTAL_TIME,
   INIT_SOLVE_TIME,
-  GEN_VPC_TIME,
-  APPLY_VPC_TIME,
+  VPC_GEN_TIME,
+  VPC_APPLY_TIME,
   BB_TIME,
   NUM_TIME_STATS
 }; /* OverallTimeStats */
 const std::vector<std::string> OverallTimeStatsName {
   "TOTAL_TIME",
   "INIT_SOLVE_TIME",
-  "GEN_VPC_TIME",
-  "APPLY_VPC_TIME",
+  "VPC_GEN_TIME",
+  "VPC_APPLY_TIME",
   "BB_TIME"
 };
 
@@ -110,7 +110,12 @@ int main(int argc, char** argv) {
 
   // Possibly preprocess instead of doing cuts
   if (params.get(TEMP) == static_cast<int>(TempOptions::PREPROCESS)) {
-    // do preprocessing
+    // Cleaning involves running Gurobi presolve
+//    performCleaning(solver, params, CLEANING_MODE_OPTION);
+
+    printf("\n## Finished cleaning. ##\n");
+
+    return wrapUp(0);
   }
 
   // Now do rounds of cuts, until a limit is reached (e.g., time, number failures, number cuts, or all rounds are exhausted)
@@ -120,7 +125,7 @@ int main(int argc, char** argv) {
     if (params.get(ROUNDS) > 1) {
       printf("\n## Starting round %d/%d. ##\n", round_ind+1, params.get(ROUNDS));
     }
-    timer.start_timer(OverallTimeStats::GEN_VPC_TIME);
+    timer.start_timer(OverallTimeStats::VPC_GEN_TIME);
     CglVPC gen(params);
 
     // Store the initial solve time in order to set a baseline for the PRLP resolve time
@@ -215,11 +220,11 @@ int main(int argc, char** argv) {
         }
       }
     } // check if mode is CUSTOM
-    timer.end_timer(OverallTimeStats::GEN_VPC_TIME);
+    timer.end_timer(OverallTimeStats::VPC_GEN_TIME);
 
-    timer.start_timer(OverallTimeStats::APPLY_VPC_TIME);
+    timer.start_timer(OverallTimeStats::VPC_APPLY_TIME);
     applyCutsCustom(solver, vpcs[round_ind]);
-    timer.end_timer(OverallTimeStats::APPLY_VPC_TIME);
+    timer.end_timer(OverallTimeStats::VPC_APPLY_TIME);
 
     printf(
         "\n## Round %d/%d: Completed round of VPC generation (exit reason: %s). # cuts generated = %d.\n",
@@ -328,18 +333,18 @@ int wrapUp(int retCode /*= 0*/) {
   printf("\n");
   printParams(params, stdout, 2);
   printf("\n");
-#endif
 
-
-#ifdef TRACE
   int NAME_WIDTH = 25;
   // Print timing
   printf("\n## Time information ##\n");
   for (int i = 0; i < NUM_TIME_STATS; i++) {
     std::string name = OverallTimeStatsName[i];
-    if (params.get(intParam::BB_RUNS) == 0 && name.compare(0,2,"BB") == 0)
+    if (params.get(intParam::DISJ_TERMS) == 0 && name.compare(0, 3, "VPC") == 0)
       continue;
-    printf("%-*.*s%s\n", NAME_WIDTH, NAME_WIDTH, (name).c_str(), stringValue(timer.get_time(name), "%.3f").c_str());
+    if (params.get(intParam::BB_RUNS) == 0 && name.compare(0, 2, "BB") == 0)
+      continue;
+    printf("%-*.*s%s\n", NAME_WIDTH, NAME_WIDTH, (name).c_str(),
+        stringValue(timer.get_time(name), "%.3f").c_str());
   }
 #endif
 

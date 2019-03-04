@@ -1,5 +1,4 @@
 #pragma once
-#include "utility.hpp"
 
 #include <limits> // numeric_limits
 
@@ -10,7 +9,7 @@
 #endif
 
 #ifdef USE_CBC
-#include <CbcModel.hpp>
+class CbcModel;
 void setIPSolverParameters(CbcModel* const cbc_model,
     const int verbosity =
 #ifdef TRACE
