@@ -7,7 +7,10 @@
 #include <vector>
 
 #include "utility.hpp"
+#include "VPCParameters.hpp"
+#include "VPCEventHandler.hpp"
 #include "SolverHelper.hpp"
+#include "PartialBBDisjunction.hpp" // for generationPartialTree
 
 void printVector(const int n, const double* vec) {
   for (int i = 0; i < n; ++i) {
@@ -17,6 +20,104 @@ void printVector(const int n, const double* vec) {
       printf("\t[%d] = 0\n", i);
   }
 }
+
+void printTree(PartialBBDisjunction* const orig_owner,
+    OsiSolverInterface* solver, OsiCuts* vpcs, OsiCuts* gmics) {
+  const int TEMP = orig_owner->params.get(intParam::TEMP);
+  if (std::abs(TEMP) >= static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS)
+      && std::abs(TEMP) <= static_cast<int>(TempOptions::GEN_TIKZ_STRING_NO_CUTS)) {
+    const bool shouldApplyVPCs =
+        (vpcs != NULL)
+            && (TEMP == static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS)
+                || TEMP == static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS_AND_GMICS));
+    const bool shouldApplySICs =
+        (gmics != NULL)
+            && (TEMP == static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_GMICS)
+                || TEMP == static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS_AND_GMICS));
+
+    VPCParameters tmp_params = orig_owner->params;
+    const int old_param_val = tmp_params.get(PARTIAL_BB_STRATEGY);
+    int num_strong = tmp_params.get(intParam::PARTIAL_BB_NUM_STRONG);
+    if (num_strong == -1) {
+      num_strong = solver->getNumCols();
+    }
+    if (num_strong == -2) {
+      num_strong = static_cast<int>(std::ceil(std::sqrt(solver->getNumCols())));
+    }
+
+    //const std::vector<int> testset = {000, 001, 004, 010, 011, 014, 020, 021, 024, 030, 031, 034};
+//    const std::vector<int> test_num_trust = {-1, std::numeric_limits<int>::max()};
+//    const std::vector<int> testset = {000, 010, 030, 004, 014, 034};
+//      const std::vector<int> test_paramset = { 104, 204, 304, 404, 504, -104, -204, -304, -404, -504, -604 };
+    const std::vector<int> test_num_trust = { std::numeric_limits<int>::max() };
+    const std::vector<int> test_paramset = { 000 };
+    for (int num_before_trusted : test_num_trust) {
+      for (int test_param : test_paramset) {
+        tmp_params.set(PARTIAL_BB_STRATEGY, test_param);
+        SolverInterface* newBBSolver =
+            dynamic_cast<SolverInterface*>(solver->clone());
+        newBBSolver->disableFactorization();
+        if (shouldApplyVPCs) {
+          newBBSolver->applyCuts(*vpcs);
+        }
+        if (shouldApplySICs) {
+          newBBSolver->applyCuts(*gmics);
+        }
+        newBBSolver->resolve();
+        printf(
+            "\n## Generating partial branch-and-bound tree after adding cuts (VPCs: %d, SICs: %d, total new num rows: %d, new obj value: %.3f). ##\n",
+            shouldApplyVPCs, shouldApplySICs,
+            newBBSolver->getNumRows() - solver->getNumRows(),
+            newBBSolver->getObjValue());
+        setupClpForCbc(newBBSolver);
+        CbcModel* new_cbc_model = new CbcModel;
+        new_cbc_model->swapSolver(newBBSolver);
+        new_cbc_model->setModelOwnsSolver(true); // solver will be deleted with cbc object
+        setIPSolverParameters(new_cbc_model);
+
+        PartialBBDisjunction* owner = orig_owner->clone();
+        owner->params = tmp_params;
+        generatePartialBBTree(owner, new_cbc_model, newBBSolver,
+            std::numeric_limits<int>::max(), num_strong, num_before_trusted);
+
+        VPCEventHandler* newEventHandler;
+        try {
+          newEventHandler =
+              dynamic_cast<VPCEventHandler*>(new_cbc_model->getEventHandler());
+        } catch (std::exception& e) {
+          error_msg(errstr, "Could not get event handler.\n");
+          writeErrorToLog(errstr, owner->params.logfile);
+          exit(1);
+        }
+        printNodeStatistics(newEventHandler->getStatsVector(), false);
+        if (newEventHandler->getPrunedStatsVector().size() > 0) {
+          printf("\n");
+          printNodeStatistics(newEventHandler->getPrunedStatsVector(), false);
+        }
+        generateTikzTreeString(newEventHandler, tmp_params, old_param_val,
+            owner->best_obj, true);
+        if (new_cbc_model->getNodeCount() < 70) {
+          printf(
+              "Number nodes: %d.\nCut strategy: %d.\n# leafs: %d.\nSolve strategy: %d.\nDo you wish to exit? (y/n) ",
+              new_cbc_model->getNodeCount(), old_param_val, owner->num_terms,
+              test_param);
+          std::string response;
+          std::getline(std::cin, response);
+          if (response.compare("y") == 0 || response.compare("yes") == 0) {
+            exit(1);
+          }
+        }
+        if (new_cbc_model) {
+          delete new_cbc_model;
+          new_cbc_model = NULL;
+        }
+        if (owner) { delete owner; }
+
+        tmp_params.set(PARTIAL_BB_STRATEGY, old_param_val);
+      } // loop over param test set
+    } // loop over num trusted to be tested
+  } // check temp for whether to apply cuts and print post-cuts tree
+} /* printTree */
 
 /************************************************************/
 /**

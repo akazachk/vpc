@@ -54,7 +54,7 @@ void runBBTests(const VPCParameters& params, SummaryBBInfo& info_nocuts,
    ***********************************************************************************/
   const int numCutsToAddPerRound =
       (gmics != NULL && gmics->sizeCuts() > 0) ? gmics->sizeCuts() : vpcs.sizeCuts();
-  const bool should_test_bb_with_gmics = (params.get(BB_RUNS) > 0) && (gmics != NULL) && (gmics->sizeCuts() > 0);
+  const bool should_test_bb_with_gmics = (params.get(BB_RUNS) < 0) && (gmics != NULL) && (gmics->sizeCuts() > 0);
   const bool should_permute_rows_and_cols = (num_bb_runs >= 2)
       && !use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::gurobi)
       && !use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::cplex);

@@ -208,16 +208,16 @@ ExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface* co
     printNodeStatistics(eventHandler->getPrunedStatsVector(), false);
   }
 
-  if (std::abs(params.get(intParam::TEMP)) >= 10 && std::abs(params.get(intParam::TEMP)) <= 15) {
-    generateTikzTreeString(eventHandler, params,
-        params.get(intParam::PARTIAL_BB_STRATEGY),
-        si->getObjValue(), true);
-    if (std::abs(params.get(intParam::TEMP)) == 14) {
+  const int TEMP = params.get(intParam::TEMP);
+  if (std::abs(TEMP) >= static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS)
+      && std::abs(TEMP) <= static_cast<int>(TempOptions::GEN_TIKZ_STRING_AND_EXIT)) {
+    generateTikzTreeString(eventHandler, params, params.get(intParam::PARTIAL_BB_STRATEGY), si->getObjValue(), true);
+    if (std::abs(TEMP) == static_cast<int>(TempOptions::GEN_TIKZ_STRING_AND_RETURN)) {
       // Free
       if (cbc_model) { delete cbc_model; }
       return ExitReason::SUCCESS_EXIT;
     }
-    if (std::abs(params.get(intParam::TEMP)) == 15) {
+    if (std::abs(TEMP) == static_cast<int>(TempOptions::GEN_TIKZ_STRING_AND_EXIT)) {
       exit(1); // this is during debug and does not free memory
     }
   }

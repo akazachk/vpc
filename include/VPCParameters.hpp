@@ -62,7 +62,7 @@ enum intParam {
   // Other options
   VERBOSITY,
   // BB options
-  BB_RUNS, // number of times to run b&b
+  BB_RUNS, // number of times to run b&b (if negative, also test with VPCs+GMICs if GMICs have been generated)
   //  off = 0,
   //  cbc = 2,
   //  cplex = 4,
@@ -143,6 +143,12 @@ enum class doubleConst {
 enum class TempOptions {
   NONE = 0,
   CHECK_CUTS_AGAINST_BB_OPT = 1,
+  GEN_TIKZ_STRING_WITH_VPCS = 10,
+  GEN_TIKZ_STRING_WITH_GMICS = 11,
+  GEN_TIKZ_STRING_WITH_VPCS_AND_GMICS = 12,
+  GEN_TIKZ_STRING_NO_CUTS = 13,
+  GEN_TIKZ_STRING_AND_RETURN = 14,
+  GEN_TIKZ_STRING_AND_EXIT = 15,
 };
 
 /********** DEFINITIONS **********/

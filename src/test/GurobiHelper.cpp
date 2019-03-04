@@ -49,9 +49,8 @@ void setStrategyForBBTestGurobi(const VPCParameters& params, const int strategy,
   model.set(GRB_IntParam_Seed, seed); // random seed
 //  model.set(GRB_DoubleParam_MIPGap, param.getEPS()); // I guess the default 1e-4 is okay, though it messes up for large objective values
 
-#ifndef TRACE
-  model.set(GRB_IntParam_OutputFlag, 0); // turn off output
-#endif
+  if (params.get(VERBOSITY) == 0)
+    model.set(GRB_IntParam_OutputFlag, 0); // turn off output
 
   if (strategy <= 0) {
     // Default strategy
