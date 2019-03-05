@@ -11,12 +11,15 @@
 #include <vector>
 #include <string>
 
-// Project files
 class PartialBBDisjunction;
 struct VPCParameters;
 class OsiSolverInterface;
 class TimeStats;
 class OsiCuts;
+
+// Defined here
+struct BBInfo;
+struct SummaryBBInfo;
 
 enum class BB_Strategy_Options {
   off = 0,
@@ -76,8 +79,8 @@ const std::vector<std::string> BB_INFO_CONTENTS = {
 };
 
 struct SummaryBBInfo {
-  int num_cuts;
-  BBInfo best_bb_info, avg_bb_info;
+  int num_cuts = 0;
+  BBInfo first_bb_info, best_bb_info, avg_bb_info;
   std::vector<BBInfo> vec_bb_info;
 };
 
@@ -100,10 +103,7 @@ inline void initializeBBInfo(BBInfo& info, double obj = 0.) {
 }
 void updateBestBBInfo(BBInfo& min_info, const BBInfo& curr_info, const bool first);
 void averageBBInfo(BBInfo& avg_info, const std::vector<BBInfo>& info);
-void printBBInfo(const BBInfo& info, FILE* myfile, const bool print_blanks =
-    false, const char SEP = ',');
-void printBBInfo(const BBInfo& info_mycuts, const BBInfo& info_allcuts,
-    FILE* myfile, const bool print_blanks = false, const char SEP = ',');
+
 void createStringFromBBInfoVec(const std::vector<BBInfo>& vec_info,
     std::vector<std::string>& vec_str);
 
@@ -122,7 +122,3 @@ void doBranchAndBoundYesCuts(const VPCParameters& params, const OsiSolverInterfa
     const int numCutsToAddPerRound, const int maxRounds,
     const std::string logstring);
 #endif /* USE_CBC */
-
-void writeBBInforToLog(const SummaryBBInfo& info_mycuts,
-    const SummaryBBInfo& info_allcuts, FILE *myfile, const int amountToPrint,
-    const char SEP = ',');

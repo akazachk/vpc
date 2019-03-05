@@ -75,15 +75,20 @@ void runBBTests(const VPCParameters& params, SummaryBBInfo& info_nocuts,
   printf("\n## Performing branch-and-bound tests. ##\n");
 #endif
 
-  info_nocuts.num_cuts = 0;
-  info_mycuts.num_cuts = num_vpcs;
-  info_allcuts.num_cuts = num_vpcs + num_gmics;
   info_nocuts.vec_bb_info.resize(0);
-  info_nocuts.vec_bb_info.resize(num_bb_runs);
   info_mycuts.vec_bb_info.resize(0);
-  info_mycuts.vec_bb_info.resize(num_bb_runs);
   info_allcuts.vec_bb_info.resize(0);
-  info_allcuts.vec_bb_info.resize(num_bb_runs);
+  if (branch_with_no_cuts) {
+    info_nocuts.vec_bb_info.resize(num_bb_runs);
+  }
+  if (branch_with_vpcs) {
+    info_mycuts.num_cuts = num_vpcs;
+    info_mycuts.vec_bb_info.resize(num_bb_runs);
+  }
+  if (branch_with_gmics) {
+    info_allcuts.num_cuts = num_vpcs + num_gmics;
+    info_allcuts.vec_bb_info.resize(num_bb_runs);
+  }
   std::vector<int> row_permutation, col_permutation;
   if (should_permute_rows_and_cols) {
     row_permutation.resize(solver->getNumRows());
@@ -233,9 +238,9 @@ void runBBTests(const VPCParameters& params, SummaryBBInfo& info_nocuts,
       }
     }
 
-    updateBestBBInfo(info_nocuts.best_bb_info, info_nocuts.vec_bb_info[run_ind], (run_ind == 0));
-    updateBestBBInfo(info_mycuts.best_bb_info, info_mycuts.vec_bb_info[run_ind], (run_ind == 0));
-    updateBestBBInfo(info_allcuts.best_bb_info, info_allcuts.vec_bb_info[run_ind], (run_ind == 0));
+    if (branch_with_no_cuts) updateBestBBInfo(info_nocuts.best_bb_info, info_nocuts.vec_bb_info[run_ind], (run_ind == 0));
+    if (branch_with_vpcs) updateBestBBInfo(info_mycuts.best_bb_info, info_mycuts.vec_bb_info[run_ind], (run_ind == 0));
+    if (branch_with_gmics) updateBestBBInfo(info_allcuts.best_bb_info, info_allcuts.vec_bb_info[run_ind], (run_ind == 0));
 
     // Free memory if necessary
     if (should_permute_rows_and_cols && runSolver && (runSolver != solver)) {
@@ -243,10 +248,18 @@ void runBBTests(const VPCParameters& params, SummaryBBInfo& info_nocuts,
     }
   } /* end iterating over runs */
 
-  averageBBInfo(info_nocuts.avg_bb_info, info_nocuts.vec_bb_info);
-  averageBBInfo(info_mycuts.avg_bb_info, info_mycuts.vec_bb_info);
-  averageBBInfo(info_allcuts.avg_bb_info, info_allcuts.vec_bb_info);
-  writeBBInforToLog(info_mycuts, info_allcuts, params.logfile, 2);
+  if (branch_with_no_cuts) {
+    info_nocuts.first_bb_info = info_nocuts.vec_bb_info[0];
+    averageBBInfo(info_nocuts.avg_bb_info, info_nocuts.vec_bb_info);
+  }
+  if (branch_with_vpcs) {
+    info_mycuts.first_bb_info = info_nocuts.vec_bb_info[0];
+    averageBBInfo(info_mycuts.avg_bb_info, info_mycuts.vec_bb_info);
+  }
+  if (branch_with_gmics) {
+    info_allcuts.first_bb_info = info_nocuts.vec_bb_info[0];
+    averageBBInfo(info_allcuts.avg_bb_info, info_allcuts.vec_bb_info);
+  }
 } /* runBBTests */
 
 /** Methods related to BBInfo */
@@ -288,59 +301,6 @@ void averageBBInfo(BBInfo& avg_info, const std::vector<BBInfo>& info) {
   avg_info.last_sol_time /= num_bb_runs;
   avg_info.time /= num_bb_runs;
 } /* averageBBInfo */
-
-void printBBInfo(const BBInfo& info, FILE* myfile, const bool print_blanks, const char SEP) {
-  if (!myfile)
-    return;
-  if (!print_blanks) {
-    fprintf(myfile, "%s%c", stringValue(info.obj, "%.20f").c_str(), SEP);
-    fprintf(myfile, "%s%c", stringValue(info.bound, "%.20f").c_str(), SEP);
-    fprintf(myfile, "%ld%c", info.iters, SEP);
-    fprintf(myfile, "%ld%c", info.nodes, SEP);
-    fprintf(myfile, "%ld%c", info.root_passes, SEP);
-    fprintf(myfile, "%.20f%c", info.first_cut_pass, SEP);
-    fprintf(myfile, "%.20f%c", info.last_cut_pass, SEP);
-    fprintf(myfile, "%2.3f%c", info.root_time, SEP);
-    fprintf(myfile, "%2.3f%c", info.last_sol_time, SEP);
-    fprintf(myfile, "%2.3f%c", info.time, SEP);
-  } else {
-    for (int i = 0; i < (int) BB_INFO_CONTENTS.size(); i++) {
-      fprintf(myfile, "%c", SEP);
-    }
-  }
-} /* printBBInfo */
-
-void printBBInfo(const BBInfo& info_mycuts, const BBInfo& info_allcuts,
-    FILE* myfile, const bool print_blanks, const char SEP) {
-  if (!myfile)
-    return;
-  if (!print_blanks) {
-    fprintf(myfile, "%s%c", stringValue(info_mycuts.obj, "%.20f").c_str(), SEP);
-    fprintf(myfile, "%s%c", stringValue(info_allcuts.obj, "%.20f").c_str(), SEP);
-    fprintf(myfile, "%s%c", stringValue(info_mycuts.bound, "%.20f").c_str(), SEP);
-    fprintf(myfile, "%s%c", stringValue(info_allcuts.bound, "%.20f").c_str(), SEP);
-    fprintf(myfile, "%ld%c", info_mycuts.iters, SEP);
-    fprintf(myfile, "%ld%c", info_allcuts.iters, SEP);
-    fprintf(myfile, "%ld%c", info_mycuts.nodes, SEP);
-    fprintf(myfile, "%ld%c", info_allcuts.nodes, SEP);
-    fprintf(myfile, "%ld%c", info_mycuts.root_passes, SEP);
-    fprintf(myfile, "%ld%c", info_allcuts.root_passes, SEP);
-    fprintf(myfile, "%.20f%c", info_mycuts.first_cut_pass, SEP);
-    fprintf(myfile, "%.20f%c", info_allcuts.first_cut_pass, SEP);
-    fprintf(myfile, "%.20f%c", info_mycuts.last_cut_pass, SEP);
-    fprintf(myfile, "%.20f%c", info_allcuts.last_cut_pass, SEP);
-    fprintf(myfile, "%2.3f%c", info_mycuts.root_time, SEP);
-    fprintf(myfile, "%2.3f%c", info_allcuts.root_time, SEP);
-    fprintf(myfile, "%2.3f%c", info_mycuts.last_sol_time, SEP);
-    fprintf(myfile, "%2.3f%c", info_allcuts.last_sol_time, SEP);
-    fprintf(myfile, "%2.3f%c", info_mycuts.time, SEP);
-    fprintf(myfile, "%2.3f%c", info_allcuts.time, SEP);
-  } else {
-    for (int i = 0; i < (int) BB_INFO_CONTENTS.size() * 2; i++) {
-      fprintf(myfile, "%c", SEP);
-    }
-  }
-} /* printBBInfo */
 
 void createStringFromBBInfoVec(const std::vector<BBInfo>& vec_info,
     std::vector<std::string>& vec_str) {
@@ -596,91 +556,3 @@ void doBranchAndBoundYesCuts(const VPCParameters& params,
   }
 } /* doBranchAndBoundYesCuts */
 #endif // USE_CBC
-
-/**
- * amountToPrint:
- *  0 = all (newline-separated),
- *  1 = only header (comma-separated),
- *  2 = only values (comma-separated)
- */
-void writeBBInforToLog(const SummaryBBInfo& info_mycuts,
-    const SummaryBBInfo& info_allcuts, FILE *myfile, const int amountToPrint,
-    const char SEP) {
-  if (myfile == NULL) {
-    return;
-  }
-  const int countBBInfoEntries = (int) BB_INFO_CONTENTS.size() * 4 * 2;
-
-  //////////////////// BB INFO
-  switch (amountToPrint) {
-    case 0: {
-//      for (std::string name : BB_INFO_CONTENTS) {
-//        fprintf(myfile, "%s%c", ("FIRST BB " + name + " VPC").c_str(), SEP);
-//        fprintf(myfile, "%s%c", ("FIRST BB " + name + " VPC+GOMORY").c_str(), SEP);
-//      }
-//      for (std::string name : BB_INFO_CONTENTS) {
-//        fprintf(myfile, "%s%c", ("BEST BB " + name + " VPC").c_str(), SEP);
-//        fprintf(myfile, "%s%c", ("BEST BB " + name + " VPC+GOMORY").c_str(), SEP);
-//      }
-//      for (std::string name : BB_INFO_CONTENTS) {
-//        fprintf(myfile, "%s%c", ("AVG BB " + name + " VPC").c_str(), SEP);
-//        fprintf(myfile, "%s%c", ("AVG BB " + name + " VPC+GOMORY").c_str(), SEP);
-//      }
-//      for (std::string name : BB_INFO_CONTENTS) {
-//        fprintf(myfile, "%s%c", ("ALL BB " + name + " VPC").c_str(), SEP);
-//        fprintf(myfile, "%s%c", ("ALL BB " + name + " VPC+GOMORY").c_str(), SEP);
-//      }
-      break;
-    }
-    case 1: {
-      for (std::string name : BB_INFO_CONTENTS) {
-        fprintf(myfile, "%s%c", ("FIRST BB " + name + " VPC").c_str(), SEP);
-        fprintf(myfile, "%s%c", ("FIRST BB " + name + " VPC+GOMORY").c_str(), SEP);
-      }
-      for (std::string name : BB_INFO_CONTENTS) {
-        fprintf(myfile, "%s%c", ("BEST BB " + name + " VPC").c_str(), SEP);
-        fprintf(myfile, "%s%c", ("BEST BB " + name + " VPC+GOMORY").c_str(), SEP);
-      }
-      for (std::string name : BB_INFO_CONTENTS) {
-        fprintf(myfile, "%s%c", ("AVG BB " + name + " VPC").c_str(), SEP);
-        fprintf(myfile, "%s%c", ("AVG BB " + name + " VPC+GOMORY").c_str(), SEP);
-      }
-      for (std::string name : BB_INFO_CONTENTS) {
-        fprintf(myfile, "%s%c", ("ALL BB " + name + " VPC").c_str(), SEP);
-        fprintf(myfile, "%s%c", ("ALL BB " + name + " VPC+GOMORY").c_str(), SEP);
-      }
-      break;
-    }
-    case 2: {
-      if (info_mycuts.vec_bb_info.size() == 0) {
-        for (int i = 0; i < countBBInfoEntries; i++) {
-          fprintf(myfile, "%c", SEP);
-        }
-        fflush(myfile);
-        break;
-      }
-      // First
-      printBBInfo(info_mycuts.vec_bb_info[0], info_allcuts.vec_bb_info[0], myfile, false, SEP);
-
-      // Min
-      printBBInfo(info_mycuts.best_bb_info, info_allcuts.best_bb_info, myfile, false, SEP);
-
-      // Average
-      printBBInfo(info_mycuts.avg_bb_info, info_allcuts.avg_bb_info, myfile, false, SEP);
-
-      // All
-      std::vector<std::string> vec_str_mycuts, vec_str_allcuts;
-      createStringFromBBInfoVec(info_mycuts.vec_bb_info, vec_str_mycuts);
-      createStringFromBBInfoVec(info_allcuts.vec_bb_info, vec_str_allcuts);
-      for (int i = 0; i < (int) vec_str_mycuts.size(); i++) {
-        fprintf(myfile, "%s%c", vec_str_mycuts[i].c_str(), SEP);
-        fprintf(myfile, "%s%c", vec_str_allcuts[i].c_str(), SEP);
-      }
-      break;
-    }
-    default: {
-      // nothing
-    }
-  }
-  fflush(myfile);
-} /* writeBBInforToLog */

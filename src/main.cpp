@@ -50,18 +50,19 @@ const std::vector<std::string> OverallTimeStatsName {
 // Main file variables
 VPCParameters params;
 OsiSolverInterface* solver;
-std::string instname;
+std::string instname = "", in_file_ext = "";
 ExitReason exitReason;
 TimeStats timer;
 std::time_t start_time_t, end_time_t;
 SummaryBBInfo info_nocuts, info_mycuts, info_allcuts;
 
-int num_vpc_total = 0, num_gmic_total = 0;
-double init_obj;
-double gmic_obj = std::numeric_limits<double>::lowest();
-double vpc_obj = std::numeric_limits<double>::lowest();
-double best_disj_obj = std::numeric_limits<double>::lowest();
-double ip_obj = std::numeric_limits<double>::lowest(); // will be set in CglVPC
+//int num_vpc_total = 0, num_gmic_total = 0;
+//double init_obj;
+//double gmic_obj = std::numeric_limits<double>::lowest();
+//double vpc_obj = std::numeric_limits<double>::lowest();
+//double best_disj_obj = std::numeric_limits<double>::lowest();
+//double ip_obj = std::numeric_limits<double>::lowest(); // will be set in CglVPC
+SummaryBoundInfo boundInfo;
 
 // For output
 std::string cut_output = "", bb_output = "";
@@ -106,7 +107,7 @@ int main(int argc, char** argv) {
   solver->initialSolve();
   checkSolverOptimality(solver, false);
   timer.end_timer(OverallTimeStats::INIT_SOLVE_TIME);
-  init_obj = solver->getObjValue();
+  boundInfo.lp_obj = solver->getObjValue();
 
   // Possibly preprocess instead of doing cuts
   if (params.get(TEMP) == static_cast<int>(TempOptions::PREPROCESS)) {
@@ -119,7 +120,7 @@ int main(int argc, char** argv) {
   }
 
   // Now do rounds of cuts, until a limit is reached (e.g., time, number failures, number cuts, or all rounds are exhausted)
-  num_vpc_total = 0, num_gmic_total = 0;
+  boundInfo.num_vpc = 0, boundInfo.num_gmic = 0;
   std::vector<OsiCuts> vpcs(params.get(ROUNDS));
   for (int round_ind = 0; round_ind < params.get(ROUNDS); ++round_ind) {
     if (params.get(ROUNDS) > 1) {
@@ -137,10 +138,12 @@ int main(int argc, char** argv) {
     if (params.get(MODE) != static_cast<int>(CglVPC::VPCMode::CUSTOM)) {
       gen.generateCuts(*solver, vpcs[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
       exitReason = gen.exitReason;
-      num_vpc_total += gen.num_cuts;
-      if (best_disj_obj < gen.disj()->best_obj)
-        best_disj_obj = gen.disj()->best_obj;
-      ip_obj = gen.ip_obj;
+      boundInfo.num_vpc += gen.num_cuts;
+      if (boundInfo.best_disj_obj < gen.disj()->best_obj)
+        boundInfo.best_disj_obj = gen.disj()->best_obj;
+      if (boundInfo.worst_disj_obj < gen.disj()->worst_obj)
+        boundInfo.worst_disj_obj = gen.disj()->worst_obj;
+      boundInfo.ip_obj = gen.ip_obj;
     } else {
       std::vector<Disjunction*> disjVec;
       printf("\n## Setting up disjunction(s) ##\n");
@@ -196,10 +199,12 @@ int main(int argc, char** argv) {
           gen.setDisjunction(disj, false);
           gen.generateCuts(*solver, vpcs[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
           exitReason = gen.exitReason;
-          num_vpc_total += gen.num_cuts;
-          if (best_disj_obj < gen.disj()->best_obj)
-            best_disj_obj = gen.disj()->best_obj;
-          ip_obj = gen.ip_obj;
+          boundInfo.num_vpc += gen.num_cuts;
+          if (boundInfo.best_disj_obj < gen.disj()->best_obj)
+            boundInfo.best_disj_obj = gen.disj()->best_obj;
+          if (boundInfo.worst_disj_obj < gen.disj()->worst_obj)
+            boundInfo.worst_disj_obj = gen.disj()->worst_obj;
+          boundInfo.ip_obj = gen.ip_obj;
         }
         gen.setupRepeatedUse(false);
       }  // if successful generation of disjunction, generate cuts
@@ -224,6 +229,7 @@ int main(int argc, char** argv) {
 
     timer.start_timer(OverallTimeStats::VPC_APPLY_TIME);
     applyCutsCustom(solver, vpcs[round_ind]);
+    boundInfo.vpc_obj = solver->getObjValue();
     timer.end_timer(OverallTimeStats::VPC_APPLY_TIME);
 
     printf(
@@ -233,8 +239,8 @@ int main(int argc, char** argv) {
         vpcs[round_ind].sizeCuts());
     fflush(stdout);
     printf("Initial obj value: %1.6f. New obj value: %s. Disj lb: %s. ##\n",
-        init_obj, stringValue(solver->getObjValue(), "%1.6f").c_str(),
-        stringValue(best_disj_obj, "%1.6f").c_str());
+        boundInfo.lp_obj, stringValue(solver->getObjValue(), "%1.6f").c_str(),
+        stringValue(boundInfo.best_disj_obj, "%1.6f").c_str());
 
 //    printf("\n## Failures ##\n");
 //    gen.printFailures();
@@ -248,20 +254,21 @@ int main(int argc, char** argv) {
       allVPCs.insert(vpcs[round_ind]);
     timer.start_timer(BB_TIME);
     runBBTests(params, info_nocuts, info_mycuts, info_allcuts,
-        params.get(stringParam::FILENAME), solver, ip_obj, &allVPCs, NULL);
-    analyzeBB(params, info_nocuts, info_mycuts, info_allcuts, bb_output);
+        params.get(stringParam::FILENAME), solver, boundInfo.ip_obj, &allVPCs, NULL);
     timer.end_timer(BB_TIME);
   }
 
-  vpc_obj = solver->getObjValue();
-  analyzeStrength(params, init_obj, gmic_obj, vpc_obj, best_disj_obj, ip_obj, num_vpc_total, num_gmic_total, cut_output);
   printf(
       "\n## Finished VPC generation with %d cuts. Initial obj value: %s. Final obj value: %s. Disj lb: %s. ##\n",
-      num_vpc_total,
-      stringValue(init_obj, "%1.6f").c_str(),
-      stringValue(vpc_obj, "%1.6f").c_str(),
-      stringValue(best_disj_obj, "%1.6f").c_str());
+      boundInfo.num_vpc,
+      stringValue(boundInfo.lp_obj, "%1.6f").c_str(),
+      stringValue(boundInfo.vpc_obj, "%1.6f").c_str(),
+      stringValue(boundInfo.best_disj_obj, "%1.6f").c_str());
   timer.end_timer(OverallTimeStats::TOTAL_TIME);
+
+  // Do analyses in preparation for printing
+  analyzeStrength(params, boundInfo, NULL, cut_output);
+  analyzeBB(params, info_nocuts, info_mycuts, info_allcuts, bb_output);
   return wrapUp(0);
 } /* main */
 
@@ -286,7 +293,44 @@ void startUp(int argc, char** argv) {
 
   processArgs(argc, argv);
 
+  // Get instance file
   printf("Instance file: %s.\n", params.get(stringParam::FILENAME).c_str());
+
+  std::string fullfilename = params.get(stringParam::FILENAME);
+  // Get file name stub
+  size_t found_dot = fullfilename.find_last_of(".");
+  std::string filename = fullfilename.substr(0, found_dot);
+
+  // Put string after last '.' into string in_file_ext
+  if (found_dot >= fullfilename.length()) {
+    error_msg(errorstring, "Cannot find the file extension (no '.' in input file name: %s).\n", fullfilename.c_str());
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
+
+  // Check if archived file
+  in_file_ext = fullfilename.substr(found_dot + 1);
+  if (in_file_ext.compare("gz") == 0 || in_file_ext.compare("bz2") == 0) {
+    unsigned found_dot_tmp = filename.find_last_of('.');
+
+    // Put string after last '.' into string in_file_ext
+    if (found_dot_tmp >= filename.length()) {
+      error_msg(errorstring,
+          "Other than gz or bz2, cannot find the file extension (no '.' in input file name: %s).\n",
+          fullfilename.c_str());
+      writeErrorToLog(errorstring, params.logfile);
+      exit(1);
+    }
+
+    in_file_ext = filename.substr(found_dot_tmp + 1);
+    filename = filename.substr(0, found_dot_tmp);
+  }
+
+//  size_t slashindex = fullfilename.find_last_of("/\\");
+//  const std::string dir = (slashindex != std::string::npos) ? fullfilename.substr(0, slashindex+1) : "./";
+//  const std::string filestub = (slashindex != std::string::npos) ? fullfilename.substr(slashindex+1) : fullfilename;
+  size_t slashindex = filename.find_last_of("/\\");
+  instname = (slashindex != std::string::npos) ? filename.substr(slashindex+1) : filename;
 
   // Prepare logfile
   const std::string logname = params.get(stringParam::LOGFILE);
@@ -294,11 +338,8 @@ void startUp(int argc, char** argv) {
     const bool logexists = fexists(logname.c_str());
     params.logfile = fopen(logname.c_str(), "a");
     if (!logexists) {
-      fprintf(params.logfile, "Instance,");
-      printParams(params, params.logfile, 1); // only names
-      fprintf(params.logfile, "\n");
+      printHeader(params, OverallTimeStatsName);
       fprintf(params.logfile, "%s,", instname.c_str());
-      printParams(params, params.logfile, 2); // only values
       fflush(params.logfile);
     }
   }
@@ -319,6 +360,22 @@ int wrapUp(int retCode /*= 0*/) {
 
   FILE* logfile = params.logfile;
   if (logfile != NULL) {
+//    fprintf(logfile, "%s%c", instname.c_str(), ',');
+    // Bound and gap info
+    printBoundAndGapInfo(boundInfo, params.logfile);
+    // B&B info
+    printBBInfo({info_nocuts, info_mycuts}, params.logfile);
+    // Orig prob
+    // Post-cut prob
+    // Disj info
+    // Cut info
+    // Obj info
+    // Fail info
+    // Print parameters
+    printParams(params, params.logfile, 2); // only values
+    // Print time info
+    timer.print(params.logfile, 2); // only values
+    // Print exit reason and finish
     fprintf(logfile, "%s,", ExitReasonName[exitReasonInt].c_str());
     fprintf(logfile, "%s,", end_time_string);
     fprintf(logfile, "%s,", instname.c_str());
@@ -335,7 +392,7 @@ int wrapUp(int retCode /*= 0*/) {
   printf("\n");
 
   int NAME_WIDTH = 25;
-  // Print timing
+  // Print time info
   printf("\n## Time information ##\n");
   for (int i = 0; i < NUM_TIME_STATS; i++) {
     std::string name = OverallTimeStatsName[i];
@@ -367,42 +424,6 @@ int wrapUp(int retCode /*= 0*/) {
 } /* wrapUp */
 
 void initializeSolver(OsiSolverInterface* &solver) {
-  std::string fullfilename = params.get(stringParam::FILENAME);
-  // Get file name stub
-  size_t found_dot = fullfilename.find_last_of(".");
-  std::string filename = fullfilename.substr(0, found_dot);
-
-  // Put string after last '.' into string in_file_ext
-  if (found_dot >= fullfilename.length()) {
-    error_msg(errorstring, "Cannot find the file extension (no '.' in input file name: %s).\n", fullfilename.c_str());
-    writeErrorToLog(errorstring, params.logfile);
-    exit(1);
-  }
-
-  // Check if archived file
-  std::string in_file_ext(fullfilename.substr(found_dot + 1));
-  if (in_file_ext.compare("gz") == 0 || in_file_ext.compare("bz2") == 0) {
-    unsigned found_dot_tmp = filename.find_last_of('.');
-
-    // Put string after last '.' into string in_file_ext
-    if (found_dot_tmp >= filename.length()) {
-      error_msg(errorstring,
-          "Other than gz or bz2, cannot find the file extension (no '.' in input file name: %s).\n",
-          fullfilename.c_str());
-      writeErrorToLog(errorstring, params.logfile);
-      exit(1);
-    }
-
-    in_file_ext = filename.substr(found_dot_tmp + 1);
-    filename = filename.substr(0, found_dot_tmp);
-  }
-
-//  size_t slashindex = fullfilename.find_last_of("/\\");
-//  const std::string dir = (slashindex != std::string::npos) ? fullfilename.substr(0, slashindex+1) : "./";
-//  const std::string filestub = (slashindex != std::string::npos) ? fullfilename.substr(slashindex+1) : fullfilename;
-  size_t slashindex = filename.find_last_of("/\\");
-  instname = (slashindex != std::string::npos) ? filename.substr(slashindex+1) : filename;
-
   // Generate cuts
   solver = new SolverInterface;
   setLPSolverParameters(solver, params.get(VERBOSITY));
@@ -411,13 +432,13 @@ void initializeSolver(OsiSolverInterface* &solver) {
 #ifdef TRACE
     printf("\n## Reading LP file. ##\n");
 #endif
-    solver->readLp(fullfilename.c_str());
+    solver->readLp(params.get(stringParam::FILENAME).c_str());
   } else {
     if (in_file_ext.compare("mps") == 0) {
 #ifdef TRACE
       printf("\n## Reading MPS file. ##\n");
 #endif
-      solver->readMps(fullfilename.c_str());
+      solver->readMps(params.get(stringParam::FILENAME).c_str());
     } else {
       error_msg(errorstring, "Unrecognized extension: %s.\n",
           in_file_ext.c_str());

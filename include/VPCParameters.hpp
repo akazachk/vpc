@@ -521,13 +521,28 @@ inline void readParams(VPCParameters& params, std::string infilename) {
 /**
  * Print parameters and constants
  * amountToPrint:
- *  0 = all (newline-separated),
- *  1 = only names (comma-separated),
- *  2 = only values (comma-separated)
+ *  0 = all param name/values except string params (newline-separated)
+ *  1 = only param names (comma-separated)
+ *  2 = only param values (comma-separated)
+ *  3 = string param name/values (newline-sep)
+ *  4 = only string names (comma-sep)
+ *  5 = only string values (comma-sep)
+ *  10 = all const name/values (newline-separated)
+ *  11 = only const names (comma-separated)
+ *  12 = only const values (comma-separated)
  */
-inline void printParams(VPCParameters& params, FILE* logfile = stdout, const int amountToPrint = 0) {
+inline void printParams(const VPCParameters& params, FILE* logfile = stdout, const int amountToPrint = 0) {
   if (!logfile)
     return;
+
+//  !(std::find(allowed_vals.begin(), allowed_vals.end(), test_val) == allowed_vals.end())
+  const bool printIntParams = amountToPrint == 0 || amountToPrint == 1 || amountToPrint == 2;
+  const bool printDoubleParams = amountToPrint == 0 || amountToPrint == 1 || amountToPrint == 2;
+  const bool printStringParams = amountToPrint == 3 || amountToPrint == 4 || amountToPrint == 5;
+  const bool printIntConsts = amountToPrint == 10 || amountToPrint == 11 || amountToPrint == 12;
+  const bool printDoubleConsts = amountToPrint == 10 || amountToPrint == 11 || amountToPrint == 12;
+
+  if (printIntParams)
   for (auto param : params.intParamValues) {
     if (amountToPrint == 0) {
       fprintf(logfile, "%s\n", param.second.to_string(amountToPrint).c_str());
@@ -535,6 +550,7 @@ inline void printParams(VPCParameters& params, FILE* logfile = stdout, const int
       fprintf(logfile, "%s,", param.second.to_string(amountToPrint).c_str());
     }
   }
+  if (printDoubleParams)
   for (auto param : params.doubleParamValues) {
     if (amountToPrint == 0) {
       fprintf(logfile, "%s\n", param.second.to_string(amountToPrint).c_str());
@@ -542,6 +558,7 @@ inline void printParams(VPCParameters& params, FILE* logfile = stdout, const int
       fprintf(logfile, "%s,", param.second.to_string(amountToPrint).c_str());
     }
   }
+  if (printStringParams)
   for (auto param : params.stringParamValues) {
     if (amountToPrint == 0) {
       fprintf(logfile, "%s\n", param.second.to_string(amountToPrint).c_str());
@@ -549,6 +566,7 @@ inline void printParams(VPCParameters& params, FILE* logfile = stdout, const int
       fprintf(logfile, "%s,", param.second.to_string(amountToPrint).c_str());
     }
   }
+  if (printIntConsts)
   for (auto param : params.intConstValues) {
     if (amountToPrint == 0) {
       fprintf(logfile, "%s\n", param.second.to_string(amountToPrint).c_str());
@@ -556,6 +574,7 @@ inline void printParams(VPCParameters& params, FILE* logfile = stdout, const int
       fprintf(logfile, "%s,", param.second.to_string(amountToPrint).c_str());
     }
   }
+  if (printDoubleConsts)
   for (auto param : params.doubleConstValues) {
     if (amountToPrint == 0) {
       fprintf(logfile, "%s\n", param.second.to_string(amountToPrint).c_str());
