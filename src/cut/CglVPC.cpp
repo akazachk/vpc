@@ -125,6 +125,7 @@ CglVPC::CglVPC(const CglVPC& source) : CglCutGenerator(source) {
 /** Destructor */
 CglVPC::~CglVPC() {
   if (disjunction && ownsDisjunction) { delete disjunction; }
+  if (prlp) delete prlp;
 } /* destructor */
 
 /** Assignment operator */
@@ -380,6 +381,7 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     this->mode = source->mode;
     this->exitReason = source->exitReason;
     this->timer = source->timer;
+    this->prlp = source->prlp;
     this->cutType = source->cutType;
     this->cutHeurVec = source->cutHeurVec;
     this->numCutsOfType = source->numCutsOfType;
@@ -397,6 +399,8 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
   }
   else {
     this->mode = VPCMode::PARTIAL_BB;
+    if (prlp) delete prlp;
+    this->prlp = NULL;
     this->ownsDisjunction = false;
     this->isSetupForRepeatedUse = false;
     this->disjunction = NULL;
@@ -1048,7 +1052,7 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
   const int init_num_failures = 0;
 
   if (!LP_OPT_IS_NOT_CUT || !DLB_EQUALS_DUB) {
-    PRLP* prlp = new PRLP(this);
+    prlp = new PRLP(this);
     setLPSolverParameters(prlp, params.get(VERBOSITY));
     const bool isCutSolverPrimalFeas = prlp->setup(scale);
   //  printf("# rows: %d\t # cols: %d\n", prlp->getNumRows(), prlp->getNumCols());
@@ -1058,9 +1062,6 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
       prlp->targetStrongAndDifferentCuts(beta, cuts,
           origSolver, structSICs, timeName);
     }
-
-    if (prlp)
-      delete prlp;
   }
 
   if (flipBeta) {

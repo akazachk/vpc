@@ -5,20 +5,27 @@
 #include "analysis.hpp"
 
 // COIN-OR
+#include <OsiSolverInterface.hpp>
 #include <OsiCuts.hpp>
+#include <CglGMI.hpp>
 
 // Project files
 #include "BBHelper.hpp"
 #include "CglVPC.hpp"
+#include "CutHelper.hpp"
+#include "Disjunction.hpp"
+#include "PartialBBDisjunction.hpp"
+#include "PRLP.hpp"
+#include "SolverHelper.hpp"
 #include "VPCParameters.hpp"
 #include "utility.hpp" // isInfinity, stringValue
 
 const int countBoundInfoEntries = 11;
 const int countGapInfoEntries = 4;
 const int countBBInfoEntries = static_cast<int>(BB_INFO_CONTENTS.size()) * 4 * 2;
-const int countOrigProbEntries = 14;
+const int countOrigProbEntries = 13;
 const int countPostCutProbEntries = 6;
-const int countDisjInfoEntries = 17;
+const int countDisjInfoEntries = 10;
 const int countCutInfoEntries = 10;
 const int countObjInfoEntries = 1 + 4 * static_cast<int>(CglVPC::CutHeuristic::NUM_CUT_HEUR);
 const int countFailInfoEntries = 1 + static_cast<int>(CglVPC::FailureType::NUM_FAILURES);
@@ -86,7 +93,7 @@ void printHeader(const VPCParameters& params,
     fprintf(logfile, "%s%c", "L&PC OBJ", SEP); count++; // 8
     fprintf(logfile, "%s%c", "NUM VPC", SEP); count++; // 9
     fprintf(logfile, "%s%c", "VPC OBJ", SEP); count++; // 10
-    fprintf(logfile, "%s%c", "GMIC+VPC BOUND", SEP); count++; // 11
+    fprintf(logfile, "%s%c", "VPC+GMIC BOUND", SEP); count++; // 11
     assert(count == countBoundInfoEntries);
   } // BOUND INFO
   { // GAP INFO
@@ -117,16 +124,15 @@ void printHeader(const VPCParameters& params,
   } // BB INFO
   { // ORIG PROB
     int count = 0;
-    fprintf(logfile, "%s%c", "NUM ROWS", SEP); count++;
-    fprintf(logfile, "%s%c", "NUM COLS", SEP); count++;
+    fprintf(logfile, "%s%c", "ROWS", SEP); count++;
+    fprintf(logfile, "%s%c", "COLS", SEP); count++;
     fprintf(logfile, "%s%c", "NUM FRAC", SEP); count++;
     fprintf(logfile, "%s%c", "MIN FRACTIONALITY", SEP); count++;
     fprintf(logfile, "%s%c", "MAX FRACTIONALITY", SEP); count++;
-    fprintf(logfile, "%s%c", "NUM FIXED ROWS", SEP); count++;
-    fprintf(logfile, "%s%c", "NUM EQ ROWS", SEP); count++;
-    fprintf(logfile, "%s%c", "NUM INEQ ROWS", SEP); count++;
-    fprintf(logfile, "%s%c", "NUM BOUND ROWS", SEP); count++;
-    fprintf(logfile, "%s%c", "NUM ASSIGN ROWS", SEP); count++;
+    fprintf(logfile, "%s%c", "EQ ROWS", SEP); count++;
+    fprintf(logfile, "%s%c", "BOUND ROWS", SEP); count++;
+    fprintf(logfile, "%s%c", "ASSIGN ROWS", SEP); count++;
+    fprintf(logfile, "%s%c", "FIXED COLS", SEP); count++;
     fprintf(logfile, "%s%c", "GEN INT", SEP); count++;
     fprintf(logfile, "%s%c", "BINARY", SEP); count++;
     fprintf(logfile, "%s%c", "CONTINUOUS", SEP); count++;
@@ -146,22 +152,25 @@ void printHeader(const VPCParameters& params,
   { // DISJ INFO
     int count = 0;
     fprintf(logfile, "%s%c", "NUM DISJ TERMS", SEP); count++;
-    fprintf(logfile, "%s%c", "MIN DENSITY PRLP", SEP); count++;
-    fprintf(logfile, "%s%c", "MAX DENSITY PRLP", SEP); count++;
-    fprintf(logfile, "%s%c", "MIN NUM ROWS PRLP", SEP); count++;
-    fprintf(logfile, "%s%c", "MAX NUM ROWS PRLP", SEP); count++;
-    fprintf(logfile, "%s%c", "MIN NUM COLS PRLP", SEP); count++;
-    fprintf(logfile, "%s%c", "MAX NUM COLS PRLP", SEP); count++;
-    fprintf(logfile, "%s%c", "MIN NUM POINTS PRLP", SEP); count++;
-    fprintf(logfile, "%s%c", "MAX NUM POINTS PRLP", SEP); count++;
-    fprintf(logfile, "%s%c", "TOTAL NUM POINTS PRLP", SEP); count++;
-    fprintf(logfile, "%s%c", "MIN NUM RAYS PRLP", SEP); count++;
-    fprintf(logfile, "%s%c", "MAX NUM RAYS PRLP", SEP); count++;
-    fprintf(logfile, "%s%c", "TOTAL NUM RAYS PRLP", SEP); count++;
-    fprintf(logfile, "%s%c", "NUM PARTIAL BB NODES", SEP); count++;
-    fprintf(logfile, "%s%c", "NUM PRUNED NODES", SEP); count++;
-    fprintf(logfile, "%s%c", "MIN DEPTH", SEP); count++;
-    fprintf(logfile, "%s%c", "MAX DEPTH", SEP); count++;
+//    fprintf(logfile, "%s%c", "MIN DENSITY PRLP", SEP); count++;
+//    fprintf(logfile, "%s%c", "MAX DENSITY PRLP", SEP); count++;
+    fprintf(logfile, "%s%c", "AVG DENSITY PRLP", SEP); count++;
+//    fprintf(logfile, "%s%c", "MIN ROWS PRLP", SEP); count++;
+//    fprintf(logfile, "%s%c", "MAX ROWS PRLP", SEP); count++;
+    fprintf(logfile, "%s%c", "AVG ROWS PRLP", SEP); count++;
+//    fprintf(logfile, "%s%c", "MIN COLS PRLP", SEP); count++;
+//    fprintf(logfile, "%s%c", "MAX COLS PRLP", SEP); count++;
+    fprintf(logfile, "%s%c", "AVG COLS PRLP", SEP); count++;
+//    fprintf(logfile, "%s%c", "MIN POINTS PRLP", SEP); count++;
+//    fprintf(logfile, "%s%c", "MAX POINTS PRLP", SEP); count++;
+    fprintf(logfile, "%s%c", "AVG POINTS PRLP", SEP); count++;
+//    fprintf(logfile, "%s%c", "MIN RAYS PRLP", SEP); count++;
+//    fprintf(logfile, "%s%c", "MAX RAYS PRLP", SEP); count++;
+    fprintf(logfile, "%s%c", "AVG RAYS PRLP", SEP); count++;
+    fprintf(logfile, "%s%c", "AVG PARTIAL BB EXPLORED NODES", SEP); count++;
+    fprintf(logfile, "%s%c", "AVG PARTIAL BB PRUNED NODES", SEP); count++;
+    fprintf(logfile, "%s%c", "AVG PARTIAL BB MIN DEPTH", SEP); count++;
+    fprintf(logfile, "%s%c", "AVG PARTIAL BB MAX DEPTH", SEP); count++;
     assert(count == countDisjInfoEntries);
   } // DISJ INFO
   { // CUT INFO
@@ -292,6 +301,7 @@ void printBoundAndGapInfo(const SummaryBoundInfo& boundInfo, FILE* logfile, cons
     }
     assert(count == countGapInfoEntries);
   }
+  fflush(logfile);
 } /* printBoundAndGapInfo */
 
 void printBBInfo(const std::vector<SummaryBBInfo>& info_vec, FILE* logfile,
@@ -442,113 +452,161 @@ void printBBInfo(const std::vector<SummaryBBInfo>& info_vec, FILE* logfile,
       fprintf(logfile, "%c", SEP); count++;
     }
   }
+  fflush(logfile);
   assert(count == countBBInfoEntries);
 } /* printBBInfo */
-//
-///**
-// * amountToPrint:
-// *  0 = all (newline-separated),
-// *  1 = only header (comma-separated),
-// *  2 = only values (comma-separated)
-// */
-//void printBBInfo(const SummaryBBInfo& info_nocuts,
-//    const SummaryBBInfo& info_mycuts,
-////    const SummaryBBInfo& info_allcuts,
-//    FILE *logfile, const int amountToPrint, const char SEP) {
-//  if (logfile == NULL) {
-//    return;
-//  }
-//
-//  //////////////////// BB INFO
-//  switch (amountToPrint) {
-//    case 0: {
-//      std::cerr << "printBBInfo: Case 0 of amountToPrint not implmented\n";
-//      exit(1);
-////      for (std::string name : BB_INFO_CONTENTS) {
-////        fprintf(myfile, "%s%c", ("FIRST BB " + name + " VPC").c_str(), SEP);
-////        fprintf(myfile, "%s%c", ("FIRST BB " + name + " VPC+GOMORY").c_str(), SEP);
-////      }
-////      for (std::string name : BB_INFO_CONTENTS) {
-////        fprintf(myfile, "%s%c", ("BEST BB " + name + " VPC").c_str(), SEP);
-////        fprintf(myfile, "%s%c", ("BEST BB " + name + " VPC+GOMORY").c_str(), SEP);
-////      }
-////      for (std::string name : BB_INFO_CONTENTS) {
-////        fprintf(myfile, "%s%c", ("AVG BB " + name + " VPC").c_str(), SEP);
-////        fprintf(myfile, "%s%c", ("AVG BB " + name + " VPC+GOMORY").c_str(), SEP);
-////      }
-////      for (std::string name : BB_INFO_CONTENTS) {
-////        fprintf(myfile, "%s%c", ("ALL BB " + name + " VPC").c_str(), SEP);
-////        fprintf(myfile, "%s%c", ("ALL BB " + name + " VPC+GOMORY").c_str(), SEP);
-////      }
-//      break;
-//    }
-//    case 1: {
-//      int count = 0;
-//      for (std::string name : BB_INFO_CONTENTS) {
-//        fprintf(logfile, "%s%c", ("GUR1 " + name).c_str(), SEP); count++;
-//        fprintf(logfile, "%s%c", ("GUR1+V " + name).c_str(), SEP); count++;
-////        fprintf(logfile, "%s%c", ("GUR1+V+G " + name).c_str(), SEP); count++;
-//      }
-//      for (std::string name : BB_INFO_CONTENTS) {
-//        fprintf(logfile, "%s%c", ("BEST GUR " + name).c_str(), SEP); count++;
-//        fprintf(logfile, "%s%c", ("BEST GUR+V " + name).c_str(), SEP); count++;
-////        fprintf(logfile, "%s%c", ("BEST GUR+V+G " + name).c_str(), SEP); count++;
-//      }
-//      for (std::string name : BB_INFO_CONTENTS) {
-//        fprintf(logfile, "%s%c", ("AVG GUR " + name).c_str(), SEP); count++;
-//        fprintf(logfile, "%s%c", ("AVG GUR+V " + name).c_str(), SEP); count++;
-////        fprintf(logfile, "%s%c", ("AVG GUR+V+G " + name).c_str(), SEP); count++;
-//      }
-//      for (std::string name : BB_INFO_CONTENTS) {
-//        fprintf(logfile, "%s%c", ("ALL GUR " + name).c_str(), SEP); count++;
-//        fprintf(logfile, "%s%c", ("ALL GUR+V " + name).c_str(), SEP); count++;
-////        fprintf(logfile, "%s%c", ("ALL GUR+V+G " + name).c_str(), SEP); count++;
-//      }
-//      assert(count == countBBInfoEntries);
-//      break;
-//    }
-//    case 2: {
-//      if (info_mycuts.vec_bb_info.size() == 0) {
-//        for (int i = 0; i < countBBInfoEntries; i++) {
-//          fprintf(logfile, "%c", SEP);
-//        }
-//        fflush(logfile);
-//        break;
-//      }
-//      // First
-//      printBBInfo(info_nocuts.vec_bb_info[0], info_mycuts.vec_bb_info[0],
-////          info_allcuts.vec_bb_info[0],
-//          logfile, false, SEP);
-//
-//      // Min
-//      printBBInfo(info_nocuts.best_bb_info, info_mycuts.best_bb_info,
-////          info_allcuts.best_bb_info,
-//          logfile, false, SEP);
-//
-//      // Average
-//      printBBInfo(info_nocuts.avg_bb_info, info_mycuts.avg_bb_info,
-////          info_allcuts.avg_bb_info,
-//          logfile, false, SEP);
-//
-//      // All
-//      std::vector<std::string> vec_str_nocuts, vec_str_mycuts;
-////      std::vector<std::string> vec_str_allcuts;
-//      createStringFromBBInfoVec(info_nocuts.vec_bb_info, vec_str_nocuts);
-//      createStringFromBBInfoVec(info_mycuts.vec_bb_info, vec_str_mycuts);
-////      createStringFromBBInfoVec(info_allcuts.vec_bb_info, vec_str_allcuts);
-//      for (int i = 0; i < (int) vec_str_mycuts.size(); i++) {
-//        fprintf(logfile, "%s%c", vec_str_nocuts[i].c_str(), SEP);
-//        fprintf(logfile, "%s%c", vec_str_mycuts[i].c_str(), SEP);
-////        fprintf(logfile, "%s%c", vec_str_allcuts[i].c_str(), SEP);
-//      }
-//      break;
-//    }
-//    default: {
-//      // nothing
-//    }
-//  } // switch amountToPrint
-//  fflush(logfile);
-//} /* printBBInfo */
+
+void printOrigProbInfo(const OsiSolverInterface* const solver, FILE* logfile,
+    const char SEP) {
+  const int num_rows = solver->getNumRows();
+  const int num_cols = solver->getNumCols();
+  // Get row stats
+  int num_eq_rows = 0, num_bound_rows = 0, num_assign_rows = 0;
+  const CoinPackedMatrix* mat = solver->getMatrixByRow();
+  for (int row = 0; row < num_rows; row++) {
+    const double row_lb = solver->getRowLower()[row];
+    const double row_ub = solver->getRowUpper()[row];
+    if (isVal(row_lb, row_ub))
+      num_eq_rows++;
+    if (mat->getVectorSize(row) == 1) {
+      if (isVal(row_lb, row_ub))
+        num_assign_rows++;
+      else
+        num_bound_rows++;
+    }
+  }
+  // Calculate fractionality
+  int num_frac = 0;
+  int num_fixed = 0, num_gen_int = 0, num_bin = 0, num_cont = 0;
+  double min_frac = 1., max_frac = 0.;
+  for (int col = 0; col < num_cols; col++) {
+    const double col_lb = solver->getColLower()[col];
+    const double col_ub = solver->getColUpper()[col];
+    if (isVal(col_lb, col_ub))
+      num_fixed++;
+    if (!solver->isInteger(col)) {
+      num_cont++;
+      continue;
+    }
+    if (solver->isBinary(col))
+      num_bin++;
+    else
+      num_gen_int++;
+    const double val = solver->getColSolution()[col];
+    const double floorxk = std::floor(val);
+    const double ceilxk = std::ceil(val);
+    const double frac = CoinMin(val - floorxk, ceilxk - val);
+    if (!isVal(frac, 0., 1e-5)) {
+      num_frac++;
+      if (frac < min_frac)
+        min_frac = frac;
+      if (frac > max_frac)
+        max_frac = frac;
+    }
+  }
+
+  int count = 0;
+  fprintf(logfile, "%s%c", stringValue(num_rows).c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(num_cols).c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(num_frac).c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(min_frac, "%.5f").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(max_frac, "%.5f").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(num_eq_rows).c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(num_bound_rows).c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(num_assign_rows).c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(num_fixed).c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(num_gen_int).c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(num_bin).c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(num_cont).c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue((double) mat->getNumElements() / (num_rows * num_cols)).c_str(), SEP); count++;
+  fflush(logfile);
+  assert(count == countOrigProbEntries);
+} /* printOrigProbInfo */
+
+/**
+ * Assumed that solver is already with cuts added
+ */
+void printPostCutProbInfo(const OsiSolverInterface* const solver,
+    const OsiCuts* const vpcs, const OsiCuts* const gmics, FILE* logfile,
+    const char SEP) {
+  if (!logfile)
+    return;
+
+  const int num_rows = solver->getNumRows();
+  const int num_cols = solver->getNumCols();
+
+  // Calculate fractionality
+  int num_frac = 0;
+  double min_frac = 1., max_frac = 0.;
+  for (int col = 0; col < num_cols; col++) {
+    if (!solver->isInteger(col)) {
+      continue;
+    }
+    const double val = solver->getColSolution()[col];
+    const double floorxk = std::floor(val);
+    const double ceilxk = std::ceil(val);
+    const double frac = CoinMin(val - floorxk, ceilxk - val);
+    if (!isVal(frac, 0., 1e-5)) {
+      num_frac++;
+      if (frac < min_frac)
+        min_frac = frac;
+      if (frac > max_frac)
+        max_frac = frac;
+    }
+  }
+
+  int num_active_vpcs = 0, num_active_gmics = 0;
+  if (vpcs) {
+    const int num_vpcs = vpcs->sizeCuts();
+    for (int cut_ind = 0; cut_ind < num_vpcs; cut_ind++) {
+      const double activity = dotProduct(vpcs->rowCutPtr(cut_ind)->row(),
+          solver->getColSolution());
+      if (isVal(activity, vpcs->rowCutPtr(cut_ind)->rhs())) {
+        num_active_vpcs++;
+      }
+    }
+  }
+  if (gmics) {
+    const int num_gmics = gmics->sizeCuts();
+    for (int cut_ind = 0; cut_ind < num_gmics; cut_ind++) {
+      const double activity = dotProduct(gmics->rowCutPtr(cut_ind)->row(),
+          solver->getColSolution());
+      if (isVal(activity, gmics->rowCutPtr(cut_ind)->rhs())) {
+        num_active_gmics++;
+      }
+    }
+  }
+
+  int count = 0;
+  fprintf(logfile, "%s%c", stringValue(num_frac).c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(min_frac, "%.5f").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(max_frac, "%.5f").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue((double) solver->getMatrixByCol()->getNumElements() / (num_rows * num_cols)).c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(num_active_gmics).c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(num_active_vpcs).c_str(), SEP); count++;
+  fflush(logfile);
+  assert(count == countPostCutProbEntries);
+} /* printPostCutProbInfo */
+
+void printDisjInfo(const SummaryDisjunctionInfo& disjInfo, FILE* logfile,
+    const char SEP) {
+  if (!logfile)
+    return;
+
+  int count = 0;
+  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_num_terms, "%.0f").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_density_prlp, "%.0f").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_num_rows_prlp, "%.0f").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_num_cols_prlp, "%.0f").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_num_points_prlp, "%.0f").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_num_rays_prlp, "%.0f").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_explored_nodes, "%.0f").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_pruned_nodes, "%.0f").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_min_depth, "%.0f").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_max_depth, "%.0f").c_str(), SEP); count++;
+  fflush(logfile);
+  assert(count == countDisjInfoEntries);
+}
 
 /**
  * The cut properties we want to look at are:
@@ -556,8 +614,11 @@ void printBBInfo(const std::vector<SummaryBBInfo>& info_vec, FILE* logfile,
  * 2. Activity (after adding cuts)
  * 3. Density
  */
-void analyzeStrength(const VPCParameters& params, const SummaryBoundInfo& boundInfo,
-    const OsiCuts* const vpc, std::string& output) {
+void analyzeStrength(const VPCParameters& params,
+//    const OsiSolverInterface* const origSolver, const OsiCuts* const vpc,
+    const SummaryBoundInfo& boundInfo,
+    std::string& output) {
+
   // Print results from adding cuts
   int NAME_WIDTH = 25;
   int NUM_DIGITS_BEFORE_DEC = 7;
@@ -688,3 +749,84 @@ void analyzeBB(const VPCParameters& params, SummaryBBInfo& info_nocuts,
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "\n"); output += tmpstring;
   } // gmics
 } /* analyzeBB */
+
+void getNumGomoryRounds(const VPCParameters& params,
+    const OsiSolverInterface* const origSolver,
+    const OsiSolverInterface* const postCutSolver) {
+  // Get number rounds of SICs needed to meet bound from GICs+SICs
+#ifdef TRACE
+  printf("\nGetting number rounds of Gomory cuts req'd to get bound.\n");
+#endif
+  const int num_cuts = postCutSolver->getNumRows() - origSolver->getNumRows();
+  const double post_cut_opt = postCutSolver->getObjValue();
+  const int min_sic_rounds = (params.get(STRENGTHEN) == 2) ? 2 : 0;
+  int max_rounds = 1000;
+
+  int total_num_sics = 0;
+  double final_sic_bound = 0.;
+  int num_sic_rounds = 0;
+  double curr_sic_opt = 0.;
+  std::vector<int> numCutsByRoundSIC;
+  std::vector<double> boundByRoundSIC;
+  OsiSolverInterface* copySolver = origSolver->clone();
+  if (!copySolver->isProvenOptimal()) {
+    copySolver->initialSolve();
+    checkSolverOptimality(copySolver, false);
+  }
+  while (num_sic_rounds < min_sic_rounds
+      || (lessThanVal(curr_sic_opt, post_cut_opt) && total_num_sics < num_cuts)) {
+    OsiCuts GMICs;
+    CglGMI gen;
+    gen.generateCuts(*copySolver, GMICs);
+    const int curr_num_cuts = GMICs.sizeCuts();
+    if (curr_num_cuts == 0)
+      return;
+
+    num_sic_rounds++;
+    total_num_sics += curr_num_cuts;
+    numCutsByRoundSIC.push_back(curr_num_cuts);
+    curr_sic_opt = applyCutsCustom(copySolver, GMICs);
+    boundByRoundSIC.push_back(curr_sic_opt);
+
+    // Other stopping conditions:
+    // Bound does not improve at all after one round
+    if (num_sic_rounds >= 2
+        && !greaterThanVal(curr_sic_opt, boundByRoundSIC[num_sic_rounds - 2])) {
+      break;
+    }
+    // Bound does not significantly improve after five rounds
+    if (num_sic_rounds > 4) {
+      const double delta = curr_sic_opt - boundByRoundSIC[num_sic_rounds - 4];
+      if (!greaterThanVal(delta, 1e-3)) {
+        break;
+      }
+    }
+  } // do rounds of Gomory cuts
+  final_sic_bound = copySolver->getObjValue();
+  if (max_rounds < num_sic_rounds) {
+    max_rounds = boundByRoundSIC.size();
+  }
+} /* getNumGomoryRounds */
+
+void updateDisjInfo(SummaryDisjunctionInfo& disjInfo, const int num_disj, const CglVPC& gen) {
+  if (num_disj <= 0)
+    return;
+  const Disjunction* const disj = gen.getDisjunction();
+  const PRLP* const prlp = gen.getPRLP();
+  disjInfo.avg_num_terms = (disjInfo.avg_num_terms * (num_disj - 1) + disj->num_terms) / num_disj;
+  disjInfo.avg_density_prlp = (disjInfo.avg_density_prlp * (num_disj - 1) + prlp->density) / num_disj;
+  disjInfo.avg_num_rows_prlp += (disjInfo.avg_num_rows_prlp * (num_disj - 1) + prlp->getNumRows()) / num_disj;
+  disjInfo.avg_num_cols_prlp += (disjInfo.avg_num_cols_prlp * (num_disj - 1) + prlp->getNumCols()) / num_disj;
+  disjInfo.avg_num_points_prlp += (disjInfo.avg_num_points_prlp * (num_disj - 1) + prlp->numPoints) / num_disj;
+  disjInfo.avg_num_rays_prlp += (disjInfo.avg_num_rays_prlp * (num_disj - 1) + prlp->numRays) / num_disj;
+  try {
+    const PartialBBDisjunction* const partialDisj =
+        dynamic_cast<const PartialBBDisjunction* const >(disj);
+    disjInfo.avg_explored_nodes += (disjInfo.avg_explored_nodes * (num_disj - 1) + partialDisj->data.num_nodes_on_tree) / num_disj;
+    disjInfo.avg_pruned_nodes += (disjInfo.avg_pruned_nodes * (num_disj - 1) + partialDisj->data.num_pruned_nodes) / num_disj;
+    disjInfo.avg_min_depth += (disjInfo.avg_min_depth * (num_disj - 1) + partialDisj->data.min_node_depth) / num_disj;
+    disjInfo.avg_max_depth += (disjInfo.avg_max_depth * (num_disj - 1) + partialDisj->data.max_node_depth) / num_disj;
+  } catch (std::exception& e) {
+
+  }
+} /* updateDisjInfo */

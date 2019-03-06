@@ -49,20 +49,16 @@ const std::vector<std::string> OverallTimeStatsName {
 
 // Main file variables
 VPCParameters params;
-OsiSolverInterface* solver;
+OsiSolverInterface* solver, *origSolver;
+OsiCuts gmics, vpcs;
 std::string instname = "", in_file_ext = "";
 ExitReason exitReason;
 TimeStats timer;
 std::time_t start_time_t, end_time_t;
-SummaryBBInfo info_nocuts, info_mycuts, info_allcuts;
 
-//int num_vpc_total = 0, num_gmic_total = 0;
-//double init_obj;
-//double gmic_obj = std::numeric_limits<double>::lowest();
-//double vpc_obj = std::numeric_limits<double>::lowest();
-//double best_disj_obj = std::numeric_limits<double>::lowest();
-//double ip_obj = std::numeric_limits<double>::lowest(); // will be set in CglVPC
 SummaryBoundInfo boundInfo;
+SummaryBBInfo info_nocuts, info_mycuts, info_allcuts;
+SummaryDisjunctionInfo disjInfo;
 
 // For output
 std::string cut_output = "", bb_output = "";
@@ -109,22 +105,31 @@ int main(int argc, char** argv) {
   timer.end_timer(OverallTimeStats::INIT_SOLVE_TIME);
   boundInfo.lp_obj = solver->getObjValue();
 
+  // Save original solver in case we wish to come back to it later
+  origSolver = solver->clone();
+  if (!origSolver->isProvenOptimal()) {
+    origSolver->initialSolve();
+    checkSolverOptimality(origSolver, false);
+  }
+
   // Possibly preprocess instead of doing cuts
   if (params.get(TEMP) == static_cast<int>(TempOptions::PREPROCESS)) {
     // Cleaning involves running Gurobi presolve
 //    performCleaning(solver, params, CLEANING_MODE_OPTION);
 
     printf("\n## Finished cleaning. ##\n");
-
     return wrapUp(0);
   }
 
   // Now do rounds of cuts, until a limit is reached (e.g., time, number failures, number cuts, or all rounds are exhausted)
   boundInfo.num_vpc = 0, boundInfo.num_gmic = 0;
-  std::vector<OsiCuts> vpcs(params.get(ROUNDS));
-  for (int round_ind = 0; round_ind < params.get(ROUNDS); ++round_ind) {
-    if (params.get(ROUNDS) > 1) {
-      printf("\n## Starting round %d/%d. ##\n", round_ind+1, params.get(ROUNDS));
+  std::vector<OsiCuts> vpcs_by_round(params.get(ROUNDS));
+  int num_rounds = params.get(ROUNDS);
+  int round_ind = 0;
+  int num_disj = 0;
+  for (round_ind = 0; round_ind < num_rounds; ++round_ind) {
+    if (num_rounds > 1) {
+      printf("\n## Starting round %d/%d. ##\n", round_ind+1, num_rounds);
     }
     timer.start_timer(OverallTimeStats::VPC_GEN_TIME);
     CglVPC gen(params);
@@ -136,7 +141,8 @@ int main(int argc, char** argv) {
 
     // Proceed with custom disjunctions if specified; otherwise, the disjunction will be set up in the CglVPC class
     if (params.get(MODE) != static_cast<int>(CglVPC::VPCMode::CUSTOM)) {
-      gen.generateCuts(*solver, vpcs[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
+      num_disj++;
+      gen.generateCuts(*solver, vpcs_by_round[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
       exitReason = gen.exitReason;
       boundInfo.num_vpc += gen.num_cuts;
       if (boundInfo.best_disj_obj < gen.disj()->best_obj)
@@ -144,6 +150,7 @@ int main(int argc, char** argv) {
       if (boundInfo.worst_disj_obj < gen.disj()->worst_obj)
         boundInfo.worst_disj_obj = gen.disj()->worst_obj;
       boundInfo.ip_obj = gen.ip_obj;
+      updateDisjInfo(disjInfo, num_disj, gen);
     } else {
       std::vector<Disjunction*> disjVec;
       printf("\n## Setting up disjunction(s) ##\n");
@@ -177,7 +184,7 @@ int main(int argc, char** argv) {
               OsiRowCut currCut;
               currCut.setLb(mult * val);
               currCut.setRow(1, &col, &el, false);
-              gen.addCut(currCut, vpcs[round_ind],
+              gen.addCut(currCut, vpcs_by_round[round_ind],
                   CglVPC::CutType::OPTIMALITY_CUT,
                   CglVPC::CutHeuristic::ONE_SIDED);
             }
@@ -195,9 +202,10 @@ int main(int argc, char** argv) {
 #ifdef TRACE
           printf("\n## Generating cuts from disj %s ##\n", disj->name.c_str());
 #endif
+          num_disj++;
           gen.params.set(CUTLIMIT, cutLimit);
           gen.setDisjunction(disj, false);
-          gen.generateCuts(*solver, vpcs[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
+          gen.generateCuts(*solver, vpcs_by_round[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
           exitReason = gen.exitReason;
           boundInfo.num_vpc += gen.num_cuts;
           if (boundInfo.best_disj_obj < gen.disj()->best_obj)
@@ -205,6 +213,7 @@ int main(int argc, char** argv) {
           if (boundInfo.worst_disj_obj < gen.disj()->worst_obj)
             boundInfo.worst_disj_obj = gen.disj()->worst_obj;
           boundInfo.ip_obj = gen.ip_obj;
+          updateDisjInfo(disjInfo, num_disj, gen);
         }
         gen.setupRepeatedUse(false);
       }  // if successful generation of disjunction, generate cuts
@@ -228,15 +237,17 @@ int main(int argc, char** argv) {
     timer.end_timer(OverallTimeStats::VPC_GEN_TIME);
 
     timer.start_timer(OverallTimeStats::VPC_APPLY_TIME);
-    applyCutsCustom(solver, vpcs[round_ind]);
+    applyCutsCustom(solver, vpcs_by_round[round_ind]);
     boundInfo.vpc_obj = solver->getObjValue();
     timer.end_timer(OverallTimeStats::VPC_APPLY_TIME);
+
+    vpcs.insert(vpcs_by_round[round_ind]);
 
     printf(
         "\n## Round %d/%d: Completed round of VPC generation (exit reason: %s). # cuts generated = %d.\n",
         round_ind + 1, params.get(ROUNDS),
         ExitReasonName[static_cast<int>(exitReason)].c_str(),
-        vpcs[round_ind].sizeCuts());
+        vpcs_by_round[round_ind].sizeCuts());
     fflush(stdout);
     printf("Initial obj value: %1.6f. New obj value: %s. Disj lb: %s. ##\n",
         boundInfo.lp_obj, stringValue(solver->getObjValue(), "%1.6f").c_str(),
@@ -251,7 +262,7 @@ int main(int argc, char** argv) {
     // Collect cuts from all rounds
     OsiCuts allVPCs;
     for (int round_ind = 0; round_ind < params.get(ROUNDS); round_ind++)
-      allVPCs.insert(vpcs[round_ind]);
+      allVPCs.insert(vpcs_by_round[round_ind]);
     timer.start_timer(BB_TIME);
     runBBTests(params, info_nocuts, info_mycuts, info_allcuts,
         params.get(stringParam::FILENAME), solver, boundInfo.ip_obj, &allVPCs, NULL);
@@ -267,7 +278,7 @@ int main(int argc, char** argv) {
   timer.end_timer(OverallTimeStats::TOTAL_TIME);
 
   // Do analyses in preparation for printing
-  analyzeStrength(params, boundInfo, NULL, cut_output);
+  analyzeStrength(params, boundInfo, cut_output);
   analyzeBB(params, info_nocuts, info_mycuts, info_allcuts, bb_output);
   return wrapUp(0);
 } /* main */
@@ -359,15 +370,18 @@ int wrapUp(int retCode /*= 0*/) {
   snprintf(end_time_string, sizeof(end_time_string) / sizeof(char), "%s", asctime(end_timeinfo));
 
   FILE* logfile = params.logfile;
-  if (logfile != NULL) {
-//    fprintf(logfile, "%s%c", instname.c_str(), ',');
+  if ((params.get(TEMP) != static_cast<int>(TempOptions::PREPROCESS))
+      && (logfile != NULL)) {
     // Bound and gap info
     printBoundAndGapInfo(boundInfo, params.logfile);
     // B&B info
     printBBInfo({info_nocuts, info_mycuts}, params.logfile);
     // Orig prob
+    printOrigProbInfo(origSolver, params.logfile);
     // Post-cut prob
+    printPostCutProbInfo(solver, &vpcs, &gmics, params.logfile);
     // Disj info
+    printDisjInfo(disjInfo, params.logfile);
     // Cut info
     // Obj info
     // Fail info

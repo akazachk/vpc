@@ -20,6 +20,7 @@
 #include "TimeStats.hpp"
 
 class Disjunction; // include is in source file
+class PRLP;
 
 enum class ExitReason {
   SUCCESS_EXIT = 0,
@@ -114,6 +115,19 @@ public:
     NUM_FAILURES
   }; /* FailureType */
 
+  struct PRLPData {
+    std::vector<CoinPackedVector> constraints;
+    std::vector<double> rhs;
+    std::vector<int> term;
+    std::vector<double> objViolation;
+    void addConstraint(const CoinPackedVector& vec, const double rhs, const int term, const double viol) {
+      this->constraints.push_back(vec);
+      this->rhs.push_back(rhs);
+      this->term.push_back(term);
+      this->objViolation.push_back(viol);
+    }
+  };
+
   // Static variables/functions
   static const std::vector<std::string> VPCModeName;
   static const std::vector<std::string> VPCTimeStatsName;
@@ -129,6 +143,7 @@ public:
   VPCMode mode;
   ExitReason exitReason;
   TimeStats timer;
+  PRLP* prlp = NULL;
 
   std::vector<CutType> cutType; // one entry per cut
   std::vector<CutHeuristic> cutHeurVec; // one entry per cut
@@ -177,10 +192,13 @@ public:
   /** Get the cut limit for this generator */
   int getCutLimit() const;
 
-  /** get/set disjunction */
-  inline Disjunction* const disj() { return this->disjunction; }
-  inline Disjunction* const getDisjunction() { return this->disj(); } // alias
+  /** Other get/set methods */
+  inline Disjunction* const disj() const { return this->disjunction; }
+  inline Disjunction* const getDisjunction() const { return this->disj(); } // alias
   void setDisjunction(Disjunction* const sourceDisj, int ownIt = -1);
+
+  inline const PRLPData& getPRLPData() const { return this->prlpData; }
+  inline const PRLP* const getPRLP() const { return this->prlp; }
 
   /** generateCuts */
   virtual void generateCuts(const OsiSolverInterface&, OsiCuts&, const CglTreeInfo = CglTreeInfo());
@@ -231,7 +249,8 @@ public:
   } /* printFailures */
 
 protected:
-  Disjunction* disjunction;
+  Disjunction* disjunction = NULL;
+  PRLPData prlpData;
   struct ProblemData {
     int num_cols;
     double lp_opt;
@@ -251,19 +270,6 @@ protected:
       }
     }
   } probData;
-
-  struct PRLPData {
-    std::vector<CoinPackedVector> constraints;
-    std::vector<double> rhs;
-    std::vector<int> term;
-    std::vector<double> objViolation;
-    void addConstraint(const CoinPackedVector& vec, const double rhs, const int term, const double viol) {
-      this->constraints.push_back(vec);
-      this->rhs.push_back(rhs);
-      this->term.push_back(term);
-      this->objViolation.push_back(viol);
-    }
-  } prlpData;
 
   /** Clear old information before another round of cuts */
   void setupAsNew();
