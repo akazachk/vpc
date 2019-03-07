@@ -81,7 +81,7 @@ void analyzeStrength(const VPCParameters& params, SummaryCutInfo& cutInfoGMICs,
     const SummaryBoundInfo& boundInfo, std::string& output);
 void analyzeBB(const VPCParameters& params, SummaryBBInfo& info_nocuts,
     SummaryBBInfo& info_mycuts, SummaryBBInfo& info_allcuts, std::string& output);
-void getNumGomoryRounds(const VPCParameters& params,
+double getNumGomoryRounds(const VPCParameters& params,
     const OsiSolverInterface* const origSolver,
     const OsiSolverInterface* const postCutSolver);
 

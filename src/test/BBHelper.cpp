@@ -110,7 +110,7 @@ void runBBTests(const VPCParameters& params, SummaryBBInfo& info_nocuts,
 
   OsiSolverInterface* runSolver = NULL;
   int initial_random_seed = params.get(intConst::RANDOM_SEED);
-  int random_seed = params.get(intConst::RANDOM_SEED);
+  int random_seed;
   for (int run_ind = 0; run_ind < num_bb_runs; run_ind++) {
     // For Cbc, for every run after the first, we will randomize the rows and columns of the input
     if (should_permute_rows_and_cols) {
@@ -328,7 +328,7 @@ void createTmpFileCopy(const VPCParameters& params,
   // Generate temporary file name
   char template_name[] = "/tmp/tmpmpsXXXXXX";
 
-  mktemp(template_name);
+  mkstemp(template_name);
   f_name = template_name;
   if (f_name.empty()) {
     error_msg(errorstring, "Could not generate temp file.\n");

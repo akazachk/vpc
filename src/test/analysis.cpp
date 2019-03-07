@@ -488,7 +488,7 @@ void printFullBBInfo(const std::vector<SummaryBBInfo>& info_vec, FILE* logfile,
       }
     }
   } else {
-    for (int i = 0; i < (int) BB_INFO_CONTENTS.size() * info_vec.size(); i++) {
+    for (unsigned i = 0; i < BB_INFO_CONTENTS.size() * info_vec.size(); i++) {
       fprintf(logfile, "%c", SEP); count++;
     }
   }
@@ -865,7 +865,7 @@ void analyzeBB(const VPCParameters& params, SummaryBBInfo& info_nocuts,
   } // gmics
 } /* analyzeBB */
 
-void getNumGomoryRounds(const VPCParameters& params,
+double getNumGomoryRounds(const VPCParameters& params,
     const OsiSolverInterface* const origSolver,
     const OsiSolverInterface* const postCutSolver) {
   // Get number rounds of SICs needed to meet bound from GICs+SICs
@@ -878,7 +878,6 @@ void getNumGomoryRounds(const VPCParameters& params,
   int max_rounds = 1000;
 
   int total_num_sics = 0;
-  double final_sic_bound = 0.;
   int num_sic_rounds = 0;
   double curr_sic_opt = 0.;
   std::vector<int> numCutsByRoundSIC;
@@ -895,7 +894,7 @@ void getNumGomoryRounds(const VPCParameters& params,
     gen.generateCuts(*copySolver, GMICs);
     const int curr_num_cuts = GMICs.sizeCuts();
     if (curr_num_cuts == 0)
-      return;
+      break;
 
     num_sic_rounds++;
     total_num_sics += curr_num_cuts;
@@ -917,10 +916,11 @@ void getNumGomoryRounds(const VPCParameters& params,
       }
     }
   } // do rounds of Gomory cuts
-  final_sic_bound = copySolver->getObjValue();
   if (max_rounds < num_sic_rounds) {
     max_rounds = boundByRoundSIC.size();
   }
+  const double final_sic_bound = copySolver->getObjValue();
+  return final_sic_bound;
 } /* getNumGomoryRounds */
 
 void updateDisjInfo(SummaryDisjunctionInfo& disjInfo, const int num_disj, const CglVPC& gen) {

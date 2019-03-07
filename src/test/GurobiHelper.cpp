@@ -28,7 +28,7 @@ void createTmpFileCopy(const VPCParameters& params, GRBModel& model, std::string
     // Generate temporary file name
     char template_name[] = "/tmp/tmpmpsXXXXXX";
 
-    mktemp(template_name);
+    mkstemp(template_name);
     f_name = template_name;
     if (f_name.empty()) {
       error_msg(errorstring, "Could not generate temp file.\n");
