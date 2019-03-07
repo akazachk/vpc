@@ -59,6 +59,8 @@ std::time_t start_time_t, end_time_t;
 SummaryBoundInfo boundInfo;
 SummaryBBInfo info_nocuts, info_mycuts, info_allcuts;
 SummaryDisjunctionInfo disjInfo;
+std::vector<SummaryCutInfo> cutInfoVec;
+SummaryCutInfo cutInfo, cutInfoGMICs;
 
 // For output
 std::string cut_output = "", bb_output = "";
@@ -80,6 +82,7 @@ void signal_handler_with_error_msg(int signal_number) {
 void startUp(int argc, char** argv);
 void processArgs(int argc, char** argv);
 void initializeSolver(OsiSolverInterface* &solver);
+void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_disj);
 int wrapUp(int retCode);
 
 /****************** MAIN FUNCTION **********************/
@@ -123,8 +126,9 @@ int main(int argc, char** argv) {
 
   // Now do rounds of cuts, until a limit is reached (e.g., time, number failures, number cuts, or all rounds are exhausted)
   boundInfo.num_vpc = 0, boundInfo.num_gmic = 0;
-  std::vector<OsiCuts> vpcs_by_round(params.get(ROUNDS));
   int num_rounds = params.get(ROUNDS);
+  std::vector<OsiCuts> vpcs_by_round(num_rounds);
+  cutInfoVec.resize(num_rounds);
   int round_ind = 0;
   int num_disj = 0;
   for (round_ind = 0; round_ind < num_rounds; ++round_ind) {
@@ -151,88 +155,10 @@ int main(int argc, char** argv) {
         boundInfo.worst_disj_obj = gen.disj()->worst_obj;
       boundInfo.ip_obj = gen.ip_obj;
       updateDisjInfo(disjInfo, num_disj, gen);
-    } else {
-      std::vector<Disjunction*> disjVec;
-      printf("\n## Setting up disjunction(s) ##\n");
-      gen.timer.start_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
-      ExitReason setDisjExitReason = setDisjunctions(disjVec, solver, params, CglVPC::VPCMode::SPLITS);
-      gen.timer.end_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
-      const int numDisj = disjVec.size();
-
-      // If integer-optimal solution was found, all disjunctions but one will have been deleted
-      if (setDisjExitReason == ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT) {
-        warning_msg(warnstr,
-            "An integer (optimal) solution was found prior while getting disjunction. "
-            "We will generate between n and 2n cuts, restricting the value of each variable.\n");
-        const double* solution = disjVec[0]->integer_sol.data();
-        if (!solution) {
-          error_msg(errorstring,
-              "Though status is that optimal integer solution found, unable to find this solution.\n");
-          writeErrorToLog(errorstring, params.logfile);
-          exit(1);
-        }
-        for (int col = 0; col < solver->getNumCols(); col++) {
-          const double val = solution[col];
-
-          // Check which of the bounds needs to be fixed
-          for (int b = 0; b < 2; b++) {
-            if ((b == 0 && greaterThanVal(val, solver->getColLower()[col]))
-                || (b == 1 && lessThanVal(val, solver->getColUpper()[col]))) {
-              const double mult = (b == 0) ? 1. : -1.;
-              const double el = mult * 1.;
-
-              OsiRowCut currCut;
-              currCut.setLb(mult * val);
-              currCut.setRow(1, &col, &el, false);
-              gen.addCut(currCut, vpcs_by_round[round_ind],
-                  CglVPC::CutType::OPTIMALITY_CUT,
-                  CglVPC::CutHeuristic::ONE_SIDED);
-            }
-          }
-        } // iterate over columns and add optimality cut if needed
-      } // check if integer-optimal solution
-      else if (setDisjExitReason == ExitReason::SUCCESS_EXIT && numDisj > 0) {
-        const int cutLimit = std::ceil(
-            gen.getCutLimit(params.get(CUTLIMIT),
-                solver->getFractionalIndices().size()) / numDisj); // distribute cut limit over the disjunctions
-        gen.setupRepeatedUse(true);
-        for (Disjunction* disj : disjVec) {
-          if (!disj)
-            continue;
-#ifdef TRACE
-          printf("\n## Generating cuts from disj %s ##\n", disj->name.c_str());
-#endif
-          num_disj++;
-          gen.params.set(CUTLIMIT, cutLimit);
-          gen.setDisjunction(disj, false);
-          gen.generateCuts(*solver, vpcs_by_round[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
-          exitReason = gen.exitReason;
-          boundInfo.num_vpc += gen.num_cuts;
-          if (boundInfo.best_disj_obj < gen.disj()->best_obj)
-            boundInfo.best_disj_obj = gen.disj()->best_obj;
-          if (boundInfo.worst_disj_obj < gen.disj()->worst_obj)
-            boundInfo.worst_disj_obj = gen.disj()->worst_obj;
-          boundInfo.ip_obj = gen.ip_obj;
-          updateDisjInfo(disjInfo, num_disj, gen);
-        }
-        gen.setupRepeatedUse(false);
-      }  // if successful generation of disjunction, generate cuts
-      else if (setDisjExitReason == ExitReason::NO_DISJUNCTION_EXIT) {
-        // Do nothing
-      }
-      else {
-        error_msg(errorstring, "Unknown exit reason (%s) from setDisjunctions.\n", ExitReasonName[static_cast<int>(setDisjExitReason)].c_str());
-        writeErrorToLog(errorstring, params.logfile);
-        exit(1);
-      }
-
-      // Delete disjunctions
-      for (Disjunction* disj : disjVec) {
-        if (disj) {
-          delete disj;
-          disj = NULL;
-        }
-      }
+      updateCutInfo(cutInfoVec[round_ind], gen);
+    } // check if mode is _not_ CUSTOM
+    else {
+      doCustomRoundOfCuts(round_ind, vpcs_by_round[round_ind], gen, num_disj);
     } // check if mode is CUSTOM
     timer.end_timer(OverallTimeStats::VPC_GEN_TIME);
 
@@ -253,19 +179,20 @@ int main(int argc, char** argv) {
         boundInfo.lp_obj, stringValue(solver->getObjValue(), "%1.6f").c_str(),
         stringValue(boundInfo.best_disj_obj, "%1.6f").c_str());
 
-//    printf("\n## Failures ##\n");
-//    gen.printFailures();
+    // Exit early from rounds of cuts if no cuts generated or solver is not optimal
+    if (gen.num_cuts == 0 || !solver->isProvenOptimal()
+        || isInfinity(std::abs(solver->getObjValue())))
+      break;
   } // loop over rounds of cuts
+  if (round_ind < num_rounds)
+    num_rounds = round_ind+1;
 
   // Do branch-and-bound experiments (if requested)
   if (params.get(BB_RUNS) != 0) {
     // Collect cuts from all rounds
-    OsiCuts allVPCs;
-    for (int round_ind = 0; round_ind < params.get(ROUNDS); round_ind++)
-      allVPCs.insert(vpcs_by_round[round_ind]);
     timer.start_timer(BB_TIME);
     runBBTests(params, info_nocuts, info_mycuts, info_allcuts,
-        params.get(stringParam::FILENAME), solver, boundInfo.ip_obj, &allVPCs, NULL);
+        params.get(stringParam::FILENAME), solver, boundInfo.ip_obj, &vpcs, NULL);
     timer.end_timer(BB_TIME);
   }
 
@@ -278,7 +205,9 @@ int main(int argc, char** argv) {
   timer.end_timer(OverallTimeStats::TOTAL_TIME);
 
   // Do analyses in preparation for printing
-  analyzeStrength(params, boundInfo, cut_output);
+  setCutInfo(cutInfo, num_rounds, cutInfoVec.data());
+  analyzeStrength(params, cutInfoGMICs, cutInfo, solver, &gmics, &vpcs,
+      boundInfo, cut_output);
   analyzeBB(params, info_nocuts, info_mycuts, info_allcuts, bb_output);
   return wrapUp(0);
 } /* main */
@@ -350,9 +279,9 @@ void startUp(int argc, char** argv) {
     params.logfile = fopen(logname.c_str(), "a");
     if (!logexists) {
       printHeader(params, OverallTimeStatsName);
-      fprintf(params.logfile, "%s,", instname.c_str());
-      fflush(params.logfile);
     }
+    fprintf(params.logfile, "%s,", instname.c_str());
+    fflush(params.logfile);
   }
 } /* startUp */
 
@@ -375,16 +304,17 @@ int wrapUp(int retCode /*= 0*/) {
     // Bound and gap info
     printBoundAndGapInfo(boundInfo, params.logfile);
     // B&B info
-    printBBInfo({info_nocuts, info_mycuts}, params.logfile);
+    printSummaryBBInfo({info_nocuts, info_mycuts}, params.logfile);
     // Orig prob
     printOrigProbInfo(origSolver, params.logfile);
     // Post-cut prob
-    printPostCutProbInfo(solver, &vpcs, &gmics, params.logfile);
+    printPostCutProbInfo(solver, cutInfoGMICs, cutInfo, params.logfile);
     // Disj info
     printDisjInfo(disjInfo, params.logfile);
-    // Cut info
-    // Obj info
-    // Fail info
+    // Cut, obj, fail info
+    printCutInfo(cutInfoGMICs, cutInfo, params.logfile);
+    // Full B&B info
+    printFullBBInfo({info_nocuts, info_mycuts}, params.logfile);
     // Print parameters
     printParams(params, params.logfile, 2); // only values
     // Print time info
@@ -460,6 +390,95 @@ void initializeSolver(OsiSolverInterface* &solver) {
     }
   } // read file
 } /* initializeSolver */
+
+void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_disj) {
+  std::vector<Disjunction*> disjVec;
+  printf("\n## Setting up disjunction(s) ##\n");
+  gen.timer.start_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
+  ExitReason setDisjExitReason = setDisjunctions(disjVec, solver, params, CglVPC::VPCMode::SPLITS);
+  gen.timer.end_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
+  const int numDisj = disjVec.size();
+
+  // If integer-optimal solution was found, all disjunctions but one will have been deleted
+  if (setDisjExitReason == ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT) {
+    warning_msg(warnstr,
+        "An integer (optimal) solution was found prior while getting disjunction. "
+        "We will generate between n and 2n cuts, restricting the value of each variable.\n");
+    const double* solution = disjVec[0]->integer_sol.data();
+    if (!solution) {
+      error_msg(errorstring,
+          "Though status is that optimal integer solution found, unable to find this solution.\n");
+      writeErrorToLog(errorstring, params.logfile);
+      exit(1);
+    }
+    for (int col = 0; col < solver->getNumCols(); col++) {
+      const double val = solution[col];
+
+      // Check which of the bounds needs to be fixed
+      for (int b = 0; b < 2; b++) {
+        if ((b == 0 && greaterThanVal(val, solver->getColLower()[col]))
+            || (b == 1 && lessThanVal(val, solver->getColUpper()[col]))) {
+          const double mult = (b == 0) ? 1. : -1.;
+          const double el = mult * 1.;
+
+          OsiRowCut currCut;
+          currCut.setLb(mult * val);
+          currCut.setRow(1, &col, &el, false);
+          gen.addCut(currCut, vpcs,
+              CglVPC::CutType::OPTIMALITY_CUT,
+              CglVPC::ObjectiveType::ONE_SIDED);
+        }
+      }
+    } // iterate over columns and add optimality cut if needed
+    exitReason = ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT;
+    boundInfo.num_vpc += gen.num_cuts;
+    updateCutInfo(cutInfoVec[round_ind], gen);
+  } // check if integer-optimal solution
+  else if (setDisjExitReason == ExitReason::SUCCESS_EXIT && numDisj > 0) {
+    const int cutLimit = std::ceil(
+        gen.getCutLimit(params.get(CUTLIMIT),
+            solver->getFractionalIndices().size()) / numDisj); // distribute cut limit over the disjunctions
+    gen.setupRepeatedUse(true);
+    for (Disjunction* disj : disjVec) {
+      if (!disj)
+        continue;
+#ifdef TRACE
+      printf("\n## Generating cuts from disj %s ##\n", disj->name.c_str());
+#endif
+      num_disj++;
+      gen.params.set(CUTLIMIT, cutLimit);
+      gen.setDisjunction(disj, false);
+      gen.generateCuts(*solver, vpcs); // solution may change slightly due to enable factorization called in getProblemData...
+      exitReason = gen.exitReason;
+      boundInfo.num_vpc += gen.num_cuts;
+      if (boundInfo.best_disj_obj < gen.disj()->best_obj)
+        boundInfo.best_disj_obj = gen.disj()->best_obj;
+      if (boundInfo.worst_disj_obj < gen.disj()->worst_obj)
+        boundInfo.worst_disj_obj = gen.disj()->worst_obj;
+      boundInfo.ip_obj = gen.ip_obj;
+      updateDisjInfo(disjInfo, num_disj, gen);
+      updateCutInfo(cutInfoVec[round_ind], gen);
+    }
+    gen.setupRepeatedUse(false);
+  }  // if successful generation of disjunction, generate cuts
+  else if (setDisjExitReason == ExitReason::NO_DISJUNCTION_EXIT) {
+    // Do nothing
+    exitReason = ExitReason::NO_DISJUNCTION_EXIT;
+  }
+  else {
+    error_msg(errorstring, "Unknown exit reason (%s) from setDisjunctions.\n", ExitReasonName[static_cast<int>(setDisjExitReason)].c_str());
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
+
+  // Delete disjunctions
+  for (Disjunction* disj : disjVec) {
+    if (disj) {
+      delete disj;
+      disj = NULL;
+    }
+  }
+} /* doCustomRoundOfCuts */
 
 /**
  * See params.hpp for descriptions of the parameters

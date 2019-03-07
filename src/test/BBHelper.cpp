@@ -253,11 +253,11 @@ void runBBTests(const VPCParameters& params, SummaryBBInfo& info_nocuts,
     averageBBInfo(info_nocuts.avg_bb_info, info_nocuts.vec_bb_info);
   }
   if (branch_with_vpcs) {
-    info_mycuts.first_bb_info = info_nocuts.vec_bb_info[0];
+    info_mycuts.first_bb_info = info_mycuts.vec_bb_info[0];
     averageBBInfo(info_mycuts.avg_bb_info, info_mycuts.vec_bb_info);
   }
   if (branch_with_gmics) {
-    info_allcuts.first_bb_info = info_nocuts.vec_bb_info[0];
+    info_allcuts.first_bb_info = info_allcuts.vec_bb_info[0];
     averageBBInfo(info_allcuts.avg_bb_info, info_allcuts.vec_bb_info);
   }
 } /* runBBTests */

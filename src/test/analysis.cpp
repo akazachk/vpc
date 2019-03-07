@@ -11,7 +11,6 @@
 
 // Project files
 #include "BBHelper.hpp"
-#include "CglVPC.hpp"
 #include "CutHelper.hpp"
 #include "Disjunction.hpp"
 #include "PartialBBDisjunction.hpp"
@@ -22,13 +21,14 @@
 
 const int countBoundInfoEntries = 11;
 const int countGapInfoEntries = 4;
-const int countBBInfoEntries = static_cast<int>(BB_INFO_CONTENTS.size()) * 4 * 2;
+const int countSummaryBBInfoEntries = 4 * 2;
+const int countFullBBInfoEntries = static_cast<int>(BB_INFO_CONTENTS.size()) * 4 * 2;
 const int countOrigProbEntries = 13;
 const int countPostCutProbEntries = 6;
 const int countDisjInfoEntries = 10;
 const int countCutInfoEntries = 10;
-const int countObjInfoEntries = 1 + 4 * static_cast<int>(CglVPC::CutHeuristic::NUM_CUT_HEUR);
-const int countFailInfoEntries = 1 + static_cast<int>(CglVPC::FailureType::NUM_FAILURES);
+const int countObjInfoEntries = 1 + 4 * static_cast<int>(CglVPC::ObjectiveType::NUM_OBJECTIVE_TYPES);
+const int countFailInfoEntries = 1 + static_cast<int>(CglVPC::FailureType::NUM_FAILURE_TYPES);
 const int countParamInfoEntries = intParam::NUM_INT_PARAMS + doubleParam::NUM_DOUBLE_PARAMS;
 int countTimeInfoEntries = 0; // set in printHeader
 
@@ -51,7 +51,7 @@ void printHeader(const VPCParameters& params,
   tmpstring.assign(countGapInfoEntries, SEP);
   fprintf(logfile, "%s", tmpstring.c_str());
   fprintf(logfile, "%s", "BB INFO");
-  tmpstring.assign(countBBInfoEntries, SEP);
+  tmpstring.assign(countSummaryBBInfoEntries, SEP);
   fprintf(logfile, "%s", tmpstring.c_str());
   fprintf(logfile, "%s", "ORIG PROB");
   tmpstring.assign(countOrigProbEntries, SEP);
@@ -70,6 +70,9 @@ void printHeader(const VPCParameters& params,
   fprintf(logfile, "%s", tmpstring.c_str());
   fprintf(logfile, "%s", "FAIL INFO");
   tmpstring.assign(countFailInfoEntries, SEP);
+  fprintf(logfile, "%s", tmpstring.c_str());
+  fprintf(logfile, "%s", "FULL BB INFO");
+  tmpstring.assign(countFullBBInfoEntries, SEP);
   fprintf(logfile, "%s", tmpstring.c_str());
   fprintf(logfile, "%s", "PARAM INFO");
   tmpstring.assign(countParamInfoEntries, SEP);
@@ -106,21 +109,14 @@ void printHeader(const VPCParameters& params,
   } // GAP INFO
   { // BB INFO
     int count = 0;
-    for (std::string name : BB_INFO_CONTENTS) {
-      fprintf(logfile, "%s%c", ("GUR1 " + name).c_str(), SEP); count++;
-      fprintf(logfile, "%s%c", ("GUR1+V " + name).c_str(), SEP); count++;
+    std::vector<std::string> nameVec = {"NODES", "TIME"};
+    for (auto name : nameVec) {
+      fprintf(logfile, "%s%c", ("FIRST GUR " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("FIRST GUR+V " + name).c_str(), SEP); count++;
       fprintf(logfile, "%s%c", ("BEST GUR " + name).c_str(), SEP); count++;
       fprintf(logfile, "%s%c", ("BEST GUR+V " + name).c_str(), SEP); count++;
-      fprintf(logfile, "%s%c", ("AVG GUR " + name).c_str(), SEP); count++;
-      fprintf(logfile, "%s%c", ("AVG GUR+V " + name).c_str(), SEP); count++;
     }
-    for (std::string name : BB_INFO_CONTENTS) {
-      fprintf(logfile, "%s%c", ("ALL GUR " + name).c_str(), SEP); count++;
-    }
-    for (std::string name : BB_INFO_CONTENTS) {
-      fprintf(logfile, "%s%c", ("ALL GUR+V " + name).c_str(), SEP); count++;
-    }
-    assert(count == countBBInfoEntries);
+    assert(count == countSummaryBBInfoEntries);
   } // BB INFO
   { // ORIG PROB
     int count = 0;
@@ -175,38 +171,56 @@ void printHeader(const VPCParameters& params,
   } // DISJ INFO
   { // CUT INFO
     int count = 0;
-    fprintf(logfile, "%s%c", "NUM CUTS", SEP); count++;
-    fprintf(logfile, "%s%c", "NUM ONE SIDED", SEP); count++;
-    fprintf(logfile, "%s%c", "MIN SUPPORT GOMORY", SEP); count++;
-    fprintf(logfile, "%s%c", "MAX SUPPORT GOMORY", SEP); count++;
-    fprintf(logfile, "%s%c", "AVG SUPPORT GOMORY", SEP); count++;
-    fprintf(logfile, "%s%c", "STD DEV SUPPORT GOMORY", SEP); count++;
+    fprintf(logfile, "%s%c", "NUM ROUNDS", SEP); count++;
+    fprintf(logfile, "%s%c", "NUM CUTS", SEP); count++; // repeat, but it's ok
+    fprintf(logfile, "%s%c", "NUM ONE SIDED CUTS", SEP); count++;
+    fprintf(logfile, "%s%c", "NUM OPTIMALITY CUTS", SEP); count++;
     fprintf(logfile, "%s%c", "MIN SUPPORT VPC", SEP); count++;
     fprintf(logfile, "%s%c", "MAX SUPPORT VPC", SEP); count++;
     fprintf(logfile, "%s%c", "AVG SUPPORT VPC", SEP); count++;
-    fprintf(logfile, "%s%c", "STD DEV SUPPORT VPC", SEP); count++;
+    fprintf(logfile, "%s%c", "MIN SUPPORT GOMORY", SEP); count++;
+    fprintf(logfile, "%s%c", "MAX SUPPORT GOMORY", SEP); count++;
+    fprintf(logfile, "%s%c", "AVG SUPPORT GOMORY", SEP); count++;
     assert(count == countCutInfoEntries);
   } // CUT INFO
   { // OBJ INFO
     // For each objective: num obj, num fails, num active
     int count = 0;
     fprintf(logfile, "%s%c", "NUM OBJ", SEP); count++;
-    for (int fail_ind = 0; fail_ind < static_cast<int>(CglVPC::CutHeuristic::NUM_CUT_HEUR); fail_ind++) {
-      fprintf(logfile, "NUM OBJ %s%c", CglVPC::CutHeuristicName[fail_ind].c_str(), SEP); count++;
-      fprintf(logfile, "NUM FAILS %s%c", CglVPC::CutHeuristicName[fail_ind].c_str(), SEP); count++;
-      fprintf(logfile, "NUM CUTS %s%c", CglVPC::CutHeuristicName[fail_ind].c_str(), SEP); count++;
-      fprintf(logfile, "NUM ACTIVE %s%c", CglVPC::CutHeuristicName[fail_ind].c_str(), SEP); count++;
+    for (int obj_ind = 0; obj_ind < static_cast<int>(CglVPC::ObjectiveType::NUM_OBJECTIVE_TYPES); obj_ind++) {
+      fprintf(logfile, "NUM OBJ %s%c", CglVPC::ObjectiveTypeName[obj_ind].c_str(), SEP); count++;
+      fprintf(logfile, "NUM CUTS %s%c", CglVPC::ObjectiveTypeName[obj_ind].c_str(), SEP); count++;
+      fprintf(logfile, "NUM FAILS %s%c", CglVPC::ObjectiveTypeName[obj_ind].c_str(), SEP); count++;
+      fprintf(logfile, "NUM ACTIVE %s%c", CglVPC::ObjectiveTypeName[obj_ind].c_str(), SEP); count++;
     }
     assert(count == countObjInfoEntries);
   } // OBJ INFO
   { // FAIL INFO
     int count = 0;
     fprintf(logfile, "%s%c", "NUM FAILS", SEP); count++;
-    for (int fail_ind = 0; fail_ind < static_cast<int>(CglVPC::FailureType::NUM_FAILURES); fail_ind++) {
+    for (int fail_ind = 0; fail_ind < static_cast<int>(CglVPC::FailureType::NUM_FAILURE_TYPES); fail_ind++) {
       fprintf(logfile, "%s%c", CglVPC::FailureTypeName[fail_ind].c_str(), SEP); count++;
     }
     assert(count == countFailInfoEntries);
   } // FAIL INFO
+  { // FULL BB INFO
+    int count = 0;
+    for (std::string name : BB_INFO_CONTENTS) {
+      fprintf(logfile, "%s%c", ("FIRST GUR " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("FIRST GUR+V " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("BEST GUR " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("BEST GUR+V " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("AVG GUR " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("AVG GUR+V " + name).c_str(), SEP); count++;
+    }
+    for (std::string name : BB_INFO_CONTENTS) {
+      fprintf(logfile, "%s%c", ("ALL GUR " + name).c_str(), SEP); count++;
+    }
+    for (std::string name : BB_INFO_CONTENTS) {
+      fprintf(logfile, "%s%c", ("ALL GUR+V " + name).c_str(), SEP); count++;
+    }
+    assert(count == countFullBBInfoEntries);
+  } // FULL BB INFO
   { // PARAM INFO
     printParams(params, logfile, 1); // only int/double param names
   } // PARAM INFO
@@ -304,7 +318,33 @@ void printBoundAndGapInfo(const SummaryBoundInfo& boundInfo, FILE* logfile, cons
   fflush(logfile);
 } /* printBoundAndGapInfo */
 
-void printBBInfo(const std::vector<SummaryBBInfo>& info_vec, FILE* logfile,
+void printSummaryBBInfo(const std::vector<SummaryBBInfo>& info_vec, FILE* logfile,
+    const bool print_blanks, const char SEP) {
+  if (!logfile)
+      return;
+
+  int count = 0;
+  for (auto info : info_vec) {
+    fprintf(logfile, "%ld%c", info.first_bb_info.nodes, SEP);
+    count++;
+  }
+  for (auto info : info_vec) {
+    fprintf(logfile, "%ld%c", info.best_bb_info.nodes, SEP);
+    count++;
+  }
+  for (auto info : info_vec) {
+    fprintf(logfile, "%2.3f%c", info.first_bb_info.time, SEP);
+    count++;
+  }
+  for (auto info : info_vec) {
+    fprintf(logfile, "%2.3f%c", info.best_bb_info.time, SEP);
+    count++;
+  }
+  fflush(logfile);
+  assert(count == countSummaryBBInfoEntries);
+} /* printSummaryBBInfo */
+
+void printFullBBInfo(const std::vector<SummaryBBInfo>& info_vec, FILE* logfile,
     const bool print_blanks, const char SEP) {
   if (!logfile)
     return;
@@ -453,11 +493,14 @@ void printBBInfo(const std::vector<SummaryBBInfo>& info_vec, FILE* logfile,
     }
   }
   fflush(logfile);
-  assert(count == countBBInfoEntries);
-} /* printBBInfo */
+  assert(count == countFullBBInfoEntries);
+} /* printFullBBInfo */
 
 void printOrigProbInfo(const OsiSolverInterface* const solver, FILE* logfile,
     const char SEP) {
+  if (!logfile)
+    return;
+
   const int num_rows = solver->getNumRows();
   const int num_cols = solver->getNumCols();
   // Get row stats
@@ -527,8 +570,8 @@ void printOrigProbInfo(const OsiSolverInterface* const solver, FILE* logfile,
  * Assumed that solver is already with cuts added
  */
 void printPostCutProbInfo(const OsiSolverInterface* const solver,
-    const OsiCuts* const vpcs, const OsiCuts* const gmics, FILE* logfile,
-    const char SEP) {
+    const SummaryCutInfo& cutInfoGMICs, const SummaryCutInfo& cutInfoVPCs,
+    FILE* logfile, const char SEP) {
   if (!logfile)
     return;
 
@@ -555,35 +598,13 @@ void printPostCutProbInfo(const OsiSolverInterface* const solver,
     }
   }
 
-  int num_active_vpcs = 0, num_active_gmics = 0;
-  if (vpcs) {
-    const int num_vpcs = vpcs->sizeCuts();
-    for (int cut_ind = 0; cut_ind < num_vpcs; cut_ind++) {
-      const double activity = dotProduct(vpcs->rowCutPtr(cut_ind)->row(),
-          solver->getColSolution());
-      if (isVal(activity, vpcs->rowCutPtr(cut_ind)->rhs())) {
-        num_active_vpcs++;
-      }
-    }
-  }
-  if (gmics) {
-    const int num_gmics = gmics->sizeCuts();
-    for (int cut_ind = 0; cut_ind < num_gmics; cut_ind++) {
-      const double activity = dotProduct(gmics->rowCutPtr(cut_ind)->row(),
-          solver->getColSolution());
-      if (isVal(activity, gmics->rowCutPtr(cut_ind)->rhs())) {
-        num_active_gmics++;
-      }
-    }
-  }
-
   int count = 0;
   fprintf(logfile, "%s%c", stringValue(num_frac).c_str(), SEP); count++;
   fprintf(logfile, "%s%c", stringValue(min_frac, "%.5f").c_str(), SEP); count++;
   fprintf(logfile, "%s%c", stringValue(max_frac, "%.5f").c_str(), SEP); count++;
   fprintf(logfile, "%s%c", stringValue((double) solver->getMatrixByCol()->getNumElements() / (num_rows * num_cols)).c_str(), SEP); count++;
-  fprintf(logfile, "%s%c", stringValue(num_active_gmics).c_str(), SEP); count++;
-  fprintf(logfile, "%s%c", stringValue(num_active_vpcs).c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(cutInfoGMICs.num_active).c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(cutInfoVPCs.num_active).c_str(), SEP); count++;
   fflush(logfile);
   assert(count == countPostCutProbEntries);
 } /* printPostCutProbInfo */
@@ -606,7 +627,60 @@ void printDisjInfo(const SummaryDisjunctionInfo& disjInfo, FILE* logfile,
   fprintf(logfile, "%s%c", stringValue(disjInfo.avg_max_depth, "%.0f").c_str(), SEP); count++;
   fflush(logfile);
   assert(count == countDisjInfoEntries);
-}
+} /* printDisjInfo */
+
+void printCutInfo(const SummaryCutInfo& cutInfoGMICs,
+    const SummaryCutInfo& cutInfo, FILE* logfile, const char SEP) {
+  if (!logfile)
+    return;
+
+  { // CUT INFO
+    int count = 0;
+    fprintf(logfile, "%s%c", stringValue(cutInfo.num_rounds).c_str(), SEP); count++;
+    fprintf(logfile, "%s%c", stringValue(cutInfo.num_cuts).c_str(), SEP); count++;
+    fprintf(logfile, "%s%c", stringValue(cutInfo.numCutsOfType[static_cast<int>(CglVPC::CutType::ONE_SIDED_CUT)]).c_str(), SEP); count++;
+    fprintf(logfile, "%s%c", stringValue(cutInfo.numCutsOfType[static_cast<int>(CglVPC::CutType::OPTIMALITY_CUT)]).c_str(), SEP); count++;
+    if (cutInfo.num_cuts > 0) {
+      fprintf(logfile, "%s%c", stringValue(cutInfo.min_support).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", stringValue(cutInfo.max_support).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", stringValue(cutInfo.avg_support, "%.3f").c_str(), SEP); count++;
+    } else {
+      fprintf(logfile, "%s%c", stringValue(0).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", stringValue(0).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", stringValue(0).c_str(), SEP); count++;
+    }
+    if (cutInfoGMICs.num_cuts > 0) {
+      fprintf(logfile, "%s%c", stringValue(cutInfoGMICs.min_support).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", stringValue(cutInfoGMICs.max_support).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", stringValue(cutInfoGMICs.avg_support, "%.3f").c_str(), SEP); count++;
+    } else {
+      fprintf(logfile, "%s%c", stringValue(0).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", stringValue(0).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", stringValue(0).c_str(), SEP); count++;
+    }
+    assert(count == countCutInfoEntries);
+  } // CUT INFO
+  { // OBJ INFO
+    int count = 0;
+    fprintf(logfile, "%s%c", stringValue(cutInfo.num_obj_tried).c_str(), SEP); count++;
+    for (int obj_ind = 0; obj_ind < static_cast<int>(CglVPC::ObjectiveType::NUM_OBJECTIVE_TYPES); obj_ind++) {
+      fprintf(logfile, "%s%c", stringValue(cutInfo.numObjFromHeur[obj_ind]).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", stringValue(cutInfo.numCutsFromHeur[obj_ind]).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", stringValue(cutInfo.numFailsFromHeur[obj_ind]).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", stringValue(cutInfo.numActiveFromHeur[obj_ind]).c_str(), SEP); count++;
+    }
+    assert(count == countObjInfoEntries);
+  } // OBJ INFO
+  { // FAIL INFO
+    int count = 0;
+    fprintf(logfile, "%s%c", stringValue(cutInfo.num_failures).c_str(), SEP); count++;
+    for (int fail_ind = 0; fail_ind < static_cast<int>(CglVPC::FailureType::NUM_FAILURE_TYPES); fail_ind++) {
+      fprintf(logfile, "%s%c", stringValue(cutInfo.numFails[fail_ind]).c_str(), SEP); count++;
+    }
+    assert(count == countFailInfoEntries);
+  } // FAIL INFO
+  fflush(logfile);
+} /* printCutInfo */
 
 /**
  * The cut properties we want to look at are:
@@ -614,10 +688,51 @@ void printDisjInfo(const SummaryDisjunctionInfo& disjInfo, FILE* logfile,
  * 2. Activity (after adding cuts)
  * 3. Density
  */
-void analyzeStrength(const VPCParameters& params,
-//    const OsiSolverInterface* const origSolver, const OsiCuts* const vpc,
-    const SummaryBoundInfo& boundInfo,
-    std::string& output) {
+void analyzeStrength(const VPCParameters& params, SummaryCutInfo& cutInfoGMICs,
+    SummaryCutInfo& cutInfoVPCs, const OsiSolverInterface* solver,
+    const OsiCuts* const gmics, const OsiCuts* const vpcs,
+    const SummaryBoundInfo& boundInfo, std::string& output) {
+  cutInfoGMICs.num_active = 0;
+  cutInfoVPCs.num_active = 0;
+  cutInfoVPCs.numActiveFromHeur.resize(static_cast<int>(CglVPC::ObjectiveType::NUM_OBJECTIVE_TYPES), 0);
+  if (vpcs) {
+    const int num_vpcs = vpcs->sizeCuts();
+    int total_support = 0;
+    for (int cut_ind = 0; cut_ind < num_vpcs; cut_ind++) {
+      const double activity = dotProduct(vpcs->rowCutPtr(cut_ind)->row(),
+          solver->getColSolution());
+      if (isVal(activity, vpcs->rowCutPtr(cut_ind)->rhs())) {
+        cutInfoVPCs.num_active++;
+        cutInfoVPCs.numActiveFromHeur[static_cast<int>(cutInfoVPCs.objType[cut_ind])]++;
+      }
+      int num_elem = vpcs->rowCutPtr(cut_ind)->row().getNumElements();
+      if (num_elem < cutInfoVPCs.min_support)
+        cutInfoVPCs.min_support = num_elem;
+      if (num_elem > cutInfoVPCs.max_support)
+        cutInfoVPCs.max_support = num_elem;
+      total_support += num_elem;
+    }
+    cutInfoVPCs.avg_support = (double) total_support / num_vpcs;
+  }
+  if (gmics) {
+    const int num_gmics = gmics->sizeCuts();
+    cutInfoGMICs.num_cuts = num_gmics;
+    int total_support = 0;
+    for (int cut_ind = 0; cut_ind < num_gmics; cut_ind++) {
+      const double activity = dotProduct(gmics->rowCutPtr(cut_ind)->row(),
+          solver->getColSolution());
+      if (isVal(activity, gmics->rowCutPtr(cut_ind)->rhs())) {
+        cutInfoGMICs.num_active++;
+      }
+      int num_elem = gmics->rowCutPtr(cut_ind)->row().getNumElements();
+      if (num_elem < cutInfoGMICs.min_support)
+        cutInfoGMICs.min_support = num_elem;
+      if (num_elem > cutInfoGMICs.max_support)
+        cutInfoGMICs.max_support = num_elem;
+      total_support += num_elem;
+    }
+    cutInfoGMICs.avg_support = (double) total_support / num_gmics;
+  }
 
   // Print results from adding cuts
   int NAME_WIDTH = 25;
@@ -635,16 +750,16 @@ void analyzeStrength(const VPCParameters& params,
   output += tmpstring;
   if (!isInfinity(std::abs(boundInfo.gmic_obj))) {
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
-        "%-*.*s%s (%d cuts)\n", NAME_WIDTH, NAME_WIDTH, "GMICs: ",
+        "%-*.*s%s (%d cuts, %d active)\n", NAME_WIDTH, NAME_WIDTH, "GMICs: ",
         stringValue(boundInfo.gmic_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC,
-            NUM_DIGITS_AFTER_DEC).c_str(), boundInfo.num_gmic);
+            NUM_DIGITS_AFTER_DEC).c_str(), boundInfo.num_gmic, cutInfoGMICs.num_active);
     output += tmpstring;
   }
   if (!isInfinity(std::abs(boundInfo.vpc_obj))) {
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
-        "%-*.*s%s (%d cuts)\n", NAME_WIDTH, NAME_WIDTH, "VPCs: ",
+        "%-*.*s%s (%d cuts, %d active)\n", NAME_WIDTH, NAME_WIDTH, "VPCs: ",
         stringValue(boundInfo.vpc_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC,
-            NUM_DIGITS_AFTER_DEC).c_str(), boundInfo.num_vpc);
+            NUM_DIGITS_AFTER_DEC).c_str(), boundInfo.num_vpc, cutInfoVPCs.num_active);
     output += tmpstring;
   }
   if (!isInfinity(std::abs(boundInfo.best_disj_obj))) {
@@ -830,3 +945,117 @@ void updateDisjInfo(SummaryDisjunctionInfo& disjInfo, const int num_disj, const 
 
   }
 } /* updateDisjInfo */
+
+/**
+ * Use this to add to cutInfo (but within one round,
+ * because the cutType and objType vectors are cleared in gen in each round
+ * (so tracking that based on isSetupForRepeatedUse does not work,
+ * and the old cutType and objType stored in cutInfo would be overwritten)
+ */
+void updateCutInfo(SummaryCutInfo& cutInfo, const CglVPC& gen) {
+  cutInfo.num_cuts += gen.num_cuts;
+  cutInfo.num_obj_tried += gen.num_obj_tried;
+  cutInfo.num_failures += gen.num_failures;
+
+  // For cutType and objType, what we do depends on whether the generator is setup for repeated use or not
+  if (gen.isSetupForRepeatedUse) {
+    cutInfo.cutType = gen.cutType;
+    cutInfo.objType = gen.objType;
+  } else {
+    cutInfo.cutType.insert(cutInfo.cutType.end(), gen.cutType.begin(), gen.cutType.end());
+    cutInfo.objType.insert(cutInfo.objType.end(), gen.objType.begin(), gen.objType.end());
+  }
+
+  if (cutInfo.numCutsOfType.size() > 0) {
+    for (int i = 0; i < static_cast<int>(CglVPC::CutType::NUM_CUT_TYPES); i++) {
+      cutInfo.numCutsOfType[i] += gen.numCutsOfType[i];
+    }
+  } else {
+    cutInfo.numCutsOfType = gen.numCutsOfType;
+  }
+
+  if (cutInfo.numCutsFromHeur.size() > 0) {
+    for (int i = 0; i < static_cast<int>(CglVPC::ObjectiveType::NUM_OBJECTIVE_TYPES); i++) {
+      cutInfo.numCutsFromHeur[i] += gen.numCutsFromHeur[i];
+      cutInfo.numObjFromHeur[i] += gen.numObjFromHeur[i];
+      cutInfo.numFailsFromHeur[i] += gen.numFailsFromHeur[i];
+    }
+  } else {
+    cutInfo.numCutsFromHeur = gen.numCutsFromHeur;
+    cutInfo.numObjFromHeur = gen.numObjFromHeur;
+    cutInfo.numFailsFromHeur = gen.numFailsFromHeur;
+  }
+
+  if (cutInfo.numFails.size() > 0) {
+    for (int i = 0; i < static_cast<int>(CglVPC::FailureType::NUM_FAILURE_TYPES); i++) {
+      cutInfo.numFails[i] += gen.numFails[i];
+    }
+  } else {
+    cutInfo.numFails = gen.numFails;
+  }
+} /* updateCutInfo (within one round) */
+
+/**
+ * Use this to merge cut info from multiple rounds
+ */
+void setCutInfo(SummaryCutInfo& cutInfo, const int num_rounds,
+    const SummaryCutInfo* const oldCutInfos) {
+  const int numCutTypes = static_cast<int>(CglVPC::CutType::NUM_CUT_TYPES);
+  const int numObjTypes = static_cast<int>(CglVPC::ObjectiveType::NUM_OBJECTIVE_TYPES);
+  const int numFailTypes = static_cast<int>(CglVPC::FailureType::NUM_FAILURE_TYPES);
+
+  cutInfo.num_cuts = 0;
+  cutInfo.num_active = 0;
+  cutInfo.num_obj_tried = 0;
+  cutInfo.num_failures = 0;
+  cutInfo.num_rounds = num_rounds;
+  cutInfo.cutType.resize(0);
+  cutInfo.objType.resize(0);
+  cutInfo.numCutsOfType.clear();
+  cutInfo.numCutsOfType.resize(numCutTypes, 0);
+  cutInfo.numCutsFromHeur.clear();
+  cutInfo.numCutsFromHeur.resize(numObjTypes, 0);
+  cutInfo.numObjFromHeur.clear();
+  cutInfo.numObjFromHeur.resize(numObjTypes, 0);
+  cutInfo.numFailsFromHeur.clear();
+  cutInfo.numFailsFromHeur.resize(numObjTypes, 0);
+  cutInfo.numActiveFromHeur.clear();
+  cutInfo.numActiveFromHeur.resize(numObjTypes, 0);
+  cutInfo.numFails.clear();
+  cutInfo.numFails.resize(numFailTypes, 0);
+
+  for (int round = 0; round < num_rounds; round++) {
+    cutInfo.num_cuts += oldCutInfos[round].num_cuts;
+    cutInfo.num_cuts += oldCutInfos[round].num_active;
+    cutInfo.num_obj_tried += oldCutInfos[round].num_obj_tried;
+    cutInfo.num_failures += oldCutInfos[round].num_failures;
+
+    for (int i = 0; i < numCutTypes; i++) {
+      cutInfo.numCutsOfType[i] += oldCutInfos[round].numCutsOfType[i];
+    }
+    for (int i = 0; i < numObjTypes; i++) {
+      cutInfo.numCutsFromHeur[i] += oldCutInfos[round].numCutsFromHeur[i];
+      cutInfo.numObjFromHeur[i] += oldCutInfos[round].numObjFromHeur[i];
+      cutInfo.numFailsFromHeur[i] += oldCutInfos[round].numFailsFromHeur[i];
+    }
+    if (oldCutInfos[round].numActiveFromHeur.size() > 0) {
+      for (int i = 0; i < numObjTypes; i++) {
+        cutInfo.numActiveFromHeur[i] += oldCutInfos[round].numActiveFromHeur[i];
+      }
+    }
+    for (int i = 0; i < numFailTypes; i++) {
+      cutInfo.numFails[i] += oldCutInfos[round].numFails[i];
+    }
+  }
+
+  cutInfo.cutType.resize(cutInfo.num_cuts);
+  cutInfo.objType.resize(cutInfo.num_cuts);
+  int cut_ind = 0;
+  for (int round = 0; round < num_rounds; round++) {
+    for (int i = 0; i < oldCutInfos[round].num_cuts; i++) {
+      cutInfo.cutType[cut_ind] = oldCutInfos[round].cutType[i];
+      cutInfo.objType[cut_ind] = oldCutInfos[round].objType[i];
+      cut_ind++;
+    }
+  }
+} /* setCutInfo (merge from multiple rounds) */

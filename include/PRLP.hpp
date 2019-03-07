@@ -90,17 +90,17 @@ protected:
       std::vector<int>& numTimesTightColUB, OsiCuts& cuts,
       const OsiSolverInterface* const origSolver, const double beta,
       const OsiCuts* const structSICs, const bool inNBSpace,
-      const CglVPC::CutHeuristic cutHeur, const bool tryExtraHard = false);
+      const CglVPC::ObjectiveType cutHeur, const bool tryExtraHard = false);
 
   int resolvePRLP(const bool tryExtraHard = false);
   int genCut(OsiCuts& cuts,
       const OsiSolverInterface* const origSolver, const double beta,
       const OsiCuts* const structSICs, const bool inNBSpace,
-      const CglVPC::CutHeuristic cutHeur, const bool tryExtraHard = false);
+      const CglVPC::ObjectiveType cutHeur, const bool tryExtraHard = false);
   int genCutHelper(OsiCuts & cuts, const OsiSolverInterface* const origSolver,
       const double beta, const OsiCuts* const structSICs, const bool inNBSpace,
-      const CglVPC::CutHeuristic cutHeur);
-  int exitGenCut(const int num_cuts_generated, const CglVPC::CutHeuristic cutHeur);
+      const CglVPC::ObjectiveType cutHeur);
+  int exitGenCut(const int num_cuts_generated, const CglVPC::ObjectiveType cutHeur);
 
   void setupForTargetedCutGeneration(std::vector<rowAndActivity>& pointIndex,
       std::vector<rowAndActivity>& rayIndex);
@@ -112,7 +112,7 @@ protected:
   int findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
       std::vector<int>& numTimesTightColLB,
       std::vector<int>& numTimesTightColUB, const int point_row_ind,
-      const CglVPC::CutHeuristic& cutHeur,
+      const CglVPC::ObjectiveType& cutHeur,
       const double beta, OsiCuts& cuts,
       const OsiSolverInterface* const origSolver,
       const OsiCuts* const structSICs, const std::string& timeName,

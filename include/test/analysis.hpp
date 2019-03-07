@@ -10,10 +10,11 @@
 
 class OsiSolverInterface;
 class OsiCuts;
-class CglVPC;
-struct VPCParameters;
-struct SummaryBBInfo;
 
+#include "CglVPC.hpp"
+struct VPCParameters;
+
+struct SummaryBBInfo;
 struct SummaryBoundInfo {
   double lp_obj = std::numeric_limits<double>::max();
   double best_disj_obj = std::numeric_limits<double>::lowest();
@@ -39,27 +40,45 @@ struct SummaryDisjunctionInfo {
   double avg_max_depth = 0.;
 }; /* SummaryDisjunctionInfo */
 
+struct SummaryCutInfo {
+  int num_cuts = 0;
+  int num_active = 0;
+  int num_obj_tried = 0, num_failures = 0;
+  int num_rounds = 0;
+  int min_support = std::numeric_limits<int>::max();
+  int max_support = 0;
+  double avg_support = 0.;
+  std::vector<CglVPC::CutType> cutType; // one entry per cut
+  std::vector<CglVPC::ObjectiveType> objType; // one entry per cut
+
+  std::vector<int> numCutsOfType;
+  std::vector<int> numCutsFromHeur, numObjFromHeur, numFailsFromHeur, numActiveFromHeur;
+  std::vector<int> numFails;
+}; /* SummaryCutInfo */
+
 void printHeader(const VPCParameters& params,
     const std::vector<std::string>& time_name,
     const char SEP = ',');
 void printBoundAndGapInfo(const SummaryBoundInfo& boundInfo, FILE* logfile,
     const char SEP = ',');
-//void printBBInfo(const SummaryBBInfo& info_nocuts,
-//    const SummaryBBInfo& info_mycuts,
-//    FILE *logfile, const int amountToPrint, const char SEP = ',');
-void printBBInfo(const std::vector<SummaryBBInfo>& info, FILE* myfile, const bool print_blanks = false,
-    const char SEP = ',');
+void printSummaryBBInfo(const std::vector<SummaryBBInfo>& info, FILE* myfile,
+    const bool print_blanks = false, const char SEP = ',');
+void printFullBBInfo(const std::vector<SummaryBBInfo>& info, FILE* myfile,
+    const bool print_blanks = false, const char SEP = ',');
 void printOrigProbInfo(const OsiSolverInterface* const solver, FILE* logfile,
     const char SEP = ',');
 void printPostCutProbInfo(const OsiSolverInterface* const solver,
-    const OsiCuts* const vpcs, const OsiCuts* const gmics, FILE* logfile,
-    const char SEP = ',');
+    const SummaryCutInfo& cutInfoGMICs, const SummaryCutInfo& cutInfoVPCs,
+    FILE* logfile, const char SEP = ',');
 void printDisjInfo(const SummaryDisjunctionInfo& disjInfo, FILE* logfile,
     const char SEP = ',');
+void printCutInfo(const SummaryCutInfo& cutInfoGMICs,
+    const SummaryCutInfo& cutInfo, FILE* logfile, const char SEP = ',');
 
-void analyzeStrength(const VPCParameters& params,
-    const SummaryBoundInfo& boundInfo,
-    std::string& output);
+void analyzeStrength(const VPCParameters& params, SummaryCutInfo& cutInfoGMICs,
+    SummaryCutInfo& cutInfoVPCs, const OsiSolverInterface* solver,
+    const OsiCuts* const gmics, const OsiCuts* const vpcs,
+    const SummaryBoundInfo& boundInfo, std::string& output);
 void analyzeBB(const VPCParameters& params, SummaryBBInfo& info_nocuts,
     SummaryBBInfo& info_mycuts, SummaryBBInfo& info_allcuts, std::string& output);
 void getNumGomoryRounds(const VPCParameters& params,
@@ -67,3 +86,6 @@ void getNumGomoryRounds(const VPCParameters& params,
     const OsiSolverInterface* const postCutSolver);
 
 void updateDisjInfo(SummaryDisjunctionInfo& disjInfo, const int num_disj, const CglVPC& gen);
+void updateCutInfo(SummaryCutInfo& cutInfo, const CglVPC& gen);
+void setCutInfo(SummaryCutInfo& cutInfo, const int num_rounds, const SummaryCutInfo* const oldCutInfos);
+
