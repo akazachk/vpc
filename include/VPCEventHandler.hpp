@@ -2,7 +2,7 @@
 // Name        : VPCEventHandler.hpp
 // Author      : A. M. Kazachkov
 // Version     : 2018-Dec-25
-// Description : Custom event handler for Cbc
+// Description : Custom event handler for Cbc for partial b&b tree generation (requires use of USE_CBC)
 //
 // This code is licensed under the terms of the Eclipse Public License (EPL).
 //============================================================================
@@ -12,8 +12,10 @@
 #include <string>
 #include <vector>
 
+#ifdef USE_CBC
 #include <CbcEventHandler.hpp>
 #include <CbcNode.hpp>
+#endif // USE_CBC
 
 #include "VPCParameters.hpp"
 

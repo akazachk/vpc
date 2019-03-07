@@ -21,6 +21,26 @@ class CoinPackedVectorBase;
 class CoinPackedVector;
 class CoinPackedMatrix;
 
+inline std::ostream& operator<<(std::ostream& os, const std::vector<int> &input) {
+  os << "{";
+  for (unsigned tmp_i = 0; tmp_i < input.size(); tmp_i++) {
+    int i = input[tmp_i];
+    os << i << ((tmp_i < input.size() - 1) ? ", " : "");
+  }
+  os << "}";
+  return os;
+} /* overload << operator for vector of ints */
+
+inline std::ostream& operator<<(std::ostream& os, const std::vector<double> &input) {
+  os << "{";
+  for (unsigned tmp_i = 0; tmp_i < input.size(); tmp_i++) {
+    double i = input[tmp_i];
+    os << i << ((tmp_i < input.size() - 1) ? ", " : "");
+  }
+  os << "}";
+  return os;
+} /* overload << operator for vector of doubles */
+
 /**
  * NOTE: the below sorting functions will only work when the index list given is {0,...,size}
  * (not necessarily in that order)

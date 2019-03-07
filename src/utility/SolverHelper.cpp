@@ -1,6 +1,10 @@
 #include "SolverHelper.hpp"
 
+#include "utility.hpp"
+
 #ifdef USE_CBC
+#include <CbcModel.hpp>
+
 void setIPSolverParameters(CbcModel* const cbc_model, const int verbosity) {
   if (verbosity > 0) {
     cbc_model->setLogLevel(3);
@@ -64,7 +68,28 @@ void setupClpForStrongBranching(OsiClpSolverInterface* const solver, const int h
   solver->setIntParam(OsiMaxNumIterationHotStart, hot_start_iter_limit);
   solver->setSpecialOptions(16); // use standard strong branching rather than clp's
 } /* setupClpForStrongBranching */
-#endif
+
+/**
+ * Sets message handler and special options when using solver as part of B&B
+ * (in which we want to run full strong branching and enable the fixing of variables)
+ */
+void setupClpForCbc(OsiSolverInterface* const solver,
+    const int hot_start_iter_limit) {
+  setLPSolverParameters(solver);
+  solver->setHintParam(OsiDoPresolveInInitial, false);
+  solver->setHintParam(OsiDoPresolveInResolve, false);
+  try {
+    setupClpForStrongBranching(dynamic_cast<OsiClpSolverInterface*>(solver), hot_start_iter_limit);
+    // Do not switch from dual to primal, or something to this effect;
+    // This allows infeasible branches to be fixed during strong branching
+    dynamic_cast<OsiClpSolverInterface*>(solver)->getModelPtr()->setMoreSpecialOptions(
+        dynamic_cast<OsiClpSolverInterface*>(solver)->getModelPtr()->moreSpecialOptions() + 256);
+  } catch (std::exception& e) {
+    std::cerr << "Unable to cast solver as OsiClpSolverInterface." << std::endl;
+    exit(1);
+  }
+} /* setupClpForCbc */
+#endif // USE_CLP
 
 /** Overload solve from hot start because of issues */
 bool solveFromHotStart(OsiSolverInterface* const solver, const int col,

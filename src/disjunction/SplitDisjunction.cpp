@@ -7,7 +7,6 @@
 // COIN-OR
 
 // Project files
-#include "BBHelper.hpp"
 #include "CglVPC.hpp" // get timer information too
 #include "SolverHelper.hpp"
 #include "utility.hpp"
@@ -115,17 +114,17 @@ ExitReason SplitDisjunction::prepareDisjunction(const OsiSolverInterface* const 
   }
   else { // loop through variables and find a split disjunction we can use
     std::vector<int> fracCore;
-    std::vector<double> fractionality(fracCore.size());
+    std::vector<double> fractionality;
     for (int col = 0; col < solver->getNumCols(); col++) {
       if (!solver->isInteger(col))
         continue;
       const double val = solver->getColSolution()[col];
       const double floorxk = std::floor(val);
       const double ceilxk = std::ceil(val);
-      if (!isVal(val, floorxk, params.get(doubleConst::AWAY))
-          && !isVal(val, ceilxk, params.get(doubleConst::AWAY))) {
+      const double frac = CoinMin(val - floorxk, ceilxk - val);
+      if (!isVal(frac, 0., params.get(doubleConst::AWAY))) {
         fracCore.push_back(col);
-        fractionality.push_back(CoinMin(val - floorxk, ceilxk - val));
+        fractionality.push_back(frac);
       }
     }
     

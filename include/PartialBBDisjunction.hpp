@@ -5,13 +5,33 @@
 #pragma once
 
 /****************************************************************/
-/*  Disjunction generated from a partial branch-and-bound tree  */ 
+/*  Disjunction generated from a partial branch-and-bound tree  */
+/*  Currently requires the use of Cbc                           */
 /****************************************************************/
+
+#include <limits> // numeric_limits
 
 #include "Disjunction.hpp"
 #include "VPCParameters.hpp"
 
-#include <limits> // numeric_limits
+class OsiSolverInterface;
+class PartialBBDisjunction;
+
+#ifdef USE_CBC
+class CbcModel;
+class CbcEventHandler;
+/**
+ * Set parameters for Cbc used for VPCs, as well as the custom branching decision
+ */
+void setCbcParametersForPartialBB(const VPCParameters& param,
+    CbcModel* const cbc_model, CbcEventHandler* eventHandler = NULL,
+    const int numStrong = 5, const int numBeforeTrusted = 10,
+    const double max_time = std::numeric_limits<double>::max());
+
+void generatePartialBBTree(PartialBBDisjunction* const owner,
+    CbcModel* cbc_model, const OsiSolverInterface* const solver,
+    const int max_nodes, const int num_strong, const int num_before_trusted);
+#endif // USE_CBC
 
 class PartialBBDisjunction : public Disjunction {
 public:

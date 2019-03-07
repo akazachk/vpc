@@ -100,7 +100,7 @@ public:
   int get_id(const std::string &name) const;
 
   /** Print times */
-  void print(FILE* logfile = stdout) const;
+  void print(FILE* logfile = stdout, const int amountToPrint = 0) const;
 
 private:
   std::map<std::string, data_t, ltstr> name_to_id; /** map from name to stat identifier */ // string key should probably be const
@@ -295,14 +295,29 @@ inline int TimeStats::get_id(const std::string &name) const {
   }
 } /* get_id */
 
-inline void TimeStats::print(FILE* logfile) const {
+inline void TimeStats::print(FILE* logfile, const int amountToPrint) const {
   if (logfile == NULL)
     return;
   std::map<std::string, data_t, ltstr>::const_iterator it = name_to_id.begin();
   while (it != name_to_id.end()) {
     if (it->second.id != UNINITIALIZED_STAT) {
-      fprintf(logfile, "%s,%f\n", it->first.c_str(), this->get_time(it->second.id));
+      switch (amountToPrint) {
+        case 1: {
+          fprintf(logfile, "%s,", it->first.c_str());
+          break;
+        }
+        case 2: {
+          fprintf(logfile, "%.2f,", this->get_time(it->second.id));
+          break;
+        }
+        default: {
+          fprintf(logfile, "%s,%.2f\n", it->first.c_str(),
+              this->get_time(it->second.id));
+          break;
+        }
+      }
     }
+    it++;
   }
   fflush(logfile);
 } /* print */

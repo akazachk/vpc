@@ -6,10 +6,16 @@
 
 #include <string>
 
-#include "VPCParameters.hpp"
-#include "VPCEventHandler.hpp"
+struct VPCParameters;
+class VPCEventHandler;
+class PartialBBDisjunction;
+class OsiSolverInterface;
+class OsiCuts;
 
 void printVector(const int n, const double* vec);
+
+void printTree(PartialBBDisjunction* const orig_owner,
+    OsiSolverInterface* solver, OsiCuts* vpcs, OsiCuts* gmics);
 std::string generateTreePlotString(const VPCEventHandler* eventHandler, const VPCParameters& params,
     const bool saveToFile = false);
 std::string generateTikzTreeString(const VPCEventHandler* eventHandler, const VPCParameters& params,

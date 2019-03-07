@@ -11,12 +11,15 @@
 #include "SolverHelper.hpp"
 #include "utility.hpp"
 
+#include <OsiAuxInfo.hpp> // solver characteristics OsiBab
+
+#ifdef USE_CBC
 #include <CbcModel.hpp>
 #include <CbcTree.hpp>
-#include <OsiAuxInfo.hpp> // solver characteristics OsiBab
 #include <CbcFeasibilityBase.hpp>
 #include <CbcSimpleInteger.hpp>
 #include <CbcBranchDynamic.hpp> // CbcDynamicPseudoCostBranchingObject
+#endif // USE_CBC
 
 /**
  * Set statistics when a child will be counted
