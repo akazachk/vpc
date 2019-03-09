@@ -364,6 +364,9 @@ int wrapUp(int retCode /*= 0*/) {
   if (solver) {
     delete solver;
   }
+  if (origSolver) {
+    delete origSolver;
+  }
   return retCode;
 } /* wrapUp */
 
