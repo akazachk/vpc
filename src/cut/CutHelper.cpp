@@ -158,14 +158,7 @@ void addToObjectiveFromPackedVector(OsiSolverInterface* const solver,
 
   if (vec) {
     const double twoNorm = vec->twoNorm() / solver->getNumCols();
-    if (nonZeroColIndices == NULL) {
-      for (int i = 0; i < (*vec).getNumElements(); i++) {
-        const int col = (*vec).getIndices()[i];
-        const double elem = (*vec).getElements()[i];
-        const double coeff = solver->getObjCoefficients()[col];
-        solver->setObjCoeff(col, coeff + elem * mult / twoNorm);
-      }
-    } else {
+    if (nonZeroColIndices) {
       int ind = 0; // assuming nonZeroColIndices are sorted in increasing order
       const int numNZ = (*nonZeroColIndices).size();
       for (int i = 0; i < (*vec).getNumElements(); i++) {
@@ -182,6 +175,13 @@ void addToObjectiveFromPackedVector(OsiSolverInterface* const solver,
         const double elem = (*vec).getElements()[i];
         const double coeff = solver->getObjCoefficients()[ind];
         solver->setObjCoeff(ind, coeff + elem * mult / twoNorm);
+      }
+    } else {
+      for (int i = 0; i < (*vec).getNumElements(); i++) {
+        const int col = (*vec).getIndices()[i];
+        const double elem = (*vec).getElements()[i];
+        const double coeff = solver->getObjCoefficients()[col];
+        solver->setObjCoeff(col, coeff + elem * mult / twoNorm);
       }
     }
   }
