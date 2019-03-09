@@ -6,6 +6,7 @@
 
 #include <limits>
 #include <string>
+#include <vector>
 
 class OsiSolverInterface;
 class OsiCuts;

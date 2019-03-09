@@ -19,21 +19,19 @@ BUILD_CONFIG = debug
 USERNAME := ${USER}
 ### Variables user should set ###
 ifeq ($(USERNAME),otherperson)
-	PROJ_DIR = enter/dir/here
-	COIN_OR = enter/dir/here
-  GUROBI_DIR = enter/dir/here
-  GUROBI_INC="${GUROBI_DIR}/include"
-  GUROBI_LIB="${GUROBI_DIR}/lib"
-  GUROBI_LINK="gurobi81"
+	#PROJ_DIR = enter/dir/here
+	#COIN_OR = enter/dir/here
+  #GUROBI_DIR = enter/dir/here
+  #GUROBI_LINK="gurobi80"
 else
 	PROJ_DIR = ${REPOS_DIR}/vpc
   ifeq ($(UNAME),Linux)
 	  COIN_OR = $(PROJ_DIR)/lib/Cbc-2.9
+	  GUROBI_LINK = "gurobi80"
 	else
+  	GUROBI_LINK = "gurobi81"
 	  #COIN_OR = $(PROJ_DIR)/coin-or/Cbc-2.9
     #GUROBI_DIR="/Library/gurobi810/mac64"
-    #GUROBI_INC="${GUROBI_DIR}/include"
-    #GUROBI_LIB="${GUROBI_DIR}/lib"
     #GUROBI_LINK="gurobi81"
 	endif
 endif
@@ -110,7 +108,6 @@ ifeq ($(USE_GUROBI),1)
   SOURCES += test/GurobiHelper.cpp
   GUROBI_INC="${GUROBI_DIR}/include"
   GUROBI_LIB="${GUROBI_DIR}/lib"
-  GUROBI_LINK="gurobi81"
 endif
 ifeq ($(USE_CPLEX),1)
   DEFS += -DIL_STD -DUSE_CPLEX
