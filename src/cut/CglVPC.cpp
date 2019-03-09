@@ -1049,7 +1049,7 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
   const int init_num_obj = this->num_obj_tried;
 #endif
   const int init_num_cuts = this->num_cuts;
-  const int init_num_failures = 0;
+  const int init_num_failures = this->num_failures;
 
   if (!LP_OPT_IS_NOT_CUT || !DLB_EQUALS_DUB) {
     prlp = new PRLP(this);
@@ -1076,10 +1076,12 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
       this->num_obj_tried - init_num_obj, this->num_cuts - init_num_cuts, cuts.sizeCuts());
 #endif
 
-  if (this->num_obj_tried != this->num_cuts + this->num_failures) {
+  if ((this->num_obj_tried - init_num_obj)
+      != (this->num_cuts + this->num_failures)
+          - (init_num_cuts + init_num_failures)) {
     error_msg(errorstring,
-        "num_obj_tried (%d) \ne num_cuts (%d) + num_failures (%d)\n",
-        num_obj_tried, num_cuts, num_failures);
+        "num_obj_tried (%d) not equal to num_cuts (%d) + num_failures (%d)\n",
+        num_obj_tried - init_num_obj, num_cuts - init_num_cuts, num_failures - init_num_failures);
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }

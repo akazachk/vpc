@@ -44,6 +44,9 @@ void printHeader(const VPCParameters& params,
   // First line of the header details the categories of information displayed
   std::string tmpstring = "";
   fprintf(logfile, "%c", SEP);
+  fprintf(logfile, "%s", "PARAM INFO");
+  tmpstring.assign(countParamInfoEntries, SEP);
+  fprintf(logfile, "%s", tmpstring.c_str());
   fprintf(logfile, "%s", "BOUND INFO");
   tmpstring.assign(countBoundInfoEntries, SEP);
   fprintf(logfile, "%s", tmpstring.c_str());
@@ -74,9 +77,6 @@ void printHeader(const VPCParameters& params,
   fprintf(logfile, "%s", "FULL BB INFO");
   tmpstring.assign(countFullBBInfoEntries, SEP);
   fprintf(logfile, "%s", tmpstring.c_str());
-  fprintf(logfile, "%s", "PARAM INFO");
-  tmpstring.assign(countParamInfoEntries, SEP);
-  fprintf(logfile, "%s", tmpstring.c_str());
   fprintf(logfile, "%s", "TIME INFO");
   tmpstring.assign(countTimeInfoEntries, SEP);
   fprintf(logfile, "%s", tmpstring.c_str());
@@ -84,6 +84,9 @@ void printHeader(const VPCParameters& params,
   fprintf(logfile, "\n");
 
   fprintf(logfile, "%s%c", "INSTANCE", SEP);
+  { // PARAM INFO
+    printParams(params, logfile, 1); // only int/double param names
+  } // PARAM INFO
   { // BOUND INFO
     int count = 0;
     fprintf(logfile, "%s%c", "LP OBJ", SEP); count++;  // 1
@@ -221,9 +224,6 @@ void printHeader(const VPCParameters& params,
     }
     assert(count == countFullBBInfoEntries);
   } // FULL BB INFO
-  { // PARAM INFO
-    printParams(params, logfile, 1); // only int/double param names
-  } // PARAM INFO
   { // TIME INFO
     int count = 0;
     for (int t = 0; t < (int) time_name.size(); t++) {

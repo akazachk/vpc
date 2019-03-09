@@ -280,7 +280,9 @@ void startUp(int argc, char** argv) {
     if (!logexists) {
       printHeader(params, OverallTimeStatsName);
     }
+    // Print instance name and parameters
     fprintf(params.logfile, "%s,", instname.c_str());
+    printParams(params, params.logfile, 2); // only values
     fflush(params.logfile);
   }
 } /* startUp */
@@ -315,8 +317,6 @@ int wrapUp(int retCode /*= 0*/) {
     printCutInfo(cutInfoGMICs, cutInfo, params.logfile);
     // Full B&B info
     printFullBBInfo({info_nocuts, info_mycuts}, params.logfile);
-    // Print parameters
-    printParams(params, params.logfile, 2); // only values
     // Print time info
     timer.print(params.logfile, 2); // only values
     // Print exit reason and finish
