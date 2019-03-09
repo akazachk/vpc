@@ -3,6 +3,7 @@
 // Date:     2019-Feb-20
 //-----------------------------------------------------------------------------
 #pragma once
+#include <limits>
 #include <vector>
 
 class CoinPackedVector;

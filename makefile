@@ -91,7 +91,7 @@ endif
 ifeq ($(BUILD_CONFIG),release)
   # "Release" build - maximum optimization, no debug symbols
   OUT_DIR = Release
-  DEBUG_FLAG = 
+  DEBUG_FLAG = -g3
   OPT_FLAG = -O3
   DEFS = 
   EXTRA_FLAGS = -fmessage-length=0 -ffast-math
