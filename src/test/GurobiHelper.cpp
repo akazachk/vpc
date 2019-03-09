@@ -14,6 +14,7 @@
 
 // COIN-OR
 #include <CoinTime.hpp>
+#include <OsiCuts.hpp>
 
 // Gurobi
 #ifdef USE_GUROBI

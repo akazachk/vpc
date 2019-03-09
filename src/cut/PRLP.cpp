@@ -441,7 +441,8 @@ void PRLP::setObjectiveFromStructuralPoint(const double* const pointVals,
     double obj_viol;
     setCompNBCoor(vec, obj_viol, owner->params, pointVals, pointSlack,
         origSolver, owner->probData.NBVarIndex, owner->probData.NBReducedCost);
-    addToObjectiveFromPackedVector(this, &vec, true);
+    addToObjectiveFromPackedVector(this, &vec, true, 1.,
+        (nonZeroColIndex.size() > 0) ? &nonZeroColIndex : NULL);
   } else {
     if (nonZeroColIndex.size() > 0) {
       for (int i : nonZeroColIndex) {
