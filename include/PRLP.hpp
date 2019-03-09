@@ -105,7 +105,7 @@ protected:
   void setupForTargetedCutGeneration(std::vector<rowAndActivity>& pointIndex,
       std::vector<rowAndActivity>& rayIndex);
   int updateStepForTargetedCutGeneration(std::vector<int>& numTimesTightRow,
-      std::vector<int>& numTimesTightColLB, std::vector<int>& numTimesTightColUB);
+      std::vector<int>& numTimesTightColLB, std::vector<int>& numTimesTightColUB) const;
   void updateRaySetForTargetedCutGeneration(std::set<compareRayInfo>& sortedRays,
       const std::vector<rowAndActivity>& rayIndex, const int init_num_cuts, int& num_old_cuts,
       const OsiCuts& cuts);

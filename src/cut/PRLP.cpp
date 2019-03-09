@@ -792,7 +792,7 @@ void PRLP::setupForTargetedCutGeneration(std::vector<rowAndActivity>& pointIndex
  * In addition, update the set of rays to be considered
  */
 int PRLP::updateStepForTargetedCutGeneration(std::vector<int>& numTimesTightRow,
-    std::vector<int>& numTimesTightColLB, std::vector<int>& numTimesTightColUB) {
+    std::vector<int>& numTimesTightColLB, std::vector<int>& numTimesTightColUB) const {
   if (!this->isProvenOptimal()) {
     return 0;
   }
@@ -815,8 +815,7 @@ int PRLP::updateStepForTargetedCutGeneration(std::vector<int>& numTimesTightRow,
   } // check rows
 
   // Also process the axis directions
-//  for (int col_ind = 0; col_ind < this->getNumCols(); col_ind++) {
-  for (int col_ind : nonZeroColIndex) {
+  for (int col_ind = 0; col_ind < this->getNumCols(); col_ind++) {
     const double val = this->getColSolution()[col_ind];
     const double lb = this->getColLower()[col_ind];
     const double ub = this->getColUpper()[col_ind];
