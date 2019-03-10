@@ -355,7 +355,7 @@ struct VPCParameters {
     {intParam::USE_UNIT_VECTORS, IntParameter("USE_UNIT_VECTORS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
     {intParam::USE_TIGHT_RAYS, IntParameter("USE_TIGHT_RAYS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
     {intParam::USE_TIGHT_POINTS, IntParameter("USE_TIGHT_POINTS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::USE_ITER_BILINEAR, IntParameter("USE_ITER_BILINEAR", 0, 0, std::numeric_limits<int>::max())},
+    {intParam::USE_ITER_BILINEAR, IntParameter("USE_ITER_BILINEAR", 1, 0, std::numeric_limits<int>::max())},
     {intParam::USE_DISJ_LB, IntParameter("USE_DISJ_LB", 1, 0, 1)},
     {intParam::USE_ALL_ONES, IntParameter("USE_ALL_ONES", 1, 0, 1)},
     {intParam::TEMP, IntParameter("TEMP", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},

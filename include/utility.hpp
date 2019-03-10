@@ -227,6 +227,21 @@ inline const std::string stringValue(const std::string value, const char* format
   return value;
 } /* stringValue (string) */
 
+double dotProductNoCompensation(const CoinPackedVector& vec1, const double* vec2);
+double dotProductNoCompensation(const CoinPackedVector& vec1, const CoinPackedVector& vec2);
+
+// Compute dot product using compensated summation to have small
+// numerical error. First version: dense vectors
+double dotProductNoCompensation(const double* a, const double* b, int dimension);
+
+// Second version: first vector is sparse, second one is dense
+double dotProductNoCompensation(int sizea, const int* indexa, const double* a,
+    const double* b);
+
+// Third version: sparse vectors
+double dotProductNoCompensation(int sizea, const int* indexa, const double* a, int sizeb,
+    const int* indexb, const double* b);
+
 /**********************************************************
  * The following code is for dot product with compensation,
  * taken from the source cited below.

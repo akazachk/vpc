@@ -168,6 +168,106 @@ std::string upperCaseStringNoUnderscore(const std::string& tmpData) {
   return data;
 }
 
+double dotProductNoCompensation(const CoinPackedVector& vec1, const double* vec2) {
+  const int size1 = vec1.getNumElements();
+  const int* ind1 = vec1.getIndices();
+  const double* el1 = vec1.getElements();
+  return dotProductNoCompensation(size1, ind1, el1, vec2);
+}
+
+double dotProductNoCompensation(const CoinPackedVector& vec1, const CoinPackedVector& vec2) {
+  const int size1 = vec1.getNumElements();
+  const int* ind1 = vec1.getIndices();
+  const double* el1 = vec1.getElements();
+  const int size2 = vec2.getNumElements();
+  const int* ind2 = vec2.getIndices();
+  const double* el2 = vec2.getElements();
+  return dotProductNoCompensation(size1, ind1, el1, size2, ind2, el2);
+}
+
+double dotProductNoCompensation(const double* a, const double* b, int dimension) {
+  // Accumulate the dot product here
+  double accumulator = 0.0;
+  // Compensation term for low-order bits lost
+  double compensation = 0.0;
+  // Temporary number for storing current term
+  double currterm = 0.0;
+  // Temporary number for storing new accumulator
+  double nextacc = 0.0;
+  for (int i = 0; i < dimension; ++i) {
+    // Compute current term of the dot product adding compensation
+    currterm = (a[i] * b[i]) - compensation;
+    // This is the value of the sum
+    nextacc = accumulator + currterm;
+    // Recover what we just lost adding currterm to accumulator
+//    compensation = (nextacc - accumulator) - currterm;
+    // Now save new value of the accumulator
+    accumulator = nextacc;
+  }
+  return accumulator;
+} /* dotProductNoCompensation (dense x dense) */
+
+double dotProductNoCompensation(int sizea, const int* indexa, const double* a,
+    const double* b) {
+  // Accumulate the dot product here
+  double accumulator = 0.0;
+  // Compensation term for low-order bits lost
+  double compensation = 0.0;
+  // Temporary number for storing current term
+  double currterm = 0.0;
+  // Temporary number for storing new accumulator
+  double nextacc = 0.0;
+  for (int i = 0; i < sizea; ++i) {
+    // Compute current term of the dot product adding compensation
+    currterm = (a[i] * b[indexa[i]]) - compensation;
+    // This is the value of the sum
+    nextacc = accumulator + currterm;
+    // Recover what we just lost adding currterm to accumulator
+//    compensation = (nextacc - accumulator) - currterm;
+    // Now save new value of the accumulator
+    accumulator = nextacc;
+  }
+  return accumulator;
+} /* dotProductNoCompensation (sparse x dense) */
+
+double dotProductNoCompensation(int sizea, const int* indexa, const double* a, int sizeb,
+    const int* indexb, const double* b) {
+  // Accumulate the dot product here
+  double accumulator = 0.0;
+  // Compensation term for low-order bits lost
+  double compensation = 0.0;
+  // Temporary number for storing current term
+  double currterm = 0.0;
+  // Temporary number for storing new accumulator
+  double nextacc = 0.0;
+  // Current position in vectors a and b
+  int posa = 0, posb = 0;
+  while (posa < sizea && posb < sizeb) {
+    // If it is the same component, compute dot product
+    if (indexa[posa] == indexb[posb]) {
+      // Compute current term of the dot product adding compensation
+      currterm = (a[posa] * b[posb]) - compensation;
+      // This is the value of the sum
+      nextacc = accumulator + currterm;
+      // Recover what we just lost adding currterm to accumulator
+//      compensation = (nextacc - accumulator) - currterm;
+      // Now save new value of the accumulator
+      accumulator = nextacc;
+      // Increment both position indices
+      ++posa;
+      ++posb;
+    } else if (indexa[posa] < indexb[posb]) {
+      // Increment only smaller position index
+      ++posa;
+    } else if (indexa[posa] > indexb[posb]) {
+      // Increment only smaller position index
+      ++posb;
+    }
+  }
+  return accumulator;
+} /* dotProductNoCompensation (sparse x sparse) */
+
+
 // Last edit: 03/27/12
 //
 // Name:     common_definitions.cpp
