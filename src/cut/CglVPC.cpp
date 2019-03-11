@@ -260,22 +260,6 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     exit(1);
   }
 
-  // Read opt value (if not yet inputted)
-  if (isInfinity(ip_obj)) {
-    if (!params.get(stringParam::OPTFILE).empty()) {
-  #ifdef TRACE
-      std::cout << "Reading objective information from \"" + params.get(stringParam::OPTFILE) + "\"" << std::endl;
-  #endif
-      ip_obj = getObjValueFromFile(params.get(stringParam::OPTFILE), params.get(stringParam::FILENAME), params.logfile);
-  #ifdef TRACE
-      std::cout << "Best known objective value is " << ip_obj << std::endl;
-  #endif
-      if (isInfinity(ip_obj)) {
-        warning_msg(warnstring, "Did not find objective value.\n");
-      }
-    }
-  }
-
   // Time starts here, and will end when finish is called
   timer.start_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
   if (mode != VPCMode::CUSTOM) {
@@ -389,7 +373,6 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     this->numObjFromHeur = source->numObjFromHeur;
     this->numFailsFromHeur = source->numFailsFromHeur;
     this->numFails = source->numFails;
-    this->ip_obj = source->ip_obj;
     this->init_num_cuts = source->init_num_cuts;
     this->num_cuts = source->num_cuts;
     this->num_obj_tried = source->num_obj_tried;
@@ -410,7 +393,6 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     for (int t = 0; t < static_cast<int>(ObjectiveType::NUM_OBJECTIVE_TYPES); t++) {
       timer.register_name(ObjectiveTypeName[t] + "_TIME");
     }
-    this->ip_obj = std::numeric_limits<double>::max();
     setupAsNew();
   }
 } /* initialize */

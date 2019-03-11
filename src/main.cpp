@@ -156,7 +156,6 @@ int main(int argc, char** argv) {
           boundInfo.best_disj_obj = gen.disj()->best_obj;
         if (boundInfo.worst_disj_obj < gen.disj()->worst_obj)
           boundInfo.worst_disj_obj = gen.disj()->worst_obj;
-        boundInfo.ip_obj = gen.ip_obj;
       }
     } // check if mode is _not_ CUSTOM
     else {
@@ -286,6 +285,20 @@ void startUp(int argc, char** argv) {
     fprintf(params.logfile, "%s,", instname.c_str());
     printParams(params, params.logfile, 2); // only values
     fflush(params.logfile);
+  }
+
+  // Read opt value (if not yet inputted)
+  if (!params.get(stringParam::OPTFILE).empty()) {
+#ifdef TRACE
+    std::cout << "Reading objective information from \"" + params.get(stringParam::OPTFILE) + "\"" << std::endl;
+#endif
+    boundInfo.ip_obj = getObjValueFromFile(params.get(stringParam::OPTFILE), params.get(stringParam::FILENAME), params.logfile);
+#ifdef TRACE
+    std::cout << "Best known objective value is " << boundInfo.ip_obj << std::endl;
+#endif
+    if (isInfinity(boundInfo.ip_obj)) {
+      warning_msg(warnstring, "Did not find objective value.\n");
+    }
   }
 } /* startUp */
 
@@ -460,7 +473,6 @@ void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_dis
         boundInfo.best_disj_obj = gen.disj()->best_obj;
       if (boundInfo.worst_disj_obj < gen.disj()->worst_obj)
         boundInfo.worst_disj_obj = gen.disj()->worst_obj;
-      boundInfo.ip_obj = gen.ip_obj;
       updateDisjInfo(disjInfo, num_disj, gen);
       updateCutInfo(cutInfoVec[round_ind], gen);
     }
