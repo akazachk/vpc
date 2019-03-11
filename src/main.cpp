@@ -145,17 +145,19 @@ int main(int argc, char** argv) {
 
     // Proceed with custom disjunctions if specified; otherwise, the disjunction will be set up in the CglVPC class
     if (params.get(MODE) != static_cast<int>(CglVPC::VPCMode::CUSTOM)) {
-      num_disj++;
       gen.generateCuts(*solver, vpcs_by_round[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
       exitReason = gen.exitReason;
-      boundInfo.num_vpc += gen.num_cuts;
-      if (boundInfo.best_disj_obj < gen.disj()->best_obj)
-        boundInfo.best_disj_obj = gen.disj()->best_obj;
-      if (boundInfo.worst_disj_obj < gen.disj()->worst_obj)
-        boundInfo.worst_disj_obj = gen.disj()->worst_obj;
-      boundInfo.ip_obj = gen.ip_obj;
       updateDisjInfo(disjInfo, num_disj, gen);
       updateCutInfo(cutInfoVec[round_ind], gen);
+      if (gen.disj()) {
+        num_disj++;
+        boundInfo.num_vpc += gen.num_cuts;
+        if (boundInfo.best_disj_obj < gen.disj()->best_obj)
+          boundInfo.best_disj_obj = gen.disj()->best_obj;
+        if (boundInfo.worst_disj_obj < gen.disj()->worst_obj)
+          boundInfo.worst_disj_obj = gen.disj()->worst_obj;
+        boundInfo.ip_obj = gen.ip_obj;
+      }
     } // check if mode is _not_ CUSTOM
     else {
       doCustomRoundOfCuts(round_ind, vpcs_by_round[round_ind], gen, num_disj);
