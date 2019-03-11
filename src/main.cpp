@@ -55,6 +55,7 @@ std::string instname = "", in_file_ext = "";
 ExitReason exitReason;
 TimeStats timer;
 std::time_t start_time_t, end_time_t;
+char start_time_string[25];
 
 SummaryBoundInfo boundInfo;
 SummaryBBInfo info_nocuts, info_mycuts, info_allcuts;
@@ -227,10 +228,9 @@ void startUp(int argc, char** argv) {
   std::cout << std::endl;
 
   time(&start_time_t);
-  struct tm* timeinfo = localtime(&start_time_t);
-  char time_string[25];
-  snprintf(time_string, sizeof(time_string) / sizeof(char), "%s", asctime(timeinfo));
-  printf("Start time: %s\n", time_string);
+  struct tm* start_timeinfo = localtime(&start_time_t);
+  snprintf(start_time_string, sizeof(start_time_string) / sizeof(char), "%s", asctime(start_timeinfo));
+  printf("Start time: %s\n", start_time_string);
 
   processArgs(argc, argv);
 
@@ -309,10 +309,8 @@ int wrapUp(int retCode /*= 0*/) {
   const int exitReasonInt = static_cast<int>(exitReason);
 
   time(&end_time_t);
-  struct tm* start_timeinfo = localtime(&start_time_t);
   struct tm* end_timeinfo = localtime(&end_time_t);
-  char start_time_string[25], end_time_string[25];
-  snprintf(start_time_string, sizeof(start_time_string) / sizeof(char), "%s", asctime(start_timeinfo));
+  char end_time_string[25];
   snprintf(end_time_string, sizeof(end_time_string) / sizeof(char), "%s", asctime(end_timeinfo));
 
   FILE* logfile = params.logfile;
