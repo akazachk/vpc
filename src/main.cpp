@@ -323,7 +323,7 @@ int wrapUp(int retCode /*= 0*/) {
     fprintf(logfile, "%s,", ExitReasonName[exitReasonInt].c_str());
     fprintf(logfile, "%s,", end_time_string);
     fprintf(logfile, "%s,", instname.c_str());
-    fprintf(logfile, "\n");
+    fprintf(logfile, "DONE\n");
     fclose(logfile); // closes params.logfile
   }
 
