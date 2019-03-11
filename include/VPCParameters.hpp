@@ -62,6 +62,7 @@ enum intParam {
   // Other options
   VERBOSITY,
   // BB options
+  RANDOM_SEED,
   BB_RUNS, // number of times to run b&b (if negative, also test with VPCs+GMICs if GMICs have been generated)
   //  off = 0,
   //  cbc = 2,
@@ -119,7 +120,6 @@ enum class intConst {
   NUM_OBJ_PER_POINT, // # cuts to try to generate for the strong branching lb point (and others)
   NB_SPACE, // whether to generate cuts in the nonbasic space (currently must be set to true)
   PRLP_PRESOLVE, // 0: no presolve, 1: only initial solve, 2: both initial solve and resolve
-  RANDOM_SEED,
   NUM_INT_CONST
 }; /* intConst */
 enum class doubleConst {
@@ -347,6 +347,7 @@ struct VPCParameters {
     {intParam::BB_MODE, IntParameter("BB_MODE", 10, 0, 111)}, // 010 = branch with vpcs only
     {intParam::BB_STRATEGY, IntParameter("BB_STRATEGY", 10776, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
     {intParam::BB_RUNS, IntParameter("BB_RUNS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
+    {intParam::RANDOM_SEED, IntParameter("RANDOM_SEED", 628, -1, std::numeric_limits<int>::max())},
 #ifdef TRACE
     {intParam::VERBOSITY, IntParameter("VERBOSITY", 1, 0, 2)},
 #else
@@ -383,7 +384,6 @@ struct VPCParameters {
 
   // Constants
   std::unordered_map<intConst, IntParameter, EnumClassHash> intConstValues {
-    {intConst::RANDOM_SEED, IntParameter("RANDOM_SEED", 628, 628, 628)},
     {intConst::PRLP_PRESOLVE, IntParameter("PRLP_PRESOLVE", 2, 2, 2)}, // use presolve when solving PRLP (either initial or resolve)
     {intConst::NB_SPACE, IntParameter("NB_SPACE", 1, 1, 1)}, // currently only works with true
     {intConst::NUM_OBJ_PER_POINT, IntParameter("NUM_OBJ_PER_POINT", -2, -2, -2)}, // sqrt(n)

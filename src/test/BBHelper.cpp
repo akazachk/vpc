@@ -40,10 +40,11 @@
 #include "GurobiHelper.hpp"
 #endif
 
-void runBBTests(const VPCParameters& params, SummaryBBInfo& info_nocuts,
+void runBBTests(const VPCParameters& base_params, SummaryBBInfo& info_nocuts,
     SummaryBBInfo& info_mycuts, SummaryBBInfo& info_allcuts,
     const std::string fullfilename, OsiSolverInterface* const solver,
     const double best_bound, const OsiCuts* vpcs, const OsiCuts* const gmics) {
+  VPCParameters params = base_params;
   const int num_vpcs = (vpcs != NULL) ? vpcs->sizeCuts() : 0;
   const int num_bb_runs = std::abs(params.get(intParam::BB_RUNS))
       * ((params.get(intParam::DISJ_TERMS) == 0) || (num_vpcs > 0));
@@ -109,7 +110,7 @@ void runBBTests(const VPCParameters& params, SummaryBBInfo& info_nocuts,
   }
 
   OsiSolverInterface* runSolver = NULL;
-  int initial_random_seed = params.get(intConst::RANDOM_SEED);
+  int initial_random_seed = params.get(intParam::RANDOM_SEED);
   int random_seed;
   for (int run_ind = 0; run_ind < num_bb_runs; run_ind++) {
     // For Cbc, for every run after the first, we will randomize the rows and columns of the input
@@ -175,6 +176,7 @@ void runBBTests(const VPCParameters& params, SummaryBBInfo& info_nocuts,
 
     // Change the random seed per run
     random_seed = initial_random_seed * (run_ind + 1);
+    params.set(intParam::RANDOM_SEED, random_seed);
 
     // Do branch and bound
     if (use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::gurobi)) {
@@ -345,7 +347,7 @@ void createTmpFileCopy(const VPCParameters& params,
 void setStrategyForBBTestCbc(const VPCParameters& params,
     CbcModel* const cbc_model,
     int seed = -1) {
-  if (seed < 0) seed = params.get(intConst::RANDOM_SEED);
+  if (seed < 0) seed = params.get(intParam::RANDOM_SEED);
   // Parameters that should always be set
   cbc_model->setMaximumSeconds(params.get(doubleConst::BB_TIMELIMIT)); // time limit
   cbc_model->setRandomSeed(seed); // random seed

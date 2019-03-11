@@ -43,7 +43,7 @@ void createTmpFileCopy(const VPCParameters& params, GRBModel& model, std::string
 
 void setStrategyForBBTestGurobi(const VPCParameters& params, const int strategy,
     GRBModel& model, const double best_bound, int seed = -1) {
-  if (seed < 0) seed = params.get(intConst::RANDOM_SEED);
+  if (seed < 0) seed = params.get(intParam::RANDOM_SEED);
   // Parameters that should always be set
   model.set(GRB_DoubleParam_TimeLimit, params.get(doubleConst::BB_TIMELIMIT)); // time limit
   model.set(GRB_IntParam_Threads, 1); // single-threaded
@@ -295,7 +295,7 @@ void doBranchAndBoundWithGurobi(const VPCParameters& params, int strategy, GRBMo
     BBInfo& info, const double best_bound, std::vector<double>* const solution = NULL) {
 //#ifdef TRACE
   printf("\n## Running B&B with Gurobi. Strategy: %d. Random seed: %d. ##\n",
-      strategy, params.get(intConst::RANDOM_SEED));
+      strategy, params.get(intParam::RANDOM_SEED));
 //#endif
   try {
     setStrategyForBBTestGurobi(params, strategy, model, best_bound);
