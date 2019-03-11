@@ -307,7 +307,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   }
 
   // Generate cuts from the PRLP
-  status = tryObjectives(cuts, &si, NULL, time_T1);
+  status = tryObjectives(cuts, &si, NULL, time_T1 + "TOTAL");
   finish(status);
 } /* generateCuts */
 
