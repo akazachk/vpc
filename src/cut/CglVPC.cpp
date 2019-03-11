@@ -170,8 +170,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     finish(status);
     return;
   }
-  if (reachedTimeLimit(VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)],
-      params.get(TIMELIMIT))) {
+  if (reachedTimeLimit(VPCTimeStats::TOTAL_TIME, params.get(TIMELIMIT))) {
     status = ExitReason::TIME_LIMIT_EXIT;
     finish(status);
     return;
@@ -307,7 +306,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   }
 
   // Generate cuts from the PRLP
-  status = tryObjectives(cuts, &si, NULL, time_T1 + "TOTAL");
+  status = tryObjectives(cuts, &si, NULL);
   finish(status);
 } /* generateCuts */
 
@@ -996,9 +995,8 @@ void CglVPC::genDepth1PRCollection(const OsiSolverInterface* const vpcsolver,
 } /* genDepth1PRCollection */
 
 ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
-    const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs,
-    const std::string& timeName) {
-  if (reachedTimeLimit(time_T1 + "TOTAL", params.get(TIMELIMIT))) {
+    const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs) {
+  if (reachedTimeLimit(VPCTimeStats::TOTAL_TIME, params.get(TIMELIMIT))) {
     return ExitReason::TIME_LIMIT_EXIT;
   }
   if (reachedCutLimit()) {
@@ -1041,8 +1039,8 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
   //  printf("# points: %d\t # rays: %d\n", prlp->numPoints, prlp->numRays);
 
     if (isCutSolverPrimalFeas) {
-      prlp->targetStrongAndDifferentCuts(beta, cuts,
-          origSolver, structSICs, timeName);
+      prlp->targetStrongAndDifferentCuts(beta, cuts, origSolver, structSICs,
+          VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
     }
   }
 
@@ -1068,7 +1066,7 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
     exit(1);
   }
 
-  if (reachedTimeLimit(time_T1 + "TOTAL", params.get(TIMELIMIT))) {
+  if (reachedTimeLimit(VPCTimeStats::TOTAL_TIME, params.get(TIMELIMIT))) {
     return ExitReason::TIME_LIMIT_EXIT;
   }
   if (reachedCutLimit()) {

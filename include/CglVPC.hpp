@@ -298,13 +298,15 @@ protected:
       const ProblemData& tmpProbData, const int term_ind);
 
   ExitReason tryObjectives(OsiCuts& cuts,
-      const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs,
-      const std::string& timeName);
+      const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs);
 
   inline bool reachedCutLimit() const {
     const bool reached_limit = (num_cuts >= getCutLimit());
     return reached_limit;
   } /* reachedCutLimit */
+  inline bool reachedTimeLimit(const VPCTimeStats& timeName, const double max_time) const {
+    return reachedTimeLimit(VPCTimeStatsName[static_cast<int>(timeName)], max_time);
+  } /* reachedTimeLimit */
   inline bool reachedTimeLimit(const std::string& timeName, const double max_time) const {
     const bool reached_limit = (timer.get_total_time(timeName) > max_time);
     return reached_limit;
