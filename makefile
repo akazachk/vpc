@@ -216,6 +216,9 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 		@echo 'Finished building: $@'
 
 ### Archive file ###
+AR = ar
+AR_FLAGS = -rcs
+LIB_DIR=lib
 archive_%:
 	@$(MAKE) archive "BUILD_CONFIG=$*"
 
