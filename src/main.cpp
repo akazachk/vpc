@@ -335,6 +335,7 @@ int wrapUp(int retCode /*= 0*/) {
     // Print exit reason and finish
     fprintf(logfile, "%s,", ExitReasonName[exitReasonInt].c_str());
     fprintf(logfile, "%s,", end_time_string);
+    fprintf(logfile, "%.f,", difftime(end_time_t, start_time_t));
     fprintf(logfile, "%s,", instname.c_str());
     fprintf(logfile, "DONE\n");
     fclose(logfile); // closes params.logfile
