@@ -4,7 +4,12 @@
 //-----------------------------------------------------------------------------
 #pragma once
 
-#include "CbcModel.hpp"
+#include <limits>
+#include <string>
+#include <vector>
+
+class OsiSolverInterface;
+class OsiCuts;
 
 struct BBInfo;
 struct VPCParameters;
@@ -17,11 +22,13 @@ void presolveModelWithGurobi(const VPCParameters& params, int strategy,
 void presolveModelWithGurobi(const VPCParameters& params, int strategy,
     const OsiSolverInterface* const solver, double& presolved_opt,
     std::string& presolved_name);
-void doBranchAndBoundWithGurobi(const VPCParameters& params, int strategy, const char* f_name,
-    BBInfo& info, const double best_bound, std::vector<double>* const solution = NULL);
+void doBranchAndBoundWithGurobi(const VPCParameters& params, int strategy, const char* f_name, BBInfo& info,
+    const double best_bound = std::numeric_limits<double>::max(),
+    std::vector<double>* const solution = NULL);
 void doBranchAndBoundWithGurobi(const VPCParameters& params, int strategy,
     const OsiSolverInterface* const solver, BBInfo& info,
-    const double best_bound, std::vector<double>* const solution = NULL);
+    const double best_bound = std::numeric_limits<double>::max(),
+    std::vector<double>* const solution = NULL);
 void doBranchAndBoundWithUserCutsGurobi(const VPCParameters& params, int strategy,
     const char* f_name, const OsiCuts* cuts, BBInfo& info,
     const double best_bound, const bool addAsLazy = false);

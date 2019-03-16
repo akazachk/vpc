@@ -55,6 +55,7 @@ std::string instname = "", in_file_ext = "";
 ExitReason exitReason;
 TimeStats timer;
 std::time_t start_time_t, end_time_t;
+char start_time_string[25];
 
 SummaryBoundInfo boundInfo;
 SummaryBBInfo info_nocuts, info_mycuts, info_allcuts;
@@ -145,17 +146,18 @@ int main(int argc, char** argv) {
 
     // Proceed with custom disjunctions if specified; otherwise, the disjunction will be set up in the CglVPC class
     if (params.get(MODE) != static_cast<int>(CglVPC::VPCMode::CUSTOM)) {
-      num_disj++;
       gen.generateCuts(*solver, vpcs_by_round[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
       exitReason = gen.exitReason;
-      boundInfo.num_vpc += gen.num_cuts;
-      if (boundInfo.best_disj_obj < gen.disj()->best_obj)
-        boundInfo.best_disj_obj = gen.disj()->best_obj;
-      if (boundInfo.worst_disj_obj < gen.disj()->worst_obj)
-        boundInfo.worst_disj_obj = gen.disj()->worst_obj;
-      boundInfo.ip_obj = gen.ip_obj;
       updateDisjInfo(disjInfo, num_disj, gen);
       updateCutInfo(cutInfoVec[round_ind], gen);
+      if (gen.disj()) {
+        num_disj++;
+        boundInfo.num_vpc += gen.num_cuts;
+        if (boundInfo.best_disj_obj < gen.disj()->best_obj)
+          boundInfo.best_disj_obj = gen.disj()->best_obj;
+        if (boundInfo.worst_disj_obj < gen.disj()->worst_obj)
+          boundInfo.worst_disj_obj = gen.disj()->worst_obj;
+      }
     } // check if mode is _not_ CUSTOM
     else {
       doCustomRoundOfCuts(round_ind, vpcs_by_round[round_ind], gen, num_disj);
@@ -226,10 +228,9 @@ void startUp(int argc, char** argv) {
   std::cout << std::endl;
 
   time(&start_time_t);
-  struct tm* timeinfo = localtime(&start_time_t);
-  char time_string[25];
-  snprintf(time_string, sizeof(time_string) / sizeof(char), "%s", asctime(timeinfo));
-  printf("Start time: %s\n", time_string);
+  struct tm* start_timeinfo = localtime(&start_time_t);
+  snprintf(start_time_string, sizeof(start_time_string) / sizeof(char), "%s", asctime(start_timeinfo));
+  printf("Start time: %s\n", start_time_string);
 
   processArgs(argc, argv);
 
@@ -280,8 +281,24 @@ void startUp(int argc, char** argv) {
     if (!logexists) {
       printHeader(params, OverallTimeStatsName);
     }
+    // Print instance name and parameters
     fprintf(params.logfile, "%s,", instname.c_str());
+    printParams(params, params.logfile, 2); // only values
     fflush(params.logfile);
+  }
+
+  // Read opt value (if not yet inputted)
+  if (!params.get(stringParam::OPTFILE).empty()) {
+#ifdef TRACE
+    std::cout << "Reading objective information from \"" + params.get(stringParam::OPTFILE) + "\"" << std::endl;
+#endif
+    boundInfo.ip_obj = getObjValueFromFile(params.get(stringParam::OPTFILE), params.get(stringParam::FILENAME), params.logfile);
+#ifdef TRACE
+    std::cout << "Best known objective value is " << boundInfo.ip_obj << std::endl;
+#endif
+    if (isInfinity(boundInfo.ip_obj)) {
+      warning_msg(warnstring, "Did not find objective value.\n");
+    }
   }
 } /* startUp */
 
@@ -292,10 +309,8 @@ int wrapUp(int retCode /*= 0*/) {
   const int exitReasonInt = static_cast<int>(exitReason);
 
   time(&end_time_t);
-  struct tm* start_timeinfo = localtime(&start_time_t);
   struct tm* end_timeinfo = localtime(&end_time_t);
-  char start_time_string[25], end_time_string[25];
-  snprintf(start_time_string, sizeof(start_time_string) / sizeof(char), "%s", asctime(start_timeinfo));
+  char end_time_string[25];
   snprintf(end_time_string, sizeof(end_time_string) / sizeof(char), "%s", asctime(end_timeinfo));
 
   FILE* logfile = params.logfile;
@@ -315,15 +330,14 @@ int wrapUp(int retCode /*= 0*/) {
     printCutInfo(cutInfoGMICs, cutInfo, params.logfile);
     // Full B&B info
     printFullBBInfo({info_nocuts, info_mycuts}, params.logfile);
-    // Print parameters
-    printParams(params, params.logfile, 2); // only values
     // Print time info
     timer.print(params.logfile, 2); // only values
     // Print exit reason and finish
     fprintf(logfile, "%s,", ExitReasonName[exitReasonInt].c_str());
     fprintf(logfile, "%s,", end_time_string);
+    fprintf(logfile, "%.f,", difftime(end_time_t, start_time_t));
     fprintf(logfile, "%s,", instname.c_str());
-    fprintf(logfile, "\n");
+    fprintf(logfile, "DONE\n");
     fclose(logfile); // closes params.logfile
   }
 
@@ -363,6 +377,9 @@ int wrapUp(int retCode /*= 0*/) {
 
   if (solver) {
     delete solver;
+  }
+  if (origSolver) {
+    delete origSolver;
   }
   return retCode;
 } /* wrapUp */
@@ -455,7 +472,6 @@ void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_dis
         boundInfo.best_disj_obj = gen.disj()->best_obj;
       if (boundInfo.worst_disj_obj < gen.disj()->worst_obj)
         boundInfo.worst_disj_obj = gen.disj()->worst_obj;
-      boundInfo.ip_obj = gen.ip_obj;
       updateDisjInfo(disjInfo, num_disj, gen);
       updateCutInfo(cutInfoVec[round_ind], gen);
     }

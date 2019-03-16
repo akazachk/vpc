@@ -170,8 +170,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     finish(status);
     return;
   }
-  if (reachedTimeLimit(VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)],
-      params.get(TIMELIMIT))) {
+  if (reachedTimeLimit(VPCTimeStats::TOTAL_TIME, params.get(TIMELIMIT))) {
     status = ExitReason::TIME_LIMIT_EXIT;
     finish(status);
     return;
@@ -260,22 +259,6 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     exit(1);
   }
 
-  // Read opt value (if not yet inputted)
-  if (isInfinity(ip_obj)) {
-    if (!params.get(stringParam::OPTFILE).empty()) {
-  #ifdef TRACE
-      std::cout << "Reading objective information from \"" + params.get(stringParam::OPTFILE) + "\"" << std::endl;
-  #endif
-      ip_obj = getObjValueFromFile(params.get(stringParam::OPTFILE), params.get(stringParam::FILENAME), params.logfile);
-  #ifdef TRACE
-      std::cout << "Best known objective value is " << ip_obj << std::endl;
-  #endif
-      if (isInfinity(ip_obj)) {
-        warning_msg(warnstring, "Did not find objective value.\n");
-      }
-    }
-  }
-
   // Time starts here, and will end when finish is called
   timer.start_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
   if (mode != VPCMode::CUSTOM) {
@@ -323,7 +306,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   }
 
   // Generate cuts from the PRLP
-  status = tryObjectives(cuts, &si, NULL, time_T1);
+  status = tryObjectives(cuts, &si, NULL);
   finish(status);
 } /* generateCuts */
 
@@ -389,7 +372,6 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     this->numObjFromHeur = source->numObjFromHeur;
     this->numFailsFromHeur = source->numFailsFromHeur;
     this->numFails = source->numFails;
-    this->ip_obj = source->ip_obj;
     this->init_num_cuts = source->init_num_cuts;
     this->num_cuts = source->num_cuts;
     this->num_obj_tried = source->num_obj_tried;
@@ -410,7 +392,6 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     for (int t = 0; t < static_cast<int>(ObjectiveType::NUM_OBJECTIVE_TYPES); t++) {
       timer.register_name(ObjectiveTypeName[t] + "_TIME");
     }
-    this->ip_obj = std::numeric_limits<double>::max();
     setupAsNew();
   }
 } /* initialize */
@@ -784,8 +765,8 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
         tmp_ind + 1, num_normal_terms);
 #endif
     tmpSolver->resolve();
-    enableFactorization(tmpSolver, params.get(doubleParam::EPS)); // this may change the solution slightly
     calcAndFeasTerm[terms_added] = checkSolverOptimality(tmpSolver, true);
+    enableFactorization(tmpSolver, params.get(doubleParam::EPS)); // this may change the solution slightly
 
     // Sometimes we run into a few issues getting the ``right'' value
     if (!isVal(tmpSolver->getObjValue(), term->obj, params.get(doubleConst::DIFFEPS))) {
@@ -1014,9 +995,8 @@ void CglVPC::genDepth1PRCollection(const OsiSolverInterface* const vpcsolver,
 } /* genDepth1PRCollection */
 
 ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
-    const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs,
-    const std::string& timeName) {
-  if (reachedTimeLimit(time_T1 + "TOTAL", params.get(TIMELIMIT))) {
+    const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs) {
+  if (reachedTimeLimit(VPCTimeStats::TOTAL_TIME, params.get(TIMELIMIT))) {
     return ExitReason::TIME_LIMIT_EXIT;
   }
   if (reachedCutLimit()) {
@@ -1046,10 +1026,10 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
 
 #ifdef TRACE
   printf("\n## CglVPC: Trying objectives. ##\n");
-  const int init_num_obj = this->num_obj_tried;
 #endif
+  const int init_num_obj = this->num_obj_tried;
   const int init_num_cuts = this->num_cuts;
-  const int init_num_failures = 0;
+  const int init_num_failures = this->num_failures;
 
   if (!LP_OPT_IS_NOT_CUT || !DLB_EQUALS_DUB) {
     prlp = new PRLP(this);
@@ -1059,8 +1039,8 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
   //  printf("# points: %d\t # rays: %d\n", prlp->numPoints, prlp->numRays);
 
     if (isCutSolverPrimalFeas) {
-      prlp->targetStrongAndDifferentCuts(beta, cuts,
-          origSolver, structSICs, timeName);
+      prlp->targetStrongAndDifferentCuts(beta, cuts, origSolver, structSICs,
+          VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
     }
   }
 
@@ -1076,15 +1056,17 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
       this->num_obj_tried - init_num_obj, this->num_cuts - init_num_cuts, cuts.sizeCuts());
 #endif
 
-  if (this->num_obj_tried != this->num_cuts + this->num_failures) {
+  if ((this->num_obj_tried - init_num_obj)
+      != (this->num_cuts + this->num_failures)
+          - (init_num_cuts + init_num_failures)) {
     error_msg(errorstring,
-        "num_obj_tried (%d) \ne num_cuts (%d) + num_failures (%d)\n",
-        num_obj_tried, num_cuts, num_failures);
+        "num_obj_tried (%d) not equal to num_cuts (%d) + num_failures (%d)\n",
+        num_obj_tried - init_num_obj, num_cuts - init_num_cuts, num_failures - init_num_failures);
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }
 
-  if (reachedTimeLimit(time_T1 + "TOTAL", params.get(TIMELIMIT))) {
+  if (reachedTimeLimit(VPCTimeStats::TOTAL_TIME, params.get(TIMELIMIT))) {
     return ExitReason::TIME_LIMIT_EXIT;
   }
   if (reachedCutLimit()) {

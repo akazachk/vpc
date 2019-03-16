@@ -400,7 +400,7 @@ void setCompNBCoor(CoinPackedVector& vec, double& objViolation,
   packedIndex.reserve(numNB);
   packedElem.reserve(numNB);
 
-  objViolation = dotProduct(currColValue, origSolver->getObjCoefficients(), numCols) - origSolver->getObjValue();
+  objViolation = dotProduct(currColValue, origSolver->getObjCoefficients(), numCols) - dotProduct(origSolver->getColSolution(), origSolver->getObjCoefficients(), numCols);
 
   // Sometimes points have tiny values
   // These may be "necessary" for validity

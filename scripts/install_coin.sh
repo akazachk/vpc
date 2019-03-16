@@ -2,8 +2,8 @@
 # Takes as an (optional) argument the directory where you wish to install the COIN-OR software
 
 #CGL_URL="https://projects.coin-or.org/svn/Cgl/stable/0.59"
-CBC_URL="https://projects.coin-or.org/svn/Cbc/stable/2.9"
-COIN_DIR_NAME="Cbc-2.9"
+CBC_URL="https://projects.coin-or.org/svn/Cbc/stable/2.10"
+COIN_DIR_NAME="Cbc-2.10"
 if [ -z "$1" ]
 then
 	COIN_DIR="lib/${COIN_DIR_NAME}"

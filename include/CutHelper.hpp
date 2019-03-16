@@ -3,10 +3,14 @@
 // Date:     2019-Feb-20
 //-----------------------------------------------------------------------------
 #pragma once
+#include <limits>
+#include <vector>
 
-#include <OsiRowCut.hpp>
-#include <OsiCuts.hpp>
-#include <OsiSolverInterface.hpp>
+class CoinPackedVector;
+class CoinPackedVectorBase;
+class OsiRowCut;
+class OsiCuts;
+class OsiSolverInterface;
 
 struct VPCParameters; // defined in VPCParameters.hpp
 
@@ -26,9 +30,9 @@ void setOsiRowCut(OsiRowCut* const cut, const std::vector<int>& nonZeroColIndex,
 
 void addToObjectiveFromPackedVector(OsiSolverInterface* const solver,
     const CoinPackedVectorBase* vec, const bool zeroOut = false,
-    const double mult = 1.);
+    const double mult = 1., const std::vector<int>* const nonZeroColIndices = 0);
 void setConstantObjectiveFromPackedVector(OsiSolverInterface* const solver,
-    const double val = 0., const int numIndices = 0, const int* indices = NULL);
+    const double val = 0., const int numIndices = 0, const int* indices = 0);
 
 int cleanCut(OsiRowCut* const cut, const OsiSolverInterface* const solver,
     const VPCParameters& params, const double min_abs_coeff,

@@ -6,6 +6,9 @@
 
 #include <numeric> // inner_product, sqrt
 
+#include <OsiCuts.hpp>
+#include <OsiSolverInterface.hpp>
+
 #include "CglVPC.hpp" // For FailureType
 #include "SolverHelper.hpp"
 #include "VPCParameters.hpp"
@@ -145,7 +148,8 @@ void setOsiRowCut(OsiRowCut* const cut, const std::vector<int>& nonZeroColIndex,
  * We do not zero out the other coefficients unless requested
  */
 void addToObjectiveFromPackedVector(OsiSolverInterface* const solver,
-    const CoinPackedVectorBase* vec, const bool zeroOut, const double mult) {
+    const CoinPackedVectorBase* vec, const bool zeroOut, const double mult,
+    const std::vector<int>* const nonZeroColIndices) {
   if (zeroOut) {
     for (int i = 0; i < solver->getNumCols(); i++) {
       solver->setObjCoeff(i, 0.);
@@ -154,11 +158,31 @@ void addToObjectiveFromPackedVector(OsiSolverInterface* const solver,
 
   if (vec) {
     const double twoNorm = vec->twoNorm() / solver->getNumCols();
-    for (int i = 0; i < (*vec).getNumElements(); i++) {
-      const int col = (*vec).getIndices()[i];
-      const double elem = (*vec).getElements()[i];
-      const double coeff = solver->getObjCoefficients()[col];
-      solver->setObjCoeff(col, coeff + elem * mult / twoNorm);
+    if (nonZeroColIndices) {
+      int ind = 0; // assuming nonZeroColIndices are sorted in increasing order
+      const int numNZ = (*nonZeroColIndices).size();
+      for (int i = 0; i < (*vec).getNumElements(); i++) {
+        const int col = (*vec).getIndices()[i];
+
+        while ((ind < numNZ) && (col > (*nonZeroColIndices)[ind])) {
+          ind++;
+        }
+        if (ind >= numNZ)
+          break;
+        if (col < (*nonZeroColIndices)[ind])
+          continue;
+
+        const double elem = (*vec).getElements()[i];
+        const double coeff = solver->getObjCoefficients()[ind];
+        solver->setObjCoeff(ind, coeff + elem * mult / twoNorm);
+      }
+    } else {
+      for (int i = 0; i < (*vec).getNumElements(); i++) {
+        const int col = (*vec).getIndices()[i];
+        const double elem = (*vec).getElements()[i];
+        const double coeff = solver->getObjCoefficients()[col];
+        solver->setObjCoeff(col, coeff + elem * mult / twoNorm);
+      }
     }
   }
 } /* addToObjectiveFromPackedVector */
