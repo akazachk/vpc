@@ -51,7 +51,7 @@ const std::vector<std::string> OverallTimeStatsName {
 VPCParameters params;
 OsiSolverInterface* solver, *origSolver;
 OsiCuts gmics, vpcs;
-std::string instname = "", in_file_ext = "";
+std::string filename = "", instname = "", in_file_ext = "";
 ExitReason exitReason;
 TimeStats timer;
 std::time_t start_time_t, end_time_t;
@@ -240,7 +240,7 @@ void startUp(int argc, char** argv) {
   std::string fullfilename = params.get(stringParam::FILENAME);
   // Get file name stub
   size_t found_dot = fullfilename.find_last_of(".");
-  std::string filename = fullfilename.substr(0, found_dot);
+  filename = fullfilename.substr(0, found_dot);
 
   // Put string after last '.' into string in_file_ext
   if (found_dot >= fullfilename.length()) {

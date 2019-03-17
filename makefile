@@ -59,6 +59,7 @@ SOURCES += \
 		branch/OsiChooseStrongCustom.cpp \
     utility/nbspace.cpp \
     utility/SolverHelper.cpp \
+    utility/preprocess.cpp \
 		utility/utility.cpp \
 		branch/VPCEventHandler.cpp \
 		cut/CglVPC.cpp \
