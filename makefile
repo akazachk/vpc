@@ -26,7 +26,7 @@ ifeq ($(USERNAME),otherperson)
 else
 	PROJ_DIR = ${REPOS_DIR}/vpc
   ifeq ($(UNAME),Linux)
-	  COIN_OR = $(PROJ_DIR)/lib/Cbc-2.10
+	  COIN_OR = $(PROJ_DIR)/lib/Cbc-2.9
 	  GUROBI_LINK = "gurobi80"
 	else
   	GUROBI_LINK = "gurobi81"

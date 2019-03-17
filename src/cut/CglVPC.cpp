@@ -766,7 +766,7 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
 #endif
     tmpSolver->resolve();
     calcAndFeasTerm[terms_added] = checkSolverOptimality(tmpSolver, true);
-    enableFactorization(tmpSolver, params.get(doubleParam::EPS)); // this may change the solution slightly
+    //enableFactorization(tmpSolver, params.get(doubleParam::EPS)); // this may change the solution slightly
 
     // Sometimes we run into a few issues getting the ``right'' value
     if (!isVal(tmpSolver->getObjValue(), term->obj, params.get(doubleConst::DIFFEPS))) {
