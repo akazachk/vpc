@@ -6,7 +6,7 @@ This project contains the code for one implementation of the V-polyhedral disjun
 
 ## Dependencies
 
-The code is tested with `Cbc 2.9`, which can be obtained via the script `install_coin.sh` in the `scripts` directory.
+The code is tested with `Cbc 2.9`, which can be obtained via the script `install_coin.sh` in the `scripts` directory. The script will actually download `Cbc 2.10`. My experience is that this latest version (actually, in some revision after 2352, which is the last one I tested), has unstable performance. I have not yet tracked down the precise reason; see the related open issue.
 
 ## Compilation
 
