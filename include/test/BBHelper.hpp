@@ -84,8 +84,8 @@ struct SummaryBBInfo {
   std::vector<BBInfo> vec_bb_info;
 };
 
-void runBBTests(const VPCParameters& base_params, SummaryBBInfo& info_nocuts,
-    SummaryBBInfo& info_mycuts, SummaryBBInfo& info_allcuts,
+void runBBTests(const VPCParameters& base_params, SummaryBBInfo* const info_nocuts,
+    SummaryBBInfo* const info_mycuts, SummaryBBInfo* const info_allcuts,
     const std::string fullfilename, OsiSolverInterface* const solver,
     const double best_bound, const OsiCuts* vpcs, const OsiCuts* const gmics = NULL);
 

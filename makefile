@@ -26,7 +26,7 @@ ifeq ($(USERNAME),otherperson)
 else
 	PROJ_DIR = ${REPOS_DIR}/vpc
   ifeq ($(UNAME),Linux)
-	  COIN_OR = $(PROJ_DIR)/lib/Cbc-2.10
+	  COIN_OR = $(PROJ_DIR)/lib/Cbc-2.9
 	  GUROBI_LINK = "gurobi80"
 	else
   	GUROBI_LINK = "gurobi81"
@@ -59,6 +59,7 @@ SOURCES += \
 		branch/OsiChooseStrongCustom.cpp \
     utility/nbspace.cpp \
     utility/SolverHelper.cpp \
+    utility/preprocess.cpp \
 		utility/utility.cpp \
 		branch/VPCEventHandler.cpp \
 		cut/CglVPC.cpp \

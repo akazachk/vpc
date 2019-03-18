@@ -170,18 +170,6 @@ ExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface* co
     exit(1);
   }
 
-  // Make sure that the right number of terms has been saved
-  if ((num_terms
-      != (eventHandler->getNumLeafNodes() + eventHandler->isIntegerSolutionFound()))
-      || (num_terms != static_cast<int>(terms.size()))) {
-    error_msg(errstr,
-        "Number of terms does not match: num terms = %d, num bases = %d, num leaf nodes + found_integer_sol = %d\n",
-        num_terms, static_cast<int>(terms.size()),
-        eventHandler->getNumLeafNodes() + eventHandler->isIntegerSolutionFound());
-    writeErrorToLog(errstr, params.logfile);
-    exit(1);
-  }
-
   // If branch-and-bound finished (was not stopped by a user event), check why and exit
   if (cbc_model->status() == 0 || cbc_model->status() == 1
       || cbc_model->status() == 2 || this->num_terms <= 1) {
@@ -199,6 +187,17 @@ ExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface* co
 
     return ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT;
   } // exit out early if cbc_model status is 0 or insufficiently many disjunctive terms
+
+  // Make sure that the right number of terms has been saved
+  if ((num_terms != eventHandler->getNumLeafNodes())
+      || (num_terms != static_cast<int>(terms.size() + eventHandler->isIntegerSolutionFound()))) {
+    error_msg(errstr,
+        "Number of terms does not match: num terms = %d, num leaf nodes = %d, num bases = %d, found_integer_sol = %d\n",
+        num_terms, eventHandler->getNumLeafNodes(), static_cast<int>(terms.size()),
+        eventHandler->isIntegerSolutionFound());
+    writeErrorToLog(errstr, params.logfile);
+    exit(1);
+  }
 
 #ifdef TRACE
   std::vector<NodeStatistics> stats = eventHandler->getStatsVector();

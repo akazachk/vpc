@@ -896,8 +896,8 @@ bool VPCEventHandler::setupDisjunctiveTerm(const int node_id,
   SolverInterface* tmpSolver = dynamic_cast<SolverInterface*>(tmpSolverBase->clone());
   tmpSolver->addRow(1, ind, coeff, rhs, tmpSolver->getInfinity());
   tmpSolver->resolve();
-  enableFactorization(tmpSolver, owner->params.get(doubleParam::EPS)); // this may change the solution slightly
   if (checkSolverOptimality(tmpSolver, true)) {
+    enableFactorization(tmpSolver, owner->params.get(doubleParam::EPS)); // this may change the solution slightly
     this->owner->num_terms++;
     Disjunction::setCgsName(this->owner->name, 1, ind, coeff, rhs);
     if (curr_num_changed_bounds > 0)
@@ -914,6 +914,8 @@ bool VPCEventHandler::setupDisjunctiveTerm(const int node_id,
     term.changed_value.push_back(branching_value);
     owner->terms.push_back(term);
     isFeasible = true;
+  } else {
+    this->numLeafNodes_--;
   }
   if (tmpSolver)
     delete tmpSolver;
@@ -1038,7 +1040,7 @@ void VPCEventHandler::saveInformation() {
         exit(1);
       } else {
         warning_msg(warnstring,
-            "Objective at parent node %d/%d (node id %d) is incorrect. During BB, it was %s, now it is %s.\n",
+            "Objective at parent node %d/%d (node id %d) is somewhat incorrect. During BB, it was %s, now it is %s.\n",
             tmp_ind + 1, this->numNodesOnTree_, node_id,
             stringValue(stats_[node_id].obj, "%1.3f").c_str(),
             stringValue(tmpSolverBase->getObjValue(), "%1.3f").c_str());

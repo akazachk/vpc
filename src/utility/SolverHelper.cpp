@@ -180,8 +180,8 @@ bool checkSolverOptimality(OsiSolverInterface* const solver,
       const double curr_infeas =
           clpsolver->getModelPtr()->sumPrimalInfeasibilities()
               + clpsolver->getModelPtr()->sumDualInfeasibilities();
-      resolve = (resolve_count == 0)
-          || (!isZero(curr_infeas) && (curr_infeas < infeas));
+      resolve = (!isZero(curr_infeas) && (resolve_count == 0 || curr_infeas < infeas))
+          || (resolve_count == 0);
       if (resolve) {
         clpsolver->getModelPtr()->setNumberIterations(0);
         clpsolver->getModelPtr()->setMaximumSeconds(timeLimit);

@@ -40,8 +40,11 @@
 #include "GurobiHelper.hpp"
 #endif
 
-void runBBTests(const VPCParameters& base_params, SummaryBBInfo& info_nocuts,
-    SummaryBBInfo& info_mycuts, SummaryBBInfo& info_allcuts,
+/**
+ * Solver is changed unless we are doing row/col permutations
+ */
+void runBBTests(const VPCParameters& base_params, SummaryBBInfo* const info_nocuts,
+    SummaryBBInfo* const info_mycuts, SummaryBBInfo* const info_allcuts,
     const std::string fullfilename, OsiSolverInterface* const solver,
     const double best_bound, const OsiCuts* vpcs, const OsiCuts* const gmics) {
   VPCParameters params = base_params;
@@ -76,19 +79,21 @@ void runBBTests(const VPCParameters& base_params, SummaryBBInfo& info_nocuts,
   printf("\n## Performing branch-and-bound tests. ##\n");
 #endif
 
-  info_nocuts.vec_bb_info.resize(0);
-  info_mycuts.vec_bb_info.resize(0);
-  info_allcuts.vec_bb_info.resize(0);
   if (branch_with_no_cuts) {
-    info_nocuts.vec_bb_info.resize(num_bb_runs);
+    assert(info_nocuts != NULL);
+    info_nocuts->vec_bb_info.resize(0);
+    info_nocuts->vec_bb_info.resize(num_bb_runs);
   }
   if (branch_with_vpcs) {
-    info_mycuts.num_cuts = num_vpcs;
-    info_mycuts.vec_bb_info.resize(num_bb_runs);
+    assert(info_mycuts != NULL);
+    info_mycuts->vec_bb_info.resize(0);
+    info_mycuts->num_cuts = num_vpcs;
+    info_mycuts->vec_bb_info.resize(num_bb_runs);
   }
   if (branch_with_gmics) {
-    info_allcuts.num_cuts = num_vpcs + num_gmics;
-    info_allcuts.vec_bb_info.resize(num_bb_runs);
+    assert(info_allcuts != NULL);
+    info_allcuts->num_cuts = num_vpcs + num_gmics;
+    info_allcuts->vec_bb_info.resize(num_bb_runs);
   }
   std::vector<int> row_permutation, col_permutation;
   if (should_permute_rows_and_cols) {
@@ -203,19 +208,20 @@ void runBBTests(const VPCParameters& base_params, SummaryBBInfo& info_nocuts,
         }
       } // checking cuts for violating the IP opt
       if (branch_with_no_cuts) {
-        doBranchAndBoundWithUserCutsGurobi(params, params.get(BB_STRATEGY),
-            fullfilename.c_str(), NULL, info_nocuts.vec_bb_info[run_ind],
+        // NB: If user cuts is not explicitly set, this is WITHOUT user cuts
+        doBranchAndBoundWithGurobi(params, params.get(BB_STRATEGY),
+            fullfilename.c_str(), info_nocuts->vec_bb_info[run_ind],
             best_bound);
       }
       if (branch_with_vpcs) {
         doBranchAndBoundWithUserCutsGurobi(params, params.get(BB_STRATEGY),
-            fullfilename.c_str(), vpcs, info_mycuts.vec_bb_info[run_ind],
+            fullfilename.c_str(), vpcs, info_mycuts->vec_bb_info[run_ind],
             best_bound);
       }
       if (branch_with_gmics) {
         doBranchAndBoundWithUserCutsGurobi(params, params.get(BB_STRATEGY),
             fullfilename.c_str(), &GMICsAndVPCs,
-            info_allcuts.vec_bb_info[run_ind], best_bound);
+            info_allcuts->vec_bb_info[run_ind], best_bound);
       }
 #endif // USE_GUROBI
     } else if (use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::cplex)) {
@@ -228,21 +234,21 @@ void runBBTests(const VPCParameters& base_params, SummaryBBInfo& info_nocuts,
 //#endif // USE_CPLEX
     } else if (use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::cbc)) {
       if (branch_with_no_cuts) {
-        doBranchAndBoundNoCuts(params, runSolver, info_nocuts.vec_bb_info[run_ind]);
+        doBranchAndBoundNoCuts(params, runSolver, info_nocuts->vec_bb_info[run_ind]);
       }
       if (branch_with_vpcs) {
-        doBranchAndBoundYesCuts(params, runSolver, info_mycuts.vec_bb_info[run_ind],
+        doBranchAndBoundYesCuts(params, runSolver, info_mycuts->vec_bb_info[run_ind],
             *vpcs, false, numCutsToAddPerRound, 1, "\nBB with VPCs.\n");
       }
       if (branch_with_gmics) {
-        doBranchAndBoundYesCuts(params, runSolver, info_allcuts.vec_bb_info[run_ind],
+        doBranchAndBoundYesCuts(params, runSolver, info_allcuts->vec_bb_info[run_ind],
             GMICsAndVPCs, false, numCutsToAddPerRound, 1, "\nBB with VPC+Gomorys.\n");
       }
     }
 
-    if (branch_with_no_cuts) updateBestBBInfo(info_nocuts.best_bb_info, info_nocuts.vec_bb_info[run_ind], (run_ind == 0));
-    if (branch_with_vpcs) updateBestBBInfo(info_mycuts.best_bb_info, info_mycuts.vec_bb_info[run_ind], (run_ind == 0));
-    if (branch_with_gmics) updateBestBBInfo(info_allcuts.best_bb_info, info_allcuts.vec_bb_info[run_ind], (run_ind == 0));
+    if (branch_with_no_cuts) updateBestBBInfo(info_nocuts->best_bb_info, info_nocuts->vec_bb_info[run_ind], (run_ind == 0));
+    if (branch_with_vpcs) updateBestBBInfo(info_mycuts->best_bb_info, info_mycuts->vec_bb_info[run_ind], (run_ind == 0));
+    if (branch_with_gmics) updateBestBBInfo(info_allcuts->best_bb_info, info_allcuts->vec_bb_info[run_ind], (run_ind == 0));
 
     // Free memory if necessary
     if (should_permute_rows_and_cols && runSolver && (runSolver != solver)) {
@@ -251,16 +257,16 @@ void runBBTests(const VPCParameters& base_params, SummaryBBInfo& info_nocuts,
   } /* end iterating over runs */
 
   if (branch_with_no_cuts) {
-    info_nocuts.first_bb_info = info_nocuts.vec_bb_info[0];
-    averageBBInfo(info_nocuts.avg_bb_info, info_nocuts.vec_bb_info);
+    info_nocuts->first_bb_info = info_nocuts->vec_bb_info[0];
+    averageBBInfo(info_nocuts->avg_bb_info, info_nocuts->vec_bb_info);
   }
   if (branch_with_vpcs) {
-    info_mycuts.first_bb_info = info_mycuts.vec_bb_info[0];
-    averageBBInfo(info_mycuts.avg_bb_info, info_mycuts.vec_bb_info);
+    info_mycuts->first_bb_info = info_mycuts->vec_bb_info[0];
+    averageBBInfo(info_mycuts->avg_bb_info, info_mycuts->vec_bb_info);
   }
   if (branch_with_gmics) {
-    info_allcuts.first_bb_info = info_allcuts.vec_bb_info[0];
-    averageBBInfo(info_allcuts.avg_bb_info, info_allcuts.vec_bb_info);
+    info_allcuts->first_bb_info = info_allcuts->vec_bb_info[0];
+    averageBBInfo(info_allcuts->avg_bb_info, info_allcuts->vec_bb_info);
   }
 } /* runBBTests */
 
