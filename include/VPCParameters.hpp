@@ -273,9 +273,9 @@ class IntParameter : public NumericParameter<int> {
 public:
   using NumericParameter<int>::NumericParameter;
   IntParameter(intParam num, const std::string& name, const int& val, const int& min_val, const int& max_val)
-  : NumericParameter<int>(name, val, min_val, max_val), param_num(num) {}
+  : NumericParameter<int>(name, val, min_val, max_val), param_id(num) {}
   IntParameter(intParam num, const std::string& name, const int& val, const std::vector<int>& allowed_vals)
-  : NumericParameter<int>(name, val, allowed_vals), param_num(num) {}
+  : NumericParameter<int>(name, val, allowed_vals), param_id(num) {}
   virtual std::string to_string(const int amountToPrint = 2, const char* fmt = NULL) const {
     if (fmt) {
       return NumericParameter<int>::to_string(amountToPrint, fmt);
@@ -283,17 +283,18 @@ public:
       return NumericParameter<int>::to_string(amountToPrint, "%d");
     }
   }
+  virtual const intParam id() const { return this->param_id; }
 protected:
-  intParam param_num;
+  intParam param_id;
 }; /* IntParameter */
 
 class DoubleParameter : public NumericParameter<double> {
 public:
   using NumericParameter<double>::NumericParameter;
   DoubleParameter(doubleParam num, const std::string& name, const double& val, const double& min_val, const double& max_val)
-  : NumericParameter<double>(name, val, min_val, max_val), param_num(num) {}
+  : NumericParameter<double>(name, val, min_val, max_val), param_id(num) {}
   DoubleParameter(doubleParam num, const std::string& name, const double& val, const std::vector<double>& allowed_vals)
-  : NumericParameter<double>(name, val, allowed_vals), param_num(num) {}
+  : NumericParameter<double>(name, val, allowed_vals), param_id(num) {}
   virtual std::string to_string(const int amountToPrint = 2, const char* fmt = NULL) const {
     if (fmt) {
       return NumericParameter<double>::to_string(amountToPrint, fmt);
@@ -301,15 +302,16 @@ public:
       return NumericParameter<double>::to_string(amountToPrint, "%.3e");
     }
   }
+  virtual const doubleParam id() const { return this->param_id; }
 protected:
-  doubleParam param_num;
+  doubleParam param_id;
 }; /* DoubleParameter */
 
 class StringParameter : public Parameter<std::string> {
 public:
   using Parameter<std::string>::Parameter;
   StringParameter(stringParam num, const std::string& name, const std::string& val)
-  : Parameter<std::string>(name, val), param_num(num) {}
+  : Parameter<std::string>(name, val), param_id(num) {}
 
   /**
    * to_string
@@ -335,8 +337,9 @@ public:
     }
     return retval;
   } /* to_string */
+  virtual const stringParam id() const { return this->param_id; }
 protected:
-  stringParam param_num;
+  stringParam param_id;
 }; /* StringParameter */
 
 /********** VPC PARAMETERS STRUCT **********/
@@ -345,30 +348,30 @@ struct VPCParameters {
 
   /** unordered_map gets printed in reverse order; advantage over map is constant access time on average */
   std::unordered_map<intParam, IntParameter, EnumClassHash> intParamValues {
-    {intParam::BB_MODE, IntParameter("BB_MODE", 10, 0, 111)}, // 010 = branch with vpcs only
-    {intParam::BB_STRATEGY, IntParameter("BB_STRATEGY", 10776, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
-    {intParam::BB_RUNS, IntParameter("BB_RUNS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
-    {intParam::RANDOM_SEED, IntParameter("RANDOM_SEED", 628, -1, std::numeric_limits<int>::max())},
+    {intParam::BB_MODE, IntParameter(intParam::BB_MODE, "BB_MODE", 10, 0, 111)}, // 010 = branch with vpcs only
+    {intParam::BB_STRATEGY, IntParameter(intParam::BB_STRATEGY, "BB_STRATEGY", 10776, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
+    {intParam::BB_RUNS, IntParameter(intParam::BB_RUNS, "BB_RUNS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
+    {intParam::RANDOM_SEED, IntParameter(intParam::RANDOM_SEED, "RANDOM_SEED", 628, -1, std::numeric_limits<int>::max())},
 #ifdef TRACE
-    {intParam::VERBOSITY, IntParameter("VERBOSITY", 1, 0, 2)},
+    {intParam::VERBOSITY, IntParameter(intParam::VERBOSITY, "VERBOSITY", 1, 0, 2)},
 #else
-    {intParam::VERBOSITY, IntParameter("VERBOSITY", 0, 0, 2)},
+    {intParam::VERBOSITY, IntParameter(intParam::VERBOSITY, "VERBOSITY", 0, 0, 2)},
 #endif
-    {intParam::USE_UNIT_VECTORS, IntParameter("USE_UNIT_VECTORS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::USE_TIGHT_RAYS, IntParameter("USE_TIGHT_RAYS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::USE_TIGHT_POINTS, IntParameter("USE_TIGHT_POINTS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::USE_ITER_BILINEAR, IntParameter("USE_ITER_BILINEAR", 1, 0, std::numeric_limits<int>::max())},
-    {intParam::USE_DISJ_LB, IntParameter("USE_DISJ_LB", 1, 0, 1)},
-    {intParam::USE_ALL_ONES, IntParameter("USE_ALL_ONES", 1, 0, 1)},
-    {intParam::TEMP, IntParameter("TEMP", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::STRENGTHEN, IntParameter("STRENGTHEN", 1, 0, 2)},
-    {intParam::ROUNDS, IntParameter("ROUNDS", 1, 0, std::numeric_limits<int>::max())},
-    {intParam::PRLP_FLIP_BETA, IntParameter("PRLP_FLIP_BETA", 0, -1, 1)},
-    {intParam::PARTIAL_BB_NUM_STRONG, IntParameter("PARTIAL_BB_NUM_STRONG", 5, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::PARTIAL_BB_STRATEGY, IntParameter("PARTIAL_BB_STRATEGY", 4, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::MODE, IntParameter("MODE", 0, {0, 1, 3})},
-    {intParam::DISJ_TERMS, IntParameter("DISJ_TERMS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::CUTLIMIT, IntParameter("CUTLIMIT", -1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::USE_UNIT_VECTORS, IntParameter(intParam::USE_UNIT_VECTORS, "USE_UNIT_VECTORS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::USE_TIGHT_RAYS, IntParameter(intParam::USE_TIGHT_RAYS, "USE_TIGHT_RAYS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::USE_TIGHT_POINTS, IntParameter(intParam::USE_TIGHT_POINTS, "USE_TIGHT_POINTS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::USE_ITER_BILINEAR, IntParameter(intParam::USE_ITER_BILINEAR, "USE_ITER_BILINEAR", 1, 0, std::numeric_limits<int>::max())},
+    {intParam::USE_DISJ_LB, IntParameter(intParam::USE_DISJ_LB, "USE_DISJ_LB", 1, 0, 1)},
+    {intParam::USE_ALL_ONES, IntParameter(intParam::USE_ALL_ONES, "USE_ALL_ONES", 1, 0, 1)},
+    {intParam::TEMP, IntParameter(intParam::TEMP, "TEMP", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::STRENGTHEN, IntParameter(intParam::STRENGTHEN, "STRENGTHEN", 1, 0, 2)},
+    {intParam::ROUNDS, IntParameter(intParam::ROUNDS, "ROUNDS", 1, 0, std::numeric_limits<int>::max())},
+    {intParam::PRLP_FLIP_BETA, IntParameter(intParam::PRLP_FLIP_BETA, "PRLP_FLIP_BETA", 0, -1, 1)},
+    {intParam::PARTIAL_BB_NUM_STRONG, IntParameter(intParam::PARTIAL_BB_NUM_STRONG, "PARTIAL_BB_NUM_STRONG", 5, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::PARTIAL_BB_STRATEGY, IntParameter(intParam::PARTIAL_BB_STRATEGY, "PARTIAL_BB_STRATEGY", 4, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::MODE, IntParameter(intParam::MODE, "MODE", 0, {0, 1, 3})},
+    {intParam::DISJ_TERMS, IntParameter(intParam::DISJ_TERMS, "DISJ_TERMS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::CUTLIMIT, IntParameter(intParam::CUTLIMIT, "CUTLIMIT", -1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
   }; /* intParamValues */
   std::unordered_map<doubleParam, DoubleParameter, EnumClassHash> doubleParamValues {
     {doubleParam::TIMELIMIT, DoubleParameter("TIMELIMIT", 60, 0., std::numeric_limits<double>::max())},
@@ -549,7 +552,12 @@ inline void printParams(const VPCParameters& params, FILE* logfile = stdout, con
     if (amountToPrint == 0) {
       fprintf(logfile, "%s\n", param.second.to_string(amountToPrint).c_str());
     } else {
-      fprintf(logfile, "%s,", param.second.to_string(amountToPrint).c_str());
+      if (param.second.id() == intParam::DISJ_TERMS) {
+        // Special handling for disjunctive terms to sort well in the logfile
+        fprintf(logfile, "%s,", param.second.to_string(amountToPrint, "%05d").c_str());
+      } else {
+        fprintf(logfile, "%s,", param.second.to_string(amountToPrint).c_str());
+      }
     }
   }
   if (printDoubleParams)
