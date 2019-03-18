@@ -3,8 +3,6 @@
 // Author      : A. M. Kazachkov
 // Version     : 2018-Dec-24
 // Description : Helper functions for branch-and-bound
-//
-// This code is licensed under the terms of the Eclipse Public License (EPL).
 //============================================================================
 
 #include <cstdio> // for tmpnam

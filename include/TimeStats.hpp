@@ -3,8 +3,6 @@
 // Author      : A. M. Kazachkov and S. Nadadarajah
 // Version     : 2018-Dec-25
 // Description : For various statistics, such as timer
-//
-// This code is licensed under the terms of the Eclipse Public License (EPL).
 //============================================================================
 
 #pragma once

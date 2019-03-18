@@ -1,10 +1,12 @@
+// The original license for this code is as follows:
 // $Id: CbcCompareBFS.cpp 1899 2013-04-09 18:12:08Z stefan $
 // Copyright (C) 2002, International Business Machines
 // Corporation and others.  All Rights Reserved.
 // This code is licensed under the terms of the Eclipse Public License (EPL).
 
 //Edwin 11/24/09 carved out of CbcCompareActual
-//AMK 04/14/17
+//
+// Aleksandr M. Kazachkov adapted the code on 04/14/17
 
 #if defined(_MSC_VER)
 // Turn off compiler warning about long names

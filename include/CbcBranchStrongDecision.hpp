@@ -1,8 +1,10 @@
-// $Id: CbcBranchStrongDecision.hpp 2017-03-21 amk $
-// This code is licensed under the terms of the Eclipse Public License (EPL).
+// Original license is:
+// $Id: CbcBranchStrongDecision.hpp Last modified: 2017-03-21 by Aleksandr M. Kazachkov $
+// The original code is licensed under the terms of the Eclipse Public License (EPL).
 
 // Edwin 11/10/2009-- carved out of CbcBranchActual
-// AMK 03/21/2017 Set method to 1
+//
+// Aleksandr M. Kazachkov 03/21/2017 Set method to 1
 
 #ifndef CbcBranchStrongDecision_H
 #define CbcBranchStrongDecision_H

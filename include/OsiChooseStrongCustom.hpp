@@ -1,3 +1,5 @@
+// This code has been adpated (by Aleksandr M. Kazachkov) from OsiChooseVariable.hpp in the Osi project of COIN-OR
+//
 // Copyright (C) 2006, International Business Machines
 // Corporation and others.  All Rights Reserved.
 // This code is licensed under the terms of the Eclipse Public License (EPL).

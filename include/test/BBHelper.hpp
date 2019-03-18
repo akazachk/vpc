@@ -3,8 +3,6 @@
 // Author      : akazachk
 // Version     : 2018.11.19
 // Description : Helper functions for branch-and-bound
-//
-// This code is licensed under the terms of the Eclipse Public License (EPL).
 //============================================================================
 #pragma once
 
