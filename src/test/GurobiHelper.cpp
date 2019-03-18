@@ -235,7 +235,6 @@ void presolveModelWithGurobi(const VPCParameters& params, int strategy, GRBModel
       vars[i].set(GRB_CharAttr_VType, GRB_CONTINUOUS);
     }
 
-//    enable_bb_option(strategy, BB_Strategy_Options::presolve_on);
     strategy = static_cast<int>(BB_Strategy_Options::presolve_on);
     setStrategyForBBTestGurobi(params, strategy, presolved_model, best_bound);
 

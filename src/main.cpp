@@ -26,6 +26,7 @@
 #include "CutHelper.hpp"
 #include "Disjunction.hpp" // needed to access disjunction properties
 #include "DisjunctionHelper.hpp" // for custom disjunctions
+#include "preprocess.hpp"
 #include "SolverHelper.hpp" // defines SolverInterface
 #include "VPCParameters.hpp"
 #include "TimeStats.hpp"
@@ -117,9 +118,11 @@ int main(int argc, char** argv) {
   }
 
   // Possibly preprocess instead of doing cuts
-  if (params.get(TEMP) == static_cast<int>(TempOptions::PREPROCESS)) {
-    // Cleaning involves running Gurobi presolve
-//    performCleaning(solver, params, CLEANING_MODE_OPTION);
+  if ((params.get(TEMP) == static_cast<int>(TempOptions::PREPROCESS))
+      || params.get(TEMP) == static_cast<int>(TempOptions::PREPROCESS_CUSTOM)) {
+    // Cleaning involves running presolve and branching
+    params.set(intParam::BB_MODE, 1); // only do no cuts branching
+    performCleaning(params, solver, filename, boundInfo.ip_obj, params.get(TEMP));
 
     printf("\n## Finished cleaning. ##\n");
     return wrapUp(0);
@@ -193,7 +196,7 @@ int main(int argc, char** argv) {
   if (params.get(BB_RUNS) != 0) {
     // Collect cuts from all rounds
     timer.start_timer(BB_TIME);
-    runBBTests(params, info_nocuts, info_mycuts, info_allcuts,
+    runBBTests(params, &info_nocuts, &info_mycuts, &info_allcuts,
         params.get(stringParam::FILENAME), solver, boundInfo.ip_obj, &vpcs, NULL);
     timer.end_timer(BB_TIME);
   }
@@ -279,11 +282,16 @@ void startUp(int argc, char** argv) {
     const bool logexists = fexists(logname.c_str());
     params.logfile = fopen(logname.c_str(), "a");
     if (!logexists) {
-      printHeader(params, OverallTimeStatsName);
+      if (params.get(TEMP) != static_cast<int>(TempOptions::PREPROCESS)) {
+        printHeader(params, OverallTimeStatsName);
+      } else {
+        printPreprocessingHeader(params);
+      }
     }
-    // Print instance name and parameters
     fprintf(params.logfile, "%s,", instname.c_str());
-    printParams(params, params.logfile, 2); // only values
+    if (params.get(TEMP) != static_cast<int>(TempOptions::PREPROCESS)) {
+      printParams(params, params.logfile, 2); // only values
+    }
     fflush(params.logfile);
   }
 
@@ -314,26 +322,29 @@ int wrapUp(int retCode /*= 0*/) {
   snprintf(end_time_string, sizeof(end_time_string) / sizeof(char), "%s", asctime(end_timeinfo));
 
   FILE* logfile = params.logfile;
-  if ((params.get(TEMP) != static_cast<int>(TempOptions::PREPROCESS))
-      && (logfile != NULL)) {
-    // Bound and gap info
-    printBoundAndGapInfo(boundInfo, params.logfile);
-    // B&B info
-    printSummaryBBInfo({info_nocuts, info_mycuts}, params.logfile);
-    // Orig prob
-    printOrigProbInfo(origSolver, params.logfile);
-    // Post-cut prob
-    printPostCutProbInfo(solver, cutInfoGMICs, cutInfo, params.logfile);
-    // Disj info
-    printDisjInfo(disjInfo, params.logfile);
-    // Cut, obj, fail info
-    printCutInfo(cutInfoGMICs, cutInfo, params.logfile);
-    // Full B&B info
-    printFullBBInfo({info_nocuts, info_mycuts}, params.logfile);
-    // Print time info
-    timer.print(params.logfile, 2); // only values
-    // Print exit reason and finish
-    fprintf(logfile, "%s,", ExitReasonName[exitReasonInt].c_str());
+  if (logfile != NULL) {
+    if (params.get(TEMP) != static_cast<int>(TempOptions::PREPROCESS)) {
+      // Bound and gap info
+      printBoundAndGapInfo(boundInfo, params.logfile);
+      // B&B info
+      printSummaryBBInfo({info_nocuts, info_mycuts}, params.logfile);
+      // Orig prob
+      printOrigProbInfo(origSolver, params.logfile);
+      // Post-cut prob
+      printPostCutProbInfo(solver, cutInfoGMICs, cutInfo, params.logfile);
+      // Disj info
+      printDisjInfo(disjInfo, params.logfile);
+      // Cut, obj, fail info
+      printCutInfo(cutInfoGMICs, cutInfo, params.logfile);
+      // Full B&B info
+      printFullBBInfo({info_nocuts, info_mycuts}, params.logfile);
+      // Print time info
+      timer.print(params.logfile, 2); // only values
+      // Print exit reason and finish
+      fprintf(logfile, "%s,", ExitReasonName[exitReasonInt].c_str());
+    } else {
+    }
+
     fprintf(logfile, "%s,", end_time_string);
     fprintf(logfile, "%.f,", difftime(end_time_t, start_time_t));
     fprintf(logfile, "%s,", instname.c_str());
@@ -406,6 +417,23 @@ void initializeSolver(OsiSolverInterface* &solver) {
       exit(1);
     }
   } // read file
+
+  // Make sure we are doing a minimization problem; this is just to make later
+  // comparisons simpler (i.e., a higher LP obj after adding the cut is better).
+  if (solver->getObjSense() < 1e-3) {
+    printf(
+        "\n## Detected maximization problem. Negating objective function to make it minimization. ##\n");
+    solver->setObjSense(1.0);
+    const double* obj = solver->getObjCoefficients();
+    for (int col = 0; col < solver->getNumCols(); col++) {
+      solver->setObjCoeff(col, -1. * obj[col]);
+    }
+    double objOffset = 0.;
+    solver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
+    if (objOffset != 0.) {
+      solver->setDblParam(OsiDblParam::OsiObjOffset, -1. * objOffset);
+    }
+  }
 } /* initializeSolver */
 
 void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_disj) {
@@ -524,6 +552,7 @@ void processArgs(int argc, char** argv) {
       {"partial_bb_timelimit", required_argument, 0, 'T'},
       {"rounds", required_argument, 0, 'r'},
       {"prlp_timelimit", required_argument, 0, 'R'},
+      {"temp", required_argument, 0, 't'*'1'},
       {"timelimit", required_argument, 0, 't'},
       {"use_all_ones", required_argument, 0, 'u'*'1'},
       {"use_disj_lb", required_argument, 0, 'u'*'2'},
@@ -661,6 +690,16 @@ void processArgs(int argc, char** argv) {
                    params.set(param, val);
                    break;
                  }
+      case 't'*'1': {
+                      int val;
+                      intParam param = intParam::TEMP;
+                      if (!parseInt(optarg, val)) {
+                        error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                        exit(1);
+                      }
+                      params.set(param, val);
+                      break;
+                    }
       case 't': {
                   double val;
                   doubleParam param = doubleParam::TIMELIMIT;
@@ -750,7 +789,7 @@ void processArgs(int argc, char** argv) {
                 helpstring += "Code for generating V-polyhedral disjunctive cuts.\n";
                 helpstring += "\n## OPTIONS ##\n";
                 helpstring += "-h, --help\n\tPrint this help message.\n";
-                helpstring += "-t, --temp\n\tSet temporary options (e.g., value of 1 = do preprocessing on instance).\n";
+                helpstring += "--temp\n\tSet temporary options (e.g., value of 1 = do preprocessing on instance).\n";
                 helpstring += "\n# Input/output #\n";
                 helpstring += "-f file, --file=file\n\tFilename.\n";
                 helpstring += "-l logfile, --logfile=logfile\n\tWhere to print log messages.\n";

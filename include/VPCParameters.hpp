@@ -144,8 +144,9 @@ enum class doubleConst {
 enum class TempOptions {
   NONE = 0,
   PREPROCESS = 1,
-  CHECK_CUTS_AGAINST_BB_OPT = 2,
-  CALC_NUM_GOMORY_ROUNDS_TO_MATCH = 3,
+  PREPROCESS_CUSTOM = 2,
+  CHECK_CUTS_AGAINST_BB_OPT = 3,
+  CALC_NUM_GOMORY_ROUNDS_TO_MATCH = 4,
   // Options for generating tikz string
   GEN_TIKZ_STRING_WITH_VPCS = 10,
   GEN_TIKZ_STRING_WITH_GMICS = 11,

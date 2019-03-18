@@ -5,6 +5,7 @@
 #include "preprocess.hpp"
 
 // Project files
+#include "analysis.hpp"
 #include "BBHelper.hpp"
 #include "GurobiHelper.hpp"
 #include "SolverHelper.hpp"
@@ -12,255 +13,110 @@
 
 // COIN-OR
 #include <OsiSolverInterface.hpp>
+#ifdef USE_CLP
+#include <OsiClpSolverInterface.hpp>
+#endif
+
+const int countBoundInfoEntries = 2;
+const int countSummaryBBInfoEntries = 4 * 2;
+const int countOrigProbEntries = 13;
+const int countCleanedProbEntries = 15;
+const int countFullBBInfoEntries = static_cast<int>(BB_INFO_CONTENTS.size()) * 4 * 2;
 
 /**
  * Perform preprocessing and get statistics
  */
-void performCleaning(const VPCParameters& orig_params,
-    OsiSolverInterface* solver, std::string& filename, const double ip_obj,
-    const int CLEANING_MODE_OPTION) {
-  const bool DO_BRANCHING_WITH_SICS = false;
-  const bool DO_STRONG_BRANCHING = false;
-  const bool DO_DEFAULT = true;
-  const bool DO_CUTSON = false;
-  const bool DO_CUTSOFF = false;
-  const int numOrigRows = solver->getNumRows();
-  const int numOrigCols = solver->getNumCols();
-  int numBoundsChanged = 0;
-  int numSBFixed = 0;
-  const double origLPOpt = solver->getObjValue();
-  VPCParameters params = orig_params;
+void performCleaning(const VPCParameters& params,
+    OsiSolverInterface* const solver, std::string& filename, const double ip_obj,
+    const int CLEANING_MODE_OPTION, const char SEP) {
+  FILE* logfile = params.logfile;
+  if (logfile == NULL)
+    return;
 
-#ifdef TRACE
-  printf("Collecting information about original instance.\n");
-#endif
-
-  // Get number of integer and binary variables
-  // As well as primal and dual degeneracy
-  int numNonZero = solver->getMatrixByRow()->getNumElements();
-  int numInteger = 0, numBinary = 0;
-  int origPrimalDegen = 0, origDualDegen = 0;
-  for (int col = 0; col < solver->getNumCols(); col++) {
-    if (solver->isInteger(col)) {
-      numInteger++;
-      if (solver->isBinary(col)) {
-        numBinary++;
-      }
-    }
-
-    const bool isBasic = isBasicCol(solver, col);
-    const double val = solver->getColSolution()[col];
-    const double lb = solver->getColLower()[col];
-    const double ub = solver->getColUpper()[col];
-    if (isBasic && (isVal(val, lb) || isVal(val, ub))) {
-      origPrimalDegen++;
-    }
-    if (!isBasic && isZero(solver->getReducedCost()[col])) {
-      origDualDegen++;
-    }
-  } /* get col info */
-  for (int row = 0; row < solver->getNumRows(); row++) {
-    const bool isBasic = isBasicSlack(solver, row);
-    const double val = std::abs(solver->getRowActivity()[row] - solver->getRightHandSide()[row]);
-    if (isBasic && isZero(val)) {
-      origPrimalDegen++;
-    }
-    if (!isBasic && isZero(solver->getRowPrice()[row])) {
-      origDualDegen++;
-    }
-  } /* get row info */
-
-  // Save the original branch-and-bound strategy
+  // Save strategy
   const int strategy = params.get(BB_STRATEGY);
-  const int default_yesusercuts_strategy = strategy;
-  const int cutson_yesusercuts_strategy =
-      enable_bb_option(enable_bb_option(
-          disable_bb_option(strategy, BB_Strategy_Options::all_cuts_off),
-          BB_Strategy_Options::all_cuts_on),
-          BB_Strategy_Options::user_cuts);
-//      ((strategy & ~(BB_Strategy_Options::all_cuts_off)) | BB_Strategy_Options::all_cuts_on) | BB_Strategy_Options::user_cuts;
-  const int cutsoff_yesusercuts_strategy =
-      enable_bb_option(enable_bb_option(
-          disable_bb_option(
-              disable_bb_option(strategy, BB_Strategy_Options::all_cuts_on),
-              BB_Strategy_Options::gmics_on),
-          BB_Strategy_Options::all_cuts_off), BB_Strategy_Options::user_cuts);
-//      ((strategy & ~(BB_Strategy_Options::all_cuts_on) & ~(BB_Strategy_Options::gmics_on)) | BB_Strategy_Options::all_cuts_off) | BB_Strategy_Options::user_cuts;
+  SummaryBBInfo orig_info;
 
-  // Cbc
-  BBInfo origBBInfoCbcDefault, origBBInfoCbcCutsOn, origBBInfoCbcCutsOff;
-  if (use_bb_option(strategy, BB_Strategy_Options::cbc)) {
-    if (DO_DEFAULT) {
-      // Default
-  #ifdef TRACE
-    printf("Performing branch-and-bound with Cbc (default) on original instance.\n");
-  #endif
-      params.set(BB_STRATEGY, default_yesusercuts_strategy);
-      doBranchAndBoundNoCuts(params, solver, origBBInfoCbcDefault);
-    }
+  // Original instance info
+//  const bool DO_STRONG_BRANCHING = false;
+  const int origNumRows = solver->getNumRows();
+  const int origNumCols = solver->getNumCols();
+  const int origNumNonZero = solver->getMatrixByRow()->getNumElements();
+  const double origLPOpt = solver->getObjValue();
 
-    if (DO_CUTSON) {
-      // Cuts on
+  // Get original instance branching info
 #ifdef TRACE
-  printf("Performing branch-and-bound with Cbc (cuts on) on original instance.\n");
+    printf("Performing branch-and-bound on original instance.\n");
 #endif
-      params.set(BB_STRATEGY,
-          cutson_yesusercuts_strategy);
-      doBranchAndBoundNoCuts(params, solver, origBBInfoCbcCutsOn);
-    }
-
-    if (DO_CUTSOFF) {
-      // Cuts off
-#ifdef TRACE
-  printf("Performing branch-and-bound with Cbc (cuts off) on original instance.\n");
-#endif
-      params.set(BB_STRATEGY,
-          cutsoff_yesusercuts_strategy);
-      doBranchAndBoundNoCuts(params, solver, origBBInfoCbcCutsOff);
-    }
-  } /* cbc */
-
-  // Cplex
-  BBInfo origBBInfoCplexDefault, origBBInfoCplexCutsOn, origBBInfoCplexCutsOff;
-#ifdef VPC_USE_CPLEX
-  if (strategy & BB_Strategy_Options::cplex) {
-    if (DO_DEFAULT) {
-      // Default
-  #ifdef TRACE
-      printf("Performing branch-and-bound with Cplex (default) on original instance.\n");
-  #endif
-      params.set(BB_STRATEGY, default_yesusercuts_strategy);
-      doBranchAndBoundWithCplexCallable(filename.c_str(), origBBInfoCplexDefault);
-    }
-
-    if (DO_CUTSON) {
-      // Cuts on
-#ifdef TRACE
-      printf("Performing branch-and-bound with Cplex (cuts on) on original instance.\n");
-#endif
-      params.set(BB_STRATEGY, cutson_yesusercuts_strategy);
-      doBranchAndBoundWithCplexCallable(filename.c_str(), origBBInfoCplexCutsOn);
-    }
-
-    if (DO_CUTSOFF) {
-      // Cuts off
-#ifdef TRACE
-      printf("Performing branch-and-bound with Cplex (cuts off) on original instance.\n");
-#endif
-      params.set(BB_STRATEGY, cutsoff_yesusercuts_strategy);
-      doBranchAndBoundWithCplexCallable(filename.c_str(), origBBInfoCplexCutsOff);
-    }
-  } /* cplex */
-#endif
-
-  // Gurobi
-  BBInfo origBBInfoGurobiDefault, origBBInfoGurobiCutsOn, origBBInfoGurobiCutsOff;
-#ifdef USE_GUROBI
-  if (use_bb_option(strategy, BB_Strategy_Options::gurobi)) {
-    if (DO_DEFAULT) {
-      // Default
-  #ifdef TRACE
-      printf("Performing branch-and-bound with Gurobi (default) on original instance.\n");
-  #endif
-      doBranchAndBoundWithGurobi(params, default_yesusercuts_strategy, filename.c_str(), origBBInfoGurobiDefault);
-    }
-
-    if (DO_CUTSON) {
-      // Cuts on
-#ifdef TRACE
-      printf("Performing branch-and-bound with Gurobi (cuts on) on original instance.\n");
-#endif
-      doBranchAndBoundWithGurobi(params, cutson_yesusercuts_strategy, filename.c_str(), origBBInfoGurobiCutsOn);
-    }
-
-    if (DO_CUTSOFF) {
-      // Cuts off
-#ifdef TRACE
-      printf("Performing branch-and-bound with Gurobi (cuts off) on original instance.\n");
-#endif
-      doBranchAndBoundWithGurobi(params, cutsoff_yesusercuts_strategy, filename.c_str(), origBBInfoGurobiCutsOff);
-    }
-  } /* gurobi */
-#endif
+  runBBTests(params, &orig_info, NULL, NULL,
+      params.get(stringParam::FILENAME),
+      solver, ip_obj, NULL, NULL);
 
   /********** Now we do the cleaning **********/
+  SolverInterface* cleanedSolver = new SolverInterface;
   std::string presolved_name_stub =
       (CLEANING_MODE_OPTION <= 1) ? filename + "_presolved" : "";
   const std::string cleaned_name =
       (CLEANING_MODE_OPTION <= 1) ?
           presolved_name_stub : filename + "_cleaned.mps";
 
-  // First get presolved opt using CPLEX / Gurobi
-  double presolvedLPOptCplex = 0., presolvedLPOptGurobi = 0.;
-#ifdef VPC_USE_CPLEX
-  if (strategy & BB_Strategy_Options::cplex) {
-#ifdef TRACE
-    printf("Presolve model with Cplex.\n");
-#endif
-    presolveModelWithCplexCallable(
-        filename.c_str(), presolvedLPOptCplex,
-        presolved_name_stub); // returns mps.gz
-    solver->readMps(presolved_name_stub.c_str());
-
-    // Make sure we are doing a minimization problem; this is just to make later
-    // comparisons simpler (i.e., a higher LP obj after adding the cut is better).
-    if (solver->getObjSense() < param.getEPS()) {
-      printf(
-          "\n## Detected maximization problem. Negating objective function to make it minimization. ##\n");
-      solver->setObjSense(1.0);
-      const double* obj = solver->getObjCoefficients();
-      for (int col = 0; col < solver->getNumCols(); col++) {
-        solver->setObjCoeff(col, -1. * obj[col]);
-      }
-      double objOffset = 0.;
-      solver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
-      if (objOffset != 0.) {
-        solver->setDblParam(OsiDblParam::OsiObjOffset, -1. * objOffset);
-      }
-    }
-
-    // Perform initial solve
-    solver->initialSolve();
-    if (!checkSolverOptimality(solver, false)) {
-      error_msg(errorstring, "After initial solve, solver is not optimal.\n");
-      writeErrorToLog(errorstring, params.logfile);
-      exit(1);
-    }
-
-    if (CLEANING_MODE_OPTION > 1) {
-      remove(presolved_name_stub.c_str()); // remove the temporary file
-    }
-  }
-#endif // use_cplex
+  // First get presolved opt using commercial solver of choice
+  double presolvedLPOpt;
+  int numBoundsChanged = 0;
 #ifdef USE_GUROBI
   if (use_bb_option(strategy, BB_Strategy_Options::gurobi)) {
 #ifdef TRACE
     printf("Presolve model with Gurobi.\n");
 #endif
     presolveModelWithGurobi(params, strategy, filename.c_str(),
-        presolvedLPOptGurobi, presolved_name_stub, ip_obj); // returns mps.gz
-    solver->readMps(presolved_name_stub.c_str());
+        presolvedLPOpt, presolved_name_stub, ip_obj); // returns mps.gz
+    cleanedSolver->readMps(presolved_name_stub.c_str());
+
+    // Check if any bounds were changed, but only if no rows/cols deleted
+    // NB: this is being done to avoid redoing BB in case presolve did nothing
+    // If the # of rows and cols are the same and all their bounds are the same...
+    // it seems safe to assume that the instance has not changed
+    if (solver->getNumRows() == cleanedSolver->getNumRows()) {
+      for (int row = 0; row < cleanedSolver->getNumRows(); row++) {
+        if (!isVal(solver->getRightHandSide()[row],
+            cleanedSolver->getRightHandSide()[row])) {
+          numBoundsChanged++;
+        }
+      }
+    }
+    if (solver->getNumCols() == cleanedSolver->getNumCols()) {
+      for (int col = 0; col < cleanedSolver->getNumCols(); col++) {
+        if (!isVal(solver->getColLower()[col],
+            cleanedSolver->getColLower()[col])) {
+          numBoundsChanged++;
+        }
+        if (!isVal(solver->getColUpper()[col],
+            cleanedSolver->getColUpper()[col])) {
+          numBoundsChanged++;
+        }
+      }
+    }
 
     // Make sure we are doing a minimization problem; this is just to make later
     // comparisons simpler (i.e., a higher LP obj after adding the cut is better).
-    if (solver->getObjSense() < 1e-3) {
+    if (cleanedSolver->getObjSense() < 1e-3) {
       printf(
           "\n## Detected maximization problem. Negating objective function to make it minimization. ##\n");
-      solver->setObjSense(1.0);
-      const double* obj = solver->getObjCoefficients();
-      for (int col = 0; col < solver->getNumCols(); col++) {
-        solver->setObjCoeff(col, -1. * obj[col]);
+      cleanedSolver->setObjSense(1.0);
+      const double* obj = cleanedSolver->getObjCoefficients();
+      for (int col = 0; col < cleanedSolver->getNumCols(); col++) {
+        cleanedSolver->setObjCoeff(col, -1. * obj[col]);
       }
       double objOffset = 0.;
-      solver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
+      cleanedSolver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
       if (objOffset != 0.) {
-        solver->setDblParam(OsiDblParam::OsiObjOffset, -1. * objOffset);
+        cleanedSolver->setDblParam(OsiDblParam::OsiObjOffset, -1. * objOffset);
       }
     }
 
     // Perform initial solve
-    solver->initialSolve();
-    if (!checkSolverOptimality(solver, false)) {
+    cleanedSolver->initialSolve();
+    if (!checkSolverOptimality(cleanedSolver, false)) {
       error_msg(errorstring, "After initial solve, solver is not optimal.\n");
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
@@ -269,428 +125,83 @@ void performCleaning(const VPCParameters& orig_params,
     if (CLEANING_MODE_OPTION > 1) {
       remove(presolved_name_stub.c_str()); // remove the temporary file
     }
-  }
+  } // gurobi
 #endif // use_gurobi
 
-  // Now clean using our own methods
-  bool is_clean = (CLEANING_MODE_OPTION <= 1);
-  while (!is_clean) {
+  // Now (perhaps) clean using our own methods
+  int numSBFixed = 0;
+  if (CLEANING_MODE_OPTION > 1) {
+    bool is_clean = false; // 2 (or higher) = do our own cleaning
+    const int MAX_ITER = 5;
+    int iter = 0;
+    while (!is_clean && iter < MAX_ITER) {
 #ifdef TRACE
-    printf("Clean model with custom method (remove one-sided split disjunctions and tighten bounds, iteratively).\n");
+      printf("Clean model with custom method (remove one-sided split disjunctions and tighten bounds, iteratively).\n");
 #endif
-    is_clean = true; //cleanProblem(solver, numBoundsChanged, numSBFixed);
-  }
+      is_clean = cleanProblem(params, cleanedSolver, numBoundsChanged, numSBFixed);
+      iter++;
+    }
+    cleanedSolver->writeMps(cleaned_name.c_str(), "", cleanedSolver->getObjSense());
+
+    if (numBoundsChanged > 0 || numSBFixed > 0) {
+      cleanedSolver->resolve();
+      if (!checkSolverOptimality(cleanedSolver, false)) {
+        error_msg(errorstring, "After specialized cleaning, cleanedSolver is not optimal.\n");
+        writeErrorToLog(errorstring, params.logfile);
+        exit(1);
+      }
+    }
+  } // check cleaning mode > 1
 
   // Get new solver info, including primal and dual degeneracy values
-  const int cleanedNumCols = solver->getNumCols();
-  const int cleanedNumRows = solver->getNumRows();
-  const int cleanedNumNonZero = solver->getMatrixByRow()->getNumElements();
-  int cleanedNumInteger = 0, cleanedNumBinary = 0;
-  int cleanedPrimalDegen = 0, cleanedDualDegen = 0;
-  int cleanedNumSICs = 0, cleanedNumSICsRd2 = 0, cleanedNumSICsStr = 0, cleanedNumSICsStrRd2 = 0;
-  double cleanedSICOpt = 0., cleanedSICOptRd2 = 0.;
-  double cleanedSICStrOpt = 0., cleanedSICStrOptRd2 = 0.;
-
-  // Resolve
-  if (cleanedNumNonZero > 0) {
-    solver->resolve();
-    if (!checkSolverOptimality(solver, false)) {
-      error_msg(errorstring, "After cleaning, solver is not optimal.\n");
-      writeErrorToLog(errorstring, params.logfile);
-      exit(1);
-    }
-  }
-  const double cleanedLPOpt = (cleanedNumNonZero > 0) ? solver->getObjValue() : ip_obj;
-
-  if (CLEANING_MODE_OPTION > 1) {
-    // Save cleaned LP to in directory
-    solver->writeMps(cleaned_name.c_str(), "", solver->getObjSense());
-  }
+  const int cleanedNumCols = cleanedSolver->getNumCols();
+  const int cleanedNumRows = cleanedSolver->getNumRows();
+  const int cleanedNumNonZero = cleanedSolver->getMatrixByRow()->getNumElements();
+  const double cleanedLPOpt = (cleanedNumNonZero > 0) ? cleanedSolver->getObjValue() : ip_obj;
 
   // Set up new BBInfos
-  BBInfo cleanedBBInfoCbcDefault, cleanedSICStrBBInfoCbcDefault;
-  BBInfo cleanedBBInfoCbcCutsOn, cleanedSICStrBBInfoCbcCutsOn;
-  BBInfo cleanedBBInfoCbcCutsOff, cleanedSICStrBBInfoCbcCutsOff;
-
-  BBInfo cleanedBBInfoCplexDefault, cleanedSICStrBBInfoCplexDefault;
-  BBInfo cleanedBBInfoCplexCutsOn, cleanedSICStrBBInfoCplexCutsOn;
-  BBInfo cleanedBBInfoCplexCutsOff, cleanedSICStrBBInfoCplexCutsOff;
-
-  BBInfo cleanedBBInfoGurobiDefault, cleanedSICStrBBInfoGurobiDefault;
-  BBInfo cleanedBBInfoGurobiCutsOn, cleanedSICStrBBInfoGurobiCutsOn;
-  BBInfo cleanedBBInfoGurobiCutsOff, cleanedSICStrBBInfoGurobiCutsOff;
-
+  SummaryBBInfo cleaned_info;
   const bool was_cleaned = (numSBFixed > 0) || (numBoundsChanged > 0)
-      || (cleanedNumCols != numOrigCols)
-      || (cleanedNumRows != numOrigRows)
-      || (cleanedNumNonZero != numNonZero);
+      || (cleanedNumCols != origNumCols) || (cleanedNumRows != origNumRows)
+      || (cleanedNumNonZero != origNumNonZero);
   if (cleanedNumNonZero > 0 && was_cleaned) {
 #ifdef TRACE
-  printf("Collecting information about cleaned instance.\n");
+    printf("Performing branch-and-bound on cleaned instance.\n");
 #endif
-    for (int col = 0; col < solver->getNumCols(); col++) {
-      if (solver->isInteger(col)) {
-        cleanedNumInteger++;
-        if (solver->isBinary(col)) {
-          cleanedNumBinary++;
-        }
-      }
-
-      const bool isBasic = isBasicCol(solver, col);
-      const double val = solver->getColSolution()[col];
-      const double lb = solver->getColLower()[col];
-      const double ub = solver->getColUpper()[col];
-      if (isBasic && (isVal(val, lb) || isVal(val, ub))) {
-        cleanedPrimalDegen++;
-      }
-      if (!isBasic && isZero(solver->getReducedCost()[col])) {
-        cleanedDualDegen++;
-      }
-    }
-    for (int row = 0; row < solver->getNumRows(); row++) {
-      const bool isBasic = isBasicSlack(solver, row);
-      const double val = std::abs(solver->getRowActivity()[row] - solver->getRightHandSide()[row]);
-      if (isBasic && isZero(val)) {
-        cleanedPrimalDegen++;
-      }
-      if (!isBasic && isZero(solver->getRowPrice()[row])) {
-        cleanedDualDegen++;
-      }
-    }
-
-    // Cbc
-    if (use_bb_option(strategy, BB_Strategy_Options::cbc)) {
-      if (DO_DEFAULT) {
-        // Default
-  #ifdef TRACE
-        printf("Performing branch-and-bound with Cbc (default) on cleaned instance.\n");
-  #endif
-        params.set(BB_STRATEGY, default_yesusercuts_strategy);
-        doBranchAndBoundNoCuts(params, solver, cleanedBBInfoCbcDefault);
-      }
-
-      if (DO_CUTSON) {
-        // Cuts on
-#ifdef TRACE
-        printf("Performing branch-and-bound with Cbc (cuts on) on cleaned instance.\n");
-#endif
-        params.set(BB_STRATEGY, cutson_yesusercuts_strategy);
-        doBranchAndBoundNoCuts(params, solver, cleanedBBInfoCbcCutsOn);
-      }
-
-      if (DO_CUTSOFF) {
-        // Cuts off
-#ifdef TRACE
-        printf("Performing branch-and-bound with Cbc (cuts off) on cleaned instance.\n");
-#endif
-        params.set(BB_STRATEGY, cutsoff_yesusercuts_strategy);
-        doBranchAndBoundNoCuts(params, solver, cleanedBBInfoCbcCutsOff);
-      }
-    } /* cbc */
-
-#ifdef VPC_USE_CPLEX
-    // Cplex
-    if (strategy & BB_Strategy_Options::cplex) {
-      if (DO_DEFAULT) {
-        // Default
-  #ifdef TRACE
-        printf("Performing branch-and-bound with Cplex (default) on cleaned instance.\n");
-  #endif
-        params.set(BB_STRATEGY, default_yesusercuts_strategy);
-        doBranchAndBoundWithCplexCallable(cleaned_name.c_str(), cleanedBBInfoCplexDefault);
-      }
-
-      if (DO_CUTSON) {
-        // Cuts on
-#ifdef TRACE
-        printf("Performing branch-and-bound with Cplex (cuts on) on cleaned instance.\n");
-#endif
-        params.set(BB_STRATEGY, cutson_yesusercuts_strategy);
-        doBranchAndBoundWithCplexCallable(cleaned_name.c_str(), cleanedBBInfoCplexCutsOn);
-      }
-
-      if (DO_CUTSOFF) {
-        // Cuts off
-#ifdef TRACE
-        printf("Performing branch-and-bound with Cplex (cuts off) on cleaned instance.\n");
-#endif
-        params.set(BB_STRATEGY, cutsoff_yesusercuts_strategy);
-        doBranchAndBoundWithCplexCallable(cleaned_name.c_str(), cleanedBBInfoCplexCutsOff);
-      }
-    } /* cplex */
-#endif
-
-#ifdef USE_GUROBI
-    // Gurobi
-    if (use_bb_option(strategy, BB_Strategy_Options::gurobi)) {
-      if (DO_DEFAULT) {
-        // Default
-  #ifdef TRACE
-        printf("Performing branch-and-bound with Gurobi (default) on cleaned instance.\n");
-  #endif
-        doBranchAndBoundWithGurobi(params, default_yesusercuts_strategy, cleaned_name.c_str(), cleanedBBInfoGurobiDefault);
-      }
-
-      if (DO_CUTSON) {
-        // Cuts on
-#ifdef TRACE
-        printf("Performing branch-and-bound with Gurobi (cuts on) on cleaned instance.\n");
-#endif
-        doBranchAndBoundWithGurobi(params, cutson_yesusercuts_strategy, cleaned_name.c_str(), cleanedBBInfoGurobiCutsOn);
-      }
-
-      if (DO_CUTSOFF) {
-        // Cuts off
-#ifdef TRACE
-        printf("Performing branch-and-bound with Gurobi (cuts off) on cleaned instance.\n");
-#endif
-        doBranchAndBoundWithGurobi(params, cutsoff_yesusercuts_strategy, cleaned_name.c_str(), cleanedBBInfoGurobiCutsOff);
-      }
-    } /* gurobi */
-#endif // use_gurobi
+    runBBTests(params, &cleaned_info, NULL, NULL, cleaned_name, cleanedSolver,
+        ip_obj, NULL, NULL);
   } /* check if any cleaning was performed */
   else if (cleanedNumNonZero == 0) {
-    presolvedLPOptCplex = ip_obj;
-    presolvedLPOptGurobi = ip_obj;
-    cleanedSICOpt = ip_obj;
-    cleanedSICOptRd2 = ip_obj;
-    cleanedSICStrOpt = ip_obj;
-    cleanedSICStrOptRd2 = ip_obj;
-
-    // Cbc
-    initializeBBInfo(cleanedBBInfoCbcDefault, ip_obj);
-    initializeBBInfo(cleanedBBInfoCbcCutsOn, ip_obj);
-    initializeBBInfo(cleanedBBInfoCbcCutsOff, ip_obj);
-    initializeBBInfo(cleanedSICStrBBInfoCbcDefault, ip_obj);
-    initializeBBInfo(cleanedSICStrBBInfoCbcCutsOn, ip_obj);
-    initializeBBInfo(cleanedSICStrBBInfoCbcCutsOff, ip_obj);
-
-    // Cplex
-    initializeBBInfo(cleanedBBInfoCplexDefault, ip_obj);
-    initializeBBInfo(cleanedBBInfoCplexCutsOn, ip_obj);
-    initializeBBInfo(cleanedBBInfoCplexCutsOff, ip_obj);
-    initializeBBInfo(cleanedSICStrBBInfoCplexDefault, ip_obj);
-    initializeBBInfo(cleanedSICStrBBInfoCplexCutsOn, ip_obj);
-    initializeBBInfo(cleanedSICStrBBInfoCplexCutsOff, ip_obj);
-
-    // Gurobi
-    initializeBBInfo(cleanedBBInfoGurobiDefault, ip_obj);
-    initializeBBInfo(cleanedBBInfoGurobiCutsOn, ip_obj);
-    initializeBBInfo(cleanedBBInfoGurobiCutsOff, ip_obj);
+    presolvedLPOpt = ip_obj;
+//    initializeBBInfo(cleanedBBInfo, ip_obj);
   } /* check if cleaning yielded an empty problem */
   else {
-    cleanedNumInteger = numInteger;
-    cleanedNumBinary = numBinary;
-    cleanedPrimalDegen = origPrimalDegen;
-    cleanedDualDegen = origDualDegen;
-
-    // Cbc
-    cleanedBBInfoCbcDefault = origBBInfoCbcDefault;
-    cleanedBBInfoCbcCutsOn = origBBInfoCbcCutsOn;
-    cleanedBBInfoCbcCutsOff= origBBInfoCbcCutsOff;
-
-//    cleanedSICStrBBInfoCbcDefault = origSICStrBBInfoCbcDefault;
-//    cleanedSICStrBBInfoCbcCutsOn = origSICStrBBInfoCbcCutsOn;
-//    cleanedSICStrBBInfoCbcCutsOff = origSICStrBBInfoCbcCutsOff;
-
-    // Cplex
-    cleanedBBInfoCplexDefault = origBBInfoCplexDefault;
-    cleanedBBInfoCplexCutsOn = origBBInfoCplexCutsOn;
-    cleanedBBInfoCplexCutsOff = origBBInfoCplexCutsOff;
-//
-//    cleanedSICStrBBInfoCplexDefault = origSICStrBBInfoCplexDefault;
-//    cleanedSICStrBBInfoCplexCutsOn = origSICStrBBInfoCplexCutsOn;
-//    cleanedSICStrBBInfoCplexCutsOff = origSICStrBBInfoCplexCutsOff;
-
-    // Gurobi
-    cleanedBBInfoGurobiDefault = origBBInfoGurobiDefault;
-    cleanedBBInfoGurobiCutsOn = origBBInfoGurobiCutsOn;
-    cleanedBBInfoGurobiCutsOff = origBBInfoGurobiCutsOff;
-
-//    cleanedSICStrBBInfoGurobiDefault = origSICStrBBInfoGurobiDefault;
-//    cleanedSICStrBBInfoGurobiCutsOn = origSICStrBBInfoGurobiCutsOn;
-//    cleanedSICStrBBInfoGurobiCutsOff = origSICStrBBInfoGurobiCutsOff;
-
-//    cleanedNumSICs = structSICsOriginal.sizeCuts();
-//    cleanedNumSICsRd2 = structSICsOriginalRd2.sizeCuts();
-//    cleanedNumSICsStr = structSICsOriginalStr.sizeCuts();
-//    cleanedNumSICsStrRd2 = structSICsOriginalRd2Str.sizeCuts();
-//    cleanedSICOpt = origSICOpt;
-//    cleanedSICOptRd2 = origSICOptRd2;
-//    cleanedSICStrOpt = origSICStrOpt;
-//    cleanedSICStrOptRd2 = origSICStrOptRd2;
+    cleaned_info = orig_info;
   } /* strong branching did nothing so do not repeat the experiments */
 
-  // Reset B&B strategy
-  params.set(BB_STRATEGY, strategy);
+  // Now save everything to the logfile; instance name is already saved
+  fprintf(logfile, "%d%c", strategy, SEP);
+  { // BOUND INFO
+    int count = 0;
+    fprintf(logfile, "%s%c", stringValue(origLPOpt, "%2.20f").c_str(), SEP); count++;
+    fprintf(logfile, "%s%c", stringValue(cleanedLPOpt, "%2.20f").c_str(), SEP); count++;
+    assert( count == countBoundInfoEntries );
+  }
+  printSummaryBBInfo({orig_info, cleaned_info}, logfile);
+  printOrigProbInfo(solver, logfile, SEP);
+  printOrigProbInfo(cleanedSolver, logfile, SEP);
+  fprintf(logfile, "%d%c", numBoundsChanged, SEP);
+  fprintf(logfile, "%d%c", numSBFixed, SEP);
+  printFullBBInfo({orig_info, cleaned_info}, logfile);
 
-//  //// Original problem
-//  writeEntryToLog(numOrigRows, params.logfile);
-//  writeEntryToLog(numOrigCols, params.logfile);
-//  writeEntryToLog(numNonZero, params.logfile);
-//  writeEntryToLog(numInteger, params.logfile);
-//  writeEntryToLog(numBinary, params.logfile);
-//  writeEntryToLog(origLPOpt, params.logfile);
-//  writeEntryToLog(origSBLB, params.logfile);
-//  writeEntryToLog(origPrimalDegen, params.logfile);
-//  writeEntryToLog(origDualDegen, params.logfile);
-//  writeEntryToLog(structSICsOriginal.sizeCuts(), params.logfile);
-//  writeEntryToLog(origSICOpt, params.logfile);
-//  writeEntryToLog(structSICsOriginalRd2.sizeCuts(), params.logfile);
-//  writeEntryToLog(origSICOptRd2, params.logfile);
-//  writeEntryToLog(structSICsOriginalStr.sizeCuts(), params.logfile);
-//  writeEntryToLog(origSICStrOpt, params.logfile);
-//  writeEntryToLog(structSICsOriginalRd2Str.sizeCuts(), params.logfile);
-//  writeEntryToLog(origSICStrOptRd2, params.logfile);
-//  // Cbc
-//  if (param.getParamVal(ParamIndices::BB_STRATEGY_PARAM_IND) & BB_Strategy_Options::cbc) {
-//    printBBInfo(origBBInfoCbcDefault, params.logfile, !DO_DEFAULT);
-//    printBBInfo(origBBInfoCbcCutsOn, params.logfile, !DO_CUTSON);
-//    printBBInfo(origBBInfoCbcCutsOff, params.logfile, !DO_CUTSOFF);
-//    printBBInfo(origSICStrBBInfoCbcDefault, params.logfile,
-//        !(DO_BRANCHING_WITH_SICS && DO_DEFAULT));
-//    printBBInfo(origSICStrBBInfoCbcCutsOn, params.logfile,
-//        !(DO_BRANCHING_WITH_SICS && DO_CUTSON));
-//    printBBInfo(origSICStrBBInfoCbcCutsOff, params.logfile,
-//        !(DO_BRANCHING_WITH_SICS && DO_CUTSOFF));
-//  } /* cbc */
-//  else {
-//    for (int i = 0; i < (int) BB_INFO_CONTENTS.size() * 6; i++) {
-//      writeEntryToLog("", params.logfile);
-//    }
-//  }
-//  // Cplex
-//  if (param.getParamVal(ParamIndices::BB_STRATEGY_PARAM_IND) & BB_Strategy_Options::cplex) {
-//    printBBInfo(origBBInfoCplexDefault, params.logfile, !DO_DEFAULT);
-//    printBBInfo(origBBInfoCplexCutsOn, params.logfile, !DO_CUTSON);
-//    printBBInfo(origBBInfoCplexCutsOff, params.logfile, !DO_CUTSOFF);
-//    printBBInfo(origSICStrBBInfoCplexDefault, params.logfile,
-//        !(DO_BRANCHING_WITH_SICS && DO_DEFAULT));
-//    printBBInfo(origSICStrBBInfoCplexCutsOn, params.logfile,
-//        !(DO_BRANCHING_WITH_SICS && DO_CUTSON));
-//    printBBInfo(origSICStrBBInfoCplexCutsOff, params.logfile,
-//        !(DO_BRANCHING_WITH_SICS && DO_CUTSOFF));
-//  } /* cplex */
-//  else {
-//    for (int i = 0; i < (int) BB_INFO_CONTENTS.size() * 6; i++) {
-//      writeEntryToLog("", params.logfile);
-//    }
-//  }
-//  // Gurobi
-//  if (param.getParamVal(ParamIndices::BB_STRATEGY_PARAM_IND) & BB_Strategy_Options::gurobi) {
-//    printBBInfo(origBBInfoGurobiDefault, params.logfile, !DO_DEFAULT);
-//    printBBInfo(origBBInfoGurobiCutsOn, params.logfile, !DO_CUTSON);
-//    printBBInfo(origBBInfoGurobiCutsOff, params.logfile,
-//        !DO_CUTSOFF);
-//    printBBInfo(origSICStrBBInfoGurobiDefault, params.logfile,
-//        !(DO_BRANCHING_WITH_SICS && DO_DEFAULT));
-//    printBBInfo(origSICStrBBInfoGurobiCutsOn, params.logfile,
-//        !(DO_BRANCHING_WITH_SICS && DO_CUTSON));
-//    printBBInfo(origSICStrBBInfoGurobiCutsOff, params.logfile,
-//        !(DO_BRANCHING_WITH_SICS && DO_CUTSOFF));
-//  } /* gurobi */
-//  else {
-//    for (int i = 0; i < (int) BB_INFO_CONTENTS.size() * 6; i++) {
-//      writeEntryToLog("", params.logfile);
-//    }
-//  }
-//  //// Cleaned problem
-//  writeEntryToLog(solver->getNumRows(), params.logfile);
-//  writeEntryToLog(solver->getNumCols(), params.logfile);
-//  writeEntryToLog(cleanedNumNonZero, params.logfile);
-//  writeEntryToLog(cleanedNumInteger, params.logfile);
-//  writeEntryToLog(cleanedNumBinary, params.logfile);
-//  writeEntryToLog(numBoundsChanged, params.logfile);
-//  writeEntryToLog(numSBFixed, params.logfile);
-//  if (param.getParamVal(ParamIndices::BB_STRATEGY_PARAM_IND) & BB_Strategy_Options::cplex) {
-//    writeEntryToLog(presolvedLPOptCplex, params.logfile);
-//  } else {
-//    writeEntryToLog("", params.logfile);
-//  }
-//  if (param.getParamVal(ParamIndices::BB_STRATEGY_PARAM_IND) & BB_Strategy_Options::gurobi) {
-//    writeEntryToLog(presolvedLPOptGurobi, params.logfile);
-//  } else {
-//    writeEntryToLog("", params.logfile);
-//  }
-//  writeEntryToLog(cleanedLPOpt, params.logfile);
-//  writeEntryToLog(cleanedSBLB, params.logfile);
-//  writeEntryToLog(cleanedPrimalDegen, params.logfile);
-//  writeEntryToLog(cleanedDualDegen, params.logfile);
-//  writeEntryToLog(cleanedNumSICs, params.logfile);
-//  writeEntryToLog(cleanedSICOpt, params.logfile);
-//  writeEntryToLog(cleanedNumSICsRd2, params.logfile);
-//  writeEntryToLog(cleanedSICOptRd2, params.logfile);
-//  writeEntryToLog(cleanedNumSICsStr, params.logfile);
-//  writeEntryToLog(cleanedSICStrOpt, params.logfile);
-//  writeEntryToLog(cleanedNumSICsStrRd2, params.logfile);
-//  writeEntryToLog(cleanedSICStrOptRd2, params.logfile);
-//  // Cbc
-//  if (param.getParamVal(ParamIndices::BB_STRATEGY_PARAM_IND) & BB_Strategy_Options::cbc) {
-//    printBBInfo(cleanedBBInfoCbcDefault, params.logfile, !DO_DEFAULT);
-//    printBBInfo(cleanedBBInfoCbcCutsOn, params.logfile, !DO_CUTSON);
-//    printBBInfo(cleanedBBInfoCbcCutsOff, params.logfile,
-//        !DO_CUTSOFF);
-//    printBBInfo(cleanedSICStrBBInfoCbcDefault, params.logfile,
-//        !(DO_BRANCHING_WITH_SICS && DO_DEFAULT));
-//    printBBInfo(cleanedSICStrBBInfoCbcCutsOn, params.logfile,
-//        !(DO_BRANCHING_WITH_SICS && DO_CUTSON));
-//    printBBInfo(cleanedSICStrBBInfoCbcCutsOff, params.logfile,
-//        !(DO_BRANCHING_WITH_SICS && DO_CUTSOFF));
-//  } /* cbc */
-//  else {
-//    for (int i = 0; i < (int) BB_INFO_CONTENTS.size() * 6; i++) {
-//      writeEntryToLog("", params.logfile);
-//    }
-//  }
-//  // Cplex
-//  if (param.getParamVal(ParamIndices::BB_STRATEGY_PARAM_IND) & BB_Strategy_Options::cplex) {
-//    printBBInfo(cleanedBBInfoCplexDefault, params.logfile,
-//        !DO_DEFAULT);
-//    printBBInfo(cleanedBBInfoCplexCutsOn, params.logfile,
-//        !DO_CUTSON);
-//    printBBInfo(cleanedBBInfoCplexCutsOff, params.logfile,
-//        !DO_CUTSOFF);
-//    printBBInfo(cleanedSICStrBBInfoCplexDefault, params.logfile,
-//        !(DO_BRANCHING_WITH_SICS && DO_DEFAULT));
-//    printBBInfo(cleanedSICStrBBInfoCplexCutsOn, params.logfile,
-//        !(DO_BRANCHING_WITH_SICS && DO_CUTSON));
-//    printBBInfo(cleanedSICStrBBInfoCplexCutsOff, params.logfile,
-//        !(DO_BRANCHING_WITH_SICS && DO_CUTSOFF));
-//  } /* cplex */
-//  else {
-//    for (int i = 0; i < (int) BB_INFO_CONTENTS.size() * 6; i++) {
-//      writeEntryToLog("", params.logfile);
-//    }
-//  }
-//  // Gurobi
-//  if (param.getParamVal(ParamIndices::BB_STRATEGY_PARAM_IND) & BB_Strategy_Options::gurobi) {
-//    printBBInfo(cleanedBBInfoGurobiDefault, params.logfile,
-//        !DO_DEFAULT);
-//    printBBInfo(cleanedBBInfoGurobiCutsOn, params.logfile,
-//        !DO_CUTSON);
-//    printBBInfo(cleanedBBInfoGurobiCutsOff, params.logfile,
-//        !DO_CUTSOFF);
-//    printBBInfo(cleanedSICStrBBInfoGurobiDefault, params.logfile,
-//        !(DO_BRANCHING_WITH_SICS && DO_DEFAULT));
-//    printBBInfo(cleanedSICStrBBInfoGurobiCutsOn, params.logfile,
-//        !(DO_BRANCHING_WITH_SICS && DO_CUTSON));
-//    printBBInfo(cleanedSICStrBBInfoGurobiCutsOff, params.logfile,
-//        !(DO_BRANCHING_WITH_SICS && DO_CUTSOFF));
-//  } /* gurobi */
-//  else {
-//    for (int i = 0; i < (int) BB_INFO_CONTENTS.size() * 6; i++) {
-//      writeEntryToLog("", params.logfile);
-//    }
-//  }
-//  writeEntryToLog(GlobalVariables::timeStats.get_total_time(INIT_SOLVE_TIME),
-//      params.logfile);
+  if (cleanedSolver) { delete cleanedSolver; }
 } /* performCleaning */
 
 /**
  * Makes sure no variable bounds can be tightened,
  * including via strong branching
  */
-bool cleanProblem(const VPCParameters& params, OsiClpSolverInterface* solver,
+bool cleanProblem(const VPCParameters& params, OsiSolverInterface* solver,
     int& numBoundsChanged, int& numSBFixed) {
   bool is_clean = true;
 
@@ -702,8 +213,7 @@ bool cleanProblem(const VPCParameters& params, OsiClpSolverInterface* solver,
   std::vector<double> obj(numCols, 0.);
 
   // Set up solver for checking bounds
-  OsiClpSolverInterface* boundSolver =
-      dynamic_cast<OsiClpSolverInterface*>(solver->clone());
+  OsiSolverInterface* boundSolver = solver->clone();
   boundSolver->setObjective(obj.data());
   boundSolver->setObjSense(solver->getObjSense());
   double objOffset = 0.;
@@ -711,7 +221,13 @@ bool cleanProblem(const VPCParameters& params, OsiClpSolverInterface* solver,
   boundSolver->setDblParam(OsiDblParam::OsiObjOffset, objOffset);
 
   // For strong branching
-  setupClpForStrongBranching(solver);
+  try {
+#ifdef USE_CLP
+    setupClpForStrongBranching(dynamic_cast<OsiClpSolverInterface*>(solver));
+#endif
+  } catch (std::exception& e) {
+    // continue anyway
+  }
   solver->enableFactorization();
   solver->markHotStart();
   for (int col = 0; col < numCols; col++) {
@@ -830,3 +346,110 @@ bool cleanProblem(const VPCParameters& params, OsiClpSolverInterface* solver,
 
   return is_clean;
 } /* cleanProblem */
+
+void printPreprocessingHeader(const VPCParameters& params, const char SEP) {
+  FILE* logfile = params.logfile;
+  if (logfile == NULL)
+    return;
+
+  // First line of the header details the categories of information displayed
+  std::string tmpstring = "";
+  fprintf(logfile, "%c", SEP); // instance name
+  fprintf(logfile, "%c", SEP); // bb strategy
+  fprintf(logfile, "%s", "BOUND INFO");
+  tmpstring.assign(countBoundInfoEntries, SEP);
+  fprintf(logfile, "%s", tmpstring.c_str());
+  fprintf(logfile, "%s", "BB INFO");
+  tmpstring.assign(countSummaryBBInfoEntries, SEP);
+  fprintf(logfile, "%s", tmpstring.c_str());
+  fprintf(logfile, "%s", "ORIG PROB INFO");
+  tmpstring.assign(countOrigProbEntries, SEP);
+  fprintf(logfile, "%s", tmpstring.c_str());
+  fprintf(logfile, "%s", "CLEANED PROB INFO");
+  tmpstring.assign(countCleanedProbEntries, SEP);
+  fprintf(logfile, "%s", tmpstring.c_str());
+  fprintf(logfile, "%s", "FULL BB INFO");
+  tmpstring.assign(countFullBBInfoEntries, SEP);
+  fprintf(logfile, "%s", tmpstring.c_str());
+  fprintf(logfile, "%s", "END");
+  fprintf(logfile, "\n");
+
+  fprintf(logfile, "%s%c", "INSTANCE", SEP);
+  fprintf(logfile, "%s%c", "STRATEGY", SEP);
+  { // BOUND INFO
+    int count = 0;
+    fprintf(logfile, "%s%c", "ORIG LP OBJ", SEP); count++;  // 1
+    fprintf(logfile, "%s%c", "CLEANED LP OBJ", SEP); count++;  // 1
+    assert(count == countBoundInfoEntries);
+  }
+  { // BB INFO
+    int count = 0;
+    std::vector<std::string> nameVec = {"NODES", "TIME"};
+    for (auto name : nameVec) {
+      fprintf(logfile, "%s%c", ("ORIG FIRST GUR " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("CLEANED FIRST GUR " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("ORIG BEST GUR " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("CLEANED BEST GUR " + name).c_str(), SEP); count++;
+    }
+    assert(count == countSummaryBBInfoEntries);
+  } // BB INFO
+  { // ORIG PROB
+    int count = 0;
+    fprintf(logfile, "%s%c", "ORIG ROWS", SEP); count++;
+    fprintf(logfile, "%s%c", "ORIG COLS", SEP); count++;
+    fprintf(logfile, "%s%c", "ORIG NUM FRAC", SEP); count++;
+    fprintf(logfile, "%s%c", "ORIG MIN FRACTIONALITY", SEP); count++;
+    fprintf(logfile, "%s%c", "ORIG MAX FRACTIONALITY", SEP); count++;
+    fprintf(logfile, "%s%c", "ORIG EQ ROWS", SEP); count++;
+    fprintf(logfile, "%s%c", "ORIG BOUND ROWS", SEP); count++;
+    fprintf(logfile, "%s%c", "ORIG ASSIGN ROWS", SEP); count++;
+    fprintf(logfile, "%s%c", "ORIG FIXED COLS", SEP); count++;
+    fprintf(logfile, "%s%c", "ORIG GEN INT", SEP); count++;
+    fprintf(logfile, "%s%c", "ORIG BINARY", SEP); count++;
+    fprintf(logfile, "%s%c", "ORIG CONTINUOUS", SEP); count++;
+    fprintf(logfile, "%s%c", "ORIG A-DENSITY", SEP); count++;
+    assert(count == countOrigProbEntries);
+  } // ORIG PROB
+  { // CLEANED PROB
+    int count = 0;
+    fprintf(logfile, "%s%c", "CLEANED ROWS", SEP); count++;
+    fprintf(logfile, "%s%c", "CLEANED COLS", SEP); count++;
+    fprintf(logfile, "%s%c", "CLEANED NUM FRAC", SEP); count++;
+    fprintf(logfile, "%s%c", "CLEANED MIN FRACTIONALITY", SEP); count++;
+    fprintf(logfile, "%s%c", "CLEANED MAX FRACTIONALITY", SEP); count++;
+    fprintf(logfile, "%s%c", "CLEANED EQ ROWS", SEP); count++;
+    fprintf(logfile, "%s%c", "CLEANED BOUND ROWS", SEP); count++;
+    fprintf(logfile, "%s%c", "CLEANED ASSIGN ROWS", SEP); count++;
+    fprintf(logfile, "%s%c", "CLEANED FIXED COLS", SEP); count++;
+    fprintf(logfile, "%s%c", "CLEANED GEN INT", SEP); count++;
+    fprintf(logfile, "%s%c", "CLEANED BINARY", SEP); count++;
+    fprintf(logfile, "%s%c", "CLEANED CONTINUOUS", SEP); count++;
+    fprintf(logfile, "%s%c", "CLEANED A-DENSITY", SEP); count++;
+    fprintf(logfile, "%s%c", "CLEANED BOUNDS CHANGED", SEP); count++;
+    fprintf(logfile, "%s%c", "CLEANED NUM SB FIXED", SEP); count++;
+    assert(count == countCleanedProbEntries);
+  } // CLEANED PROB
+  { // FULL BB INFO
+    int count = 0;
+    for (std::string name : BB_INFO_CONTENTS) {
+      fprintf(logfile, "%s%c", ("ORIG FIRST GUR " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("CLEANED FIRST GUR " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("ORIG BEST GUR " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("CLEANED BEST GUR " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("ORIG AVG GUR " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("CLEANED AVG GUR " + name).c_str(), SEP); count++;
+    }
+    for (std::string name : BB_INFO_CONTENTS) {
+      fprintf(logfile, "%s%c", ("ORIG ALL GUR " + name).c_str(), SEP); count++;
+    }
+    for (std::string name : BB_INFO_CONTENTS) {
+      fprintf(logfile, "%s%c", ("CLEANED ALL GUR " + name).c_str(), SEP); count++;
+    }
+    assert(count == countFullBBInfoEntries);
+  } // FULL BB INFO
+
+  fprintf(logfile, "%s%c", "end_time_string", SEP);
+  fprintf(logfile, "%s%c", "time elapsed", SEP);
+  fprintf(logfile, "\n");
+  fflush(logfile);
+} /** printPreprocessingHeader */
