@@ -27,8 +27,8 @@ const int countFullBBInfoEntries = static_cast<int>(BB_INFO_CONTENTS.size()) * 4
  * Perform preprocessing and get statistics
  */
 void performCleaning(const VPCParameters& params,
-    OsiSolverInterface* const solver, std::string& filename, const double ip_obj,
-    const int CLEANING_MODE_OPTION, const char SEP) {
+    OsiSolverInterface* const solver, const std::string& filename,
+    const double ip_obj, const int CLEANING_MODE_OPTION, const char SEP) {
   FILE* logfile = params.logfile;
   if (logfile == NULL)
     return;

@@ -240,7 +240,7 @@ void startUp(int argc, char** argv) {
   // Get instance file
   printf("Instance file: %s.\n", params.get(stringParam::FILENAME).c_str());
 
-  std::string fullfilename = params.get(stringParam::FILENAME);
+  const std::string fullfilename = params.get(stringParam::FILENAME);
   // Get file name stub
   size_t found_dot = fullfilename.find_last_of(".");
   filename = fullfilename.substr(0, found_dot);
@@ -270,10 +270,12 @@ void startUp(int argc, char** argv) {
     filename = filename.substr(0, found_dot_tmp);
   }
 
-//  size_t slashindex = fullfilename.find_last_of("/\\");
-//  const std::string dir = (slashindex != std::string::npos) ? fullfilename.substr(0, slashindex+1) : "./";
 //  const std::string filestub = (slashindex != std::string::npos) ? fullfilename.substr(slashindex+1) : fullfilename;
   size_t slashindex = filename.find_last_of("/\\");
+//  if (params.get(stringParam::OUTDIR).empty()) {
+//    const std::string dir = (slashindex != std::string::npos) ? filename.substr(0, slashindex+1) : "./";
+//    params.set(stringParam::OUTDIR, dir);
+//  }
   instname = (slashindex != std::string::npos) ? filename.substr(slashindex+1) : filename;
 
   // Prepare logfile
@@ -552,6 +554,7 @@ void processArgs(int argc, char** argv) {
       {"logfile", required_argument, 0, 'l'},
       {"mode", required_argument, 0, 'm'},
       {"optfile", required_argument, 0, 'o'},
+//      {"outdir", required_argument, 0, 'O'},
       {"partial_bb_strategy", required_argument, 0, 's'},
       {"partial_bb_num_strong", required_argument, 0, 'S'},
       {"partial_bb_timelimit", required_argument, 0, 'T'},
@@ -654,6 +657,10 @@ void processArgs(int argc, char** argv) {
                   params.set(stringParam::OPTFILE, optarg);
                   break;
                 }
+//      case 'O': {
+//                  params.set(stringParam::OUTDIR, optarg);
+//                  break;
+//                }
       case 's': {
                   int val;
                   intParam param = intParam::PARTIAL_BB_STRATEGY;
@@ -809,6 +816,7 @@ void processArgs(int argc, char** argv) {
                 helpstring += "-i val, --ip_obj=val\n\tValue of integer optimum for this instance (takes precedence over -o/--optfile).\n";
                 helpstring += "-l logfile, --logfile=logfile\n\tWhere to print log messages.\n";
                 helpstring += "-o optfile, --optfile=optfile\n\tWhere to find integer optimum value information (a csv file formatted as \"instance_name,value\" on each row).\n";
+//                helpstring += "-O outdir, --outdir=outdir\n\tWhere to put any output (aside from the logfile).\n";
                 helpstring += "-v level, --verbosity=level\n\tVerbosity level (0: print little, 1: let solver output be visible).\n";
                 helpstring += "\n# General VPC options #\n";
                 helpstring += "-c num cuts, --cutlimit=num cuts\n\tMaximum number of cuts to generate (0 = no limit, -k = k * # fractional variables at root).\n";

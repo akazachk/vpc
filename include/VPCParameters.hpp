@@ -96,6 +96,7 @@ enum stringParam {
   FILENAME,
   LOGFILE,
   OPTFILE,
+//  OUTDIR,
   NUM_STRING_PARAMS
 }; /* stringParam */
 
@@ -383,6 +384,7 @@ struct VPCParameters {
     {doubleParam::EPS, DoubleParameter("EPS", 1e-7, 0., 1.)},
   }; /* doubleParamValues */
   std::unordered_map<stringParam, StringParameter, EnumClassHash> stringParamValues {
+//    {stringParam::OUTDIR, StringParameter("OUTDIR", "")},
     {stringParam::OPTFILE, StringParameter("OPTFILE", "")},
     {stringParam::LOGFILE, StringParameter("LOGFILE", "")},
     {stringParam::FILENAME, StringParameter("FILENAME", "")},
