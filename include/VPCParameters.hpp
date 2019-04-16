@@ -85,6 +85,7 @@ enum intParam {
 }; /* intParam */
 enum doubleParam {
   EPS,
+  IP_OBJ, // way to give just the objective for this instance rather than reading it from a file
   MIN_ORTHOGONALITY, // minimum orthogonality between cuts added to the collection
   PARTIAL_BB_TIMELIMIT,
   PRLP_TIMELIMIT, // -1 = unlimited time for initial solve, and then half that time subsequently; -2 = unlimited time always
@@ -378,6 +379,7 @@ struct VPCParameters {
     {doubleParam::PRLP_TIMELIMIT, DoubleParameter("PRLP_TIMELIMIT", -1, -1., std::numeric_limits<double>::max())},
     {doubleParam::PARTIAL_BB_TIMELIMIT, DoubleParameter("PARTIAL_BB_TIMELIMIT", 3600, 0., std::numeric_limits<double>::max())},
     {doubleParam::MIN_ORTHOGONALITY, DoubleParameter("MIN_ORTHOGONALITY", 0., 0., 1.)},
+    {doubleParam::IP_OBJ, DoubleParameter("IP_OBJ", std::numeric_limits<double>::max(), std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max())},
     {doubleParam::EPS, DoubleParameter("EPS", 1e-7, 0., 1.)},
   }; /* doubleParamValues */
   std::unordered_map<stringParam, StringParameter, EnumClassHash> stringParamValues {

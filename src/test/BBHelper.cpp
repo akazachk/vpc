@@ -47,6 +47,7 @@ void runBBTests(const VPCParameters& base_params, SummaryBBInfo* const info_nocu
     const double best_bound, const OsiCuts* vpcs, const OsiCuts* const gmics) {
   VPCParameters params = base_params;
   const int num_vpcs = (vpcs != NULL) ? vpcs->sizeCuts() : 0;
+  // Set number of b&b runs to be zero if no cuts generated (unless no disjunctions were requested in the first place)
   const int num_bb_runs = std::abs(params.get(intParam::BB_RUNS))
       * ((params.get(intParam::DISJ_TERMS) == 0) || (num_vpcs > 0));
   if (num_bb_runs == 0)

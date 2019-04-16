@@ -296,11 +296,15 @@ void startUp(int argc, char** argv) {
   }
 
   // Read opt value (if not yet inputted)
-  if (!params.get(stringParam::OPTFILE).empty()) {
+  if (!isInfinity(params.get(doubleParam::IP_OBJ))) {
+    boundInfo.ip_obj = params.get(doubleParam::IP_OBJ);
+  }
+  if (isInfinity(boundInfo.ip_obj) && !params.get(stringParam::OPTFILE).empty()) {
 #ifdef TRACE
     std::cout << "Reading objective information from \"" + params.get(stringParam::OPTFILE) + "\"" << std::endl;
 #endif
     boundInfo.ip_obj = getObjValueFromFile(params.get(stringParam::OPTFILE), params.get(stringParam::FILENAME), params.logfile);
+    params.set(doubleParam::IP_OBJ, boundInfo.ip_obj);
 #ifdef TRACE
     std::cout << "Best known objective value is " << boundInfo.ip_obj << std::endl;
 #endif
@@ -534,7 +538,7 @@ void processArgs(int argc, char** argv) {
   // has_arg: 0,1,2 for none, required, or optional
   // *flag: how results are returned; if NULL, getopt_long() returns val (e.g., can be the equivalent short option character), and o/w getopt_long() returns 0, and flag points to a var which is set to val if the option is found, but left unchanged if the option is not found
   // val: value to return, or to load into the variable pointed to by flag
-  const char* const short_opts = "b:B:c:d:f:hl:m:o:r:R:s:S:t:T:v:";
+  const char* const short_opts = "b:B:c:d:f:hi:l:m:o:r:R:s:S:t:T:v:";
   const struct option long_opts[] =
   {
       {"bb_runs", required_argument, 0, 'b'},
@@ -544,6 +548,7 @@ void processArgs(int argc, char** argv) {
       {"disj_terms", required_argument, 0, 'd'},
       {"file", required_argument, 0, 'f'},
       {"help", no_argument, 0, 'h'},
+      {"ip_obj", required_argument, 0, 'i'},
       {"logfile", required_argument, 0, 'l'},
       {"mode", required_argument, 0, 'm'},
       {"optfile", required_argument, 0, 'o'},
@@ -621,7 +626,16 @@ void processArgs(int argc, char** argv) {
                   params.set(stringParam::FILENAME, optarg);
                   break;
                 }
-
+      case 'i': {
+                 double val;
+                 doubleParam param = doubleParam::IP_OBJ;
+                 if (!parseDouble(optarg, val)) {
+                   error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                   exit(1);
+                 }
+                 params.set(param, val);
+                 break;
+               }
       case 'l': {
                   params.set(stringParam::LOGFILE, optarg);
                   break;
@@ -792,6 +806,7 @@ void processArgs(int argc, char** argv) {
                 helpstring += "--temp\n\tSet temporary options (e.g., value of 1 = do preprocessing on instance).\n";
                 helpstring += "\n# Input/output #\n";
                 helpstring += "-f file, --file=file\n\tFilename.\n";
+                helpstring += "-i val, --ip_obj=val\n\tValue of integer optimum for this instance (takes precedence over -o/--optfile).\n";
                 helpstring += "-l logfile, --logfile=logfile\n\tWhere to print log messages.\n";
                 helpstring += "-o optfile, --optfile=optfile\n\tWhere to find integer optimum value information (a csv file formatted as \"instance_name,value\" on each row).\n";
                 helpstring += "-v level, --verbosity=level\n\tVerbosity level (0: print little, 1: let solver output be visible).\n";

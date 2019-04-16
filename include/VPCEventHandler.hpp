@@ -25,7 +25,7 @@ struct NodeStatistics {
   int parent_id = -1; // in stats vector
   int variable = -1; // variable we will branch on if this node is popped
   int branch_index = -1; // how many times we have branched from this node
-  int way = -2; // which way we will branch if this node is popped
+  int way = -2; // which way we will branch if this node is popped (+1 = up, -1 = down)
   double obj = std::numeric_limits<double>::max(); // objective at this node
   double value = -1; // value of the variable at the solution of the parent, I believe
   double lb = -1; // new lb
