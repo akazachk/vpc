@@ -20,11 +20,7 @@ TmpRelease/
 .DS_Store
 *.csv*
 nohup.out
-data/instances/tmp*
-data/instances/miplib*
-data/instances/vrp
-data/instances/coral
-data/instances/neos
+data/instances/*
 *.mps*
 test/
 lib/
