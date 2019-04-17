@@ -48,16 +48,16 @@ inline int disable_bb_option(const int strategy, const BB_Strategy_Options optio
 }
 
 struct BBInfo {
-  double obj;
-  double bound;
-  long iters;
-  long nodes;
-  long root_passes;
-  double first_cut_pass;
-  double last_cut_pass;
-  double root_time;
-  double last_sol_time;
-  double time;
+  double obj = 0.;
+  double bound = 0.;
+  long iters = 0;
+  long nodes = 0;
+  long root_passes = 0;
+  double first_cut_pass = 0.;
+  double last_cut_pass = 0.;
+  double root_time = 0.;
+  double last_sol_time = 0.;
+  double time = 0.;
 }; /* BBInfo */
 enum BBInfoEnum {
   OBJ_BB_INFO_IND,
