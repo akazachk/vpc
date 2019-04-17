@@ -58,7 +58,7 @@ void performCleaning(const VPCParameters& params,
       (CLEANING_MODE_OPTION <= 1) ? filename + "_presolved" : "";
   const std::string cleaned_name =
       (CLEANING_MODE_OPTION <= 1) ?
-          presolved_name_stub : filename + "_cleaned.mps";
+          presolved_name_stub : filename + "_cleaned";
 
   // First get presolved opt using commercial solver of choice
   double presolvedLPOpt;
@@ -141,7 +141,7 @@ void performCleaning(const VPCParameters& params,
       is_clean = cleanProblem(params, cleanedSolver, numBoundsChanged, numSBFixed);
       iter++;
     }
-    cleanedSolver->writeMps(cleaned_name.c_str(), "", cleanedSolver->getObjSense());
+    cleanedSolver->writeMps(cleaned_name.c_str(), "mps", cleanedSolver->getObjSense());
 
     if (numBoundsChanged > 0 || numSBFixed > 0) {
       cleanedSolver->resolve();

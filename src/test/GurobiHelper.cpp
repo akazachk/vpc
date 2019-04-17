@@ -244,6 +244,8 @@ void presolveModelWithGurobi(const VPCParameters& params, int strategy, GRBModel
     int optimstatus = presolved_model.get(GRB_IntAttr_Status);
     if (optimstatus == GRB_OPTIMAL) {
         presolved_opt = presolved_model.get(GRB_DoubleAttr_ObjVal);
+        size_t slashindex = presolved_name.find_last_of("/\\");
+        presolved_model_mip.set(GRB_StringAttr_ModelName, presolved_name.substr(slashindex+1));
         createTmpFileCopy(params, presolved_model_mip, presolved_name);
         if (vars) {
           delete[] vars;
