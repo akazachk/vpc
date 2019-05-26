@@ -1,6 +1,6 @@
 #!/bin/bash
 # The first argument is the results directory
-# The second argument takes values: "best", "test", "bb", or "preprocess"
+# The second argument takes value for indicating the filename contained in each batch: "best", "test", "bb", "bb0", or "preprocess"
 # This means we are merging vpc-best.csv, vpc-test.csv, or vpc-bb.csv from the batches, or cleaning_log.csv
 
 MASTER_RESULTS_DIR="${VPC_DIR}/results"
