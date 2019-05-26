@@ -161,7 +161,7 @@ void CglVPC::setDisjunction(Disjunction* const sourceDisj, int ownIt) {
 } /* setDisjunction */
 
 /**
- * @brief Generate VPCs from a partial branch-and-bound tree
+ * @brief Generate VPCs from a disjunction (e.g., arising from a partial branch-and-bound tree)
  */
 void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const CglTreeInfo info) {
   ExitReason status = ExitReason::UNKNOWN;
