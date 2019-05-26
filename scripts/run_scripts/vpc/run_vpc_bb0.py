@@ -15,7 +15,7 @@ EXECUTABLE = PROJ_DIR + "/Release/vpc"
 CUT_TYPE = 'vpc'
 
 ## Solver options
-depthList = [2,4,8,16,32,64]
+depthList = [0]
 
 ## Set up output and input folders
 results_path = PROJ_DIR + '/results'
@@ -82,8 +82,8 @@ for depth in depthList:
     extraparams = extraparams + ' --rounds=1'
     extraparams = extraparams + ' -d ' + str(depth)
     extraparams = extraparams + ' -t 3600'
-    extraparams = extraparams + ' --bb_runs=1' 
-    extraparams = extraparams + ' --bb_mode=10'
+    extraparams = extraparams + ' --bb_runs=7' 
+    extraparams = extraparams + ' --bb_mode=001'
     extraparams = extraparams + ' --use_all_ones=1'
     extraparams = extraparams + ' --use_iter_bilinear=1'
     extraparams = extraparams + ' --use_disj_lb=1'
