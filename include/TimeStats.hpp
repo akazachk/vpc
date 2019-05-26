@@ -96,6 +96,8 @@ public:
 
   /** Return id of name */
   int get_id(const std::string &name) const;
+  /** Return name associated with an id */
+  inline std::string get_name(const int id) const;
 
   /** Print times */
   void print(FILE* logfile = stdout, const int amountToPrint = 0) const;
@@ -293,10 +295,44 @@ inline int TimeStats::get_id(const std::string &name) const {
   }
 } /* get_id */
 
+/**
+ * Get name associated with an id
+ */
+inline std::string TimeStats::get_name(const int id) const {
+  std::map<std::string, data_t, ltstr>::const_iterator it = name_to_id.begin();
+  std::string name = "";
+  while (it != name_to_id.end()) {
+    if (it->second.id != UNINITIALIZED_STAT && it->second.id == id) {
+      name = it->first;
+      break;
+    }
+  }
+  return name;
+} /* get_name */
+
 inline void TimeStats::print(FILE* logfile, const int amountToPrint) const {
   if (logfile == NULL)
     return;
-  std::map<std::string, data_t, ltstr>::const_iterator it = name_to_id.begin();
+  int id = 0;
+  const int num_timers = name_to_id.size();
+  while (id < num_timers) {
+    switch (amountToPrint) {
+      case 1: {
+                fprintf(logfile, "%s,", this->get_name(id).c_str());
+                break;
+              }
+      case 2: {
+                fprintf(logfile, "%.2f,", this->get_time(id));
+                break;
+              }
+      default: {
+                 fprintf(logfile, "%s,%.2f\n", this->get_name(id).c_str(),
+                     this->get_time(id));
+                 break;
+               }
+    }
+  }
+  /*std::map<std::string, data_t, ltstr>::const_iterator it = name_to_id.begin();
   while (it != name_to_id.end()) {
     if (it->second.id != UNINITIALIZED_STAT) {
       switch (amountToPrint) {
@@ -316,6 +352,6 @@ inline void TimeStats::print(FILE* logfile, const int amountToPrint) const {
       }
     }
     it++;
-  }
+  }*/
   fflush(logfile);
 } /* print */
