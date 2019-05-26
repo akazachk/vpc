@@ -33,19 +33,19 @@
 #include "utility.hpp"
 
 enum OverallTimeStats {
-  TOTAL_TIME,
   INIT_SOLVE_TIME,
   VPC_GEN_TIME,
   VPC_APPLY_TIME,
   BB_TIME,
+  TOTAL_TIME,
   NUM_TIME_STATS
 }; /* OverallTimeStats */
 const std::vector<std::string> OverallTimeStatsName {
-  "TOTAL_TIME",
   "INIT_SOLVE_TIME",
   "VPC_GEN_TIME",
   "VPC_APPLY_TIME",
-  "BB_TIME"
+  "BB_TIME",
+  "TOTAL_TIME"
 };
 
 // Main file variables

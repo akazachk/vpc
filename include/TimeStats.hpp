@@ -331,6 +331,7 @@ inline void TimeStats::print(FILE* logfile, const int amountToPrint) const {
                  break;
                }
     }
+    id++;
   }
   /*std::map<std::string, data_t, ltstr>::const_iterator it = name_to_id.begin();
   while (it != name_to_id.end()) {
