@@ -280,21 +280,10 @@ void startUp(int argc, char** argv) {
 
   // Prepare logfile
   const std::string logname = params.get(stringParam::LOGFILE);
+  bool logexists = false; 
   if (!logname.empty()) {
-    const bool logexists = fexists(logname.c_str());
+    logexists = fexists(logname.c_str());
     params.logfile = fopen(logname.c_str(), "a");
-    if (!logexists) {
-      if (params.get(TEMP) != static_cast<int>(TempOptions::PREPROCESS)) {
-        printHeader(params, OverallTimeStatsName);
-      } else {
-        printPreprocessingHeader(params);
-      }
-    }
-    fprintf(params.logfile, "%s,", instname.c_str());
-    if (params.get(TEMP) != static_cast<int>(TempOptions::PREPROCESS)) {
-      printParams(params, params.logfile, 2); // only values
-    }
-    fflush(params.logfile);
   }
 
   // Read opt value (if not yet inputted)
@@ -313,6 +302,20 @@ void startUp(int argc, char** argv) {
     if (isInfinity(boundInfo.ip_obj)) {
       warning_msg(warnstring, "Did not find objective value.\n");
     }
+  }
+  if (params.logfile != NULL) {
+    if (!logexists) {
+      if (params.get(TEMP) != static_cast<int>(TempOptions::PREPROCESS)) {
+        printHeader(params, OverallTimeStatsName);
+      } else {
+        printPreprocessingHeader(params);
+      }
+    }
+    fprintf(params.logfile, "%s,", instname.c_str());
+    if (params.get(TEMP) != static_cast<int>(TempOptions::PREPROCESS)) {
+      printParams(params, params.logfile, 2); // only values
+    }
+    fflush(params.logfile);
   }
 } /* startUp */
 
