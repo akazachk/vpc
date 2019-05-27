@@ -106,7 +106,11 @@ int main(int argc, char** argv) {
   initializeSolver(solver);
   timer.start_timer(OverallTimeStats::INIT_SOLVE_TIME);
   solver->initialSolve();
-  checkSolverOptimality(solver, false);
+  if (!checkSolverOptimality(solver, false)) {
+    error_msg(errorstring, "Unable to solve initial LP relaxation.\n");
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
   timer.end_timer(OverallTimeStats::INIT_SOLVE_TIME);
   boundInfo.lp_obj = solver->getObjValue();
 
@@ -409,23 +413,31 @@ void initializeSolver(OsiSolverInterface* &solver) {
   solver = new SolverInterface;
   setLPSolverParameters(solver, params.get(VERBOSITY));
 
+  int status = 0;
   if (in_file_ext.compare("lp") == 0) {
 #ifdef TRACE
     printf("\n## Reading LP file. ##\n");
 #endif
-    solver->readLp(params.get(stringParam::FILENAME).c_str());
+    status = solver->readLp(params.get(stringParam::FILENAME).c_str());
   } else {
     if (in_file_ext.compare("mps") == 0) {
 #ifdef TRACE
       printf("\n## Reading MPS file. ##\n");
 #endif
-      solver->readMps(params.get(stringParam::FILENAME).c_str());
+      status = solver->readMps(params.get(stringParam::FILENAME).c_str());
     } else {
       error_msg(errorstring, "Unrecognized extension: %s.\n",
           in_file_ext.c_str());
+      writeErrorToLog(errorstring, params.logfile);
       exit(1);
     }
   } // read file
+  if (status < 0) {
+    error_msg(errorstring, "Unable to read in file %s.\n",
+        params.get(stringParam::FILENAME).c_str());
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
 
   // Make sure we are doing a minimization problem; this is just to make later
   // comparisons simpler (i.e., a higher LP obj after adding the cut is better).
