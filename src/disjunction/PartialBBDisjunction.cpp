@@ -171,6 +171,22 @@ ExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface* co
     writeErrorToLog(errstr, params.logfile);
     exit(1);
   }
+  
+#ifdef TRACE
+  const int TEMP = params.get(intParam::TEMP);
+  if (std::abs(TEMP) >= static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS)
+      && std::abs(TEMP) <= static_cast<int>(TempOptions::GEN_TIKZ_STRING_AND_EXIT)) {
+    generateTikzTreeString(eventHandler, params, params.get(intParam::PARTIAL_BB_STRATEGY), si->getObjValue(), true);
+    if (std::abs(TEMP) == static_cast<int>(TempOptions::GEN_TIKZ_STRING_AND_RETURN)) {
+      // Free
+      if (cbc_model) { delete cbc_model; }
+      return ExitReason::SUCCESS_EXIT;
+    }
+    if (std::abs(TEMP) == static_cast<int>(TempOptions::GEN_TIKZ_STRING_AND_EXIT)) {
+      exit(1); // this is during debug and does not free memory
+    }
+  }
+#endif
 
   // If branch-and-bound finished (was not stopped by a user event), check why and exit
   if (cbc_model->status() == 0 || cbc_model->status() == 1
@@ -207,20 +223,6 @@ ExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface* co
   if (eventHandler->getPrunedStatsVector().size() > 0) {
     printf("\n");
     printNodeStatistics(eventHandler->getPrunedStatsVector(), false);
-  }
-
-  const int TEMP = params.get(intParam::TEMP);
-  if (std::abs(TEMP) >= static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS)
-      && std::abs(TEMP) <= static_cast<int>(TempOptions::GEN_TIKZ_STRING_AND_EXIT)) {
-    generateTikzTreeString(eventHandler, params, params.get(intParam::PARTIAL_BB_STRATEGY), si->getObjValue(), true);
-    if (std::abs(TEMP) == static_cast<int>(TempOptions::GEN_TIKZ_STRING_AND_RETURN)) {
-      // Free
-      if (cbc_model) { delete cbc_model; }
-      return ExitReason::SUCCESS_EXIT;
-    }
-    if (std::abs(TEMP) == static_cast<int>(TempOptions::GEN_TIKZ_STRING_AND_EXIT)) {
-      exit(1); // this is during debug and does not free memory
-    }
   }
 #endif
 

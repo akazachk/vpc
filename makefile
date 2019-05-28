@@ -24,6 +24,9 @@ ifeq ($(USERNAME),otherperson)
   #GUROBI_HOME = enter/dir/here
   #GUROBI_LINK="gurobi80"
 else
+  ifeq (${REPOS_DIR},)
+    REPOS_DIR = "."
+  endif
 	PROJ_DIR = ${REPOS_DIR}/vpc
   ifeq ($(UNAME),Linux)
 	  COIN_OR = $(PROJ_DIR)/lib/Cbc-2.9
