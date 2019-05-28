@@ -476,7 +476,13 @@ std::string generateTikzTreeString(const VPCEventHandler* eventHandler,
     }
     fprintf(myfile, "%% !TEX TS-program = lualatex\n");
     fprintf(myfile, "\\documentclass[11pt,landscape]{article}\n");
-    fprintf(myfile, "\\usepackage{akazachk}\n");
+    fprintf(myfile, "\\usepackage[margin=1in]{geometry}\n");
+    fprintf(myfile, "\\usepackage[T1]{fontenc}\n");
+    fprintf(myfile, "\\usepackage{caption}\n");
+    fprintf(myfile, "\\usepackage{tikz}\n");
+    fprintf(myfile, "\\usetikzlibrary{graphs, positioning, fit, quotes}\n");
+    fprintf(myfile, "\\usetikzlibrary{graphdrawing}\n");
+    fprintf(myfile, "\\usegdlibrary{trees}\n");
     fprintf(myfile, "\\begin{document}\n");
     fprintf(myfile, "%s\n", str.c_str());
     fprintf(myfile, "\\end{document}\n");
