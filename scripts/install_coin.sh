@@ -1,15 +1,25 @@
 #!/bin/bash
 # Takes as an (optional) argument the directory where you wish to install the COIN-OR software
 
+## User needs to define
+#PROJ_DIR="~/repos/vpc"
+CBC_VERSION="2.9"
+CBC_REVISION="2352"
+CBC_URL="https://projects.coin-or.org/svn/Cbc/stable/${CBC_VERSION}"
 #CGL_URL="https://projects.coin-or.org/svn/Cgl/stable/0.59"
-CBC_URL="https://projects.coin-or.org/svn/Cbc/stable/2.10"
-COIN_DIR_NAME="Cbc-2.10"
+COIN_DIR_NAME="Cbc-${CBC_VERSION}"
+if [ -z "$PROJ_DIR" ]
+  then echo "Need to define PROJ_DIR. Exiting."
+  exit
+fi
 if [ -z "$1" ]
 then
-	COIN_DIR="lib/${COIN_DIR_NAME}"
+	COIN_DIR="${PROJ_DIR}/lib/${COIN_DIR_NAME}"
 else
-	COIN_DIR="${1}/lib/${COIN_DIR_NAME}"
+	COIN_DIR="${1}/${COIN_DIR_NAME}"
 fi
+
+## Ignore below unless you wish to use OsiCpxSolverInterface
 #UNAME=`uname`
 #if [ "$UNAME" = "Darwin" ]
 #then
@@ -22,22 +32,27 @@ fi
 #CPLEX_INC="$CPLEX_DIR/cplex/include/ilcplex"
 #CPLEX_LIB_DIR="$CPLEX_DIR/cplex/lib/$CPLEX_ARCH/static_pic"
 #CPLEX_LIB="-L$CPLEX_LIB_DIR -lcplex -lm -ldl -lpthread"
+#EXTRA_ARGS=--with-cplex-incdir=$CPLEX_INC --with-cplex-lib="$CPLEX_LIB"
 
 mkdir -p $COIN_DIR
-svn co $CBC_URL $COIN_DIR
+if [ -z ${CBC_REVISION} ]
+then
+  svn co $CBC_URL $COIN_DIR
+else
+  svn co -r ${CBC_REVISION} $CBC_URL $COIN_DIR
+fi
 cd $COIN_DIR
+
 mkdir -p build
 cd build
-#../configure -C --with-cplex-incdir=$CPLEX_INC --with-cplex-lib="$CPLEX_LIB" >& last_config.txt
-../configure -C >& last_config.txt
+../configure -C ${EXTRA_ARGS} >& last_config.txt
 make
 make install
-
 cd ..
+
 mkdir -p buildg
 cd buildg
-#../configure -C --with-cplex-incdir=$CPLEX_INC --with-cplex-lib="$CPLEX_LIB" --enable-debug=yes >& last_config.txt
-../configure -C --enable-debug=yes >& last_config.txt
+../configure -C ${EXTRA_ARGS} --enable-debug=yes >& last_config.txt
 make
 make install
 

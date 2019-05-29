@@ -24,16 +24,16 @@ ifeq ($(USERNAME),otherperson)
   #GUROBI_HOME = enter/dir/here
   #GUROBI_LINK="gurobi80"
 else
-  ifeq (${REPOS_DIR},)
-    REPOS_DIR = "."
+  ifeq (${PROJ_DIR},)
+    $(error Need to define PROJ_DIR shell variable or inside of makefile)
   endif
-	PROJ_DIR = ${REPOS_DIR}/vpc
+	COIN_VERSION=2.9
   ifeq ($(UNAME),Linux)
-	  COIN_OR = $(PROJ_DIR)/lib/Cbc-2.9
+	  COIN_OR = $(PROJ_DIR)/lib/Cbc-${COIN_VERSION}
 	  GUROBI_LINK = "gurobi81"
 	else
   	GUROBI_LINK = "gurobi81"
-	  #COIN_OR = $(PROJ_DIR)/coin-or/Cbc-2.10
+	  #COIN_OR = $(PROJ_DIR)/lib/Cbc-${COIN_VERSION}
     #GUROBI_HOME="/Library/gurobi810/mac64"
     #GUROBI_LINK="gurobi81"
 	endif
@@ -198,12 +198,10 @@ ifeq ($(USE_CPLEX),1)
 endif
 
 ### Targets ###
-all: 	$(EXECUTABLE)
+all: | directories $(EXECUTABLE)
 debug: FORCE
-	@$(MAKE) "dir_debug"
 	@$(MAKE) "BUILD_CONFIG=debug"
 release: FORCE
-	@$(MAKE) "dir_release"
 	@$(MAKE) "BUILD_CONFIG=release"
 
 $(EXECUTABLE): $(OUT_OBJECTS)
@@ -276,16 +274,27 @@ dir_lib_%: FORCE
 dir_lib: FORCE
 	$(MKDIR_P) $(LIB_DIR)
 print: FORCE
-	@echo 'OUT_DIR: $(OUT_DIR)'
-	@echo 'DEBUG_FLAG: $(DEBUG_FLAG)'
-	@echo 'OPT_FLAG: $(OPT_FLAG)'
-	@echo 'DEFS: $(DEFS)'
-	@echo 'EXTRA_FLAGS: $(EXTRA_FLAGS)'
-	@echo 'LIB_DIR: $(LIB_DIR)'
-	@echo 'SOURCES: $(SOURCES)'
-	@echo 'OUT_OBJECTS: $(OUT_OBJECTS)'
+	$(info UNAME: ${UNAME})
+	$(info CC: ${CC})
+	$(info PROJ_DIR: ${PROJ_DIR})
+	$(info COIN_OR: ${COIN_OR})
+	$(info GUROBI_HOME: ${GUROBI_HOME})
+	$(info GUROBI_LINK: ${GUROBI_LINK})
+	$(info USE_COIN: ${USE_COIN})
+	$(info USE_CLP: ${USE_CLP})
+	$(info USE_CBC: ${USE_CBC})
+	$(info USE_GUROBI: ${USE_GUROBI})
+	$(info USE_CPLEX: ${USE_CPLEX})
+	$(info OUT_DIR: ${OUT_DIR})
+	$(info DEBUG_FLAG: ${DEBUG_FLAG})
+	$(info OPT_FLAG: ${OPT_FLAG})
+	$(info DEFS: ${DEFS})
+	$(info EXTRA_FLAGS: ${EXTRA_FLAGS})
+	$(info LIB_DIR: ${LIB_DIR})
+	$(info SOURCES: ${SOURCES})
+	$(info OUT_OBJECTS: ${OUT_OBJECTS})
 
 print_dep: FORCE
-	@echo 'DEPENDENCIES: $(DEPENDENCIES)'
+	$(info DEPENDENCIES: ${DEPENDENCIES})
 
 FORCE: 

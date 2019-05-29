@@ -1,3 +1,8 @@
 #/bin/bash
 
-${HOME}/repos/vpc/Debug/vpc -f ${HOME}/repos/vpc/test/bm23.mps -d 2 --optfile=${HOME}/repos/vpc/../vpc/data/ip_opt.csv $1 $2 $3 $4 $5 $6 $7 $8
+if [ -z ${PROJ_DIR} ]
+  then echo "Need to define PROJ_DIR. Exiting."
+  exit
+fi
+
+${PROJ_DIR}/Debug/vpc -f ${PROJ_DIR}/test/bm23.mps -d 2 --optfile=${PROJ_DIR}/data/ip_obj.csv $1 $2 $3 $4 $5 $6 $7 $8
