@@ -213,6 +213,11 @@ int main(int argc, char** argv) {
       stringValue(boundInfo.best_disj_obj, "%1.6f").c_str());
   timer.end_timer(OverallTimeStats::TOTAL_TIME);
 
+#ifdef PRINT_LP_WITH_CUTS
+  std::string fileWithCuts = filename + "_cuts";
+  solver->writeMps(fileWithCuts.c_str());
+#endif
+
   // Do analyses in preparation for printing
   setCutInfo(cutInfo, num_rounds, cutInfoVec.data());
   analyzeStrength(params, cutInfoGMICs, cutInfo, solver, &gmics, &vpcs,

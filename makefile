@@ -100,7 +100,7 @@ ifeq ($(BUILD_CONFIG),release)
   DEFS = 
   EXTRA_FLAGS = -fmessage-length=0 -ffast-math
 endif
-
+#DEFS += -DPRINT_LP_WITH_CUTS
 ifeq ($(USE_CLP),1)
   DEFS += -DUSE_CLP
 endif
