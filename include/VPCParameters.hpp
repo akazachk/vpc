@@ -352,7 +352,7 @@ struct VPCParameters {
   std::unordered_map<intParam, IntParameter, EnumClassHash> intParamValues {
     {intParam::BB_MODE, IntParameter(intParam::BB_MODE, "BB_MODE", 10, 0, 111)}, // 010 = branch with vpcs only
     {intParam::BB_STRATEGY, IntParameter(intParam::BB_STRATEGY, "BB_STRATEGY", 10776, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
-    {intParam::BB_RUNS, IntParameter(intParam::BB_RUNS, "BB_RUNS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
+    {intParam::BB_RUNS, IntParameter(intParam::BB_RUNS, "BB_RUNS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
     {intParam::RANDOM_SEED, IntParameter(intParam::RANDOM_SEED, "RANDOM_SEED", 628, -1, std::numeric_limits<int>::max())},
 #ifdef TRACE
     {intParam::VERBOSITY, IntParameter(intParam::VERBOSITY, "VERBOSITY", 1, 0, 2)},
@@ -370,7 +370,7 @@ struct VPCParameters {
     {intParam::ROUNDS, IntParameter(intParam::ROUNDS, "ROUNDS", 1, 0, std::numeric_limits<int>::max())},
     {intParam::PRLP_FLIP_BETA, IntParameter(intParam::PRLP_FLIP_BETA, "PRLP_FLIP_BETA", 0, -1, 1)},
     {intParam::PARTIAL_BB_NUM_STRONG, IntParameter(intParam::PARTIAL_BB_NUM_STRONG, "PARTIAL_BB_NUM_STRONG", 5, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::PARTIAL_BB_STRATEGY, IntParameter(intParam::PARTIAL_BB_STRATEGY, "PARTIAL_BB_STRATEGY", 4, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::PARTIAL_BB_STRATEGY, IntParameter(intParam::PARTIAL_BB_STRATEGY, "PARTIAL_BB_STRATEGY", 4, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())}, // 004 => default variable decision, default branch decision, objective-based node comparison
     {intParam::MODE, IntParameter(intParam::MODE, "MODE", 0, {0, 1, 3})},
     {intParam::DISJ_TERMS, IntParameter(intParam::DISJ_TERMS, "DISJ_TERMS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
     {intParam::CUTLIMIT, IntParameter(intParam::CUTLIMIT, "CUTLIMIT", -1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
