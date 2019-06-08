@@ -10,6 +10,50 @@
 #include <CoinPackedVector.hpp>
 #include <CoinPackedMatrix.hpp>
 
+#include "VPCParameters.hpp"
+
+/** Separate filename into the directory, instance name, and extension */
+void parseFilename(std::string& dir, std::string& instname, std::string& in_file_ext, const VPCParameters& params) {
+  const std::string fullfilename = params.get(stringParam::FILENAME);
+  // Get file name stub
+  size_t found_dot = fullfilename.find_last_of(".");
+  std::string filename = fullfilename.substr(0, found_dot);
+
+  // Put string after last '.' into string in_file_ext
+  if (found_dot >= fullfilename.length()) {
+    error_msg(errorstring, "Cannot find the file extension (no '.' in input file name: %s).\n", fullfilename.c_str());
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
+
+  // Check if archived file
+  in_file_ext = fullfilename.substr(found_dot + 1);
+  if (in_file_ext.compare("gz") == 0 || in_file_ext.compare("bz2") == 0) {
+    unsigned found_dot_tmp = filename.find_last_of('.');
+
+    // Put string after last '.' into string in_file_ext
+    if (found_dot_tmp >= filename.length()) {
+      error_msg(errorstring,
+          "Other than gz or bz2, cannot find the file extension (no '.' in input file name: %s).\n",
+          fullfilename.c_str());
+      writeErrorToLog(errorstring, params.logfile);
+      exit(1);
+    }
+
+    in_file_ext = filename.substr(found_dot_tmp + 1);
+    filename = filename.substr(0, found_dot_tmp);
+  }
+
+  //  const std::string filestub = (slashindex != std::string::npos) ? fullfilename.substr(slashindex+1) : fullfilename;
+  size_t slashindex = filename.find_last_of("/\\");
+  //  if (params.get(stringParam::OUTDIR).empty()) {
+  //    const std::string dir = (slashindex != std::string::npos) ? filename.substr(0, slashindex+1) : "./";
+  //    params.set(stringParam::OUTDIR, dir);
+  //  }
+  dir = (slashindex != std::string::npos) ? filename.substr(0,slashindex) : ".";
+  instname = (slashindex != std::string::npos) ? filename.substr(slashindex+1) : filename;
+} /* parseFilename */
+
 /** We assume it is comma separated */
 double getObjValueFromFile(std::string opt_filename, std::string fullfilename, FILE* logfile) {
   // Take the full filename of the instance and remove any directory information

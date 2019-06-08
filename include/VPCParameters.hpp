@@ -40,6 +40,7 @@
 enum intParam {
   CUTLIMIT, // max number of cuts generated; 0 = no limit, -k = k * # fractional variables at root
   DISJ_TERMS, // number of disjunctive terms or number of disjunctions, depending on MODE
+  GOMORY, // Gomory cut mode, 0: none, 1: use GMIC class
   MODE, // 0: partial b&b tree, 1: splits, 2: crosses (not implemented), 3: custom
   // PARTIAL_BB_STRATEGY:
   // Total used to decide the choose:
@@ -372,6 +373,7 @@ struct VPCParameters {
     {intParam::PARTIAL_BB_NUM_STRONG, IntParameter(intParam::PARTIAL_BB_NUM_STRONG, "PARTIAL_BB_NUM_STRONG", 5, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
     {intParam::PARTIAL_BB_STRATEGY, IntParameter(intParam::PARTIAL_BB_STRATEGY, "PARTIAL_BB_STRATEGY", 4, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())}, // 004 => default variable decision, default branch decision, objective-based node comparison
     {intParam::MODE, IntParameter(intParam::MODE, "MODE", 0, {0, 1, 3})},
+    {intParam::GOMORY, IntParameter(intParam::GOMORY, "GOMORY", 0, 0, 1)},
     {intParam::DISJ_TERMS, IntParameter(intParam::DISJ_TERMS, "DISJ_TERMS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
     {intParam::CUTLIMIT, IntParameter(intParam::CUTLIMIT, "CUTLIMIT", -1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
   }; /* intParamValues */

@@ -18,6 +18,7 @@
 
 // COIN-OR
 #include <OsiCuts.hpp>
+#include <CglGMI.hpp>
 
 // Project files
 #include "analysis.hpp" // analyzeStrength, analalyzeBB
@@ -52,7 +53,7 @@ const std::vector<std::string> OverallTimeStatsName {
 VPCParameters params;
 OsiSolverInterface* solver, *origSolver;
 OsiCuts gmics, vpcs;
-std::string filename = "", instname = "", in_file_ext = "";
+std::string dir = "", filename = "", instname = "", in_file_ext = "";
 ExitReason exitReason;
 TimeStats timer;
 std::time_t start_time_t, end_time_t;
@@ -144,6 +145,14 @@ int main(int argc, char** argv) {
       printf("\n## Starting round %d/%d. ##\n", round_ind+1, num_rounds);
     }
     timer.start_timer(OverallTimeStats::VPC_GEN_TIME);
+
+    if (params.get(GOMORY) == 1) {
+      OsiCuts GMICs;
+      CglGMI GMIGen;
+      GMIGen.generateCuts(*solver, GMICs);
+      applyCutsCustom(solver, GMICs);
+    }
+
     CglVPC gen(params);
 
     // Store the initial solve time in order to set a baseline for the PRLP resolve time
@@ -214,8 +223,10 @@ int main(int argc, char** argv) {
   timer.end_timer(OverallTimeStats::TOTAL_TIME);
 
 #ifdef PRINT_LP_WITH_CUTS
-  std::string fileWithCuts = filename + "_cuts";
-  solver->writeMps(fileWithCuts.c_str());
+  if (boundInfo.num_vpc > 0) {
+    std::string fileWithCuts = filename + "_cuts";
+    solver->writeMps(fileWithCuts.c_str());
+  }
 #endif
 
   // Do analyses in preparation for printing
@@ -247,45 +258,10 @@ void startUp(int argc, char** argv) {
   processArgs(argc, argv);
 
   // Get instance file
-  printf("Instance file: %s.\n", params.get(stringParam::FILENAME).c_str());
-
-  const std::string fullfilename = params.get(stringParam::FILENAME);
-  // Get file name stub
-  size_t found_dot = fullfilename.find_last_of(".");
-  filename = fullfilename.substr(0, found_dot);
-
-  // Put string after last '.' into string in_file_ext
-  if (found_dot >= fullfilename.length()) {
-    error_msg(errorstring, "Cannot find the file extension (no '.' in input file name: %s).\n", fullfilename.c_str());
-    writeErrorToLog(errorstring, params.logfile);
-    exit(1);
-  }
-
-  // Check if archived file
-  in_file_ext = fullfilename.substr(found_dot + 1);
-  if (in_file_ext.compare("gz") == 0 || in_file_ext.compare("bz2") == 0) {
-    unsigned found_dot_tmp = filename.find_last_of('.');
-
-    // Put string after last '.' into string in_file_ext
-    if (found_dot_tmp >= filename.length()) {
-      error_msg(errorstring,
-          "Other than gz or bz2, cannot find the file extension (no '.' in input file name: %s).\n",
-          fullfilename.c_str());
-      writeErrorToLog(errorstring, params.logfile);
-      exit(1);
-    }
-
-    in_file_ext = filename.substr(found_dot_tmp + 1);
-    filename = filename.substr(0, found_dot_tmp);
-  }
-
-//  const std::string filestub = (slashindex != std::string::npos) ? fullfilename.substr(slashindex+1) : fullfilename;
-  size_t slashindex = filename.find_last_of("/\\");
-//  if (params.get(stringParam::OUTDIR).empty()) {
-//    const std::string dir = (slashindex != std::string::npos) ? filename.substr(0, slashindex+1) : "./";
-//    params.set(stringParam::OUTDIR, dir);
-//  }
-  instname = (slashindex != std::string::npos) ? filename.substr(slashindex+1) : filename;
+  printf("Instance file: %s\n", params.get(stringParam::FILENAME).c_str());
+  
+  parseFilename(dir, instname, in_file_ext, params);
+  filename = dir + "/" + instname;
 
   // Prepare logfile
   const std::string logname = params.get(stringParam::LOGFILE);
@@ -560,7 +536,7 @@ void processArgs(int argc, char** argv) {
   // has_arg: 0,1,2 for none, required, or optional
   // *flag: how results are returned; if NULL, getopt_long() returns val (e.g., can be the equivalent short option character), and o/w getopt_long() returns 0, and flag points to a var which is set to val if the option is found, but left unchanged if the option is not found
   // val: value to return, or to load into the variable pointed to by flag
-  const char* const short_opts = "b:B:c:d:f:hi:l:m:o:r:R:s:S:t:T:v:";
+  const char* const short_opts = "b:B:c:d:f:g:hi:l:m:o:r:R:s:S:t:T:v:";
   const struct option long_opts[] =
   {
       {"bb_runs", required_argument, 0, 'b'},
@@ -569,6 +545,7 @@ void processArgs(int argc, char** argv) {
       {"cutlimit", required_argument, 0, 'c'},
       {"disj_terms", required_argument, 0, 'd'},
       {"file", required_argument, 0, 'f'},
+      {"gomory", required_argument, 0, 'g'},
       {"help", no_argument, 0, 'h'},
       {"ip_obj", required_argument, 0, 'i'},
       {"logfile", required_argument, 0, 'l'},
@@ -647,6 +624,16 @@ void processArgs(int argc, char** argv) {
                 }
       case 'f': {
                   params.set(stringParam::FILENAME, optarg);
+                  break;
+                }
+      case 'g': {
+                  int val;
+                  intParam param = intParam::GOMORY;
+                  if (!parseInt(optarg, val)) {
+                    error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                    exit(1);
+                  }
+                  params.set(param, val);
                   break;
                 }
       case 'i': {
@@ -841,6 +828,7 @@ void processArgs(int argc, char** argv) {
                 helpstring += "\n# General VPC options #\n";
                 helpstring += "-c num cuts, --cutlimit=num cuts\n\tMaximum number of cuts to generate (0 = no limit, -k = k * # fractional variables at root).\n";
                 helpstring += "-d num terms, --disj_terms=num terms\n\tMaximum number of disjunctive terms or disjunctions to generate (depending on mode).\n";
+                helpstring += "-g 0/1, --gomory=0/1\n\t0: do not use Gomory cuts before generating VPCs, 1: apply Gomory cuts before generating VPCs.\n";
                 helpstring += "-m mode, --mode=mode\n\tMode for generating disjunction(s). 0: partial b&b tree, 1: splits, 2: crosses (not implemented), 3: custom.\n";
                 helpstring += "-r num rounds, --rounds=num rounds\n\tNumber of rounds of cuts to apply.\n";
                 helpstring += "-R num seconds, --prlp_timelimit=num seconds\n\tNumber of seconds allotted for solving the PRLP.\n";

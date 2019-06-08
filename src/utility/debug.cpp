@@ -451,7 +451,9 @@ std::string generateTikzTreeString(const VPCEventHandler* eventHandler,
 #endif
 
   if (saveToFile) {
-    std::string filename = params.get(stringParam::FILENAME) + "-Tree.alex";
+    std::string dir, instname, ext;
+    parseFilename(dir, instname, ext, params);
+    std::string filename = dir + "/" + instname + "-Tree.alex";
     FILE* myfile = fopen(filename.c_str(), "a");
     if (!myfile) {
       error_msg(errorstring, "Failed to open %s.\n", filename.c_str());
@@ -467,7 +469,7 @@ std::string generateTikzTreeString(const VPCEventHandler* eventHandler,
     fprintf(myfile, "\n");
     fclose(myfile);
 
-    filename = params.get(stringParam::FILENAME) + ".tex";
+    filename = dir + "/" + instname + ".tex";
     myfile = fopen(filename.c_str(), "w");
     if (!myfile) {
       error_msg(errorstring, "Failed to open %s.\n", filename.c_str());
