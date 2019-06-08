@@ -90,11 +90,12 @@ const std::string CglVPC::time_T2 = "TIME_TYPE2_";
 int CglVPC::getCutLimit(const int CUTLIMIT, const int numFracVar) {
   // The cut limit is either across all cut-generating sets
   // or it is divided among the cut-generating sets (either as the limit / numFracVars, or as a fixed number per cgs)
-  // If CUTLIMIT = 0 => no cut limit
+  // If CUTLIMIT = 0 => no cuts
   // If CUTLIMIT > 0 => absolute cut limit
   // If CUTLIMIT < 0 => cut limit per cgs
   if (CUTLIMIT == 0) {
-    return std::numeric_limits<int>::max();
+    return 0;
+    //return std::numeric_limits<int>::max();
   } else if (CUTLIMIT > 0) {
     return CUTLIMIT;
   } else {
@@ -203,7 +204,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   params.set(CUTLIMIT,
       CglVPC::getCutLimit(params.get(CUTLIMIT),
           si.getFractionalIndices().size()));
-  if (reachedCutLimit()) {
+  if (reachedCutLimit() && (std::abs(params.get(TEMP)) < (int) TempOptions::GEN_TIKZ_STRING_WITH_VPCS || std::abs(params.get(TEMP)) > (int) TempOptions::GEN_TIKZ_STRING_AND_EXIT)) {
     status = ExitReason::CUT_LIMIT_EXIT;
     finish(status);
     return;

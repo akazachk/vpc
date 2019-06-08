@@ -83,7 +83,7 @@ ifeq ($(BUILD_CONFIG),debug)
   OUT_DIR = Debug
   DEBUG_FLAG = -g3
   OPT_FLAG = -O0
-  DEFS = -DTRACE
+  DEFS = -DTRACE -DPRINT_LP_WITH_CUTS
   # message-length sets line wrapping for error messages; 0 = no line wrapping
   EXTRA_FLAGS = -fmessage-length=0
   ifeq ($(CC),g++)
@@ -100,7 +100,6 @@ ifeq ($(BUILD_CONFIG),release)
   DEFS = 
   EXTRA_FLAGS = -fmessage-length=0 -ffast-math
 endif
-#DEFS += -DPRINT_LP_WITH_CUTS
 ifeq ($(USE_CLP),1)
   DEFS += -DUSE_CLP
 endif

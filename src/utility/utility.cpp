@@ -13,17 +13,16 @@
 #include "VPCParameters.hpp"
 
 /** Separate filename into the directory, instance name, and extension */
-void parseFilename(std::string& dir, std::string& instname, std::string& in_file_ext, const VPCParameters& params) {
-  const std::string fullfilename = params.get(stringParam::FILENAME);
+void parseFilename(std::string& dir, std::string& instname, std::string& in_file_ext, const std::string& fullfilename, FILE* logfile) {
   // Get file name stub
   size_t found_dot = fullfilename.find_last_of(".");
   std::string filename = fullfilename.substr(0, found_dot);
 
   // Put string after last '.' into string in_file_ext
   if (found_dot >= fullfilename.length()) {
-    error_msg(errorstring, "Cannot find the file extension (no '.' in input file name: %s).\n", fullfilename.c_str());
-    writeErrorToLog(errorstring, params.logfile);
-    exit(1);
+    /*error_msg(errorstring, "Cannot find the file extension (no '.' in input file name: %s).\n", fullfilename.c_str());
+    writeErrorToLog(errorstring, logfile);
+    exit(1);*/
   }
 
   // Check if archived file
@@ -32,57 +31,35 @@ void parseFilename(std::string& dir, std::string& instname, std::string& in_file
     unsigned found_dot_tmp = filename.find_last_of('.');
 
     // Put string after last '.' into string in_file_ext
-    if (found_dot_tmp >= filename.length()) {
-      error_msg(errorstring,
+    if (found_dot_tmp < filename.length()) {
+      in_file_ext = filename.substr(found_dot_tmp + 1);
+      filename = filename.substr(0, found_dot_tmp);
+    } else {
+      /*error_msg(errorstring,
           "Other than gz or bz2, cannot find the file extension (no '.' in input file name: %s).\n",
           fullfilename.c_str());
-      writeErrorToLog(errorstring, params.logfile);
-      exit(1);
+      writeErrorToLog(errorstring, logfile);
+      exit(1);*/
     }
-
-    in_file_ext = filename.substr(found_dot_tmp + 1);
-    filename = filename.substr(0, found_dot_tmp);
   }
 
   //  const std::string filestub = (slashindex != std::string::npos) ? fullfilename.substr(slashindex+1) : fullfilename;
   size_t slashindex = filename.find_last_of("/\\");
-  //  if (params.get(stringParam::OUTDIR).empty()) {
-  //    const std::string dir = (slashindex != std::string::npos) ? filename.substr(0, slashindex+1) : "./";
-  //    params.set(stringParam::OUTDIR, dir);
-  //  }
   dir = (slashindex != std::string::npos) ? filename.substr(0,slashindex) : ".";
   instname = (slashindex != std::string::npos) ? filename.substr(slashindex+1) : filename;
-} /* parseFilename */
+} /* parseFilename (name and logfile given) */
+
+void parseFilename(std::string& dir, std::string& instname, std::string& in_file_ext, const VPCParameters& params) {
+  parseFilename(dir, instname, in_file_ext, params.get(stringParam::FILENAME), params.logfile);
+//  if (params.get(stringParam::OUTDIR).empty()) {
+//    params.set(stringParam::OUTDIR, dir);
+//  }
+} /* parseFilename (params) */
 
 /** We assume it is comma separated */
 double getObjValueFromFile(std::string opt_filename, std::string fullfilename, FILE* logfile) {
-  // Take the full filename of the instance and remove any directory information
-  size_t slashindex = fullfilename.find_last_of("/\\");
-  std::string this_inst_name = (slashindex != std::string::npos) ? fullfilename.substr(slashindex+1) : fullfilename;
-
-  // Put string after last '.' into string in_file_ext (accounting for compressed files)
-  size_t found_dot = this_inst_name.find_last_of(".");
-  std::string in_file_ext(this_inst_name.substr(found_dot + 1));
-  this_inst_name = (found_dot != std::string::npos) ? this_inst_name.substr(0, found_dot) : this_inst_name;
-  if (in_file_ext.compare("gz") == 0 || in_file_ext.compare("bz2") == 0) {
-    found_dot = this_inst_name.find_last_of(".");
-
-    if (found_dot == std::string::npos) {
-      error_msg(errorstring,
-          "Other than gz or bz2, cannot find the file extension (no '.' in input file name: %s).\n",
-          fullfilename.c_str());
-      writeErrorToLog(errorstring, logfile);
-      exit(1);
-    }
-
-    in_file_ext = this_inst_name.substr(found_dot + 1);
-    this_inst_name = this_inst_name.substr(0, found_dot);
-  }
-  if (in_file_ext.compare("mps") != 0 && in_file_ext.compare("lp") != 0) {
-    error_msg(errorstring, "Could not identify instance name from file %s.\n", fullfilename.c_str());
-    writeErrorToLog(errorstring, logfile);
-    exit(1);
-  }
+  std::string dir, instname, in_file_ext;
+  parseFilename(dir, instname, in_file_ext, fullfilename, logfile);
 
   if (opt_filename.empty()) {
     return std::numeric_limits<double>::lowest();
@@ -96,14 +73,14 @@ double getObjValueFromFile(std::string opt_filename, std::string fullfilename, F
       if (line.empty()) {
         continue;
       }
-      std::string inst_name;
-      if (!(std::getline(iss, inst_name, ','))) {
+      std::string curr_instname;
+      if (!(std::getline(iss, curr_instname, ','))) {
         warning_msg(warnstring,
             "Could not read instance name. String is %s.\n",
             line.c_str());
         continue;
       }
-      if (inst_name == this_inst_name) {
+      if (curr_instname == instname) {
         try {
           std::string token;
           if (!(std::getline(iss, token, ','))) {
@@ -121,7 +98,7 @@ double getObjValueFromFile(std::string opt_filename, std::string fullfilename, F
     infile.close();
   } else {
     // If we were not able to open the file, throw an error
-    error_msg(errorstring, "Not able to open obj file.\n");
+    error_msg(errorstring, "Not able to open obj file %s.\n", opt_filename.c_str());
     writeErrorToLog(errorstring, logfile);
     exit(1);
   }

@@ -301,7 +301,7 @@ protected:
       const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs);
 
   inline bool reachedCutLimit() const {
-    const bool reached_limit = (num_cuts >= getCutLimit());
+    const bool reached_limit = (num_cuts >= getCutLimit()); 
     return reached_limit;
   } /* reachedCutLimit */
   inline bool reachedTimeLimit(const VPCTimeStats& timeName, const double max_time) const {

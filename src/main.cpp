@@ -407,10 +407,17 @@ void initializeSolver(OsiSolverInterface* &solver) {
 #endif
       status = solver->readMps(params.get(stringParam::FILENAME).c_str());
     } else {
-      error_msg(errorstring, "Unrecognized extension: %s.\n",
-          in_file_ext.c_str());
-      writeErrorToLog(errorstring, params.logfile);
-      exit(1);
+      try {
+#ifdef TRACE
+        printf("\n## Reading MPS file. ##\n");
+#endif
+        status = solver->readMps(params.get(stringParam::FILENAME).c_str());
+      } catch (std::exception& e) {
+        error_msg(errorstring, "Unrecognized extension: %s.\n",
+            in_file_ext.c_str());
+        writeErrorToLog(errorstring, params.logfile);
+        exit(1);
+      }
     }
   } // read file
   if (status < 0) {
@@ -826,7 +833,7 @@ void processArgs(int argc, char** argv) {
 //                helpstring += "-O outdir, --outdir=outdir\n\tWhere to put any output (aside from the logfile).\n";
                 helpstring += "-v level, --verbosity=level\n\tVerbosity level (0: print little, 1: let solver output be visible).\n";
                 helpstring += "\n# General VPC options #\n";
-                helpstring += "-c num cuts, --cutlimit=num cuts\n\tMaximum number of cuts to generate (0 = no limit, -k = k * # fractional variables at root).\n";
+                helpstring += "-c num cuts, --cutlimit=num cuts\n\tMaximum number of cuts to generate (0+ = as given, -k = k * # fractional variables at root).\n";
                 helpstring += "-d num terms, --disj_terms=num terms\n\tMaximum number of disjunctive terms or disjunctions to generate (depending on mode).\n";
                 helpstring += "-g 0/1, --gomory=0/1\n\t0: do not use Gomory cuts before generating VPCs, 1: apply Gomory cuts before generating VPCs.\n";
                 helpstring += "-m mode, --mode=mode\n\tMode for generating disjunction(s). 0: partial b&b tree, 1: splits, 2: crosses (not implemented), 3: custom.\n";

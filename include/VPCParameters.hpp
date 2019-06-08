@@ -38,7 +38,7 @@
 
 /********** PARAMETERS **********/
 enum intParam {
-  CUTLIMIT, // max number of cuts generated; 0 = no limit, -k = k * # fractional variables at root
+  CUTLIMIT, // max number of cuts generated; 0 = none, -k = k * # fractional variables at root
   DISJ_TERMS, // number of disjunctive terms or number of disjunctions, depending on MODE
   GOMORY, // Gomory cut mode, 0: none, 1: use GMIC class
   MODE, // 0: partial b&b tree, 1: splits, 2: crosses (not implemented), 3: custom
