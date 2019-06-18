@@ -173,16 +173,16 @@ ExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface* co
   }
   
 #ifdef TRACE
-  const int TEMP = params.get(intParam::TEMP);
-  if (std::abs(TEMP) >= static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS)
-      && std::abs(TEMP) <= static_cast<int>(TempOptions::GEN_TIKZ_STRING_AND_EXIT)) {
+  const int TEMP_VAL = params.get(intParam::TEMP);
+  if (std::abs(TEMP_VAL) >= static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS)
+      && std::abs(TEMP_VAL) <= static_cast<int>(TempOptions::GEN_TIKZ_STRING_AND_EXIT)) {
     generateTikzTreeString(eventHandler, params, params.get(intParam::PARTIAL_BB_STRATEGY), si->getObjValue(), true);
-    if (std::abs(TEMP) == static_cast<int>(TempOptions::GEN_TIKZ_STRING_AND_RETURN)) {
+    if (std::abs(TEMP_VAL) == static_cast<int>(TempOptions::GEN_TIKZ_STRING_AND_RETURN)) {
       // Free
       if (cbc_model) { delete cbc_model; }
       return ExitReason::SUCCESS_EXIT;
     }
-    if (std::abs(TEMP) == static_cast<int>(TempOptions::GEN_TIKZ_STRING_AND_EXIT)) {
+    if (std::abs(TEMP_VAL) == static_cast<int>(TempOptions::GEN_TIKZ_STRING_AND_EXIT)) {
       exit(1); // this is during debug and does not free memory
     }
   }

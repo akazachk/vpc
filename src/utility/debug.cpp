@@ -25,17 +25,17 @@ void printVector(const int n, const double* vec) {
 #include <CbcModel.hpp>
 void printTree(PartialBBDisjunction* const orig_owner,
     OsiSolverInterface* solver, OsiCuts* vpcs, OsiCuts* gmics) {
-  const int TEMP = orig_owner->params.get(intParam::TEMP);
-  if (std::abs(TEMP) >= static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS)
-      && std::abs(TEMP) <= static_cast<int>(TempOptions::GEN_TIKZ_STRING_NO_CUTS)) {
+  const int TEMP_VAL= orig_owner->params.get(intParam::TEMP);
+  if (std::abs(TEMP_VAL) >= static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS)
+      && std::abs(TEMP_VAL) <= static_cast<int>(TempOptions::GEN_TIKZ_STRING_NO_CUTS)) {
     const bool shouldApplyVPCs =
         (vpcs != NULL)
-            && (TEMP == static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS)
-                || TEMP == static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS_AND_GMICS));
+            && (TEMP_VAL == static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS)
+                || TEMP_VAL == static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS_AND_GMICS));
     const bool shouldApplySICs =
         (gmics != NULL)
-            && (TEMP == static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_GMICS)
-                || TEMP == static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS_AND_GMICS));
+            && (TEMP_VAL == static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_GMICS)
+                || TEMP_VAL == static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS_AND_GMICS));
 
     VPCParameters tmp_params = orig_owner->params;
     const int old_param_val = tmp_params.get(PARTIAL_BB_STRATEGY);
@@ -201,6 +201,12 @@ std::string generateTreePlotString(const VPCEventHandler* eventHandler, const VP
 /************************************************************/
 /**
  * Helper for generateTikzTreeString
+ *
+ * loc = 0: normal node
+ * loc = 1: node pruned by integrality
+ * loc = 2: node pruned by infeasibility or bound?
+ * loc = 3: unexplored node
+ * loc = 4: integer solution found during strong branching
  */
 std::string generateTikzTreeStringHelper(const int node_ind, const int depth,
     const int numNodes, const std::vector<std::vector<int> >& locationOfChild,
@@ -212,10 +218,10 @@ std::string generateTikzTreeStringHelper(const int node_ind, const int depth,
    return "";
   }
   const int curr_depth = 2 * (depth + 1);
-  const int num_children = (node_ind < numNodes) ? (int) locationOfChild[node_ind].size() : 0;
+  const int num_children = (node_ind < numNodes && loc != 4) ? (int) locationOfChild[node_ind].size() : 0;
   std::string str = std::string(curr_depth, ' ');
   str += std::to_string(node_ind);
-  if (print_obj && num_children > 0) {
+  if (print_obj && node_ind < static_cast<int>(obj.size())) {
     str += "/\"" + stringValue(obj[node_ind], "%.2f") + "\"";
   }
 
@@ -223,7 +229,7 @@ std::string generateTikzTreeStringHelper(const int node_ind, const int depth,
   if (loc > 0 || node_ind > 0) {
     str += " [";
   }
-  if (loc == 1) {
+  if (loc == 1 || loc == 4) {
     str += "green!75!black";
   } else if (loc == 2) {
     str += "red";
@@ -234,11 +240,15 @@ std::string generateTikzTreeStringHelper(const int node_ind, const int depth,
     if (loc > 0) {
       str += ", ";
     }
-    str += ">\"{";
-    str += std::to_string(variable[node_ind]);
-    str += "}\"";
-    if (child_ind == 0) {
-      str += ", >swap";
+    if (loc != 4) {
+      str += ">\"{";
+      str += std::to_string(variable[node_ind]);
+      str += "}\"";
+      if (child_ind == 0) {
+        str += ", >swap";
+      }
+    } else {
+      str += ">dashed";
     }
   }
   if (loc > 0 || node_ind > 0) {
@@ -249,6 +259,8 @@ std::string generateTikzTreeStringHelper(const int node_ind, const int depth,
   if (node_ind < numNodes) {
     bool addedString = false;
     for (int j = 0; j < num_children; j++) {
+      if (children[node_ind][j] < 0)
+        continue;
       const int loc = locationOfChild[node_ind][j];
       if (loc < 0) {
         continue;
@@ -300,6 +312,7 @@ std::string generateTikzTreeString(const VPCEventHandler* eventHandler,
   const std::vector<NodeStatistics>& pruned_stats = eventHandler->getPrunedStatsVector();
   const int numNodes = eventHandler->getNumNodes();
   int numNodesTotal = numNodes;
+  int numSBFeasNodes = 0;
 
   std::string prepend = "\\begin{figure}[htp!]\n";
   prepend += "\\centering\n";
@@ -312,33 +325,52 @@ std::string generateTikzTreeString(const VPCEventHandler* eventHandler,
   std::string append = "};\n\\end{tikzpicture}\n}\n";
   std::string endfigure = "\\end{figure}\n";
 //  std::vector<int> depth(numNodes);
-  std::vector<std::vector<int> > children(numNodes); // the children of this node
-  std::vector<std::vector<int> > locationOfChild(numNodes); // 0: children, 1: feas_children, 2: pruned_children, 3: unexplored_children
+  std::vector<std::vector<int> > children(numNodes); // the children of this node (node indices)
+  std::vector<std::vector<int> > locationOfChild(numNodes); // 0: children, 1: feas_children, 2: pruned_children, 3: unexplored_children, 4: feas children found during strong branching
   std::vector<int> variable(numNodes); // variable that was branched on to get to this node
-  std::vector<double> obj(numNodes); // variable that was branched on to get to this node
+  std::vector<double> obj(numNodes); // objective value at this node
   variable[0] = -1;
   obj[0] = eventHandler->getOriginalSolver()->getObjValue();
 
-  // Assume there are two children
-  // There may be more in the case of infeasibility
+  // Assume there are at most 3 children
+  // (middle "child" reserved for feas sol found during strong branching at that node)
+  // There may be more / less in general
   for (int i = 0; i < numNodes; i++) {
-    children[i].resize(2, -1);
-    locationOfChild[i].resize(2, -1);
+    children[i].resize(3, -1);
+    locationOfChild[i].resize(3, -1);
   }
 
   // First handle the nodes already explored
   for (int i = 0; i < (int) stats.size(); i++) {
     if (stats[i].orig_id != stats[i].id || stats[i].parent_id < 0) {
-      continue;
+      continue; // skip if the node has already been handled
     }
     const int node_ind = stats[i].number;
     const int parent_id = stats[i].parent_id;
     const int parent_node_ind = stats[parent_id].number;
-    const int child_ind = (stats[parent_id].way <= 0) ? 0 : 1;
-    setChildForTikzTreeString(children, locationOfChild, stats[i].found_integer_solution,
+    const int child_ind = (stats[parent_id].way <= 0) ? 0 : 2;
+    int loc = 0;
+    if (stats[i].found_integer_solution && isVal(stats[i].obj, stats[i].integer_obj)) {
+      loc = 1;
+    }
+    setChildForTikzTreeString(children, locationOfChild, loc,
         parent_node_ind, child_ind, node_ind);
     variable[node_ind] = stats[parent_id].variable;
     obj[node_ind] = stats[i].obj;
+    if (stats[i].found_integer_solution && !isVal(stats[i].obj, stats[i].integer_obj)) {
+      // An integer solution was found during strong branching
+      // Add this as a child with loc set to 4
+      children.resize(numNodes+numSBFeasNodes+1);
+      locationOfChild.resize(numNodes+numSBFeasNodes+1);
+      children[numNodes+numSBFeasNodes].resize(3,-1);
+      locationOfChild[numNodes+numSBFeasNodes].resize(3,-1);
+      loc = 4;
+      setChildForTikzTreeString(children, locationOfChild, loc,
+          node_ind, 1, numNodes+numSBFeasNodes); // place it in the middle
+      variable.push_back(-1);
+      obj.push_back(stats[i].integer_obj);
+      numSBFeasNodes++;
+    }
   }
 
   // Add the leaf nodes
@@ -349,7 +381,8 @@ std::string generateTikzTreeString(const VPCEventHandler* eventHandler,
     const int first_child_ind = (stats[i].way <= 0);
     const int parent_node_ind = stats[i].number;
     for (int b = branch; b < 2; b++) {
-      const int child_ind = (b == 0) ? first_child_ind : !first_child_ind;
+      const int tmp_child_ind = (b == 0) ? first_child_ind : !first_child_ind;
+      const int child_ind = (tmp_child_ind == 0) ? 0 : 2; // reserve index 1 for strong branching "child"
       setChildForTikzTreeString(children, locationOfChild, 3, parent_node_ind, child_ind, numNodesTotal);
       variable.push_back(stats[i].variable);
       obj.push_back(-1);
@@ -364,13 +397,28 @@ std::string generateTikzTreeString(const VPCEventHandler* eventHandler,
     assert(children[node_ind][0] == -1 && children[node_ind][1] == -1);
     const int parent_id = pruned_stats[i].parent_id;
     const int parent_node_ind = stats[parent_id].number;
-    const int child_ind = (stats[parent_id].way <= 0) ? 0 : 1;
+    const int child_ind = (stats[parent_id].way <= 0) ? 0 : 2;
     variable[node_ind] = stats[parent_id].variable;
     obj[node_ind] = pruned_stats[i].obj;
     if (pruned_stats[i].found_integer_solution) {
-      setChildForTikzTreeString(children, locationOfChild, 1, parent_node_ind, child_ind, node_ind);
+      int loc = (pruned_stats[i].obj == pruned_stats[i].integer_obj);
+      setChildForTikzTreeString(children, locationOfChild, loc, parent_node_ind, child_ind, node_ind);
       numFeasNodes++;
-    } else {
+      if (loc == 0) {
+        // An integer solution was found during strong branching
+        // Add this as a child with loc set to 4
+        children.resize(numNodes+numSBFeasNodes+1);
+        locationOfChild.resize(numNodes+numSBFeasNodes+1);
+        children[numNodes+numSBFeasNodes].resize(3,-1);
+        locationOfChild[numNodes+numSBFeasNodes].resize(3,-1);
+        loc = 4;
+        setChildForTikzTreeString(children, locationOfChild, loc,
+            node_ind, 1, numNodes+numSBFeasNodes); // place it in the middle
+        variable.push_back(-1);
+        obj.push_back(pruned_stats[i].integer_obj);
+        numSBFeasNodes++;
+      }
+    } else { // although it says infeasible, it may have been pruned by bound...
       setChildForTikzTreeString(children, locationOfChild, 2, parent_node_ind, child_ind, node_ind);
       numInfeasNodes++;
     }
