@@ -16,9 +16,8 @@ RM = rm -f
 BUILD_CONFIG = release
 BUILD_CONFIG = debug
 
-USERNAME := ${USER}
 ### Variables user should set ###
-ifeq ($(USERNAME),otherperson)
+ifeq ($(USER),otherperson)
 	#PROJ_DIR = enter/dir/here
 	#COIN_OR = enter/dir/here
   #GUROBI_HOME = enter/dir/here
