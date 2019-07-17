@@ -10,6 +10,7 @@
 #include "PartialBBDisjunction.hpp"
 #include "SolverHelper.hpp"
 #include "utility.hpp"
+#include <memory> // unique_ptr, make_unique (C++14)
 
 #include <OsiAuxInfo.hpp> // solver characteristics OsiBab
 
@@ -20,6 +21,8 @@
 #include <CbcSimpleInteger.hpp>
 #include <CbcBranchDynamic.hpp> // CbcDynamicPseudoCostBranchingObject
 #endif // USE_CBC
+
+#include "CglVPC.hpp"
 
 /**
  * Set statistics when a child will be counted
@@ -299,6 +302,9 @@ VPCEventHandler::~VPCEventHandler () {
   if (originalSolver_) {
     delete originalSolver_;
   }
+  if (cuts_) {
+    delete cuts_;
+  }
 //  for (int i = 0; i < (int) bases_.size(); i++) {
 //    if (bases_[i]) {
 //      delete bases_[i];
@@ -343,6 +349,8 @@ CbcEventHandler* VPCEventHandler::clone() const {
       heuristicPass,
       *! When converting constraints to cuts.
       convertToCuts,
+      *! Having generated cuts, allows user to think. // amk: added in Cbc 2.10
+      generatedCuts,
       *! End of search.
       endSearch
     } ;
@@ -769,6 +777,38 @@ VPCEventHandler::event(CbcEvent whichEvent) {
       savedSolution_.assign(model_->bestSolution(), model_->bestSolution() + model_->getNumCols());
     } /* mip feasible */
   } /* (whichEvent == beforeSolution2) */
+#ifdef CBC_VERSION_210PLUS
+  else if (whichEvent == generatedCuts) {
+    // Maybe we want to generate cuts without exiting branching
+    const bool GEN_CUTS_WHILE_BRANCHING = false;
+    if (GEN_CUTS_WHILE_BRANCHING) {
+      // Temporarily replace the disjunction associated with this event handler
+      PartialBBDisjunction* old = this->owner;
+      //std::shared_ptr<PartialBBDisjunction> disj = std::make_shared<PartialBBDisjunction>(old);
+      PartialBBDisjunction* disj = new PartialBBDisjunction;
+      this->owner = disj;
+      saveInformation(); // save necessary info from current leaf nodes into disj
+
+      // Generate cuts from current branch-and-bound leaf nodes
+      OsiCuts cuts;
+      CglVPC gen(old->params);
+      gen.setDisjunction(disj, false);
+      gen.generateCuts(*model_->solver(), cuts);
+      this->numCuts_ += cuts.sizeCuts();
+      //OsiCuts* theseCuts = dynamic_cast<OsiCuts*>(model_->getApplicationData());
+      void* appData = model_->getApplicationData();
+      OsiCuts* theseCuts = static_cast<OsiCuts*>(appData);
+      theseCuts->insert(cuts);
+      this->cuts_->insert(cuts);
+
+      // Reset everything to as before
+      if (disj) {
+        delete disj;
+      }
+      this->owner = old;
+    }
+  } // (whichEvent == generatedCuts)
+#endif
   else if (whichEvent == endSearch) {
     // If we get here,
     // this means that a solution has been found prior to the maximum number of leaf nodes,
@@ -838,6 +878,7 @@ void VPCEventHandler::initialize(const VPCEventHandler* const source) {
   if (source) {
     this->owner = source->owner;
     this->maxNumLeafNodes_ = source->maxNumLeafNodes_;
+    this->numCuts_ = source->numCuts_;
     this->maxTime_ = source->maxTime_;
     this->numNodesOnTree_ = source->numNodesOnTree_;
     this->numLeafNodes_ = source->numLeafNodes_;
@@ -849,6 +890,7 @@ void VPCEventHandler::initialize(const VPCEventHandler* const source) {
     this->pruned_stats_ = source->pruned_stats_;
     this->finalNodeIndices_ = source->finalNodeIndices_;
     this->savedSolution_ = source->savedSolution_;
+    this->cuts_ = source->cuts_;
     // Temporary members
     this->currentNodes_ = source->currentNodes_;
     this->parentInfo_ = source->parentInfo_;
@@ -859,6 +901,7 @@ void VPCEventHandler::initialize(const VPCEventHandler* const source) {
   } else {
     this->owner = NULL;
     this->maxNumLeafNodes_ = 0;
+    this->numCuts_ = 0;
     this->maxTime_ = 0;
     this->numNodesOnTree_ = 0;
     this->numLeafNodes_ = 0;
@@ -870,6 +913,7 @@ void VPCEventHandler::initialize(const VPCEventHandler* const source) {
     this->pruned_stats_.resize(0);
     this->finalNodeIndices_.resize(0);
     this->savedSolution_.resize(0);
+    this->cuts_ = new OsiCuts;
     // Temporary members
     this->currentNodes_.resize(0);
     this->parentInfo_ = NULL;

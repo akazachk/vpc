@@ -18,6 +18,7 @@
 #include "VPCParameters.hpp"
 
 class PartialBBDisjunction;
+class OsiCuts;
 
 // Useful data structure for COIN-OR tracking
 struct NodeStatistics {
@@ -156,6 +157,7 @@ public:
 
 protected:
   int maxNumLeafNodes_;
+  int numCuts_;
   double maxTime_;
 
   // Things that will be saved at the end
@@ -168,6 +170,7 @@ protected:
   std::vector<NodeStatistics> pruned_stats_; // info for all children that were pruned
   std::vector<int> finalNodeIndices_; // node numbers for the nodes on the final tree
   std::vector<double> savedSolution_; // when pruneNode_ = 3, the saved solution might have been deleted somehow
+  OsiCuts* cuts_;
 
   // Temporary information we want to keep during the B&B process
   std::vector<CbcNode*> currentNodes_;

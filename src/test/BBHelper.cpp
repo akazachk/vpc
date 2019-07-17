@@ -6,7 +6,8 @@
 //============================================================================
 
 #include <cstdio> // for tmpnam
-#include <algorithm>  // std::random_shuffle
+//#include <algorithm>  // std::random_shuffle
+#include <random> // random_device, mt19937 (mersenne twister engine), uniform_real_distribution
 
 // Project files 
 #include "BBHelper.hpp"
@@ -114,16 +115,24 @@ void runBBTests(const VPCParameters& base_params, SummaryBBInfo* const info_nocu
   }
 
   OsiSolverInterface* runSolver = NULL;
-  int initial_random_seed = params.get(intParam::RANDOM_SEED);
+  const int given_seed = params.get(intParam::RANDOM_SEED);
+  const auto initial_random_seed = given_seed > 0 ? given_seed : std::chrono::system_clock::now().time_since_epoch().count();
   int random_seed;
+  std::mt19937 rng;
   for (int run_ind = 0; run_ind < num_bb_runs; run_ind++) {
+    // Change the random seed per run
+    random_seed = initial_random_seed * (run_ind + 1);
+    params.set(intParam::RANDOM_SEED, random_seed);
+
     // For Cbc, for every run after the first, we will randomize the rows and columns of the input
     if (should_permute_rows_and_cols) {
-      std::srand(run_ind + 2);  // sets the seed for pseudo-randomness in C++
+      //std::srand(run_ind + 2);  // sets the seed for pseudo-randomness in C++
+      std::seed_seq curr_seed{ random_seed };
+      rng.seed(curr_seed);
       std::vector<int> this_row_permutation(row_permutation);
       std::vector<int> this_col_permutation(col_permutation);
-      std::random_shuffle(this_row_permutation.begin(), this_row_permutation.end());
-      std::random_shuffle(this_col_permutation.begin(), this_col_permutation.end());
+      std::shuffle(this_row_permutation.begin(), this_row_permutation.end(), rng);
+      std::shuffle(this_col_permutation.begin(), this_col_permutation.end(), rng);
 
       // Create the permuted problem
       std::vector<double> rowLB(solver->getNumRows()), rowUB(solver->getNumRows());
@@ -177,10 +186,6 @@ void runBBTests(const VPCParameters& base_params, SummaryBBInfo* const info_nocu
     else {
       runSolver = solver;
     }
-
-    // Change the random seed per run
-    random_seed = initial_random_seed * (run_ind + 1);
-    params.set(intParam::RANDOM_SEED, random_seed);
 
     // Do branch and bound
     if (use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::gurobi)) {

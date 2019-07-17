@@ -26,7 +26,7 @@ else
   ifeq (${PROJ_DIR},)
     $(error Need to define PROJ_DIR shell variable or inside of makefile)
   endif
-	COIN_VERSION=2.9
+	COIN_VERSION=2.10
   ifeq ($(UNAME),Linux)
 	  COIN_OR = $(PROJ_DIR)/lib/Cbc-${COIN_VERSION}
 	  GUROBI_LINK = "gurobi81"
@@ -114,6 +114,9 @@ endif
 ifeq ($(USE_CPLEX),1)
   DEFS += -DIL_STD -DUSE_CPLEX
 endif
+ifeq ($(COIN_VERSION),2.10)
+  DEFS += -DCBC_VERSION_210PLUS
+endif
 
 EXECUTABLE = $(OUT_DIR)/$(EXECUTABLE_STUB)
 
@@ -135,9 +138,9 @@ APPLLIB = -lm -lz -lbz2 -lreadline
 # Linker
 CFLAGS = -Wall -MMD -MP
 CFLAGS += -m64 $(DEBUG_FLAG) $(OPT_FLAG) $(EXTRA_FLAGS)
-CXXFLAGS = $(CFLAGS) -std=c++11
-#CXXFLAGS = $(CFLAGS) -std=c++11 -Wextra -Wpedantic
-CXXLINKFLAGS += -std=c++11
+CXXFLAGS = $(CFLAGS) -std=c++14
+#CXXFLAGS = $(CFLAGS) -std=c++14 -Wextra -Wpedantic
+CXXLINKFLAGS += -std=c++14
 ifeq ($(CC),clang++)
   CXXFLAGS += -Wno-gnu-zero-variadic-macro-arguments
   #CXXFLAGS += -stdlib=libc++ 
