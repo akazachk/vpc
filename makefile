@@ -28,7 +28,7 @@ else
   endif
   COIN_VERSION=2.9
   ifeq ($(UNAME),Linux)
-		COIN_VERSION=2.10
+    COIN_VERSION=2.10
     COIN_OR = $(PROJ_DIR)/lib/Cbc-${COIN_VERSION}
     GUROBI_LINK = gurobi81
     #GUROBI_HOME = /home/gurobi/8.1.0/linux64

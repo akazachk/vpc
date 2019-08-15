@@ -3,6 +3,7 @@
 
 ## User needs to define
 #PROJ_DIR="~/repos/vpc"
+#CBC_VERSION="2.10"
 CBC_VERSION="2.9"
 CBC_REVISION="2352"
 CBC_URL="https://projects.coin-or.org/svn/Cbc/stable/${CBC_VERSION}"
