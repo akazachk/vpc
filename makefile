@@ -18,24 +18,23 @@ BUILD_CONFIG = debug
 
 ### Variables user should set ###
 ifeq ($(USER),otherperson)
-	#PROJ_DIR = enter/dir/here
 	#COIN_OR = enter/dir/here
   #GUROBI_HOME = enter/dir/here
   #GUROBI_LINK="gurobi80"
 else
+  PROJ_DIR = .
   ifeq (${PROJ_DIR},)
     $(error Need to define PROJ_DIR shell variable or inside of makefile)
   endif
-	COIN_VERSION=2.10
+  COIN_VERSION=2.9
   ifeq ($(UNAME),Linux)
-	  COIN_OR = $(PROJ_DIR)/lib/Cbc-${COIN_VERSION}
-	  GUROBI_LINK = "gurobi81"
-	else
-  	GUROBI_LINK = "gurobi81"
-	  #COIN_OR = $(PROJ_DIR)/lib/Cbc-${COIN_VERSION}
-    #GUROBI_HOME="/Library/gurobi810/mac64"
-    #GUROBI_LINK="gurobi81"
-	endif
+    COIN_OR = $(PROJ_DIR)/lib/Cbc-${COIN_VERSION}
+    GUROBI_LINK = "gurobi81"
+  else
+    COIN_OR = $(PROJ_DIR)/lib/Cbc-${COIN_VERSION}
+    GUROBI_LINK = "gurobi81"
+    GUROBI_HOME="/Library/gurobi811/mac64"
+  endif
 endif
 
 # Options for solvers
@@ -277,7 +276,6 @@ dir_lib: FORCE
 print: FORCE
 	$(info UNAME: ${UNAME})
 	$(info CC: ${CC})
-	$(info PROJ_DIR: ${PROJ_DIR})
 	$(info COIN_OR: ${COIN_OR})
 	$(info GUROBI_HOME: ${GUROBI_HOME})
 	$(info GUROBI_LINK: ${GUROBI_LINK})

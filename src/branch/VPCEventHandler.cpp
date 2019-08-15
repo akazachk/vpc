@@ -301,10 +301,12 @@ VPCEventHandler::VPCEventHandler(CbcModel * model) : CbcEventHandler(model) {
 VPCEventHandler::~VPCEventHandler () {
   if (originalSolver_) {
     delete originalSolver_;
+    originalSolver_ = NULL;
   }
-  if (cuts_) {
-    delete cuts_;
-  }
+//  if (cuts_) {
+//    delete cuts_;
+//    cuts_ = NULL;
+//  }
 //  for (int i = 0; i < (int) bases_.size(); i++) {
 //    if (bases_[i]) {
 //      delete bases_[i];
@@ -890,7 +892,7 @@ void VPCEventHandler::initialize(const VPCEventHandler* const source) {
     this->pruned_stats_ = source->pruned_stats_;
     this->finalNodeIndices_ = source->finalNodeIndices_;
     this->savedSolution_ = source->savedSolution_;
-    this->cuts_ = source->cuts_;
+    this->cuts_ = std::make_unique<OsiCuts>(*source->cuts_);
     // Temporary members
     this->currentNodes_ = source->currentNodes_;
     this->parentInfo_ = source->parentInfo_;
@@ -913,7 +915,7 @@ void VPCEventHandler::initialize(const VPCEventHandler* const source) {
     this->pruned_stats_.resize(0);
     this->finalNodeIndices_.resize(0);
     this->savedSolution_.resize(0);
-    this->cuts_ = new OsiCuts;
+    this->cuts_ = std::make_unique<OsiCuts>();
     // Temporary members
     this->currentNodes_.resize(0);
     this->parentInfo_ = NULL;
