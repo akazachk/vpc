@@ -135,7 +135,6 @@ int main(int argc, char** argv) {
     VPCSolver = solver->clone();
   }
 
-
   // Possibly preprocess instead of doing cuts
   if ((params.get(TEMP) == static_cast<int>(TempOptions::PREPROCESS))
       || params.get(TEMP) == static_cast<int>(TempOptions::PREPROCESS_CUSTOM)) {
@@ -205,14 +204,17 @@ int main(int argc, char** argv) {
 
     timer.start_timer(OverallTimeStats::VPC_APPLY_TIME);
     applyCutsCustom(solver, vpcs_by_round[round_ind]);
-    applyCutsCustom(VPCSolver, vpcs_by_round[round_ind]);
     if (params.get(GOMORY) > 0) {
-      boundInfo.vpc_obj = VPCSolver->getObjValue();
       boundInfo.gmic_vpc_obj = solver->getObjValue();
+      applyCutsCustom(VPCSolver, vpcs_by_round[round_ind]);
+      boundInfo.vpc_obj = VPCSolver->getObjValue();
     }
-    if (params.get(GOMORY) < 0) {
+    else if (params.get(GOMORY) < 0) {
       boundInfo.vpc_obj = solver->getObjValue();
+      applyCutsCustom(VPCSolver, vpcs_by_round[round_ind]);
       boundInfo.gmic_vpc_obj = VPCSolver->getObjValue();
+    } else {
+      boundInfo.vpc_obj = solver->getObjValue();
     }
     timer.end_timer(OverallTimeStats::VPC_APPLY_TIME);
 
