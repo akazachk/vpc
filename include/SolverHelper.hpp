@@ -6,7 +6,7 @@
   #include <OsiClpSolverInterface.hpp>
 #else
   #include <OsiSolverInterface.hpp>
-#endif
+#endif /* USE_CLP */
 
 #ifdef USE_CBC
 class CbcModel;
@@ -18,7 +18,9 @@ void setIPSolverParameters(CbcModel* const cbc_model,
         0
 #endif
     );
-#endif
+#endif /* USE_CBC */
+
+class OsiCuts;
 
 void setLPSolverParameters(OsiSolverInterface* const solver,
     const int verbosity =
@@ -69,6 +71,21 @@ bool checkSolverOptimality(OsiSolverInterface* const solver,
  * Enable factorization, and check whether some cleanup needs to be done
  */
 bool enableFactorization(OsiSolverInterface* const solver, const double EPS, const int resolveFlag = 2);
+
+/**
+ * Generic way to apply a set of cuts to a solver
+ * @return Solver value after adding the cuts, if they were added successfully
+ */
+double applyCutsCustom(OsiSolverInterface* const solver, const OsiCuts& cs,
+    const int startCutIndex, const int numCutsOverload, double compare_obj);
+double applyCutsCustom(OsiSolverInterface* const solver, const OsiCuts& cs,
+    const int numCutsOverload = -1,
+    double compare_obj = std::numeric_limits<double>::lowest());
+
+/**
+ * Get objective value from solver with cuts added
+ */
+double getObjValue(OsiSolverInterface* const solver, const OsiCuts* const cuts);
 
 /*****************************
  * Decide status of variables

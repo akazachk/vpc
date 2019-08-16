@@ -40,7 +40,7 @@
 enum intParam {
   CUTLIMIT, // max number of cuts generated; 0 = none, -k = k * # fractional variables at root
   DISJ_TERMS, // number of disjunctive terms or number of disjunctions, depending on MODE
-  GOMORY, // Gomory cut mode, 0: none, 1: use GMIC class
+  GOMORY, // Gomory cut mode, 0: none, +/-1: use GMIC class to generate cuts (-1: do not add them to LP before generating VPCs; 1: do add them)
   MODE, // 0: partial b&b tree, 1: splits, 2: crosses (not implemented), 3: custom
   // PARTIAL_BB_STRATEGY:
   // Total used to decide the choose:
@@ -351,45 +351,107 @@ struct VPCParameters {
 
   /** unordered_map gets printed in reverse order; advantage over map is constant access time on average */
   std::unordered_map<intParam, IntParameter, EnumClassHash> intParamValues {
-    {intParam::BB_MODE, IntParameter(intParam::BB_MODE, "BB_MODE", 10, 0, 111)}, // 010 = branch with vpcs only
-    {intParam::BB_STRATEGY, IntParameter(intParam::BB_STRATEGY, "BB_STRATEGY", 10776, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())}, // see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
-    {intParam::BB_RUNS, IntParameter(intParam::BB_RUNS, "BB_RUNS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::RANDOM_SEED, IntParameter(intParam::RANDOM_SEED, "RANDOM_SEED", 628, -1, std::numeric_limits<int>::max())},
+    // BB_MODE: 010 = branch with vpcs only
+    {intParam::BB_MODE,
+        IntParameter(intParam::BB_MODE, "BB_MODE",
+            10, 0, 111)},
+    // BB_STRATEGY: see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
+    {intParam::BB_STRATEGY,
+        IntParameter(intParam::BB_STRATEGY, "BB_STRATEGY",
+            10776, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::BB_RUNS,
+        IntParameter(intParam::BB_RUNS, "BB_RUNS",
+            0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::RANDOM_SEED,
+        IntParameter(intParam::RANDOM_SEED, "RANDOM_SEED",
+            628, -1, std::numeric_limits<int>::max())},
 #ifdef TRACE
-    {intParam::VERBOSITY, IntParameter(intParam::VERBOSITY, "VERBOSITY", 1, 0, 2)},
+    {intParam::VERBOSITY,
+        IntParameter(intParam::VERBOSITY, "VERBOSITY",
+            1, 0, 2)},
 #else
-    {intParam::VERBOSITY, IntParameter(intParam::VERBOSITY, "VERBOSITY", 0, 0, 2)},
+    {intParam::VERBOSITY,
+        IntParameter(intParam::VERBOSITY, "VERBOSITY",
+            0, 0, 2)},
 #endif
-    {intParam::USE_UNIT_VECTORS, IntParameter(intParam::USE_UNIT_VECTORS, "USE_UNIT_VECTORS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::USE_TIGHT_RAYS, IntParameter(intParam::USE_TIGHT_RAYS, "USE_TIGHT_RAYS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::USE_TIGHT_POINTS, IntParameter(intParam::USE_TIGHT_POINTS, "USE_TIGHT_POINTS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::USE_ITER_BILINEAR, IntParameter(intParam::USE_ITER_BILINEAR, "USE_ITER_BILINEAR", 1, 0, std::numeric_limits<int>::max())},
-    {intParam::USE_DISJ_LB, IntParameter(intParam::USE_DISJ_LB, "USE_DISJ_LB", 1, 0, 1)},
-    {intParam::USE_ALL_ONES, IntParameter(intParam::USE_ALL_ONES, "USE_ALL_ONES", 1, 0, 1)},
-    {intParam::TEMP, IntParameter(intParam::TEMP, "TEMP", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::STRENGTHEN, IntParameter(intParam::STRENGTHEN, "STRENGTHEN", 1, 0, 2)},
-    {intParam::ROUNDS, IntParameter(intParam::ROUNDS, "ROUNDS", 1, 0, std::numeric_limits<int>::max())},
-    {intParam::PRLP_FLIP_BETA, IntParameter(intParam::PRLP_FLIP_BETA, "PRLP_FLIP_BETA", 0, -1, 1)},
-    {intParam::PARTIAL_BB_NUM_STRONG, IntParameter(intParam::PARTIAL_BB_NUM_STRONG, "PARTIAL_BB_NUM_STRONG", 5, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::PARTIAL_BB_STRATEGY, IntParameter(intParam::PARTIAL_BB_STRATEGY, "PARTIAL_BB_STRATEGY", 4, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())}, // 004 => default variable decision, default branch decision, objective-based node comparison
-    {intParam::MODE, IntParameter(intParam::MODE, "MODE", 0, {0, 1, 3})},
-    {intParam::GOMORY, IntParameter(intParam::GOMORY, "GOMORY", 0, 0, 1)},
-    {intParam::DISJ_TERMS, IntParameter(intParam::DISJ_TERMS, "DISJ_TERMS", 0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
-    {intParam::CUTLIMIT, IntParameter(intParam::CUTLIMIT, "CUTLIMIT", -1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::USE_UNIT_VECTORS,
+        IntParameter(intParam::USE_UNIT_VECTORS, "USE_UNIT_VECTORS",
+            0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::USE_TIGHT_RAYS,
+        IntParameter(intParam::USE_TIGHT_RAYS, "USE_TIGHT_RAYS",
+            0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::USE_TIGHT_POINTS,
+        IntParameter(intParam::USE_TIGHT_POINTS, "USE_TIGHT_POINTS",
+            0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::USE_ITER_BILINEAR,
+        IntParameter(intParam::USE_ITER_BILINEAR, "USE_ITER_BILINEAR",
+            1, 0, std::numeric_limits<int>::max())},
+    {intParam::USE_DISJ_LB,
+        IntParameter(intParam::USE_DISJ_LB, "USE_DISJ_LB",
+            1, 0, 1)},
+    {intParam::USE_ALL_ONES,
+        IntParameter(intParam::USE_ALL_ONES, "USE_ALL_ONES",
+            1, 0, 1)},
+    {intParam::TEMP,
+        IntParameter(intParam::TEMP, "TEMP",
+            0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::STRENGTHEN,
+        IntParameter(intParam::STRENGTHEN, "STRENGTHEN",
+            1, 0, 2)},
+    {intParam::ROUNDS,
+        IntParameter(intParam::ROUNDS, "ROUNDS",
+            1, 0, std::numeric_limits<int>::max())},
+    {intParam::PRLP_FLIP_BETA,
+        IntParameter(intParam::PRLP_FLIP_BETA, "PRLP_FLIP_BETA",
+            0, -1, 1)},
+    {intParam::PARTIAL_BB_NUM_STRONG,
+        IntParameter(intParam::PARTIAL_BB_NUM_STRONG, "PARTIAL_BB_NUM_STRONG",
+            5, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    // PARTIAL_BB_STRATEGY: 004 => default variable decision, default branch decision, objective-based node comparison
+    {intParam::PARTIAL_BB_STRATEGY,
+        IntParameter(intParam::PARTIAL_BB_STRATEGY, "PARTIAL_BB_STRATEGY",
+            4, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::MODE,
+        IntParameter(intParam::MODE, "MODE",
+            0, {0, 1, 3})},
+    {intParam::GOMORY,
+        IntParameter(intParam::GOMORY, "GOMORY",
+            0, -1, 1)},
+    {intParam::DISJ_TERMS,
+        IntParameter(intParam::DISJ_TERMS, "DISJ_TERMS",
+            0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::CUTLIMIT,
+        IntParameter(intParam::CUTLIMIT, "CUTLIMIT",
+            -1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
   }; /* intParamValues */
   std::unordered_map<doubleParam, DoubleParameter, EnumClassHash> doubleParamValues {
-    {doubleParam::TIMELIMIT, DoubleParameter("TIMELIMIT", 60, 0., std::numeric_limits<double>::max())},
-    {doubleParam::PRLP_TIMELIMIT, DoubleParameter("PRLP_TIMELIMIT", -1, -1., std::numeric_limits<double>::max())},
-    {doubleParam::PARTIAL_BB_TIMELIMIT, DoubleParameter("PARTIAL_BB_TIMELIMIT", 3600, 0., std::numeric_limits<double>::max())},
-    {doubleParam::MIN_ORTHOGONALITY, DoubleParameter("MIN_ORTHOGONALITY", 0., 0., 1.)},
-    {doubleParam::IP_OBJ, DoubleParameter("IP_OBJ", std::numeric_limits<double>::max(), std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max())},
-    {doubleParam::EPS, DoubleParameter("EPS", 1e-7, 0., 1.)},
+    {doubleParam::TIMELIMIT,
+      DoubleParameter(doubleParam::TIMELIMIT, "TIMELIMIT",
+          60, 0., std::numeric_limits<double>::max())},
+    {doubleParam::PRLP_TIMELIMIT,
+        DoubleParameter(doubleParam::PRLP_TIMELIMIT, "PRLP_TIMELIMIT",
+            -1, -1., std::numeric_limits<double>::max())},
+    {doubleParam::PARTIAL_BB_TIMELIMIT,
+        DoubleParameter(doubleParam::PARTIAL_BB_TIMELIMIT, "PARTIAL_BB_TIMELIMIT",
+            3600, 0., std::numeric_limits<double>::max())},
+    {doubleParam::MIN_ORTHOGONALITY,
+        DoubleParameter(doubleParam::MIN_ORTHOGONALITY, "MIN_ORTHOGONALITY",
+            0., 0., 1.)},
+    {doubleParam::IP_OBJ,
+        DoubleParameter(doubleParam::IP_OBJ, "IP_OBJ",
+            std::numeric_limits<double>::max(), std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max())},
+    {doubleParam::EPS,
+        DoubleParameter(doubleParam::EPS, "EPS",
+            1e-7, 0., 1.)},
   }; /* doubleParamValues */
   std::unordered_map<stringParam, StringParameter, EnumClassHash> stringParamValues {
 //    {stringParam::OUTDIR, StringParameter("OUTDIR", "")},
-    {stringParam::OPTFILE, StringParameter("OPTFILE", "")},
-    {stringParam::LOGFILE, StringParameter("LOGFILE", "")},
-    {stringParam::FILENAME, StringParameter("FILENAME", "")},
+    {stringParam::OPTFILE,
+      StringParameter(stringParam::OPTFILE, "OPTFILE", "")},
+    {stringParam::LOGFILE,
+        StringParameter(stringParam::LOGFILE, "LOGFILE", "")},
+    {stringParam::FILENAME,
+        StringParameter(stringParam::FILENAME, "FILENAME", "")},
   }; /* stringParamValues */
 
   // Constants

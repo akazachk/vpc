@@ -2,6 +2,8 @@
 
 #include "utility.hpp"
 
+#include "OsiCuts.hpp"
+
 #ifdef USE_CBC
 #include <CbcModel.hpp>
 
@@ -18,7 +20,7 @@ void setIPSolverParameters(CbcModel* const cbc_model, const int verbosity) {
   }
   cbc_model->setPrintFrequency(1);
 } /* setIPSolverParameters (Cbc) */
-#endif
+#endif /* USE_CBC */
 
 void setLPSolverParameters(OsiSolverInterface* const solver,
     const int verbosity,
@@ -136,99 +138,97 @@ bool checkSolverOptimality(OsiSolverInterface* const solver,
   } catch (std::exception& e) {
     // Disregard / catch below
   }
-  if (!clpsolver) {
-    return solver->isProvenOptimal();
-  }
-
-  // If it is supposedly proven primal infeasible, might be good to do a resolve first
-  // This is, e.g., something that arises with miplib2003/pp08aCUTS_presolved -32
-  if (clpsolver->isProvenPrimalInfeasible()) {
-    clpsolver->getModelPtr()->setNumberIterations(0);
-    clpsolver->getModelPtr()->setMaximumSeconds(timeLimit);
-    clpsolver->resolve();
-    resolve_count++;
-  }
-
-  // First clean
-  if (resolve_count < maxNumResolves && clpsolver) {
-    int status = clpsolver->getModelPtr()->secondaryStatus();
-    bool is_cleaned = false;
-    if (status == 2 || !isZero(clpsolver->getModelPtr()->sumPrimalInfeasibilities())) {
-      clpsolver->getModelPtr()->cleanup(1);
-      is_cleaned = true;
-    } else if (status == 3 || status == 9 || !isZero(clpsolver->getModelPtr()->sumDualInfeasibilities())) {
-      clpsolver->getModelPtr()->cleanup(2);
-      is_cleaned = true;
-    } else if (status == 4) {
-      clpsolver->getModelPtr()->cleanup(1);
-      is_cleaned = true;
-    }
-    if (is_cleaned) {
-      resolve_count++;
-      return checkSolverOptimality(solver, exitOnDualInfeas, timeLimit, 0);
-    }
-
-    // Do some resolves, but first save whether the initial status is dual infeasible
-    // The reason is that for neos15 w/str=2, we were getting a dual infeasible problem
-    // turn into a primal infeasible problem after resolves
-    // (probably the strengthening causes numerical issues)
-    const bool oldStatusDualInfeasible = (clpsolver->isProvenDualInfeasible());
-    const bool oldStatusOptimal = (clpsolver->isProvenOptimal());
-    bool resolve = true;
-    double infeas = std::numeric_limits<double>::max();
-    while (resolve && resolve_count < maxNumResolves) {
-      const double curr_infeas =
-          clpsolver->getModelPtr()->sumPrimalInfeasibilities()
-              + clpsolver->getModelPtr()->sumDualInfeasibilities();
-      resolve = (!isZero(curr_infeas) && (resolve_count == 0 || curr_infeas < infeas))
-          || (resolve_count == 0);
-      if (resolve) {
-        clpsolver->getModelPtr()->setNumberIterations(0);
-        clpsolver->getModelPtr()->setMaximumSeconds(timeLimit);
-        clpsolver->resolve();
-        resolve_count++;
-      }
-      infeas = curr_infeas;
-    }
-
-    // If dual infeas -> primal infeas, do a dual resolve, which should fix the issue
-    if (oldStatusDualInfeasible && clpsolver->isProvenPrimalInfeasible()) {
-      clpsolver->getModelPtr()->dual(2,0); // just do values pass
-      if (!clpsolver->isProvenDualInfeasible() && !clpsolver->isProvenOptimal()) {
-        clpsolver->getModelPtr()->setProblemStatus(2);
-        resolve_count = maxNumResolves; // stop resolving
-      }
-    }
-
-    if (oldStatusOptimal && clpsolver->isProvenPrimalInfeasible()) {
-      clpsolver->enableFactorization();
+  if (clpsolver && maxNumResolves > 0) {
+    // If it is supposedly proven primal infeasible, might be good to do a resolve first
+    // This is, e.g., something that arises with miplib2003/pp08aCUTS_presolved -32
+    if (clpsolver->isProvenPrimalInfeasible()) {
       clpsolver->getModelPtr()->setNumberIterations(0);
       clpsolver->getModelPtr()->setMaximumSeconds(timeLimit);
       clpsolver->resolve();
       resolve_count++;
-      clpsolver->disableFactorization();
     }
 
-    // Clean once more if needed and possible
-    status = clpsolver->getModelPtr()->secondaryStatus();
-    is_cleaned = false;
-    if (status == 2
-        || !isZero(clpsolver->getModelPtr()->sumPrimalInfeasibilities())) {
-      clpsolver->getModelPtr()->cleanup(1);
-      is_cleaned = true;
-    } else if (status == 3 || status == 9
-        || !isZero(clpsolver->getModelPtr()->sumDualInfeasibilities())) {
-      clpsolver->getModelPtr()->cleanup(2);
-      is_cleaned = true;
-    } else if (status == 4) {
-      clpsolver->getModelPtr()->cleanup(1);
-      is_cleaned = true;
-    }
-    if (is_cleaned) {
-      resolve_count++;
-      return checkSolverOptimality(solver, exitOnDualInfeas, timeLimit, 0);
-    }
-  }
+    // First clean
+    if (resolve_count < maxNumResolves) {
+      int status = clpsolver->getModelPtr()->secondaryStatus();
+      bool is_cleaned = false;
+      if (status == 2 || !isZero(clpsolver->getModelPtr()->sumPrimalInfeasibilities())) {
+        clpsolver->getModelPtr()->cleanup(1);
+        is_cleaned = true;
+      } else if (status == 3 || status == 9 || !isZero(clpsolver->getModelPtr()->sumDualInfeasibilities())) {
+        clpsolver->getModelPtr()->cleanup(2);
+        is_cleaned = true;
+      } else if (status == 4) {
+        clpsolver->getModelPtr()->cleanup(1);
+        is_cleaned = true;
+      }
+      if (is_cleaned) {
+        resolve_count++;
+        return checkSolverOptimality(solver, exitOnDualInfeas, timeLimit, 0);
+      }
+
+      // Do some resolves, but first save whether the initial status is dual infeasible
+      // The reason is that for neos15 w/str=2, we were getting a dual infeasible problem
+      // turn into a primal infeasible problem after resolves
+      // (probably the strengthening causes numerical issues)
+      const bool oldStatusDualInfeasible = (clpsolver->isProvenDualInfeasible());
+      const bool oldStatusOptimal = (clpsolver->isProvenOptimal());
+      bool resolve = true;
+      double infeas = std::numeric_limits<double>::max();
+      while (resolve && resolve_count < maxNumResolves) {
+        const double curr_infeas =
+            clpsolver->getModelPtr()->sumPrimalInfeasibilities()
+                + clpsolver->getModelPtr()->sumDualInfeasibilities();
+        resolve = (!isZero(curr_infeas) && (resolve_count == 0 || curr_infeas < infeas))
+            || (resolve_count == 0);
+        if (resolve) {
+          clpsolver->getModelPtr()->setNumberIterations(0);
+          clpsolver->getModelPtr()->setMaximumSeconds(timeLimit);
+          clpsolver->resolve();
+          resolve_count++;
+        }
+        infeas = curr_infeas;
+      }
+
+      // If dual infeas -> primal infeas, do a dual resolve, which should fix the issue
+      if (oldStatusDualInfeasible && clpsolver->isProvenPrimalInfeasible()) {
+        clpsolver->getModelPtr()->dual(2,0); // just do values pass
+        if (!clpsolver->isProvenDualInfeasible() && !clpsolver->isProvenOptimal()) {
+          clpsolver->getModelPtr()->setProblemStatus(2);
+          resolve_count = maxNumResolves; // stop resolving
+        }
+      }
+
+      if (oldStatusOptimal && clpsolver->isProvenPrimalInfeasible()) {
+        clpsolver->enableFactorization();
+        clpsolver->getModelPtr()->setNumberIterations(0);
+        clpsolver->getModelPtr()->setMaximumSeconds(timeLimit);
+        clpsolver->resolve();
+        resolve_count++;
+        clpsolver->disableFactorization();
+      }
+
+      // Clean once more if needed and possible
+      status = clpsolver->getModelPtr()->secondaryStatus();
+      is_cleaned = false;
+      if (status == 2
+          || !isZero(clpsolver->getModelPtr()->sumPrimalInfeasibilities())) {
+        clpsolver->getModelPtr()->cleanup(1);
+        is_cleaned = true;
+      } else if (status == 3 || status == 9
+          || !isZero(clpsolver->getModelPtr()->sumDualInfeasibilities())) {
+        clpsolver->getModelPtr()->cleanup(2);
+        is_cleaned = true;
+      } else if (status == 4) {
+        clpsolver->getModelPtr()->cleanup(1);
+        is_cleaned = true;
+      }
+      if (is_cleaned) {
+        resolve_count++;
+        return checkSolverOptimality(solver, exitOnDualInfeas, timeLimit, 0);
+      }
+    } // check resolve_count < max number of resolves
+  } // check clpsolver exists and some strictly positive number of resolves allowed
 #endif // USE_CLP
 
   if (solver->isProvenPrimalInfeasible()) {
@@ -288,6 +288,136 @@ bool enableFactorization(OsiSolverInterface* const solver, const double EPS, con
 
   return solver->isProvenOptimal();
 } /* enableFactorization */
+
+/**
+ * Generic way to apply a set of cuts to a solver
+ * @return Solver value after adding the cuts, if they were added successfully
+ */
+double applyCutsCustom(OsiSolverInterface* const solver, const OsiCuts& cs,
+    const int startCutIndex, const int numCutsOverload, double compare_obj) {
+  const int numCuts = (numCutsOverload >= 0) ? numCutsOverload : cs.sizeCuts();
+  if (solver && !solver->isProvenOptimal()) {
+    solver->resolve();
+    checkSolverOptimality(solver, false);
+  }
+  if (solver == NULL || !solver->isProvenOptimal()) {
+    return solver->getInfinity();
+  }
+
+  const double initObjValue = solver->getObjValue();
+  if (isNegInfinity(compare_obj)) {
+    compare_obj = initObjValue;
+  }
+
+  // If the number of cuts is 0, we simply get the value without these cuts applied
+  if (numCuts > 0) {
+#ifdef TRACE
+    OsiSolverInterface::ApplyCutsReturnCode code;
+    int num_applied = 0;
+#endif
+    if ((startCutIndex == 0) && (numCuts == cs.sizeCuts())) {
+#ifdef TRACE
+      code = solver->applyCuts(cs);
+      num_applied = code.getNumApplied();
+#else
+      solver->applyCuts(cs);
+#endif
+    } else {
+#ifdef TRACE
+      const int old_num_rows = solver->getNumRows();
+#endif
+      OsiRowCut* cuts;
+      if (numCuts > 0) {
+        cuts = new OsiRowCut[numCuts];
+
+        for (int i = startCutIndex; i < startCutIndex + numCuts; i++) {
+          cuts[i - startCutIndex] = cs.rowCut(i);
+        }
+        solver->applyRowCuts(numCuts, cuts);
+        delete[] cuts;
+      }
+#ifdef TRACE
+      num_applied = (solver->getNumRows() - old_num_rows);
+#endif
+    }
+
+#ifdef TRACE
+    printf("Cuts applied: %d (of the %d possible).\n",
+        num_applied, numCuts);
+#endif
+  } /* check if num cuts > 0 */
+
+  const bool useResolve = solver->isProvenOptimal();
+  if (useResolve) {
+    solver->resolve();
+  } else {
+    solver->initialSolve();
+  }
+  checkSolverOptimality(solver, false);
+
+  // At this point it is useful to check for integer feasibility quickly
+  // NB: If we reintroduce the subspace notion, then this could actually happen
+  bool inSubspace = false;
+  if (!inSubspace && !solver->isProvenOptimal() && !hitTimeLimit(solver) && !solver->isIterationLimitReached()) {
+    try {
+      error_msg(errstr,
+          "Not in subspace and solver not optimal after adding cuts, so we may have an integer infeasible problem. Exit status: %d.\n",
+          dynamic_cast<OsiClpSolverInterface*>(solver)->getModelPtr()->status());
+    } catch (std::exception& e) {
+      error_msg(errstr,
+          "Not in subspace and solver not optimal after adding cuts, so we may have an integer infeasible problem.\n");
+    }
+#ifdef SAVE_INFEASIBLE_LP
+    std::string infeas_f_name = "infeasible_lp";
+    solver->writeMps(infeas_f_name.c_str(), "mps", 1);
+#endif
+    exit(1);
+  }
+
+  // Sometimes there are slight inaccuracies at the end that we can get rid of
+  if (solver->isProvenOptimal() && solver->getObjValue() < compare_obj) {
+    solver->resolve();
+    checkSolverOptimality(solver, false);
+  }
+
+  if (solver->isProvenOptimal()) {
+    return solver->getObjValue();
+  } else {
+    return solver->getInfinity();  // Minimization problem, so this means infeas
+  }
+} /* applyCutsCustom */
+
+/**
+ * Generic way to apply a set of cuts to a solver
+ * @return Solver value after adding the cuts, if they were added successfully
+ */
+double applyCutsCustom(OsiSolverInterface* const solver, const OsiCuts& cs,
+    const int numCutsOverload, double compare_obj) {
+  const int numCuts = (numCutsOverload >= 0) ? numCutsOverload : cs.sizeCuts();
+  return applyCutsCustom(solver, cs, 0, numCuts, compare_obj);
+} /* applyCutsCustom */
+
+/**
+ * Get objective value from solver with cuts added
+ */
+double getObjValue(OsiSolverInterface* const solver, const OsiCuts* const cuts) {
+  if (cuts != NULL && cuts->sizeCuts() > 0) {
+    const int numRows = solver->getNumRows();
+    const double obj = applyCutsCustom(solver, *cuts);
+    solver->restoreBaseModel(numRows);
+    return obj;
+  } else {
+    if (solver->isProvenOptimal()) {
+      return solver->getObjValue();
+    } else {
+      if (solver->isProvenPrimalInfeasible()) {
+        return solver->getInfinity();
+      } else {
+        return -1 * solver->getInfinity();
+      }
+    }
+  }
+} /* getObjValue */
 
 // Aliases from solver
 bool isBasicCol(const OsiSolverInterface* const solver, const int col) {

@@ -14,16 +14,6 @@ class OsiSolverInterface;
 
 struct VPCParameters; // defined in VPCParameters.hpp
 
-/**
- * Generic way to apply a set of cuts to a solver
- * @return Solver value after adding the cuts, if they were added successfully
- */
-double applyCutsCustom(OsiSolverInterface* solver, const OsiCuts& cs,
-    const int startCutIndex, const int numCutsOverload, double compare_obj);
-double applyCutsCustom(OsiSolverInterface* solver, const OsiCuts& cs,
-    const int numCutsOverload = -1,
-    double compare_obj = std::numeric_limits<double>::lowest());
-
 void setOsiRowCut(OsiRowCut* const cut, const std::vector<int>& nonZeroColIndex,
     const int num_coeff, const double* coeff, const double rhs,
     const double EPS);

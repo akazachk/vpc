@@ -9,6 +9,7 @@
 #include <vector>
 #include <chrono> // for timing
 #include <limits> // numeric_limits
+#include <memory> // for smart pointers
 
 // For option handling
 #include <getopt.h> // getopt, getopt_long
@@ -51,7 +52,9 @@ const std::vector<std::string> OverallTimeStatsName {
 
 // Main file variables
 VPCParameters params;
-OsiSolverInterface* solver, *origSolver;
+OsiSolverInterface *solver, *origSolver;
+OsiSolverInterface* GMICSolver = NULL;
+OsiSolverInterface* VPCSolver = NULL;
 OsiCuts gmics, vpcs;
 std::string dir = "", filename = "", instname = "", in_file_ext = "";
 ExitReason exitReason;
@@ -122,6 +125,17 @@ int main(int argc, char** argv) {
     checkSolverOptimality(origSolver, false);
   }
 
+  // Also save copies for calculating other objective values
+  // We only need these if cuts other than VPCs are generated
+  // solver      ::  stores the cuts we actually want to "count"
+  // GMICSolver  ::  only GMICs
+  // VPCSolver   ::  if GMICs count, this is only VPCs; otherwise, it is both GMICs and VPCs
+  if (params.get(GOMORY) != 0) {
+    GMICSolver = solver->clone();
+    VPCSolver = solver->clone();
+  }
+
+
   // Possibly preprocess instead of doing cuts
   if ((params.get(TEMP) == static_cast<int>(TempOptions::PREPROCESS))
       || params.get(TEMP) == static_cast<int>(TempOptions::PREPROCESS_CUSTOM)) {
@@ -146,11 +160,20 @@ int main(int argc, char** argv) {
     }
     timer.start_timer(OverallTimeStats::VPC_GEN_TIME);
 
-    if (params.get(GOMORY) == 1) {
-      OsiCuts GMICs;
+    if (params.get(GOMORY) == -1 || params.get(GOMORY) == 1) {
+      OsiCuts currGMICs;
       CglGMI GMIGen;
-      GMIGen.generateCuts(*solver, GMICs);
-      applyCutsCustom(solver, GMICs);
+      GMIGen.generateCuts(*solver, currGMICs);
+      gmics.insert(currGMICs);
+      boundInfo.num_gmic += currGMICs.sizeCuts();
+      applyCutsCustom(GMICSolver, currGMICs);
+      boundInfo.gmic_obj = GMICSolver->getObjValue();
+      if (params.get(GOMORY) > 0) {
+        applyCutsCustom(solver, currGMICs);
+      }
+      if (params.get(GOMORY) < 0) {
+        applyCutsCustom(VPCSolver, currGMICs);
+      }
     }
 
     CglVPC gen(params);
@@ -182,7 +205,15 @@ int main(int argc, char** argv) {
 
     timer.start_timer(OverallTimeStats::VPC_APPLY_TIME);
     applyCutsCustom(solver, vpcs_by_round[round_ind]);
-    boundInfo.vpc_obj = solver->getObjValue();
+    applyCutsCustom(VPCSolver, vpcs_by_round[round_ind]);
+    if (params.get(GOMORY) > 0) {
+      boundInfo.vpc_obj = VPCSolver->getObjValue();
+      boundInfo.gmic_vpc_obj = solver->getObjValue();
+    }
+    if (params.get(GOMORY) < 0) {
+      boundInfo.vpc_obj = solver->getObjValue();
+      boundInfo.gmic_vpc_obj = VPCSolver->getObjValue();
+    }
     timer.end_timer(OverallTimeStats::VPC_APPLY_TIME);
 
     vpcs.insert(vpcs_by_round[round_ind]);
@@ -386,6 +417,12 @@ int wrapUp(int retCode /*= 0*/) {
   if (origSolver) {
     delete origSolver;
   }
+  if (GMICSolver) {
+    delete GMICSolver;
+  }
+  if (VPCSolver) {
+    delete VPCSolver;
+  }
   return retCode;
 } /* wrapUp */
 
@@ -546,33 +583,32 @@ void processArgs(int argc, char** argv) {
   const char* const short_opts = "b:B:c:d:f:g:hi:l:m:o:r:R:s:S:t:T:v:";
   const struct option long_opts[] =
   {
-      {"bb_runs", required_argument, 0, 'b'},
-      {"bb_mode", required_argument, 0, 'b'*'2'},
-      {"bb_strategy", required_argument, 0, 'B'},
-      {"cutlimit", required_argument, 0, 'c'},
-      {"disj_terms", required_argument, 0, 'd'},
-      {"file", required_argument, 0, 'f'},
-      {"gomory", required_argument, 0, 'g'},
-      {"help", no_argument, 0, 'h'},
-      {"ip_obj", required_argument, 0, 'i'},
-      {"logfile", required_argument, 0, 'l'},
-      {"mode", required_argument, 0, 'm'},
-      {"optfile", required_argument, 0, 'o'},
-//      {"outdir", required_argument, 0, 'O'},
-      {"partial_bb_strategy", required_argument, 0, 's'},
+      {"bb_runs",               required_argument, 0, 'b'},
+      {"bb_mode",               required_argument, 0, 'b'*'2'},
+      {"bb_strategy",           required_argument, 0, 'B'},
+      {"cutlimit",              required_argument, 0, 'c'},
+      {"disj_terms",            required_argument, 0, 'd'},
+      {"file",                  required_argument, 0, 'f'},
+      {"gomory",                required_argument, 0, 'g'},
+      {"help",                  no_argument,       0, 'h'},
+      {"ip_obj",                required_argument, 0, 'i'},
+      {"logfile",               required_argument, 0, 'l'},
+      {"mode",                  required_argument, 0, 'm'},
+      {"optfile",               required_argument, 0, 'o'},
+      {"partial_bb_strategy",   required_argument, 0, 's'},
       {"partial_bb_num_strong", required_argument, 0, 'S'},
-      {"partial_bb_timelimit", required_argument, 0, 'T'},
-      {"rounds", required_argument, 0, 'r'},
-      {"prlp_timelimit", required_argument, 0, 'R'},
-      {"temp", required_argument, 0, 't'*'1'},
-      {"timelimit", required_argument, 0, 't'},
-      {"use_all_ones", required_argument, 0, 'u'*'1'},
-      {"use_disj_lb", required_argument, 0, 'u'*'2'},
-      {"use_iter_bilinear", required_argument, 0, 'u'*'3'},
-      {"use_tight_points", required_argument, 0, 'u'*'4'},
-      {"use_tight_rays", required_argument, 0, 'u'*'5'},
-      {"use_unit_vectors", required_argument, 0, 'u'*'6'},
-      {"verbosity", required_argument, 0, 'v'},
+      {"partial_bb_timelimit",  required_argument, 0, 'T'},
+      {"rounds",                required_argument, 0, 'r'},
+      {"prlp_timelimit",        required_argument, 0, 'R'},
+      {"temp",                  required_argument, 0, 't'*'1'},
+      {"timelimit",             required_argument, 0, 't'},
+      {"use_all_ones",          required_argument, 0, 'u'*'1'},
+      {"use_disj_lb",           required_argument, 0, 'u'*'2'},
+      {"use_iter_bilinear",     required_argument, 0, 'u'*'3'},
+      {"use_tight_points",      required_argument, 0, 'u'*'4'},
+      {"use_tight_rays",        required_argument, 0, 'u'*'5'},
+      {"use_unit_vectors",      required_argument, 0, 'u'*'6'},
+      {"verbosity",             required_argument, 0, 'v'},
       {nullptr, no_argument, nullptr, 0}
   };
 
@@ -671,10 +707,6 @@ void processArgs(int argc, char** argv) {
                   params.set(stringParam::OPTFILE, optarg);
                   break;
                 }
-//      case 'O': {
-//                  params.set(stringParam::OUTDIR, optarg);
-//                  break;
-//                }
       case 's': {
                   int val;
                   intParam param = intParam::PARTIAL_BB_STRATEGY;
@@ -830,12 +862,11 @@ void processArgs(int argc, char** argv) {
                 helpstring += "-i val, --ip_obj=val\n\tValue of integer optimum for this instance (takes precedence over -o/--optfile).\n";
                 helpstring += "-l logfile, --logfile=logfile\n\tWhere to print log messages.\n";
                 helpstring += "-o optfile, --optfile=optfile\n\tWhere to find integer optimum value information (a csv file formatted as \"instance_name,value\" on each row).\n";
-//                helpstring += "-O outdir, --outdir=outdir\n\tWhere to put any output (aside from the logfile).\n";
                 helpstring += "-v level, --verbosity=level\n\tVerbosity level (0: print little, 1: let solver output be visible).\n";
                 helpstring += "\n# General VPC options #\n";
                 helpstring += "-c num cuts, --cutlimit=num cuts\n\tMaximum number of cuts to generate (0+ = as given, -k = k * # fractional variables at root).\n";
                 helpstring += "-d num terms, --disj_terms=num terms\n\tMaximum number of disjunctive terms or disjunctions to generate (depending on mode).\n";
-                helpstring += "-g 0/1, --gomory=0/1\n\t0: do not use Gomory cuts before generating VPCs, 1: apply Gomory cuts before generating VPCs.\n";
+                helpstring += "-g -1/0/1, --gomory=-1/0/1\n\t0: do not use Gomory cuts before generating VPCs, +/-1: generate Gomory cuts before generating VPCs (-1: only gen, +1: also apply to LP).\n";
                 helpstring += "-m mode, --mode=mode\n\tMode for generating disjunction(s). 0: partial b&b tree, 1: splits, 2: crosses (not implemented), 3: custom.\n";
                 helpstring += "-r num rounds, --rounds=num rounds\n\tNumber of rounds of cuts to apply.\n";
                 helpstring += "-R num seconds, --prlp_timelimit=num seconds\n\tNumber of seconds allotted for solving the PRLP.\n";
