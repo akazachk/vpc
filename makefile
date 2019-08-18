@@ -65,6 +65,7 @@ SOURCES += \
     utility/SolverHelper.cpp \
     utility/preprocess.cpp \
 		utility/utility.cpp \
+		utility/VPCSolverInterface.cpp \
 		branch/VPCEventHandler.cpp \
 		cut/CglVPC.cpp \
 		cut/CutHelper.cpp \

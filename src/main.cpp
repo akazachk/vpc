@@ -162,6 +162,8 @@ int main(int argc, char** argv) {
     if (params.get(GOMORY) == -1 || params.get(GOMORY) == 1) {
       OsiCuts currGMICs;
       CglGMI GMIGen;
+      GMIGen.getParam().setMAX_SUPPORT(solver->getNumCols());
+      GMIGen.getParam().setMAX_SUPPORT_REL(0.5);
       GMIGen.generateCuts(*solver, currGMICs);
       gmics.insert(currGMICs);
       boundInfo.num_gmic += currGMICs.sizeCuts();

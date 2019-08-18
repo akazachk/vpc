@@ -480,6 +480,16 @@ struct VPCParameters {
     {doubleConst::AWAY, DoubleParameter("AWAY", 1e-3, 1e-3, 1e-3)},
   }; /* doubleConstValues */
 
+  // Constructors
+  VPCParameters() { }
+  VPCParameters(const VPCParameters& source) {
+    this->logfile = source.logfile;
+    this->intParamValues = source.intParamValues;
+    this->doubleParamValues = source.doubleParamValues;
+    this->intConstValues = source.intConstValues;
+    this->doubleConstValues = source.doubleConstValues;
+  } /* copy constructor */
+
   // Methods (name/get/set)
   std::string name(intParam param) const { return intParamValues.find(param)->second.name(); }
   std::string name(doubleParam param) const { return doubleParamValues.find(param)->second.name(); }
