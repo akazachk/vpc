@@ -5,6 +5,14 @@
 
 /* Data structure to pass to/from Disjunctive cut generator the problem over which to generate the cuts.
    This is to conform to OsiSolverInterface way of passing a problem */
+enum OsiVarType {
+  CONTINUOUS = 0,
+  BINARY = 1,
+  INTEGER = 2
+};
+char OsiVarTypeChar[3] {
+  'c', 'b', 'i'
+};
 struct OsiProblemData
 {
    int numcols;
@@ -17,7 +25,7 @@ struct OsiProblemData
    double *obj;
    double *rowlb;
    double *rowub;
-   char* vartype;
+   OsiVarType* vartype;
 };
 
 struct SparseCut

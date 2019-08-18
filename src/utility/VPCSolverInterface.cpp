@@ -158,6 +158,23 @@ void VPCSolverInterface::load(OsiSolverInterface *si) {
 } /* load (OsiSolverInterface) */
 
 void VPCSolverInterface::load(OsiProblemData *data) {
+  if (!solver)
+    solver = new SolverInterface;
+  solver->loadProblem(data->numcols, data->numrows, data->start, data->index,
+      data->value, data->collb, data->colub, data->obj, data->rowlb,
+      data->rowub);
+  for (int i = 0; i < data->numcols; i++) {
+    // setColumnType is not implemented in earlier versions of OsiSolverInterface, so we revert to older methods
+//      solver->setColumnType(i, OsiVarTypeChar[static_cast<int>(data->vartype[i])]);
+    if (data->vartype[i] == OsiVarType::BINARY) {
+      solver->setInteger(i);
+      solver->setColLower(i, 0);
+      solver->setColUpper(i, 1);
+    }
+    if (data->vartype[i] == OsiVarType::INTEGER) {
+      solver->setInteger(i);
+    }
+  }
 } /* load (OsiProblemData) */
 
 void VPCSolverInterface::save(std::string filename) {
