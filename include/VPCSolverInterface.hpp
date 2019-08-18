@@ -10,7 +10,7 @@ enum OsiVarType {
   BINARY = 1,
   INTEGER = 2
 };
-char OsiVarTypeChar[3] {
+const char OsiVarTypeChar[3] {
   'c', 'b', 'i'
 };
 struct OsiProblemData
