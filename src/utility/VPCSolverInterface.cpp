@@ -245,7 +245,7 @@ void VPCSolverInterface::initialize(const VPCSolverInterface *const source,
     setParams(source->params);
   } else {
     solver = new SolverInterface;
-#ifdef USE_CPLEX
+#ifdef USE_CPLEX_SOLVER
   CPXENVptr env = dynamic_cast<OsiCpxSolverInterface*>(solver)->getEnvironmentPtr();
   CPXsetintparam(env, CPXPARAM_Threads, 1);
 #ifndef TRACE

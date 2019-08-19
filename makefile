@@ -2,10 +2,12 @@
 # REMEMBER: use hard tabs only in a makefile
 UNAME := $(shell uname)
 ifeq ($(UNAME),Linux)
-  CC = g++
+  CC     = g++
+  SYSTEM = x86-64_linux
 endif
 ifeq ($(UNAME),Darwin)
-  CC = clang++
+  CC     = clang++
+  SYSTEM = x86-64_osx
 endif
 RM = rm -f
 
@@ -54,6 +56,8 @@ USE_CLP    = 1
 USE_CBC    = 1
 USE_GUROBI = 1
 USE_CPLEX  = 0
+USE_CLP_SOLVER = 1
+USE_CPLEX_SOLVER = 0
 
 # Concerning executable
 EXECUTABLE_STUB = vpc
@@ -110,6 +114,9 @@ endif
 ifeq ($(USE_CLP),1)
   DEFS += -DUSE_CLP
 endif
+ifeq ($(USE_CLP_SOLVER),1)
+  DEFS += -DUSE_CLP_SOLVER
+endif
 ifeq ($(USE_CBC),1)
   DEFS += -DUSE_CBC
 endif
@@ -121,6 +128,9 @@ ifeq ($(USE_GUROBI),1)
 endif
 ifeq ($(USE_CPLEX),1)
   DEFS += -DIL_STD -DUSE_CPLEX
+endif
+ifeq ($(USE_CPLEX_SOLVER),1)
+  DEFS += -DUSE_CPLEX_SOLVER
 endif
 ifeq ($(COIN_VERSION),2.10)
   DEFS += -DCBC_VERSION_210PLUS
@@ -193,15 +203,15 @@ ifeq ($(USE_COIN),1)
 endif
 ifeq ($(USE_GUROBI),1)
   APPLINCLS += -isystem ${GUROBI_INC}
-  APPLLIB += -L${GUROBI_LIB} -lgurobi_c++ -l${GUROBI_LINK} -lm
+  APPLLIB   += -L${GUROBI_LIB} -lgurobi_c++ -l${GUROBI_LINK} -lm
 endif
 ifeq ($(USE_CPLEX),1)
-  APPLINCLS += -I${ENV_CPLEX_H}/.. -I${ENV_CONCERT_H}/..
-  APPLINCLS += -I${ENV_CPLEX_H} -I${ENV_CONCERT_H}
-  APPLLIB += -L${ENV_CPLEX_LIB} -L${ENV_CONCERT_LIB} -lilocplex -lconcert -lcplex -lm -lpthread
-  CXXLINKFLAGS += -Wl,-rpath ${ENV_CPLEX_LIB}
-  CXXLINKFLAGS += -Wl,-rpath ${ENV_CONCERT_LIB}
-  #APPLLIB += -lOsiCpx
+  CPLEX_INC_DIR   =  $(CPLEX_DIR)/include
+  CPLEX_LIB_DIR   =  $(CPLEX_DIR)/lib/$(SYSTEM)/static_pic
+  APPLINCLS      += -isystem "$(CPLEX_INC_DIR)"
+  APPLLIB        += -L${CPLEX_LIB_DIR} -lilocplex -lcplex -lm -lpthread -ldl
+  CXXLINKFLAGS   += -Wl,-rpath $(CPLEX_LIB_DIR)
+  #APPLLIB       += -lOsiCpx
 endif
 
 ### Targets ###
@@ -284,6 +294,7 @@ print: FORCE
 	$(info UNAME: ${UNAME})
 	$(info CC: ${CC})
 	$(info COIN_OR: ${COIN_OR})
+	$(info CPLEX_DIR: ${CPLEX_DIR})
 	$(info GUROBI_DIR: ${GUROBI_DIR})
 	$(info GUROBI_LINK: ${GUROBI_LINK})
 	$(info USE_COIN: ${USE_COIN})
