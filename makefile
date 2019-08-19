@@ -30,6 +30,11 @@ ifeq ($(USER),otherperson)
   #CPLEX_DIR = enter/dir/here
 endif
 
+# For RF
+ifeq ($(USER),"queen")
+ CPLEX_DIR = /opt/ibm/ILOG/CPLEX_Studio128/cplex
+endif
+
 ifeq ($(USER),kazaalek)
   COIN_VERSION=2.10
   COIN_OR = lib/Cbc-${COIN_VERSION}
