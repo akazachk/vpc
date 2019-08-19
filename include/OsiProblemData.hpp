@@ -33,4 +33,4 @@ struct OsiProblemData
 int ConvertCPX2Data(CPXENVptr env, CPXLPptr lp, OsiProblemData* pdata);
 #endif
 void MemSetProbData( OsiProblemData* pdata, int ncols, int nrows, int nz );
-void MemSetProbData( OsiProblemData* pdata, int ncols, int nrows, int nz );
+void FreeProbData( OsiProblemData* pdata );
