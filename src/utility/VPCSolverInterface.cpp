@@ -79,13 +79,11 @@ void VPCSolverInterface::setParams(const VPCParameters* const param) {
   this->params = new VPCParameters(*param);
 }
 
-/** generateCuts */
-void VPCSolverInterface::generateCuts() {
-	if (!solver->isProvenOptimal()) {
-		error_msg(errorstring, "VPCSolverInterface::generateCuts: Solver not proven optimal.\n");
-		throw(errorstring);
-	}
-} /* generateCuts */
+void VPCSolverInterface::setDisjunction(const Disjunction *const disj) {
+  if (disj)
+    delete disj;
+  this->disj = disj->clone();
+} /* setDisjunction */
 
 void VPCSolverInterface::load(std::string filename) {
   std::string dir, instname, in_file_ext;
@@ -169,6 +167,50 @@ void VPCSolverInterface::load(OsiProblemData *data) {
   }
 } /* load (OsiProblemData) */
 
+/** generateCuts */
+void VPCSolverInterface::generateCuts() {
+  if (!solver->isProvenOptimal()) {
+    error_msg(errorstring, "VPCSolverInterface::generateCuts: Solver not proven optimal.\n");
+    throw(errorstring);
+  }
+  CglVPC gen(*params);
+  gen.generateCuts(*solver, *cuts); // solution may change slightly due to enable factorization called in getProblemData...
+} /* generateCuts */
+
+/** applyCuts */
+int VPCSolverInterface::applyCuts(
+  bool* cutsToAdd,
+  bool clear_cuts
+) {
+  int num_applied = 0;
+  int num_cuts = 0;
+  if (cutsToAdd != NULL) {
+    int num_before = solver->getNumRows();
+    for (int i = 0; i < cuts->sizeRowCuts(); ++i) {
+      if (cutsToAdd[i]) {
+        num_cuts++;
+        solver->applyRowCuts(1, cuts->rowCutPtr(i));
+      }
+    }
+    num_applied = solver->getNumRows() - num_before;
+    if(clear_cuts){
+      delete cuts;
+      cuts = new OsiCuts;
+    }
+  } else {
+    num_cuts = cuts->sizeCuts();
+    OsiSolverInterface::ApplyCutsReturnCode code;
+    code = solver->applyCuts(*(cuts));
+    num_applied = code.getNumApplied();
+    delete cuts;
+    cuts = new OsiCuts;
+  }
+#ifdef TRACE
+    printf("\n## Applied %d/%d cuts. ##\n", num_applied, num_cuts);
+#endif
+  return num_applied;
+} /* applyCuts */
+
 void VPCSolverInterface::save(std::string filename) {
   solver->writeMps(filename.c_str());
 } /* save (to filename) */
@@ -192,45 +234,9 @@ std::vector<DenseCut> VPCSolverInterface::getCutsDense() {
   return convertCutsToDenseCuts(cuts, solver->getNumCols());
 } /* getCutsDense */
 
-void VPCSolverInterface::setDisjunction(const Disjunction *const disj) {
-  if (disj)
-    delete disj;
-  this->disj = disj->clone();
-} /* setDisjunction */
-
-/** applyCuts */
-int VPCSolverInterface::applyCuts(
-	bool* cutsToAdd,
-	bool clear_cuts
-) {
-	int num_applied = 0;
-	int num_cuts = 0;
-	if (cutsToAdd != NULL) {
-		int num_before = solver->getNumRows();
-		for (int i = 0; i < cuts->sizeRowCuts(); ++i) {
-			if (cutsToAdd[i]) {
-				num_cuts++;
-				solver->applyRowCuts(1, cuts->rowCutPtr(i));
-			}
-		}
-		num_applied = solver->getNumRows() - num_before;
-		if(clear_cuts){
-			delete cuts;
-			cuts = new OsiCuts;
-		}
-	} else {
-		num_cuts = cuts->sizeCuts();
-		OsiSolverInterface::ApplyCutsReturnCode code;
-		code = solver->applyCuts(*(cuts));
-		num_applied = code.getNumApplied();
-		delete cuts;
-		cuts = new OsiCuts;
-	}
-#ifdef TRACE
-		printf("\n## Applied %d/%d cuts. ##\n", num_applied, num_cuts);
-#endif
-	return num_applied;
-} /* applyCuts */
+double VPCSolverInterface::getObjValue() {
+  return solver->getObjValue();
+}
 
 void VPCSolverInterface::initialize(const VPCSolverInterface *const source,
     const VPCParameters *const param) {
