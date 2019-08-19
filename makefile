@@ -17,39 +17,43 @@ BUILD_CONFIG = release
 BUILD_CONFIG = debug
 
 ### Variables user should set ###
+COIN_VERSION = 2.9
+COIN_OR = lib/Cbc-$(COIN_VERSION)
 ifeq ($(USER),otherperson)
-	#COIN_OR = enter/dir/here
-  #GUROBI_HOME = enter/dir/here
+  #COIN_OR = enter/dir/here
+
+  # Optional (for testing branch and bound or enabling certain functions):
+  #GUROBI_DIR = enter/dir/here
   #GUROBI_LINK="gurobi80"
-else
-  PROJ_DIR = .
-  ifeq (${PROJ_DIR},)
-    $(error Need to define PROJ_DIR shell variable or inside of makefile)
-  endif
-  COIN_VERSION=2.9
+  #CPLEX_DIR = enter/dir/here
+endif
+
+ifeq ($(USER),kazaalek)
+  COIN_VERSION=2.10
+  COIN_OR = lib/Cbc-${COIN_VERSION}
+  GUROBI_LINK = gurobi81
+  GUROBI_DIR = /opt/gurobi811/linux64
+  CPLEX_DIR = /home/ibm/cplex-studio/12.9.0.0/cplex
+endif
+
+ifeq ($(USER),akazachk)
   ifeq ($(UNAME),Linux)
-    COIN_VERSION=2.10
-    COIN_OR = $(PROJ_DIR)/lib/Cbc-${COIN_VERSION}
+  endif
+  ifeq ($(UNAME),Darwin)
+    COIN_VERSION=2.9
+    COIN_OR = lib/Cbc-${COIN_VERSION}
     GUROBI_LINK = gurobi81
-    #GUROBI_HOME = /home/gurobi/8.1.0/linux64
-    GUROBI_HOME = /opt/gurobi811/linux64
-  else
-    COIN_OR = $(PROJ_DIR)/lib/Cbc-${COIN_VERSION}
-    GUROBI_LINK = gurobi81
-    GUROBI_HOME = /Library/gurobi811/mac64
+    GUROBI_DIR = /Library/gurobi811/mac64
+    CPLEX_DIR = /Applications/CPLEX_Studio129/cplex
   endif
 endif
 
 # Options for solvers
-USE_COIN=1
-USE_CLP=1
-USE_CBC=1
-USE_GUROBI=1
-USE_CPLEX=0
-
-# blas and lapack
-#ENV_LAPACK_LIB = $(PROJ_DIR)/lib
-#ENV_BLAS_LIB = $(PROJ_DIR)/lib
+USE_COIN   = 1
+USE_CLP    = 1
+USE_CBC    = 1
+USE_GUROBI = 1
+USE_CPLEX  = 0
 
 # Concerning executable
 EXECUTABLE_STUB = vpc
@@ -62,8 +66,9 @@ SOURCES += \
 		branch/CbcCompareBFS.cpp \
 		branch/OsiChooseStrongCustom.cpp \
     utility/nbspace.cpp \
-    utility/SolverHelper.cpp \
+    utility/OsiProblemData.cpp \
     utility/preprocess.cpp \
+    utility/SolverHelper.cpp \
 		utility/utility.cpp \
 		utility/VPCSolverInterface.cpp \
 		branch/VPCEventHandler.cpp \
@@ -111,8 +116,8 @@ endif
 ifeq ($(USE_GUROBI),1)
   DEFS += -DUSE_GUROBI
   SOURCES += test/GurobiHelper.cpp
-  GUROBI_INC="${GUROBI_HOME}/include"
-  GUROBI_LIB="${GUROBI_HOME}/lib"
+  GUROBI_INC="${GUROBI_DIR}/include"
+  GUROBI_LIB="${GUROBI_DIR}/lib"
 endif
 ifeq ($(USE_CPLEX),1)
   DEFS += -DIL_STD -DUSE_CPLEX
@@ -174,9 +179,7 @@ ifeq ($(USE_COIN),1)
 	APPLLIB += -L$(CBClib)
   CXXLINKFLAGS += -Wl,-rpath $(CBClib)
 	ifeq ($(USE_CBC),1)
-		APPLLIB += \
-										-lCbcSolver \
-										-lCbc
+		APPLLIB += -lCbcSolver -lCbc
 	endif
   ifeq ($(USE_CLP),1)
     APPLLIB += -lOsiClp
@@ -281,7 +284,7 @@ print: FORCE
 	$(info UNAME: ${UNAME})
 	$(info CC: ${CC})
 	$(info COIN_OR: ${COIN_OR})
-	$(info GUROBI_HOME: ${GUROBI_HOME})
+	$(info GUROBI_DIR: ${GUROBI_DIR})
 	$(info GUROBI_LINK: ${GUROBI_LINK})
 	$(info USE_COIN: ${USE_COIN})
 	$(info USE_CLP: ${USE_CLP})

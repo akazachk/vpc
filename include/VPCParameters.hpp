@@ -31,6 +31,10 @@
 #ifdef USE_CLP
   #include <OsiClpSolverInterface.hpp>
   using SolverInterface = OsiClpSolverInterface;
+#elif USE_CPLEX
+  #include <OsiCpxSolverInterface.hpp>
+  #include <ilcplex/cplex.h>
+  using SolverInterface = OsiCpxSolverInterface;
 #else
   #include <OsiSolverInterface.hpp>
   using SolverInterface = OsiSolverInterface;

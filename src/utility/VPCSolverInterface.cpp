@@ -1,19 +1,9 @@
 #include "VPCSolverInterface.hpp"
 #include "utility.hpp"
-#include "Disjunction.hpp"
 #include "CglVPC.hpp"
-
-#ifdef USE_CPLEX
-	#include <OsiCpxSolverInterface.hpp>
-	#include <ilcplex/cplex.h>
-	using SolverInterface = OsiCpxSolverInterface;
-#elif USE_CLP
-	#include <OsiClpSolverInterface.hpp>
-	using SolverInterface = OsiClpSolverInterface;
-#else
-	#include <OsiTestSolverInterface.hpp>
-	using SolverInterface = OsiTestSolverInterface;
-#endif
+#include "Disjunction.hpp"
+#include "OsiProblemData.hpp"
+#include "VPCParameters.hpp" // SolverInterface defined here
 
 std::vector<SparseCut> convertCutsToSparseCuts(const OsiCuts* const cuts) {
   if (!cuts) {
@@ -165,13 +155,15 @@ void VPCSolverInterface::load(OsiProblemData *data) {
       data->rowub);
   for (int i = 0; i < data->numcols; i++) {
     // setColumnType is not implemented in earlier versions of OsiSolverInterface, so we revert to older methods
-//      solver->setColumnType(i, OsiVarTypeChar[static_cast<int>(data->vartype[i])]);
-    if (data->vartype[i] == OsiVarType::BINARY) {
+//      solver->setColumnType(i, data->vartype[i]);
+    const char vartype = data->vartype[i];
+
+    if (vartype == OsiVarTypeChar[OsiVarType::BINARY]) {
       solver->setInteger(i);
       solver->setColLower(i, 0);
       solver->setColUpper(i, 1);
     }
-    if (data->vartype[i] == OsiVarType::INTEGER) {
+    if (vartype == OsiVarTypeChar[OsiVarType::INTEGER]) {
       solver->setInteger(i);
     }
   }

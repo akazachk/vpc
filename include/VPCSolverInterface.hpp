@@ -3,31 +3,7 @@
 #include <string>
 #include <vector>
 
-/* Data structure to pass to/from Disjunctive cut generator the problem over which to generate the cuts.
-   This is to conform to OsiSolverInterface way of passing a problem */
-enum OsiVarType {
-  CONTINUOUS = 0,
-  BINARY = 1,
-  INTEGER = 2
-};
-const char OsiVarTypeChar[3] {
-  'c', 'b', 'i'
-};
-struct OsiProblemData
-{
-   int numcols;
-   int numrows;
-   int *start;
-   int *index;
-   double *value;
-   double *collb;
-   double *colub;
-   double *obj;
-   double *rowlb;
-   double *rowub;
-   OsiVarType* vartype;
-};
-
+/** For passing out cuts, we have dense and sparse versions */
 struct SparseCut
 {
   int num_elem;
@@ -43,9 +19,10 @@ struct DenseCut
 };
 
 // Forward declarations
-class OsiSolverInterface;
-class OsiCuts;
 class Disjunction;
+class OsiCuts;
+class OsiSolverInterface;
+struct OsiProblemData;
 struct VPCParameters;
 
 std::vector<SparseCut> convertCutsToSparseCuts(const OsiCuts* const cuts);
