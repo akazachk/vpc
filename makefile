@@ -207,7 +207,7 @@ ifeq ($(USE_COIN),1)
 endif
 ifeq ($(USE_GUROBI),1)
   APPLINCLS += -isystem ${GUROBI_INC}
-  APPLLIB   += -L${GUROBI_LIB} -lgurobi_c++9.1 -l${GUROBI_LINK} -lm
+  APPLLIB   += -L${GUROBI_LIB} -lgurobi_c++ -l${GUROBI_LINK} -lm
 endif
 ifeq ($(USE_CPLEX),1)
   CPLEX_INC_DIR   =  $(CPLEX_DIR)/include
