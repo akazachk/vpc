@@ -19,8 +19,9 @@ BUILD_CONFIG = release
 BUILD_CONFIG = debug
 
 ### Variables user should set ###
+PROJ_DIR=${PWD}
 COIN_VERSION = 2.9
-COIN_OR = lib/Cbc-$(COIN_VERSION)
+COIN_OR = $(PROJ_DIR)/lib/Cbc-$(COIN_VERSION)
 ifeq ($(USER),otherperson)
   #COIN_OR = enter/dir/here
 
@@ -36,10 +37,10 @@ ifeq ($(USER),"queen")
 endif
 
 ifeq ($(USER),kazaalek)
-  COIN_VERSION=2.10
-  COIN_OR = lib/Cbc-${COIN_VERSION}
   GUROBI_LINK = gurobi81
-  GUROBI_DIR = /opt/gurobi811/linux64
+  #GUROBI_DIR = /opt/gurobi811/linux64
+	#GUROBI_DIR = /home/gurobi/8.1.0/linux64
+	GUROBI_DIR = ${HOME}/gurobi/linux64
   CPLEX_DIR = /home/ibm/cplex-studio/12.9.0.0/cplex
 endif
 
@@ -47,8 +48,6 @@ ifeq ($(USER),akazachk)
   ifeq ($(UNAME),Linux)
   endif
   ifeq ($(UNAME),Darwin)
-    COIN_VERSION=2.9
-    COIN_OR = lib/Cbc-${COIN_VERSION}
     GUROBI_LINK = gurobi81
     GUROBI_DIR = /Library/gurobi811/mac64
     CPLEX_DIR = /Applications/CPLEX_Studio129/cplex
@@ -208,7 +207,7 @@ ifeq ($(USE_COIN),1)
 endif
 ifeq ($(USE_GUROBI),1)
   APPLINCLS += -isystem ${GUROBI_INC}
-  APPLLIB   += -L${GUROBI_LIB} -lgurobi_c++ -l${GUROBI_LINK} -lm
+  APPLLIB   += -L${GUROBI_LIB} -lgurobi_c++9.1 -l${GUROBI_LINK} -lm
 endif
 ifeq ($(USE_CPLEX),1)
   CPLEX_INC_DIR   =  $(CPLEX_DIR)/include
