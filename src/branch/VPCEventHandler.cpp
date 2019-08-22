@@ -412,80 +412,80 @@ VPCEventHandler::event(CbcEvent whichEvent) {
         reachedEnd_ = true;
         return stop;
       }
-    } else {
-      // Else save current tree to be used during the node event
-      currentNodes_.resize(numNodesOnTree_);
-      for (int i = 0; i < numNodesOnTree_; i++) {
-        currentNodes_[i] = model_->tree()->nodePointer(i);
-      }
-      if (!model_->branchingMethod() || !model_->branchingMethod()->chooseMethod()) {
-        // So far, when branchingMethod exists and has a chooseMethod, there have been no problems
-        // Without those, we may run into a situation in which solver is infeasible during node event
-        // but actually the node exists and is added to the tree
-        // e.g., with bm23 -47
-        if (model_->getNodeCount2() != stats_[stats_.size() - 1].id + 1) {
-          // The misplaced node will be in the pruned_stats_ vector
-          NodeStatistics stats = pruned_stats_[pruned_stats_.size() - 1];
-          pruned_stats_.resize(pruned_stats_.size() - 1); // delete it from pruned_stats_
-          const int missed_node_number = stats.id;
-          int i; // find where this misplaced node is on the tree
-          for (i = 0; i < numNodesOnTree_; i++) {
-            const int curr_node_number = currentNodes_[i]->nodeInfo()->nodeNumber();
-            if (curr_node_number == missed_node_number) {
-              break;
-            }
-          }
-          assert (i < numNodesOnTree_); // make sure we found it
-
-          // Now adjust the stats (need to set variable, branch_index, way, obj, value, lb, ub, bounds)
-          stats.obj = currentNodes_[i]->objectiveValue();
-          const OsiBranchingObject* branch = currentNodes_[i]->branchingObject();
-          stats.branch_index = branch->branchIndex(); // should be 0, but be safe
-          stats.value = branch->value();
-
-          // I think this situation is only going to happen on the Cbc side of things
-          const CbcBranchingObject* cbc_branch = dynamic_cast<const CbcBranchingObject*>(branch);
-          assert(cbc_branch != NULL);
-          stats.way = currentNodes_[i]->way(); // if it were the Osi side, way would not be set this way
-          stats.variable = cbc_branch->variable();
-
-          const CbcSimpleInteger* obj =
-            dynamic_cast<const CbcSimpleInteger*>(branch->originalObject());
-          double prevLB, prevUB;
-          if (obj) {
-            prevLB = obj->originalLowerBound();
-            prevUB = obj->originalUpperBound();
-          } else {
-            const CbcDynamicPseudoCostBranchingObject* dyn_branch =
-              dynamic_cast<const CbcDynamicPseudoCostBranchingObject*>(branch);
-            if (dyn_branch && dyn_branch->object()) {
-              prevLB = dyn_branch->object()->originalLowerBound();
-              prevUB = dyn_branch->object()->originalUpperBound();
-            } else {
-              error_msg(errorstring, "Cannot access original object.\n");
-              writeErrorToLog(errorstring, owner->params.logfile);
-              exit(1);
-            }
-          }
-          stats.lb = (stats.way > 0) ? std::ceil(branch->value()) : prevLB;
-          stats.ub = (stats.way > 0) ? prevUB : std::floor(branch->value());
-
-          // For the bounds, I am not sure the solver is reflecting the node soluton any more... but let's hope
-          changedBounds(stats, model_->solver(), originalLB_, originalUB_);
-
-          // Adjust stats vector
-          NodeStatistics last_stats = stats_[stats_.size() - 1];
-          if (last_stats.id == stats.id) {
-            // This means that the parent of the missed node had a branch left
-            last_stats.id = stats.id + 1;
-            stats_[stats_.size() - 1] = stats;
-            stats_.push_back(last_stats);
-          } else {
-            stats_.push_back(stats);
+    }
+    
+    // Else save current tree to be used during the node event
+    currentNodes_.resize(numNodesOnTree_);
+    for (int i = 0; i < numNodesOnTree_; i++) {
+      currentNodes_[i] = model_->tree()->nodePointer(i);
+    }
+    if (!model_->branchingMethod() || !model_->branchingMethod()->chooseMethod()) {
+      // So far, when branchingMethod exists and has a chooseMethod, there have been no problems
+      // Without those, we may run into a situation in which solver is infeasible during node event
+      // but actually the node exists and is added to the tree
+      // e.g., with bm23 -47
+      if (model_->getNodeCount2() != stats_[stats_.size() - 1].id + 1) {
+        // The misplaced node will be in the pruned_stats_ vector
+        NodeStatistics stats = pruned_stats_[pruned_stats_.size() - 1];
+        pruned_stats_.resize(pruned_stats_.size() - 1); // delete it from pruned_stats_
+        const int missed_node_number = stats.id;
+        int i; // find where this misplaced node is on the tree
+        for (i = 0; i < numNodesOnTree_; i++) {
+          const int curr_node_number = currentNodes_[i]->nodeInfo()->nodeNumber();
+          if (curr_node_number == missed_node_number) {
+            break;
           }
         }
+        assert (i < numNodesOnTree_); // make sure we found it
+
+        // Now adjust the stats (need to set variable, branch_index, way, obj, value, lb, ub, bounds)
+        stats.obj = currentNodes_[i]->objectiveValue();
+        const OsiBranchingObject* branch = currentNodes_[i]->branchingObject();
+        stats.branch_index = branch->branchIndex(); // should be 0, but be safe
+        stats.value = branch->value();
+
+        // I think this situation is only going to happen on the Cbc side of things
+        const CbcBranchingObject* cbc_branch = dynamic_cast<const CbcBranchingObject*>(branch);
+        assert(cbc_branch != NULL);
+        stats.way = currentNodes_[i]->way(); // if it were the Osi side, way would not be set this way
+        stats.variable = cbc_branch->variable();
+
+        const CbcSimpleInteger* obj =
+          dynamic_cast<const CbcSimpleInteger*>(branch->originalObject());
+        double prevLB, prevUB;
+        if (obj) {
+          prevLB = obj->originalLowerBound();
+          prevUB = obj->originalUpperBound();
+        } else {
+          const CbcDynamicPseudoCostBranchingObject* dyn_branch =
+            dynamic_cast<const CbcDynamicPseudoCostBranchingObject*>(branch);
+          if (dyn_branch && dyn_branch->object()) {
+            prevLB = dyn_branch->object()->originalLowerBound();
+            prevUB = dyn_branch->object()->originalUpperBound();
+          } else {
+            error_msg(errorstring, "Cannot access original object.\n");
+            writeErrorToLog(errorstring, owner->params.logfile);
+            exit(1);
+          }
+        }
+        stats.lb = (stats.way > 0) ? std::ceil(branch->value()) : prevLB;
+        stats.ub = (stats.way > 0) ? prevUB : std::floor(branch->value());
+
+        // For the bounds, I am not sure the solver is reflecting the node soluton any more... but let's hope
+        changedBounds(stats, model_->solver(), originalLB_, originalUB_);
+
+        // Adjust stats vector
+        NodeStatistics last_stats = stats_[stats_.size() - 1];
+        if (last_stats.id == stats.id) {
+          // This means that the parent of the missed node had a branch left
+          last_stats.id = stats.id + 1;
+          stats_[stats_.size() - 1] = stats;
+          stats_.push_back(last_stats);
+        } else {
+          stats_.push_back(stats);
+        }
       }
-    }
+      }
   } /* (whichEvent == treeStatus) */
   else if (whichEvent == node) {
     // Update statistics after a node has been branched on
@@ -979,15 +979,19 @@ void VPCEventHandler::clearInformation() {
 /**
  * Save all relevant information before it gets deleted by BB finishing
  *
- * \return status: 0 if everything is okay, otherwise 1 (e.g., if all but one of the terms is infeasible)
+ * @return status: 0 if everything is okay, otherwise 1 (e.g., if all but one of the terms is infeasible)
  */
 int VPCEventHandler::saveInformation() {
+  int status = 0;
+  const bool hitTimeLimit = model_->getCurrentSeconds() >= maxTime_;
+  const bool hitHardNodeLimit = false;
+  //const bool hitHardNodeLimit = model_->getNodeCount2() > maxNumLeafNodes_ * 10;
+
   clearInformation();
-  owner->data.num_nodes_on_tree = this->getNumNodesOnTree();
-  owner->data.num_partial_bb_nodes = model_->getNodeCount(); // save number of nodes looked at
-  owner->data.num_pruned_nodes = this->getPrunedStatsVector().size()
-      - this->isIntegerSolutionFound();
-  owner->data.num_fixed_vars = model_->strongInfo()[1]; // number fixed during b&b
+  this->owner->data.num_nodes_on_tree = this->getNumNodesOnTree();
+  this->owner->data.num_partial_bb_nodes = model_->getNodeCount(); // save number of nodes looked at
+  this->owner->data.num_pruned_nodes = this->getPrunedStatsVector().size() - this->isIntegerSolutionFound();
+  this->owner->data.num_fixed_vars = model_->strongInfo()[1]; // number fixed during b&b
 
   // Save variables with bounds that were changed at the root
   this->owner->common_changed_bound = this->stats_[0].changed_bound;
@@ -999,18 +1003,25 @@ int VPCEventHandler::saveInformation() {
     // 2017-08-11: Only one integer-feasible solution needs to be kept (the best one),
     // So we drop old code that would prune integer feasible solutions that are above cutoff
     this->owner->num_terms++;
-    owner->integer_sol = savedSolution_;
+    this->owner->integer_sol = savedSolution_;
     std::string tmpname = "feasSol0";
-    Disjunction::setCgsName(owner->name, tmpname);
+    Disjunction::setCgsName(this->owner->name, tmpname);
   }
 
-  owner->terms.reserve(2 * numNodesOnTree_);
+  this->owner->terms.reserve(2 * numNodesOnTree_);
 
   // Set up original basis including bounds changed at root
   CoinWarmStartBasis* original_basis = dynamic_cast<CoinWarmStartBasis*>(originalSolver_->getWarmStart());
 
   // For each node on the tree, use the warm start basis and branching directions to save the disjunctive node
   for (int tmp_ind = 0; tmp_ind < numNodesOnTree_; tmp_ind++) {
+    // Exit early if needed
+    if (!hitTimeLimit && !hitHardNodeLimit 
+        && (this->owner->num_terms + 2 * (numNodesOnTree_ - tmp_ind) <= 0.5 * maxNumLeafNodes_)) {
+      status = 1;
+      break;
+    }
+
     CoinWarmStartBasis* parent_basis = dynamic_cast<CoinWarmStartBasis*>(original_basis->clone());
     CbcNode* node = model_->tree()->nodePointer(tmp_ind);
     CbcNodeInfo* nodeInfo = node->nodeInfo();
@@ -1131,11 +1142,18 @@ int VPCEventHandler::saveInformation() {
     hasFeasibleChild = setupDisjunctiveTerm(node_id, branching_variable,
         branching_way, branching_value, tmpSolverBase, curr_num_changed_bounds,
         commonTermIndices, commonTermCoeff, commonTermRHS);
-    if (branching_index == 0) { // should we compute a second branch?
-  #ifdef TRACE
+
+    // Check if we exit early
+    if (!hitTimeLimit && !hitHardNodeLimit 
+        && (this->owner->num_terms + 2 * (numNodesOnTree_ - tmp_ind) - 1 <= 0.5 * maxNumLeafNodes_)) {
+      status = 1;
+    }
+
+    if (status == 0 && branching_index == 0) { // should we compute a second branch?
+#ifdef TRACE
       printf("\n## Solving second child of parent %d/%d for term %d. ##\n",
           tmp_ind + 1, this->numNodesOnTree_, this->owner->num_terms);
-  #endif
+#endif
       branching_way = (stats_[node_id].way <= 0) ? 1 : 0;
       branching_value =
           (branching_way <= 0) ? branching_value - 1 : branching_value + 1;
@@ -1165,12 +1183,13 @@ int VPCEventHandler::saveInformation() {
   }
 
   // If number of real (feasible) terms is too few, we should keep going, unless we have been branching for too long
-  int status = 0;
-  bool hitTimeLimit = model_->getCurrentSeconds() >= maxTime_;
-  bool hitHardNodeLimit = false;
-  //bool hitHardNodeLimit = model_->getNodeCount2() > maxNumLeafNodes_ * 10;
-  if (!hitTimeLimit && !hitHardNodeLimit && owner->num_terms <= 0.5 * maxNumLeafNodes_) {
+  if (status == 0 && !hitTimeLimit && !hitHardNodeLimit && this->owner->num_terms <= 0.5 * maxNumLeafNodes_) {
     status = 1;
+#ifdef TRACE
+      printf("\n## Save information exiting with status %d because number of feasible terms is calulated to be %d "
+          "(whereas requested was %d). ##\n",
+          status, this->owner->num_terms, maxNumLeafNodes_);
+  #endif
   }
   return status;
 } /* saveInformation */
