@@ -197,13 +197,20 @@ ExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface* co
       this->worst_obj = cbc_model->getObjValue();
       const double* sol = cbc_model->getColSolution();
       this->integer_sol.assign(sol, sol + si->getNumCols());
-    } else {
-      warning_msg(warnstr,
-          "Giving up on getting cuts from the partial branch-and-bound tree (bad status or too few terms). Model status is %d.\n",
-          cbc_model->status());
+      return ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT;
     }
-
-    return ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT;
+    else if (this->num_terms <= 1) {
+      warning_msg(warnstr,
+          "Giving up on getting cuts from the partial branch-and-bound tree (too few terms). Model status is %d.\n",
+          cbc_model->status());
+      return ExitReason::TOO_FEW_TERMS_EXIT;
+    }
+    else {
+      warning_msg(warnstr,
+          "Giving up on getting cuts from the partial branch-and-bound tree (bad status). Model status is %d.\n",
+          cbc_model->status());
+      return ExitReason::UNKNOWN;
+    }
   } // exit out early if cbc_model status is 0 or insufficiently many disjunctive terms
 
   // Make sure that the right number of terms has been saved

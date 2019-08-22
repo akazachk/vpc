@@ -192,7 +192,8 @@ protected:
       std::vector<std::vector<int> >& commonTermIndices,
       std::vector<std::vector<double> >& commonTermCoeff,
       std::vector<double>& commonTermRHS);
-  void saveInformation();
+  void clearInformation();
+  int saveInformation();
   //@}
 };
 /* VPCEventHandler definition */

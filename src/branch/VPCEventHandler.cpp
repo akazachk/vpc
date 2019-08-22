@@ -400,17 +400,18 @@ VPCEventHandler::event(CbcEvent whichEvent) {
 
     // Check if we are done
     if (numLeafNodes_ >= maxNumLeafNodes_ || model_->getCurrentSeconds() >= maxTime_) {
+      // Save information
+      const int status = saveInformation();
+      if (status == 0) {
 #ifdef TRACE
       printf(
           "\n## Reached limit (leaf nodes = %d with limit = %d; time = %.2f with limit = %.2f). Exiting. ##\n",
           numLeafNodes_, maxNumLeafNodes_,
           model_->getCurrentSeconds(), maxTime_);
 #endif
-
-      // Save information
-      saveInformation();
-      reachedEnd_ = true;
-      return stop;
+        reachedEnd_ = true;
+        return stop;
+      }
     } else {
       // Else save current tree to be used during the node event
       currentNodes_.resize(numNodesOnTree_);
@@ -968,10 +969,20 @@ bool VPCEventHandler::setupDisjunctiveTerm(const int node_id,
   return isFeasible;
 } /* setupDisjunctiveTerm */
 
+/** 
+ * Reset before saveInformation
+ */
+void VPCEventHandler::clearInformation() {
+  owner->setupAsNew();
+} /* clearInformation */
+
 /**
  * Save all relevant information before it gets deleted by BB finishing
+ *
+ * \return status: 0 if everything is okay, otherwise 1 (e.g., if all but one of the terms is infeasible)
  */
-void VPCEventHandler::saveInformation() {
+int VPCEventHandler::saveInformation() {
+  clearInformation();
   owner->data.num_nodes_on_tree = this->getNumNodesOnTree();
   owner->data.num_partial_bb_nodes = model_->getNodeCount(); // save number of nodes looked at
   owner->data.num_pruned_nodes = this->getPrunedStatsVector().size()
@@ -1014,6 +1025,19 @@ void VPCEventHandler::saveInformation() {
 //    tmpSolverBase->disableFactorization(); // seg fault
 
     // Change bounds in the solver
+    // First the root node bounds
+    const int init_num_changed_bounds = stats_[0].changed_var.size();
+    for (int i = 0; i < init_num_changed_bounds; i++) {
+      const int col = stats_[0].changed_var[i];
+      const double val = stats_[0].changed_value[i];
+      if (stats_[0].changed_bound[i] <= 0) {
+        tmpSolverBase->setColLower(col, val);
+      } else {
+        tmpSolverBase->setColUpper(col, val);
+      }
+    }
+
+    // Now the parent changed node bounds
     const int curr_num_changed_bounds =
         (orig_node_id == 0) ? 0 : stats_[orig_node_id].changed_var.size();
     std::vector < std::vector<int> > commonTermIndices(curr_num_changed_bounds);
@@ -1139,4 +1163,14 @@ void VPCEventHandler::saveInformation() {
   if (original_basis) {
     delete original_basis;
   }
+
+  // If number of real (feasible) terms is too few, we should keep going, unless we have been branching for too long
+  int status = 0;
+  bool hitTimeLimit = model_->getCurrentSeconds() >= maxTime_;
+  bool hitHardNodeLimit = false;
+  //bool hitHardNodeLimit = model_->getNodeCount2() > maxNumLeafNodes_ * 10;
+  if (!hitTimeLimit && !hitHardNodeLimit && owner->num_terms <= 0.5 * maxNumLeafNodes_) {
+    status = 1;
+  }
+  return status;
 } /* saveInformation */
