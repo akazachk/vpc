@@ -367,7 +367,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
   if (whichEvent == treeStatus) {
     // Update statistics _only_ for the first node
     if (model_->getNodeCount2() == 1) {
-      CbcNode* node = model_->currentNode(); // points to node just created, I think
+      CbcNode* node = model_->tree()->nodePointer(0);
       NodeStatistics currNodeStats;
       setNodeStatistics(currNodeStats, node, model_, stats_, originalLB_, originalUB_, true, foundSolution_);
       stats_.push_back(currNodeStats);
