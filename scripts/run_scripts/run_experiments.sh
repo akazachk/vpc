@@ -8,7 +8,6 @@
 
 # Defaults
 export VPC_DIR=${HOME}/repos/vpc
-DEFAULT_INSTANCE_DIR="${VPC_DIR}/data/instances"
 DEFAULT_INSTANCE_LIST="${VPC_DIR}/data/instances/test.instances"
 DEFAULT_BATCH_LIST="${VPC_DIR}/data/instances/test.batch"
 INSTANCE_LIST="${DEFAULT_INSTANCE_LIST}"
@@ -54,6 +53,8 @@ else
       BATCH_MODE=0
   fi
 fi
+
+export INSTANCE_DIR=${INSTANCE_LIST%/*}
 
 TMPNAME="run_${CUT_TYPE}_${RUN_TYPE_STUB}"
 TMPNAME_EXT=".py"

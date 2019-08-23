@@ -13,6 +13,7 @@ import os
 PROJ_DIR = os.path.abspath(os.environ['VPC_DIR'])
 EXECUTABLE = PROJ_DIR + "/Release/vpc"
 CUT_TYPE = 'vpc'
+instances_path = os.path.abspath(os.environ['INSTANCE_DIR'])
 
 ## Solver options
 depthList = [2,4,8,16,32,64]
@@ -20,7 +21,7 @@ depthList = [2,4,8,16,32,64]
 ## Set up output and input folders
 results_path = PROJ_DIR + '/results'
 #paramfile_dir = PROJ_DIR + '/data/params'
-instances_path = PROJ_DIR + '/data/instances'
+#instances_path = PROJ_DIR + '/data/instances'
 instances_file = instances_path + '/' + "test.instances"
 
 outinfo_stub = CUT_TYPE + '-bb' 

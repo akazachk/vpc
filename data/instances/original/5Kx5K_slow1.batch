@@ -1,36 +1,36 @@
 5Kx5K
 
 01_slow1/
-coral/bc1_presolved
-miplib2010/pg5_34_presolved
+coral/bc1
+miplib2010/pg5_34
 
 02_slow1/
-coral/neos-886822_presolved
-miplib2010/bienst2_presolved
+coral/neos-886822
+miplib2010/bienst2
 
 03_slow1/
-miplib2003/mas076_presolved
+miplib2003/mas076
 
 04_slow1/
-miplib2010/harp2_presolved
+miplib2010/harp2
 
 05_slow1/
-miplib2010/ran16x16_presolved
+miplib2010/ran16x16
 
 06_slow1/
-coral/neos14_presolved
+coral/neos14
 
 07_slow1/
-miplib2010/30n20b8_presolved
+miplib2010/30n20b8
 
 08_slow1/
-miplib2003/nsrand-ipx_presolved
+miplib2003/nsrand-ipx
 
 09_slow1/
-miplib2010/mcsched_presolved
+miplib2010/mcsched
 
 10_slow1/
-miplib2010/timtab1_presolved
+miplib2010/timtab1
 
 11_slow1/
-miplib2010/eilB101_presolved
+miplib2010/eilB101
