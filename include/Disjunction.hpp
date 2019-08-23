@@ -4,12 +4,6 @@
 //-----------------------------------------------------------------------------
 #pragma once
 
-/**********************************************/
-/*  Generic abstract Disjunction class        */
-/*  from which a point-ray collection can be  */
-/*  constructed and VPCs can be generated     */
-/**********************************************/
-
 #include <string>
 #include <vector>
 
@@ -36,11 +30,29 @@ struct DisjunctiveTerm {
   std::vector<int> changed_bound; // <= 0: lower bound, 1: upper bound
   std::vector<double> changed_value;
   std::vector<OsiRowCut> ineqs; // optional: inequalities to add aside from changed bounds
+
+  void initialize() {
+    clear();
+    obj = std::numeric_limits<double>::max();
+    changed_var.resize(0);
+    changed_bound.resize(0);
+    changed_value.resize(0);
+    ineqs.resize(0);
+  } /* initialize */
+
+  void clear() {
+    if (basis) {
+      delete basis;
+      basis = NULL;
+    }
+  } /* clear */
 };
 
-/**
- * Abstract Class Disjunction
- */
+/**********************************************/
+/*  Generic abstract Disjunction class        */
+/*  from which a point-ray collection can be  */
+/*  constructed and VPCs can be generated     */
+/**********************************************/
 class Disjunction {
 public:
   friend class CglVPC;

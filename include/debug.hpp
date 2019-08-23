@@ -11,8 +11,11 @@ class VPCEventHandler;
 class PartialBBDisjunction;
 class OsiSolverInterface;
 class OsiCuts;
+class CoinPackedVector;
 
-void printVector(const int n, const double* vec);
+void printVector(const CoinPackedVector& vec);
+template <typename T>
+void printVector(const int n, const T* vec);
 
 void printTree(PartialBBDisjunction* const orig_owner,
     OsiSolverInterface* solver, OsiCuts* vpcs, OsiCuts* gmics);

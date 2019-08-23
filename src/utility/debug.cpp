@@ -12,14 +12,33 @@
 #include "SolverHelper.hpp"
 #include "PartialBBDisjunction.hpp" // for generationPartialTree
 
-void printVector(const int n, const double* vec) {
+#include <CoinPackedVector.hpp>
+
+/**
+ * Print sparse vector
+ */
+void printVector(const CoinPackedVector& vec) {
+  int numElems = vec.getNumElements();
+  const int* index = vec.getIndices();
+  const double* element = vec.getElements();
+  fprintf(stdout, "Num elements is %d.\n", numElems);
+  for (int i = 0; i < numElems; i++) {
+    fprintf(stdout, "\t%d: %f\n", index[i], element[i]);
+  }
+} /* printVector (CoinPackedVector) */
+
+/**
+ * Print dense array
+ */
+template <typename T>
+void printVector(const int n, const T* vec) {
   for (int i = 0; i < n; ++i) {
     if (vec[i] != 0.0)
-      printf("\t[%d] = %e\n", i, vec[i]);
+      printf("\t[%d] = %g\n", i, vec[i]);
     else
       printf("\t[%d] = 0\n", i);
   }
-}
+} /* printVector (int, T*) */
 
 #ifdef USE_CBC
 #include <CbcModel.hpp>

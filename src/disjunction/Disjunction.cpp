@@ -22,11 +22,8 @@ Disjunction::Disjunction(const Disjunction& source) {
 
 /** Destructor */
 Disjunction::~Disjunction() {
-  for (DisjunctiveTerm term : terms) {
-    if (term.basis) {
-      delete term.basis;
-      term.basis = NULL;
-    }
+  for (auto& term : this->terms) {
+    term.clear();
   }
 } /* destructor */
 
@@ -51,6 +48,8 @@ void Disjunction::setupAsNew() {
   this->common_changed_var.resize(0);
   this->common_ineqs.resize(0);
   this->num_terms = 0;
+  for (auto& term : this->terms)
+    term.clear();
   this->terms.resize(0);
 } /* setupAsNew */
 
@@ -142,6 +141,8 @@ void Disjunction::initialize(const Disjunction* const source) {
     this->common_changed_var = source->common_changed_var;
     this->common_ineqs = source->common_ineqs;
     this->num_terms = source->num_terms;
+    for (auto& term : this->terms)
+      term.clear();
     this->terms = source->terms;
   } else {
     this->timer = NULL;

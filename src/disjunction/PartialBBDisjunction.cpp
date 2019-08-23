@@ -78,6 +78,7 @@ PartialBBDisjunction* PartialBBDisjunction::clone() const {
 /** Set up the disjunction class as new (except the timer pointer, and do not reset params) */
 void PartialBBDisjunction::setupAsNew() {
   Disjunction::setupAsNew();
+  this->root.initialize();
   this->data.num_nodes_on_tree = 0;
   this->data.num_partial_bb_nodes = 0;
   this->data.num_pruned_nodes = 0;
@@ -248,6 +249,8 @@ void PartialBBDisjunction::initialize(const PartialBBDisjunction* const source,
     if (!params) {
       setParams(source->params);
     }
+    this->root.clear();
+    this->root = source->root;
     this->data = source->data;
   } else {
     setupAsNew();

@@ -4,11 +4,6 @@
 //-----------------------------------------------------------------------------
 #pragma once
 
-/****************************************************************/
-/*  Disjunction generated from a partial branch-and-bound tree  */
-/*  Currently requires the use of Cbc                           */
-/****************************************************************/
-
 #include <limits> // numeric_limits
 
 #include "Disjunction.hpp"
@@ -20,6 +15,7 @@ class PartialBBDisjunction;
 #ifdef USE_CBC
 class CbcModel;
 class CbcEventHandler;
+
 /**
  * Set parameters for Cbc used for VPCs, as well as the custom branching decision
  */
@@ -33,8 +29,32 @@ void generatePartialBBTree(PartialBBDisjunction* const owner,
     const int max_nodes, const int num_strong, const int num_before_trusted);
 #endif // USE_CBC
 
+/**
+ * Keeps split information at root, and best bound on each side
+ */
+struct RootTerm {
+  int var = -1;
+  double boundL = 0., boundR = 0.;
+
+  void clear() {
+  } /* clear */
+
+  void initialize() {
+    clear();
+    var = -1;
+    boundL = 0.;
+    boundR = 0.;
+  } /* initialize */
+}; /* RootTerm */
+
+/****************************************************************/
+/*  Disjunction generated from a partial branch-and-bound tree  */
+/*  Currently requires the use of Cbc                           */
+/****************************************************************/
 class PartialBBDisjunction : public Disjunction {
 public:
+  RootTerm root; /// Keeps split information at root and best bound on each side
+
   struct PartialBBDisjunctionData {
     int num_nodes_on_tree = 0, num_partial_bb_nodes = 0, num_pruned_nodes = 0;
     int min_node_depth = std::numeric_limits<int>::max();
