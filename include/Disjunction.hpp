@@ -46,7 +46,7 @@ struct DisjunctiveTerm {
       basis = NULL;
     }
   } /* clear */
-};
+}; /* DisjunctiveTerm */
 
 /**********************************************/
 /*  Generic abstract Disjunction class        */
@@ -68,7 +68,7 @@ public:
   std::vector<double> integer_sol; // integer-feasible solution
   TimeStats* timer; // not owned by Disjunction
 
-  // Save changed variable bounds at root node (bound <= 0 is LB, bound = 1 is UB)
+  /// Save changed variable bounds at root node (bound <= 0 is LB, bound = 1 is UB)
   std::vector<int> common_changed_var;
   std::vector<int> common_changed_bound;
   std::vector<double> common_changed_value;

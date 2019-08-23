@@ -845,17 +845,16 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
     // We already checked that the objective cut is valid 
     // Now we can check that the tilted objective cut is valid
     // We need the variable branched at the root node, and a bound for each side
-    RootTerm root;
     try {
-      root = dynamic_cast<PartialBBDisjunction*>(this->disjunction)->root;
+      RootTerm root = dynamic_cast<PartialBBDisjunction*>(this->disjunction)->root;
+      const int var = root.var;
+      if (var >= 0) {
+        const double struct_bound1 = root.boundL;
+        const double struct_bound2 = root.boundR;
+        const double nb_bound1 = this->probData.lp_opt - struct_bound1;
+        const double nb_bound2 = this->probData.lp_opt - struct_bound2;
+      }
     } catch (std::exception& e) {
-    }
-    const int var = root.var;
-    if (var >= 0) {
-      const double struct_bound1 = root.boundL;
-      const double struct_bound2 = root.boundR;
-      const double nb_bound1 = this->probData.lp_opt - struct_bound1;
-      const double nb_bound2 = this->probData.lp_opt - struct_bound2;
     }
   } // check tilted objective cut validity */
 

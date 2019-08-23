@@ -961,6 +961,49 @@ bool VPCEventHandler::setupDisjunctiveTerm(const int node_id,
     term.changed_value.push_back(branching_value);
     owner->terms.push_back(term);
     isFeasible = true;
+
+    // Update the root node information
+    // First, identify if this node is on the down or up part of the root split
+    // stats_[0].way tells us which is the first child of the root node
+    // The other node with 0 as a parent is therefore the second child
+    bool is_down = false, is_up = false;
+    int curr_id = orig_node_id;
+    const int way = stats_[0].way;
+    if (curr_id == 0) {
+      if (way <= 0) {
+        if (branching_way == way)
+          is_down = true;
+        else
+          is_up = true;
+      } else {
+        if (branching_way == way)
+          is_up = true;
+        else
+          is_down = true;
+      }
+    }
+    while (!is_down && !is_up) {
+      if (stats_[curr_id].parent_id == 0) {
+        if (curr_id == 1) { // check if this is the first child of the root
+          if (way <= 0)
+            is_down = true;
+          else
+            is_up = true;
+        } else { // if not the first child, then it is the second child
+          if (way <= 0)
+            is_up = true;
+          else
+            is_down = true;
+        }
+      } else {
+        curr_id = stats_[curr_id].parent_id;
+      }
+    }
+    // Now update the bound if possible
+    double& bound = is_down ? this->owner->root.boundD : this->owner->root.boundU;
+    if (lessThanVal(term.obj, bound)) {
+      bound = term.obj;
+    }
   } else {
     this->numLeafNodes_--;
   }
@@ -994,9 +1037,13 @@ int VPCEventHandler::saveInformation() {
   this->owner->data.num_fixed_vars = model_->strongInfo()[1]; // number fixed during b&b
 
   // Save variables with bounds that were changed at the root
-  this->owner->common_changed_bound = this->stats_[0].changed_bound;
-  this->owner->common_changed_value = this->stats_[0].changed_value;
-  this->owner->common_changed_var = this->stats_[0].changed_var;
+  const int num_stats = this->stats_.size();
+  if (num_stats > 0) {
+    this->owner->common_changed_bound = this->stats_[0].changed_bound;
+    this->owner->common_changed_value = this->stats_[0].changed_value;
+    this->owner->common_changed_var = this->stats_[0].changed_var;
+    this->owner->root.var = this->stats_[0].variable;
+  }
 
   // If an integer solution was found, save it
   if (isIntegerSolutionFound()) {

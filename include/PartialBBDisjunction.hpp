@@ -33,17 +33,25 @@ void generatePartialBBTree(PartialBBDisjunction* const owner,
  * Keeps split information at root, and best bound on each side
  */
 struct RootTerm {
-  int var = -1;
-  double boundL = 0., boundR = 0.;
+  int var;
+  double boundD;
+  double boundU;
+
+  RootTerm() {
+    initialize();
+  }
 
   void clear() {
+    var = -1;
+    boundD = std::numeric_limits<double>::max();
+    boundU = std::numeric_limits<double>::max();
   } /* clear */
 
   void initialize() {
     clear();
     var = -1;
-    boundL = 0.;
-    boundR = 0.;
+    boundD = std::numeric_limits<double>::max();
+    boundU = std::numeric_limits<double>::max();
   } /* initialize */
 }; /* RootTerm */
 
