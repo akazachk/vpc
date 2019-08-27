@@ -848,11 +848,13 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
     try {
       RootTerm root = dynamic_cast<PartialBBDisjunction*>(this->disjunction)->root;
       const int var = root.var;
-      if (var >= 0) {
-        const double struct_bound1 = root.boundL;
-        const double struct_bound2 = root.boundR;
-        const double nb_bound1 = this->probData.lp_opt - struct_bound1;
-        const double nb_bound2 = this->probData.lp_opt - struct_bound2;
+      const double boundD = root.boundD;
+      const double boundU = root.boundU;
+      if (var >= 0 && !isInfinity(std::abs(boundD)) && !isInfinity(std::abs(boundU))) {
+        const double nb_boundD = this->probData.lp_opt - boundD;
+        const double nb_boundU = this->probData.lp_opt - boundU;
+      } else if (var >= 0 && isInfinity(std::abs(boundD))) {
+      } else if (var >= 0 && isInfinity(std::abs(boundU))) {
       }
     } catch (std::exception& e) {
     }

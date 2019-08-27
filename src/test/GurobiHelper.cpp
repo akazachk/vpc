@@ -80,7 +80,7 @@ void setStrategyForBBTestGurobi(const VPCParameters& params, const int strategy,
 
     // Feed the solver the best bound provided
     if (use_bb_option(strategy, BB_Strategy_Options::use_best_bound)) {
-      if (!isInfinity(best_bound)) {
+      if (!isInfinity(std::abs(best_bound))) {
 //        model.set(GRB_DoubleParam_BestObjStop, best_bound + 1e-3); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
         model.set(GRB_DoubleParam_BestBdStop, best_bound - 1e-7); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
       }
