@@ -992,13 +992,16 @@ void CglVPC::genDepth1PRCollection(const OsiSolverInterface* const vpcsolver,
   std::vector<double> currRay(tmpSolver->getNumRows());
   for (int ray_ind = 0; ray_ind < (int) tmpProbData.NBVarIndex.size(); ray_ind++) {
     const int NBVar = tmpProbData.NBVarIndex[ray_ind]; // This is the current ray
+    if (isNonBasicFixedVar(tmpSolver, NBVar)) {
+      continue; // fixed variable means that we can work with the lower-dimensional cone
+    }
 
-      tmpSolver->getBInvACol(NBVar, &(currRay[0]));
-      if (isNonBasicLBVar(tmpSolver, NBVar)) {
-        for (int row = 0; row < tmpSolver->getNumRows(); row++) {
-          currRay[row] *= -1.;
-        }
+    tmpSolver->getBInvACol(NBVar, &(currRay[0]));
+    if (isNonBasicLBVar(tmpSolver, NBVar)) {
+      for (int row = 0; row < tmpSolver->getNumRows(); row++) {
+        currRay[row] *= -1.;
       }
+    }
 
     // We want to store this ray in the complemented original NB space
     CoinPackedVector currRayNB;

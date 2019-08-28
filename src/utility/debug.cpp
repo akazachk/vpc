@@ -1,10 +1,10 @@
 /**
- * debug.cpp
+ * @file debug.cpp
+ *
  * A. M. Kazachkov
  * 2018-Dec-25
  */
 #include "debug.hpp"
-#include <vector>
 
 #include "utility.hpp"
 #include "VPCParameters.hpp"
@@ -12,38 +12,90 @@
 #include "SolverHelper.hpp"
 #include "PartialBBDisjunction.hpp" // for generationPartialTree
 
+#include <CoinPackedVectorBase.hpp>
 #include <CoinPackedVector.hpp>
+#include <CoinShallowPackedVector.hpp>
 
 /**
  * Print sparse vector
+ *
+ * @param vec           Vector to be printed 
+ * @param use_newline   Whether to print the entire vector on one line or not
  */
-void printVector(const CoinPackedVector& vec) {
+void printVector(const CoinPackedVectorBase& vec, const bool use_newline) {
   int numElems = vec.getNumElements();
   const int* index = vec.getIndices();
   const double* element = vec.getElements();
-  fprintf(stdout, "Num elements is %d.\n", numElems);
+  if (use_newline)
+    fprintf(stdout, "Num elements is %d.", numElems);
   for (int i = 0; i < numElems; i++) {
-    fprintf(stdout, "\t%d: %f\n", index[i], element[i]);
+    if (use_newline)
+      fprintf(stdout, "\n\t");
+    else if (i > 0)
+      fprintf(stdout, ", ");
+    fprintf(stdout, "(%d, %f)", index[i], element[i]);
   }
-} /* printVector (CoinPackedVector) */
+  fprintf(stdout, "\n");
+} /* printVector (CoinPackedVectorBase) */
+
+/** Print several vectors in CoinPackedVectorBase form */
+void printVectors(const std::vector<CoinPackedVector>& vecs, const bool use_newline) {
+  for (auto& vec : vecs)
+    printVector(vec, use_newline);
+} /* printVectors */
 
 /**
  * Print dense array
+ *
+ * @param n     Number of elements in the vector
+ * @param vec   Vector to be printed
  */
 template <typename T>
 void printVector(const int n, const T* vec) {
   for (int i = 0; i < n; ++i) {
     if (vec[i] != 0.0)
-      printf("\t[%d] = %g\n", i, vec[i]);
+      printf("\t(%d, %g)\n", i, vec[i]);
     else
-      printf("\t[%d] = 0\n", i);
+      printf("\t(%d, 0)\n", i);
   }
 } /* printVector (int, T*) */
 
+/**
+ * Print matrix (row-wise)
+ *
+ * @param mx_in   Matrix to be printed
+ */
+void printMatrix(const CoinPackedMatrix& mx_in) {
+  const CoinPackedMatrix* mx; 
+  if (mx_in.isColOrdered()) {
+    CoinPackedMatrix* mx_rows = new CoinPackedMatrix;
+    mx_rows->reverseOrderedCopyOf(mx_in);
+    mx = mx_rows;
+  } else {
+    mx = &mx_in;
+  }
+  for (int i = 0; i < mx->getNumRows(); i++) {
+    const CoinShallowPackedVector& vec = mx->getVector(i);
+    fprintf(stdout, "Row %d: ", i);
+    printVector(vec, false);
+  }
+  if (mx_in.isColOrdered()) {
+    delete mx;
+  }
+} /* printMatrix */
+
 #ifdef USE_CBC
 #include <CbcModel.hpp>
+/**
+ * Print branch-and-bound tree
+ *
+ * @param orig_owner  The disjunction to be printed
+ * @param solver      Used to get the number of columns, and to apply cuts if we wish to solve with cuts added
+ * @param vpcs        V-polyhedral cuts to be added
+ * @param gmics       Gomory mixed-integer cuts to be added
+ */
 void printTree(PartialBBDisjunction* const orig_owner,
-    OsiSolverInterface* solver, OsiCuts* vpcs, OsiCuts* gmics) {
+    const OsiSolverInterface* const solver, OsiCuts* vpcs, OsiCuts* gmics) {
   const int TEMP_VAL= orig_owner->params.get(intParam::TEMP);
   if (std::abs(TEMP_VAL) >= static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS)
       && std::abs(TEMP_VAL) <= static_cast<int>(TempOptions::GEN_TIKZ_STRING_NO_CUTS)) {
@@ -145,7 +197,9 @@ void printTree(PartialBBDisjunction* const orig_owner,
 /**
  * Create a string that can be fed into Mathematica to plot the tree
  */
-std::string generateTreePlotString(const VPCEventHandler* eventHandler, const VPCParameters& params,
+std::string generateTreePlotString(
+    const VPCEventHandler* eventHandler, 
+    const VPCParameters& params,
     const bool saveToFile) {
   const std::vector<NodeStatistics>& stats = eventHandler->getStatsVector();
   const std::vector<NodeStatistics>& pruned_stats = eventHandler->getPrunedStatsVector();

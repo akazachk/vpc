@@ -1,3 +1,7 @@
+/**
+ * @file SolverHelper.hpp
+ * @brief Various helpful functions for solver-agnostic queries
+ */
 #pragma once
 
 #include <limits> // numeric_limits
@@ -239,7 +243,11 @@ inline bool isBasicVar(const OsiSolverInterface* const solver, const int var) {
           isBasicSlack(solver, var - solver->getNumCols());
 }
 
-/** Not simply calling using getStatus because of fixed variables */
+/** 
+ * @brief Check if variable is nonbasic at its lower bound
+ *
+ * Implementation is not simply using getStatus because of fixed variables 
+ */
 inline bool isNonBasicLBVar(const OsiSolverInterface* const solver, const int var) {
   return
       (var < solver->getNumCols()) ?
@@ -247,7 +255,11 @@ inline bool isNonBasicLBVar(const OsiSolverInterface* const solver, const int va
           isNonBasicLBSlack(solver, var - solver->getNumCols());
 }
 
-/** Not simply calling using getStatus because of fixed variables */
+/** 
+ * @brief Check if variable is nonbasic at its upper bound
+ *
+ * Implementation is not simply using getStatus because of fixed variables 
+ */
 inline bool isNonBasicUBVar(const OsiSolverInterface* const solver, const int var) {
   return
       (var < solver->getNumCols()) ?
@@ -255,12 +267,26 @@ inline bool isNonBasicUBVar(const OsiSolverInterface* const solver, const int va
           isNonBasicUBSlack(solver, var - solver->getNumCols());
 }
 
-/** Not simply calling using getStatus because of fixed variables */
+/** 
+ * @brief Check if variable is nonbasic and free
+ *
+ * Implementation is not simply using getStatus because of fixed variables 
+ */
 inline bool isNonBasicFreeVar(const OsiSolverInterface* const solver, const int var) {
   return
       (var < solver->getNumCols()) ?
           isNonBasicFreeCol(solver, var) :
           isNonBasicFreeSlack(solver, var - solver->getNumCols());
+}
+
+/**
+ * Check if a variable is nonbasic and fixed
+ */
+inline bool isNonBasicFixedVar(const OsiSolverInterface* const solver, const int var) {
+  return
+      (var < solver->getNumCols()) ?
+          isNonBasicFixedCol(solver, var) :
+          isNonBasicFixedSlack(solver, var - solver->getNumCols());
 }
 
 /**

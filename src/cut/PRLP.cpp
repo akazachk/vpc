@@ -255,7 +255,7 @@ bool PRLP::setup(const double scale) {
   ortho.clear();
   ortho.reserve(numPointsToProcess + numRaysToProcess);
   for (int p = 0; p < numPointsToProcess; p++) {
-    if (isDuplicatePoint[p]) {
+    if (checkForDuplicates && isDuplicatePoint[p]) {
       continue;
     }
     const int ind = sortIndexPoints[p];
@@ -271,11 +271,10 @@ bool PRLP::setup(const double scale) {
 
   // Then the rays
   for (int p = 0; p < numRaysToProcess; p++) {
-    if (isDuplicateRay[p]) {
+    if (checkForDuplicates && isDuplicateRay[p]) {
       continue;
     }
     const int ind = sortIndexRays[p];
-//    const int t = disjTermOfRay[ind];
     const int r = rowOfRay[ind];
     const double rhs = owner->prlpData.rhs[r];
     mx.appendRow(owner->prlpData.constraints[r].getNumElements(),
