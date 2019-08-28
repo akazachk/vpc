@@ -941,7 +941,11 @@ bool VPCEventHandler::setupDisjunctiveTerm(const int node_id,
   const int orig_node_id = stats_[node_id].orig_id;
 
   SolverInterface* tmpSolver = dynamic_cast<SolverInterface*>(tmpSolverBase->clone());
-  tmpSolver->addRow(1, ind, coeff, rhs, tmpSolver->getInfinity());
+  if (branching_way <= 0)
+    tmpSolver->setColUpper(branching_variable, branching_value);
+  else
+    tmpSolver->setColLower(branching_variable, branching_value);
+  //tmpSolver->addRow(1, ind, coeff, rhs, tmpSolver->getInfinity());
   tmpSolver->resolve();
   if (checkSolverOptimality(tmpSolver, true)) {
     enableFactorization(tmpSolver, owner->params.get(doubleParam::EPS)); // this may change the solution slightly
@@ -1043,6 +1047,7 @@ int VPCEventHandler::saveInformation() {
     this->owner->common_changed_value = this->stats_[0].changed_value;
     this->owner->common_changed_var = this->stats_[0].changed_var;
     this->owner->root.var = this->stats_[0].variable;
+    this->owner->root.val = this->stats_[0].value;
   }
 
   // If an integer solution was found, save it

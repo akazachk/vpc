@@ -24,6 +24,9 @@ void setCbcParametersForPartialBB(const VPCParameters& param,
     const int numStrong = 5, const int numBeforeTrusted = 10,
     const double max_time = std::numeric_limits<double>::max());
 
+/**
+ * Generate a partial branch-and-bound tree with at most max_leaf_nodes leaf nodes
+ */
 void generatePartialBBTree(PartialBBDisjunction* const owner,
     CbcModel* cbc_model, const OsiSolverInterface* const solver,
     const int max_nodes, const int num_strong, const int num_before_trusted);
@@ -33,25 +36,27 @@ void generatePartialBBTree(PartialBBDisjunction* const owner,
  * Keeps split information at root, and best bound on each side
  */
 struct RootTerm {
-  int var;
-  double boundD;
-  double boundU;
+  int var;       ///< var branched on
+  double val;    ///< value of var when it is branched on
+  double boundD; ///< best bound in down branch
+  double boundU; ///< best bound in up branch
 
+  /** Constructor (calls initialize) */
   RootTerm() {
     initialize();
-  }
+  } /* constructor */
 
+  /** Reset root term information and deletes any allocated memory */
   void clear() {
     var = -1;
+    val = 0.;
     boundD = std::numeric_limits<double>::max();
     boundU = std::numeric_limits<double>::max();
   } /* clear */
 
+  /** Initalize root term (calls clear) */
   void initialize() {
     clear();
-    var = -1;
-    boundD = std::numeric_limits<double>::max();
-    boundU = std::numeric_limits<double>::max();
   } /* initialize */
 }; /* RootTerm */
 

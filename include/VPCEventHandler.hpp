@@ -20,33 +20,37 @@ class OsiCuts;
 #include <CbcEventHandler.hpp>
 #include <CbcNode.hpp>
 
-// Useful data structure for COIN-OR tracking
+/**
+ * Useful data structure for COIN-OR tracking
+ */
 struct NodeStatistics {
-  int id = -1; // in stats vector
-  int parent_id = -1; // in stats vector
-  int variable = -1; // variable we will branch on if this node is popped
-  int branch_index = -1; // how many times we have branched from this node
-  int way = -2; // which way we will branch if this node is popped (+1 = up, -1 = down)
-  double obj = std::numeric_limits<double>::max(); // objective at this node
-  double value = -1; // value of the variable at the solution of the parent, I believe
-  double lb = -1; // new lb
-  double ub = -1; // new ub
-  int orig_id = -1; // first time this node appeared in stats
-  int number = -1; // this is the number in the tree, not stats vector (differs from Cbc count)
-  int depth = -1; // depth of the node in the tree
-  bool found_integer_solution = false; // was an integer-feasible solution found during this node exploration? (may have been during strong branching)
-  double integer_obj = std::numeric_limits<double>::max();
-  std::string changed_bounds;
-  std::vector<int> changed_var;
-  std::vector<int> changed_bound;
-  std::vector<double> changed_value;
-};
+  int id = -1; ///< in stats vector
+  int parent_id = -1; ///< in stats vector
+  int variable = -1; ///< variable we will branch on if this node is popped
+  int branch_index = -1; ///< how many times we have branched from this node
+  int way = -2; ///< which way we will branch if this node is popped (+1 = up, -1 = down)
+  double obj = std::numeric_limits<double>::max(); ///< objective at this node
+  double value = -1; ///< value of the variable at the solution of the parent, I believe
+  double lb = -1; ///< new lb
+  double ub = -1; ///< new ub
+  int orig_id = -1; ///< first time this node appeared in stats
+  int number = -1; ///< this is the number in the tree, not stats vector (differs from Cbc count)
+  int depth = -1; ///< depth of the node in the tree
+  bool found_integer_solution = false; ///< was an integer-feasible solution found during this node exploration? (may have been during strong branching)
+  double integer_obj = std::numeric_limits<double>::max(); ///< integer objective at this node
+  std::string changed_bounds; ///< string concatenating bounds changed at this node
+  std::vector<int> changed_var; ///< vector of variable indices changed to get to this node
+  std::vector<int> changed_bound; ///< vector with which bound (0: lower, 1: upper) changed for the changed variables
+  std::vector<double> changed_value; ///< vector of new lower/upper bound for each variable that has been changed
+}; /* Node Statistics */
 
+/** Define the statistics for a particular node */
 void setNodeStatistics(NodeStatistics& stats, const CbcNode* const node,
     const CbcModel* const model, const std::vector<NodeStatistics>& stats_vec,
     const std::vector<double>& originalLB,
     const std::vector<double>& originalUB, const bool will_create_child,
     const bool solution_is_found = false);
+/** Define the statistics to be saved for a pruned node */
 void setPrunedNodeStatistics(NodeStatistics& stats,
     const CbcNode* const parent_node, const CbcModel* const model,
     /*const std::vector<NodeStatistics>& stats_vec,*/const bool prune_by_integrality,
@@ -59,6 +63,7 @@ void printNodeStatistics(const std::vector<NodeStatistics>& stats,
 void printNodeStatistics(const NodeStatistics& stats, const bool print_bounds,
     FILE* myfile = stdout);
 
+/** Save which bounds have been changed with respect to the original solver */
 void changedBounds(NodeStatistics& stats,
     const OsiSolverInterface* const solver,
     const std::vector<double>& originalLB,

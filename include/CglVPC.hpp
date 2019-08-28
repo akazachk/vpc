@@ -4,11 +4,6 @@
 //-----------------------------------------------------------------------------
 #pragma once
 
-/**********************************************************************************************************
- * CglVPC Class, implemented as a CglCutGenerator
- * Takes a Disjunction as an input and generates cuts from it based on the relaxed V-polyhedral strategy
- **********************************************************************************************************/
-
 #include <vector>
 #include <string>
 
@@ -22,11 +17,15 @@
 class Disjunction; // include is in source file
 class PRLP;
 
+/**
+ * @brief Documenting the exit status after / whether cuts are generated
+ */
 enum class ExitReason {
   SUCCESS_EXIT = 0,
   CUT_LIMIT_EXIT,
   FAIL_LIMIT_EXIT,
   PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT,
+  PRLP_INFEASIBLE_EXIT,
   TIME_LIMIT_EXIT,
   TOO_FEW_TERMS_EXIT,
   NO_CUTS_LIKELY_EXIT,
@@ -40,6 +39,7 @@ const std::vector<std::string> ExitReasonName {
   "CUT_LIMIT",
   "FAIL_LIMIT",
   "PARTIAL_BB_INTEGER_SOLUTION_FOUND",
+  "PRLP_INFEASIBLE_EXIT",
   "TIME_LIMIT",
   "TOO_FEW_TERMS",
   "NO_CUTS_LIKELY",
@@ -47,6 +47,10 @@ const std::vector<std::string> ExitReasonName {
   "UNKNOWN"
 }; /* ExitReasonName */
 
+/**********************************************************************************************************
+ * CglVPC Class, implemented as a CglCutGenerator
+ * Takes a Disjunction as an input and generates cuts from it based on the relaxed V-polyhedral strategy
+ **********************************************************************************************************/
 class CglVPC : public CglCutGenerator {
 public:
   friend class PRLP;

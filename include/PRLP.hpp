@@ -45,7 +45,10 @@ public:
   /** Setup PRLP */
   bool setup(const double scale);
 
-  /** Loop for generating cuts; return # cuts generated */
+  /** 
+   * @brief Loop for generating cuts
+   * @return \# cuts generated 
+   */
   int targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
       const OsiSolverInterface* const origSolver,
       const OsiCuts* const structSICs, const std::string& timeName);

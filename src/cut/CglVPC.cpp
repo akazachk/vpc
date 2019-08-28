@@ -524,7 +524,6 @@ void CglVPC::getProblemData(OsiSolverInterface* const solver,
   // \bar x = inv(B) * b - inv(B) * A * x_N
   const int numNB = probData.NBVarIndex.size();
   int tempIndex = 0;
-//  const char* rowSense = solver->getRowSense();
   probData.NBReducedCost.resize(numNB);
   for (int j = 0; j < numNB; j++) {
     const int NBVar = probData.NBVarIndex[j];
@@ -752,7 +751,7 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
     }
 
     // Set the warm start
-    if (!(tmpSolver->setWarmStart(term->basis))) {
+    if (term->basis && !(tmpSolver->setWarmStart(term->basis))) {
       error_msg(errorstring,
           "Warm start information not accepted for term %d/%d.\n",
           tmp_ind + 1, num_normal_terms);
@@ -816,7 +815,6 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
       // because it is unclear whether, in that class,
       // the user computes with the variables changed at the root
       this->disjunction->updateObjValue(tmpSolver->getObjValue());
-//      this->disjunction->updateNBObjValue(tmpSolver->getObjValue() - vpcsolver->getObjValue());
 
       timer.register_name(CglVPC::time_T1 + std::to_string(terms_added));
       timer.register_name(CglVPC::time_T2 + std::to_string(terms_added));
@@ -844,19 +842,54 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
   /* TODO {
     // We already checked that the objective cut is valid 
     // Now we can check that the tilted objective cut is valid
-    // We need the variable branched at the root node, and a bound for each side
+    // We need the variable branched at the root node, the value of the variable at the root, and a bound for each side
+    // Let boundD be the "down" bound, and boundU be the "up" bound
+    // Suppose boundD <= boundU (recall this is a minimization problem)
+    // Suppose also that x_k \in [\ell_k, u_k]
+    // To ensure validity, the tilted objective cut is:
+    //   c \dot x >= boundD + (boundU - boundD) * (x_k - \floor{\bar{x}_k}) / (u_k - \floor{\bar{x}_k})
+    // A similar cut can be formulated when boundU < boundD:
+    //   c \dot x >= boundU + (boundD - boundU) * (\ceil{\bar{x}_k} - \ell_k) / (\ceil{\bar{x}_k} - \ell_k)
+    // Both cuts can be formulated as
+    //   c \dot x >= smallerBound + (biggerBound - smallerBound) * (x_k - roundedVal) / (globalBound - roundedVal)
+    int var = -1;
+    double val = 0.;
+    double boundD = std::numeric_limits<double>::lowest();
+    double boundU = std::numeric_limits<double>::lowest();
     try {
       RootTerm root = dynamic_cast<PartialBBDisjunction*>(this->disjunction)->root;
-      const int var = root.var;
-      const double boundD = root.boundD;
-      const double boundU = root.boundU;
-      if (var >= 0 && !isInfinity(std::abs(boundD)) && !isInfinity(std::abs(boundU))) {
-        const double nb_boundD = this->probData.lp_opt - boundD;
-        const double nb_boundU = this->probData.lp_opt - boundU;
-      } else if (var >= 0 && isInfinity(std::abs(boundD))) {
-      } else if (var >= 0 && isInfinity(std::abs(boundU))) {
-      }
+      var = root.var;
+      val = root.val;
+      boundD = root.boundD;
+      boundU = root.boundU;
     } catch (std::exception& e) {
+    }
+    if (var >= 0) {
+      if (!isInfinity(std::abs(boundD)) && !isInfinity(std::abs(boundU))) {
+        // We get x_k = \bar{x}_k - \sum_{j \in \NB} \bar{a}_{kj} x_j, 
+        // where \bar{a}_{kj} is coefficient (k,j) after multiplying A by the basis inverse
+        // The original objective (c \dot x) in the nonbasic space is read from probData.NBReducedCost
+        std::vector<double> basisRow(vpcsolver->getNumCols());
+        enableFactorization(vpcsolver, probData.EPS);
+        vpcsolver->getBInvARow(var, &(basisRow[0]));
+        // Set up things based on which bound is smaller
+        const double smallerBound = (boundD <= boundU) ? boundD : boundU;
+        const double higherBound = (boundD <= boundU) ? boundU : boundD;
+        const double globalBound = (boundD <= boundU) ? vpcsolver->getColUpper()[var] : vpcsolver->getColLower()[var];
+        const double roundedVal = (boundD <= boundU) ? std::floor(val) : std::ceil(val);
+        const double Delta = higherBound - smallerBound;
+        const double coeff = Delta / (globalBound - roundedVal);
+        const double rhs = smallerBound - Delta * roundedVal / (globalBound - roundedVal) - probData.lp_opt + coeff * val;
+
+
+      } else if (isInfinity(std::abs(boundD))) {
+      } else if (isInfinity(std::abs(boundU))) {
+      } else {
+        // Both sides infeasible, which means the problem is infeasible; error
+        error_msg(errorstring, "Both sides of root split variable (index %d, value %g) are infeasible, which would imply the instance is infeasible.\n", var, val);
+        writeErrorToLog(errorstring, params.logfile);
+        exit(1);
+      }
     }
   } // check tilted objective cut validity */
 
@@ -1023,6 +1056,8 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
     return ExitReason::CUT_LIMIT_EXIT;
   }
 
+  ExitReason status = ExitReason::UNKNOWN;
+
   // We can scale the rhs for points by min_nb_obj_val
   const double min_nb_obj_val = this->disjunction->best_obj - this->probData.lp_opt;
   const bool useScale = true && !isInfinity(std::abs(min_nb_obj_val));
@@ -1061,6 +1096,17 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
     if (isCutSolverPrimalFeas) {
       prlp->targetStrongAndDifferentCuts(beta, cuts, origSolver, structSICs,
           VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
+      if (reachedTimeLimit(VPCTimeStats::TOTAL_TIME, params.get(TIMELIMIT))) {
+        status = ExitReason::TIME_LIMIT_EXIT;
+      } else if (reachedCutLimit()) {
+        status = ExitReason::CUT_LIMIT_EXIT;
+      } else if (reachedFailureLimit(num_cuts - init_num_cuts, num_failures - init_num_failures)) {
+        status = ExitReason::FAIL_LIMIT_EXIT;
+      } else {
+        status = ExitReason::SUCCESS_EXIT;
+      }
+    } else {
+      status = ExitReason::PRLP_INFEASIBLE_EXIT;
     }
   }
 
@@ -1086,16 +1132,7 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
     exit(1);
   }
 
-  if (reachedTimeLimit(VPCTimeStats::TOTAL_TIME, params.get(TIMELIMIT))) {
-    return ExitReason::TIME_LIMIT_EXIT;
-  }
-  if (reachedCutLimit()) {
-    return ExitReason::CUT_LIMIT_EXIT;
-  }
-  if (reachedFailureLimit(num_cuts - init_num_cuts, num_failures - init_num_failures)) {
-    return ExitReason::FAIL_LIMIT_EXIT;
-  }
-  return ExitReason::SUCCESS_EXIT;
+  return status;
 } /* tryObjectives */
 
 /**
@@ -1110,7 +1147,7 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
  *      MANY_OBJ = max(FEW_CUTS / (1-few_cuts_fail_threshold), MANY_CUTS / (1-many_cuts_fail_threshold));
  *      default = max(20, 2.5 * CUT_LIMIT) and the success threshold is at least 1 cut every 5 obj (fail ratio = .80).
  * 4. Time is too long and we are not too successful:
- *       # obj tried >= MANY_OBJ && time >= 10 && average time / obj >= CUTSOLVER_TIMELIMIT + 1
+ *       \# obj tried >= MANY_OBJ && time >= 10 && average time / obj >= CUTSOLVER_TIMELIMIT + 1
  *       the success threshold is at least 1 cut every 3 obj
  *
  * Examples:

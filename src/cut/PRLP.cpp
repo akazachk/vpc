@@ -339,7 +339,6 @@ bool PRLP::setup(const double scale) {
 
   owner->timer.end_timer(static_cast<int>(CglVPC::VPCTimeStats::PRLP_SETUP_TIME));
 
-
   if (numPoints < 0 || numRays < 0) {
     return true;
   }
