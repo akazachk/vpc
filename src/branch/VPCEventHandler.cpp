@@ -973,22 +973,9 @@ bool VPCEventHandler::setupDisjunctiveTerm(const int node_id,
     bool is_down = false, is_up = false;
     int curr_id = orig_node_id;
     const int way = stats_[0].way;
-    if (curr_id == 0) {
-      if (way <= 0) {
-        if (branching_way == way)
-          is_down = true;
-        else
-          is_up = true;
-      } else {
-        if (branching_way == way)
-          is_up = true;
-        else
-          is_down = true;
-      }
-    }
     while (!is_down && !is_up) {
-      if (stats_[curr_id].parent_id == 0) {
-        if (curr_id == 1) { // check if this is the first child of the root
+      if (stats_[curr_id].parent_id == -1) {
+        if (curr_id == 0) { // check if this is the first child of the root
           if (way <= 0)
             is_down = true;
           else
