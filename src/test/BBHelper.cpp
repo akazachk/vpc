@@ -289,7 +289,7 @@ void updateBestBBInfo(BBInfo& best_info, const BBInfo& curr_info, const bool fir
 } /* updateMinBBInfo */
 
 void averageBBInfo(BBInfo& avg_info, const std::vector<BBInfo>& info) {
-  for (BBInfo& curr_info : info) {
+  for (const BBInfo& curr_info : info) {
     avg_info.obj += curr_info.obj;
     avg_info.bound += curr_info.bound;
     avg_info.iters += curr_info.iters;
@@ -317,7 +317,7 @@ void averageBBInfo(BBInfo& avg_info, const std::vector<BBInfo>& info) {
 void createStringFromBBInfoVec(const std::vector<BBInfo>& vec_info,
     std::vector<std::string>& vec_str) {
   vec_str.resize(BB_INFO_CONTENTS.size());
-  for (BBInfo& info : vec_info) {
+  for (const BBInfo& info : vec_info) {
     vec_str[OBJ_BB_INFO_IND] += (!vec_str[OBJ_BB_INFO_IND].empty() ? ";" : "") + stringValue(info.obj, "%.20f");
     vec_str[BOUND_BB_INFO_IND] += (!vec_str[BOUND_BB_INFO_IND].empty() ? ";" : "") + stringValue(info.bound, "%.20f");
     vec_str[ITERS_BB_INFO_IND] += (!vec_str[ITERS_BB_INFO_IND].empty() ? ";" : "") + std::to_string(info.iters);
