@@ -49,7 +49,7 @@ ifeq ($(USER),akazachk)
   endif
   ifeq ($(UNAME),Darwin)
     GUROBI_LINK = gurobi81
-    GUROBI_DIR = /Library/gurobi810/mac64
+    GUROBI_DIR = /Library/gurobi811/mac64
     CPLEX_DIR = /Applications/CPLEX_Studio129/cplex
   endif
 endif
