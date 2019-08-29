@@ -266,10 +266,10 @@ DEPENDENCIES = $(OUT_OBJECTS:.o=.d)
 #		print print_dep \
 #		archive_debug archive_release archive
 
-.PHONY = all clean directories distclean docs print
+.PHONY = all clean directories distclean doxygen print
 
 ### Docs ###
-docs:
+doxygen: FORCE
 	@doxygen
 
 ### Cleaning ###
