@@ -423,9 +423,14 @@ void setCompNBCoor(
   // Other times, if the non-tiny values satisfy the objective cut on their own, let's ignore the tiny ones
   // We will not add the tiny indices + values until the end, when we check if they are necessary
   double nonTinyObj = 0.;
-  std::vector<int> tinyIndex, superTinyIndex;
-  std::vector<double> tinyElem, superTinyElem;
-  double tinyObjOffset = 0., superTinyObjOffset = 0.; // how much c . p changes when tiny values stop being ignored
+  std::vector<int> tinyIndex;
+  std::vector<double> tinyElem;
+  double tinyObjOffset = 0.; // how much c . p changes when tiny values stop being ignored
+#ifdef TRACE
+  std::vector<int> superTinyIndex;
+  std::vector<double> superTinyElem;
+  double superTinyObjOffset = 0.;
+#endif
 
   // All coefficients are going to be nonnegative, since we work in the complemented NB space
   for (int i = 0; i < numNB; i++) {
@@ -476,11 +481,13 @@ void setCompNBCoor(
       tinyElem.push_back(newVal);
       tinyObjOffset += newVal * nonBasicReducedCost[i];
     } // tiny
+#ifdef TRACE
     else if (!isZero(newVal * nonBasicReducedCost[i], 0.0)) {
       superTinyIndex.push_back(i);
       superTinyElem.push_back(newVal);
       superTinyObjOffset += newVal * nonBasicReducedCost[i];
     } // super-tiny
+#endif
   } // end iterating over nonbasic elements from original basis
 
   // Check whether tiny elements are needed
