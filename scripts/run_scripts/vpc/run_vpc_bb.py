@@ -91,6 +91,7 @@ for depth in depthList:
     extraparams = extraparams + ' --use_tight_points=0'
     extraparams = extraparams + ' --use_tight_rays=0'
     extraparams = extraparams + ' --use_unit_vectors=0'
+    extraparams = extraparams + ' --gomory=-1'
     cmd = EXECUTABLE + ' -f ' + infile + ' --logfile=' + outinfo + extraparams 
     print(cmd)
     os.system(cmd + " > /dev/null 2>&1") 

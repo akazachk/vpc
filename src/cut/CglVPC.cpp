@@ -562,7 +562,7 @@ void CglVPC::getProblemData(
       } else {
         warning_msg(warnstring,
             "Nonbasic reduced cost should be >= 0 in the complemented nonbasic space. "
-            "However, for nb var %d (real var %d), it is %f. Small enough error that we only send warning.\n",
+            "However, for nb var %d (real var %d), it is %e. Small enough error that we only send warning.\n",
             j, NBVar, probData.NBReducedCost[j]);
         this->numFails[static_cast<int>(FailureType::NUMERICAL_ISSUES_WARNING)]++;
       }
@@ -961,7 +961,7 @@ void CglVPC::genDepth1PRCollection(const OsiSolverInterface* const vpcsolver,
         exit(1);
       } else {
         warning_msg(warnstring,
-            "Term %d (point) does not satisfy the objective cut.\n\tActivity: %.8f\n\tRHS: %.8f.\n" "\tSmall enough violation that we only send a warning.\n",
+            "Term %d (point) does not satisfy the objective cut. Activity: %.8f. RHS: %.8f. Small enough violation that we only send a warning.\n",
             term_ind, activity, beta);
       }
     }
@@ -1049,7 +1049,7 @@ void CglVPC::genDepth1PRCollection(const OsiSolverInterface* const vpcsolver,
         exit(1);
       } else {
         warning_msg(warnstring,
-            "Term %d ray %d does not satisfy the objective cut.\n\tActivity: %.8f\n\tRHS: %.8f.\n" "\tSmall enough violation that we only send a warning.\n",
+            "Term %d ray %d does not satisfy the objective cut. Activity: %.8f. RHS: %.8f. Small enough violation that we only send a warning.\n",
             term_ind, ray_ind, calcRedCost, 0.);
       }
     }
