@@ -1,7 +1,10 @@
-// Name:     nbspace.hpp
-// Author:   A. M. Kazachkov
-// Date:     2019-Feb-20
-//-----------------------------------------------------------------------------
+/**
+ * @file nbspace.hpp
+ * @brief Methods related to working in the nonbasic space
+ *
+ * @author A. M. Kazachkov
+ * @date 2019-02-20
+ */
 #pragma once
 
 #include <vector>

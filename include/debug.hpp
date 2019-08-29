@@ -2,10 +2,9 @@
  * @file debug.hpp
  * @brief Useful functions for debugging that are not necessary in the rest of the code
  *
- * A. M. Kazachkov
- * 2018-Dec-25
+ * @author A. M. Kazachkov
+ * @date 2018-12-25
  */
-
 #include <string>
 #include <vector>
 

@@ -1,7 +1,8 @@
-// Name:     nbspace.cpp
-// Author:   A. M. Kazachkov
-// Date:     2019-Feb-20
-//-----------------------------------------------------------------------------
+/** 
+ * @file nbspace.cpp
+ * @author A. M. Kazachkov
+ * @date 2019-Feb-20
+ */
 #include "nbspace.hpp"
 
 #include <cmath> // abs
@@ -380,12 +381,25 @@ void setCompNBCoorRay(CoinPackedVector& vec, const double* ray, double& objViola
  * Assumed to be for the same set of variables as in originalSolver
  * We also need that the right-hand side of the original solver remains unchanged (except the bounds)
  */
-void setCompNBCoor(CoinPackedVector& vec, double& objViolation,
-    const VPCParameters& params, const double* const currColValue,
+void setCompNBCoor(
+    /// [out] Resulting vector is saved here
+    CoinPackedVector& vec, 
+    /// [out] Calculated objective violation
+    double& objViolation,
+    /// [in]  To get epsilon, diff-eps, and the logfile in case of an error
+    const VPCParameters& params, 
+    /// [in]  Point that is being converted (value of structural variables)
+    const double* const currColValue,
+    /// [in]  Slack values of point being converted
     const double* const currSlackValue,
+    /// [in]  The solver that is used to determine the nonbasic space
     const OsiSolverInterface* const origSolver,
+    /// [in]  The nonbasic space to which we wish to convert
     const std::vector<int>& nonBasicVarIndex,
-    const std::vector<double>& nonBasicReducedCost, const int deletedVar) {
+    /// [in]  This is the objective vector in the nonbasic space
+    const std::vector<double>& nonBasicReducedCost, 
+    /// [in]  If nonnegative, then this is the index of a variable that was removed from origSolver
+    const int deletedVar) {
   // If a variable was deleted to make tmpSolver, then we will need to adjust the index
   // It is -1 because we need the index in the *new* space
   const int deletedVarAdjustment = (deletedVar >= 0) ? -1 : 0;
@@ -408,10 +422,10 @@ void setCompNBCoor(CoinPackedVector& vec, double& objViolation,
   // It may be that p1 is tiny, but c1 is very large, and c2 * p2 < 0 by that amount, roughly
   // Other times, if the non-tiny values satisfy the objective cut on their own, let's ignore the tiny ones
   // We will not add the tiny indices + values until the end, when we check if they are necessary
-  std::vector<int> tinyIndex;
-  std::vector<double> tinyElem;
-  double tinyObjOffset = 0.; // how much c . p changes when tiny values are ignored
   double nonTinyObj = 0.;
+  std::vector<int> tinyIndex, superTinyIndex;
+  std::vector<double> tinyElem, superTinyElem;
+  double tinyObjOffset = 0., superTinyObjOffset = 0.; // how much c . p changes when tiny values stop being ignored
 
   // All coefficients are going to be nonnegative, since we work in the complemented NB space
   for (int i = 0; i < numNB; i++) {
@@ -462,6 +476,11 @@ void setCompNBCoor(CoinPackedVector& vec, double& objViolation,
       tinyElem.push_back(newVal);
       tinyObjOffset += newVal * nonBasicReducedCost[i];
     } // tiny
+    else if (!isZero(newVal * nonBasicReducedCost[i], 0.0)) {
+      superTinyIndex.push_back(i);
+      superTinyElem.push_back(newVal);
+      superTinyObjOffset += newVal * nonBasicReducedCost[i];
+    } // super-tiny
   } // end iterating over nonbasic elements from original basis
 
   // Check whether tiny elements are needed

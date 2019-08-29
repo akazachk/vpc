@@ -1,7 +1,9 @@
-// Name:     CglVPC.hpp
-// Author:   A. M. Kazachkov
-// Date:     2018-Dec-24
-//-----------------------------------------------------------------------------
+/**
+ * @file CglVPC.hpp
+ * @brief File containing CglVPC class and related methods
+ * @author A. M. Kazachkov
+ * @date 2018-12-24
+ */
 #pragma once
 
 #include <vector>
@@ -298,7 +300,7 @@ protected:
       const ProblemData* const origProbData = NULL,
       const bool enable_factorization = true);
 
-  ExitReason setupConstraints(const OsiSolverInterface* const si, OsiCuts& cuts);
+  ExitReason setupConstraints(OsiSolverInterface* const vpcsolver, OsiCuts& cuts);
   void genDepth1PRCollection(const OsiSolverInterface* const vpcsolver,
       const OsiSolverInterface* const tmpSolver, const ProblemData& origProbData,
       const ProblemData& tmpProbData, const int term_ind);

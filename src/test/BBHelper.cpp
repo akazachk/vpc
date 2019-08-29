@@ -1,10 +1,9 @@
-//============================================================================
-// Name        : BBHelper.cpp
-// Author      : A. M. Kazachkov
-// Version     : 2018-Dec-24
-// Description : Helper functions for branch-and-bound
-//============================================================================
-
+/**
+ * @file BBHelper.cpp
+ * @brief Helper functions for branch-and-bound
+ * @author A. M. Kazachkov
+ * @date 2018-12-24
+ */
 #include <cstdio> // for tmpnam
 #include <chrono>
 #include <random> // random_device, mt19937 (mersenne twister engine), uniform_real_distribution

@@ -1,7 +1,8 @@
-// Name:     CglVPC.cpp
-// Author:   A. M. Kazachkov
-// Date:     2018-Dec-24
-//-----------------------------------------------------------------------------
+/**
+ * @file CglVPC.cpp
+ * @author A. M. Kazachkov
+ * @date 2018-12-24
+ */
 #include "CglVPC.hpp"
 
 #include <cmath> // abs, floor, ceil
@@ -299,15 +300,20 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     }
   }
 
+  // Make a copy of the solver to allow for fixing variables and changed bounds at root
+  SolverInterface* vpcsolver = dynamic_cast<SolverInterface*>(si.clone());
+  
   // Save the V-polyhedral relaxations of each optimal basis in the terms of the PRLP
-  status = setupConstraints(&si, cuts);
+  status = setupConstraints(vpcsolver, cuts);
   if (status != ExitReason::SUCCESS_EXIT) {
+    if (vpcsolver) { delete vpcsolver; }
     finish(status);
     return;
   }
 
   // Generate cuts from the PRLP
-  status = tryObjectives(cuts, &si, NULL);
+  status = tryObjectives(cuts, vpcsolver, NULL);
+  if (vpcsolver) { delete vpcsolver; }
   finish(status);
 } /* generateCuts */
 
@@ -401,8 +407,14 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
  * Get problem data such as min/max coeff, problem-specific epsilon,
  * nonbasic variables, row in which each variable is basic, etc.
  */
-void CglVPC::getProblemData(OsiSolverInterface* const solver,
-    ProblemData& probData, const ProblemData* const origProbData,
+void CglVPC::getProblemData(
+    /// [in/out] Solver being used to determine the nonbasic space; note that the basis and/or solution may change due to enableFactorization
+    OsiSolverInterface* const solver,
+    /// [out] Where to save the data
+    ProblemData& probData, 
+    /// [in] If this is a subproblem, then we may want to pass the original problem data (to save the locations of the original nonbasic variables)
+    const ProblemData* const origProbData,
+    /// [in] Whether to enable factorization (can change solution slightly)
     const bool enable_factorization) {
   const int numCols = solver->getNumCols();
   const int numRows = solver->getNumRows();
@@ -451,7 +463,6 @@ void CglVPC::getProblemData(OsiSolverInterface* const solver,
   // since they do not correspond to any rays...
   // but right now we typically assume we get n rays in some parts of the code
   for (int var = 0; var < numCols + numRows; var++) {
-//  for (int col = 0; col < numCols; col++) {
     // Update min/max reference values
     if (var < numCols) {
       // Count how many non-inf lower and upper bounds
@@ -569,12 +580,10 @@ void CglVPC::getProblemData(OsiSolverInterface* const solver,
     solver->disableFactorization();
 } /* getProblemData */
 
-ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts& cuts) {
+ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver, OsiCuts& cuts) {
   /***********************************************************************************
    * Change initial bounds
    ***********************************************************************************/
-  // Make a copy of the solver to allow for fixing variables and changed bounds at root
-  SolverInterface* vpcsolver = dynamic_cast<SolverInterface*>(si->clone());
   const int num_changed_bounds = this->disjunction->common_changed_var.size();
   int num_fixed = 0;
   for (int i = 0; i < num_changed_bounds; i++) {
@@ -674,7 +683,7 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
    * Get bases and generate VPCs
    ***********************************************************************************/
   const int num_disj_terms = this->disjunction->num_terms;
-  const int dim = si->getNumCols(); // NB: treating fixed vars as at bound
+  const int dim = vpcsolver->getNumCols(); // NB: treating fixed vars as at bound
 
   int terms_added = -1;
   std::vector<bool> calcAndFeasTerm(num_disj_terms);
@@ -898,7 +907,6 @@ ExitReason CglVPC::setupConstraints(const OsiSolverInterface* const si, OsiCuts&
       "\nFinished setting up constraints. Min obj val: Structural: %1.3f, NB: %1.3f.\n",
       this->disjunction->best_obj, this->disjunction->best_obj - this->probData.lp_opt);
 #endif
-  if (vpcsolver) { delete vpcsolver; }
   return ExitReason::SUCCESS_EXIT;
 } /* setupConstraints */
 

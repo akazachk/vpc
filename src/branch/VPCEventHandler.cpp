@@ -1,10 +1,9 @@
-//============================================================================
-// Name        : VPCEventHandler.cpp
-// Author      : A. M. Kazachkov
-// Version     : 2019-02-24
-// Description : Custom event handler for Cbc
-//============================================================================
-
+/**
+ * @file
+ * @brief Custom event handler for Cbc
+ * @author A. M. Kazachkov
+ * @date 2019-02-24
+ */
 // For saving the information on the tree
 #include "VPCEventHandler.hpp"
 #include "PartialBBDisjunction.hpp"

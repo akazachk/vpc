@@ -1,6 +1,8 @@
-/**
+/** 
  * @file SolverHelper.hpp
  * @brief Various helpful functions for solver-agnostic queries
+ *
+ * @author A. M. Kazachkov
  */
 #pragma once
 

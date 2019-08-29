@@ -1,7 +1,8 @@
-// Name:     PRLP.cpp
-// Author:   A. M. Kazachkov
-// Date:     2019-Feb-14
-//-----------------------------------------------------------------------------
+/**
+ * @file PRLP.cpp
+ * @author A. M. Kazachkov
+ * @date 2019-02-14
+ */
 #include "PRLP.hpp"
 #include "CutHelper.hpp"
 #include "nbspace.hpp"

@@ -1,7 +1,9 @@
-// Name:     PRLP.hpp
-// Author:   A. M. Kazachkov
-// Date:     2019-Feb-14
-//-----------------------------------------------------------------------------
+/**
+ * @file PRLP.hpp
+ * @brief PRLP class, adapting OsiSolverInterface to VPC setting
+ * @author A. M. Kazachkov
+ * @date 2019-02-14
+ */
 #pragma once
 #include "CglVPC.hpp"
 #include "utility.hpp"
