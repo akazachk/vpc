@@ -1,5 +1,5 @@
 #!/bin/bash
-# Arguments: results directory, batch mode flag (0 or 1), run type (best, test, bb, or preprocess)
+# Arguments: results directory, batch mode flag (0 or 1), run type (best, test, bb, bb0, or preprocess)
 # All are optional
 # Default is ${VPC_DIR}/results/test 0 test
 #
