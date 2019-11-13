@@ -24,7 +24,7 @@ results_path = PROJ_DIR + '/results'
 #instances_path = PROJ_DIR + '/data/instances'
 instances_file = instances_path + '/' + "test.instances"
 
-outinfo_stub = CUT_TYPE + '-bb' 
+outinfo_stub = CUT_TYPE + '-bb0' 
 outinfo_dir = results_path
 
 ## Get arguments

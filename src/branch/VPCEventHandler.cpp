@@ -489,7 +489,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
   else if (whichEvent == node) {
     // Update statistics after a node has been branched on
     // Deal with child
-    child_ = model_->currentNode();
+    child_ = model_->currentNode(); // currently broken in Cbc-2.10, because currentNode_ is set to NULL within chooseNode
     // 2017-07-09: Changed from isProvenOptimal because in some cases,
     // we hit an iteration limit during hot starting in OsiChooseVariable.cpp:399
     // Might be good to check dual infeasibility too, but these subproblems
