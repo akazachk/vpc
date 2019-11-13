@@ -21,7 +21,7 @@ void printVectors(const std::vector<CoinPackedVector>& vecs, const bool use_newl
 template <typename T>
 void printVector(const int n, const T* vec);
 template <typename T>
-inline void printVector(std::vector<T>& vec) {
+inline void printVector(const std::vector<T>& vec) {
   printVector(vec.size(), vec.data());
 }
 
