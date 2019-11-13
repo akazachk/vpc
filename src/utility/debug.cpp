@@ -33,7 +33,7 @@ void printVector(const CoinPackedVectorBase& vec, const bool use_newline) {
       fprintf(stdout, "\n\t");
     else if (i > 0)
       fprintf(stdout, ", ");
-    fprintf(stdout, "(%d, %f)", index[i], element[i]);
+    fprintf(stdout, "(%d, %g)", index[i], element[i]);
   }
   fprintf(stdout, "\n");
 } /* printVector (CoinPackedVectorBase) */
@@ -51,21 +51,27 @@ void printVectors(const std::vector<CoinPackedVector>& vecs, const bool use_newl
  * @param vec   Vector to be printed
  */
 template <typename T>
-void printVector(const int n, const T* vec) {
+void printVector(const int n, const T* vec, const bool use_newline) {
   for (int i = 0; i < n; ++i) {
-    if (vec[i] != 0.0)
-      printf("\t(%d, %g)\n", i, vec[i]);
+    if (use_newline)
+      fprintf(stdout, "\n");
+    else if (i > 0)
+      fprintf(stdout, ", ");
+
+    if (std::abs(vec[i]-std::floor(vec[i])) != 0.0)
+      fprintf(stdout, "\t(%d, %g)", i, static_cast<double>(vec[i]));
     else
-      printf("\t(%d, 0)\n", i);
+      fprintf(stdout, "\t(%d, %d)", i, static_cast<int>(vec[i]));
   }
+  fprintf(stdout, "\n");
 } /* printVector (int, T*) */
 
 /**
  * Print vector
  */
 template <typename T>
-void printVector(const std::vector<T>& vec) {
-  printVector(vec.size(), vec.data());
+void printVector(const std::vector<T>& vec, const bool use_newline) {
+  printVector(vec.size(), vec.data(), use_newline);
 } /* printVector (std::vector<T>) */
 
 /**

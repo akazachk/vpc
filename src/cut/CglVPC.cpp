@@ -1090,9 +1090,7 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
     return ExitReason::NO_CUTS_LIKELY_EXIT;
   }
 
-#ifdef TRACE
-  printf("\n## CglVPC: Trying objectives. ##\n");
-#endif
+  printf("\n## CglVPC: Finished setting up constraints. Trying objectives. ##\n");
   const int init_num_obj = this->num_obj_tried;
   const int init_num_cuts = this->num_cuts;
   const int init_num_failures = this->num_failures;

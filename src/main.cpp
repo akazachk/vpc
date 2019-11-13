@@ -226,13 +226,16 @@ int main(int argc, char** argv) {
       boundInfo.gmic_vpc_obj = solver->getObjValue();
       applyCutsCustom(VPCSolver, vpcs_by_round[round_ind]);
       boundInfo.vpc_obj = VPCSolver->getObjValue();
+      boundInfo.all_cuts_obj = boundInfo.gmic_vpc_obj;
     }
     else if (params.get(GOMORY) < 0) {
       boundInfo.vpc_obj = solver->getObjValue();
       applyCutsCustom(VPCSolver, vpcs_by_round[round_ind]);
       boundInfo.gmic_vpc_obj = VPCSolver->getObjValue();
+      boundInfo.all_cuts_obj = boundInfo.gmic_vpc_obj;
     } else {
       boundInfo.vpc_obj = solver->getObjValue();
+      boundInfo.all_cuts_obj = boundInfo.vpc_obj;
     }
     timer.end_timer(OverallTimeStats::VPC_APPLY_TIME);
 
@@ -282,7 +285,7 @@ int main(int argc, char** argv) {
 
   // Do analyses in preparation for printing
   setCutInfo(cutInfo, num_rounds, cutInfoVec.data());
-  analyzeStrength(params, cutInfoGMICs, cutInfo, solver, &gmics, &vpcs,
+  analyzeStrength(params, solver, cutInfoGMICs, cutInfo, &gmics, &vpcs,
       boundInfo, cut_output);
   analyzeBB(params, info_nocuts, info_mycuts, info_allcuts, bb_output);
   return wrapUp(0);

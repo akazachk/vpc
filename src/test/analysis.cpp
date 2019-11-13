@@ -688,8 +688,8 @@ void printCutInfo(const SummaryCutInfo& cutInfoGMICs,
  * 2. Activity (after adding cuts)
  * 3. Density
  */
-void analyzeStrength(const VPCParameters& params, SummaryCutInfo& cutInfoGMICs,
-    SummaryCutInfo& cutInfoVPCs, const OsiSolverInterface* solver,
+void analyzeStrength(const VPCParameters& params, const OsiSolverInterface* solver,
+    SummaryCutInfo& cutInfoGMICs, SummaryCutInfo& cutInfoVPCs,
     const OsiCuts* const gmics, const OsiCuts* const vpcs,
     const SummaryBoundInfo& boundInfo, std::string& output) {
   cutInfoGMICs.num_active = 0;
@@ -760,6 +760,13 @@ void analyzeStrength(const VPCParameters& params, SummaryCutInfo& cutInfoGMICs,
         "%-*.*s%s (%d cuts, %d active)\n", NAME_WIDTH, NAME_WIDTH, "VPCs: ",
         stringValue(boundInfo.vpc_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC,
             NUM_DIGITS_AFTER_DEC).c_str(), boundInfo.num_vpc, cutInfoVPCs.num_active);
+    output += tmpstring;
+  }
+  if (boundInfo.num_gmic + boundInfo.num_lpc > 0) {
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
+        "%-*.*s%s (%d cuts)\n", NAME_WIDTH, NAME_WIDTH, "All: ",
+        stringValue(boundInfo.all_cuts_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str(), 
+        boundInfo.num_vpc + boundInfo.num_lpc + boundInfo.num_vpc);
     output += tmpstring;
   }
   if (!isInfinity(std::abs(boundInfo.best_disj_obj))) {

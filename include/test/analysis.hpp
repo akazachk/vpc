@@ -24,6 +24,7 @@ struct SummaryBoundInfo {
   double lpc_obj = std::numeric_limits<double>::max();
   double vpc_obj = std::numeric_limits<double>::max();
   double gmic_vpc_obj = std::numeric_limits<double>::max();
+  double all_cuts_obj = std::numeric_limits<double>::max();
   int num_gmic = 0, num_lpc = 0, num_vpc = 0;
 }; /* SummaryBoundInfo */
 
@@ -75,8 +76,8 @@ void printDisjInfo(const SummaryDisjunctionInfo& disjInfo, FILE* logfile,
 void printCutInfo(const SummaryCutInfo& cutInfoGMICs,
     const SummaryCutInfo& cutInfo, FILE* logfile, const char SEP = ',');
 
-void analyzeStrength(const VPCParameters& params, SummaryCutInfo& cutInfoGMICs,
-    SummaryCutInfo& cutInfoVPCs, const OsiSolverInterface* solver,
+void analyzeStrength(const VPCParameters& params, const OsiSolverInterface* solver,
+    SummaryCutInfo& cutInfoGMICs, SummaryCutInfo& cutInfoVPCs, 
     const OsiCuts* const gmics, const OsiCuts* const vpcs,
     const SummaryBoundInfo& boundInfo, std::string& output);
 void analyzeBB(const VPCParameters& params, SummaryBBInfo& info_nocuts,
