@@ -118,6 +118,22 @@ int main(int argc, char** argv) {
   timer.end_timer(OverallTimeStats::INIT_SOLVE_TIME);
   boundInfo.lp_obj = solver->getObjValue();
 
+  /** DEBUG TESTING BARRIER METHOD {
+    OsiClpSolverInterface* interiorSolver = dynamic_cast<OsiClpSolverInterface*>(solver->clone());
+    interiorSolver->getModelPtr()->barrier(false);
+
+    if (interiorSolver->isProvenOptimal()) {
+      std::cout << "Original\tBarrier\n";
+      for (int i = 0; i < solver->getNumCols(); i++) {
+        std::cout << solver->getColSolution()[i] << "\t";
+        std::cout << interiorSolver->getColSolution()[i] << "\n";
+      }
+    } else {
+      std::cerr << "Barrier method does not result in optimal solution." << std::endl;
+    }
+    exit(1);
+  } **/
+
   // Save original solver in case we wish to come back to it later
   origSolver = solver->clone();
   if (!origSolver->isProvenOptimal()) {
