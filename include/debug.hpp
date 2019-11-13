@@ -15,15 +15,16 @@ class OsiSolverInterface;
 class OsiCuts;
 class CoinPackedVectorBase;
 class CoinPackedVector;
+class CoinPackedMatrix;
 
 void printVector(const CoinPackedVectorBase& vec, const bool use_newline = true);
 void printVectors(const std::vector<CoinPackedVector>& vecs, const bool use_newline = true);
 template <typename T>
 void printVector(const int n, const T* vec);
 template <typename T>
-inline void printVector(const std::vector<T>& vec) {
-  printVector(vec.size(), vec.data());
-}
+void printVector(const std::vector<T>& vec);
+
+void printMatrix(const CoinPackedMatrix& mx_in);
 
 #ifdef USE_CBC
 void printTree(PartialBBDisjunction* const orig_owner,

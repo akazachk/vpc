@@ -61,6 +61,14 @@ void printVector(const int n, const T* vec) {
 } /* printVector (int, T*) */
 
 /**
+ * Print vector
+ */
+template <typename T>
+void printVector(const std::vector<T>& vec) {
+  printVector(vec.size(), vec.data());
+} /* printVector (std::vector<T>) */
+
+/**
  * Print matrix (row-wise)
  *
  * @param mx_in   Matrix to be printed
