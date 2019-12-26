@@ -85,7 +85,8 @@ SOURCES += \
     cut/PRLP.cpp \
     disjunction/Disjunction.cpp \
     disjunction/PartialBBDisjunction.cpp \
-    disjunction/SplitDisjunction.cpp
+    disjunction/SplitDisjunction.cpp \
+    disjunction/VPCDisjunction.cpp
 
 # For running tests (need not include these or main if releasing code to others)
 DIR_LIST += $(SRC_DIR)/test

@@ -40,22 +40,24 @@
 #endif
 
 /****************** PUBLIC  **********************/
-/** Handle parameters */
+/** Param constructor */
 PartialBBDisjunction::PartialBBDisjunction(const VPCParameters& param) {
   initialize(NULL, &param);
 } /* param constructor */
-void PartialBBDisjunction::setParams(const VPCParameters& param) {
-  this->params = param;
-} /* setParams */
+
+/** Copy and param constructor */
+PartialBBDisjunction::PartialBBDisjunction(const PartialBBDisjunction& source, const VPCParameters& param) {
+  initialize(&source, &param);
+} /* copy & param constructor */
 
 /** Default constructor */
 PartialBBDisjunction::PartialBBDisjunction() {
-  initialize();
+  initialize(NULL, NULL);
 } /* default constructor */
 
 /** Copy constructor */
-PartialBBDisjunction::PartialBBDisjunction(const PartialBBDisjunction& source) : Disjunction(source) {
-  initialize(&source);
+PartialBBDisjunction::PartialBBDisjunction(const PartialBBDisjunction& source) {
+  initialize(&source, NULL);
 } /* copy constructor */
 
 /** Destructor */
@@ -65,7 +67,7 @@ PartialBBDisjunction::~PartialBBDisjunction() {
 /** Assignment operator */
 PartialBBDisjunction& PartialBBDisjunction::operator=(const PartialBBDisjunction& source) {
   if (this != &source) {
-    initialize(&source);
+    initialize(&source, NULL);
   }
   return *this;
 } /* assignment operator */
@@ -77,7 +79,7 @@ PartialBBDisjunction* PartialBBDisjunction::clone() const {
 
 /** Set up the disjunction class as new (except the timer pointer, and do not reset params) */
 void PartialBBDisjunction::setupAsNew() {
-  Disjunction::setupAsNew();
+  VPCDisjunction::setupAsNew();
   this->root.initialize();
   this->data.num_nodes_on_tree = 0;
   this->data.num_partial_bb_nodes = 0;
@@ -95,7 +97,7 @@ void PartialBBDisjunction::setupAsNew() {
  *
  * This will throw away all the information from the old disjunction, except it will not reset the timer
  */
-ExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface* const si) {
+DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface* const si) {
   // Reset things in case we are reusing the class for some reason
   setupAsNew();
 //  if (!timer) {
@@ -104,7 +106,7 @@ ExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface* co
 //    exit(1);
 //  }
   if (this->params.get(intParam::DISJ_TERMS) < 2) {
-    return ExitReason::NO_DISJUNCTION_EXIT;
+    return DisjExitReason::NO_DISJUNCTION_EXIT;
   }
 
   // Set up solver
@@ -181,7 +183,7 @@ ExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface* co
     if (std::abs(TEMP_VAL) == static_cast<int>(TempOptions::GEN_TIKZ_STRING_AND_RETURN)) {
       // Free
       if (cbc_model) { delete cbc_model; }
-      return ExitReason::SUCCESS_EXIT;
+      return DisjExitReason::SUCCESS_EXIT;
     }
     if (std::abs(TEMP_VAL) == static_cast<int>(TempOptions::GEN_TIKZ_STRING_AND_EXIT)) {
       exit(1); // this is during debug and does not free memory
@@ -198,19 +200,19 @@ ExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface* co
       this->worst_obj = cbc_model->getObjValue();
       const double* sol = cbc_model->getColSolution();
       this->integer_sol.assign(sol, sol + si->getNumCols());
-      return ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT;
+      return DisjExitReason::OPTIMAL_SOLUTION_FOUND_EXIT;
     }
     else if (this->num_terms <= 1) {
       warning_msg(warnstr,
           "Giving up on getting cuts from the partial branch-and-bound tree (too few terms). Model status is %d.\n",
           cbc_model->status());
-      return ExitReason::TOO_FEW_TERMS_EXIT;
+      return DisjExitReason::TOO_FEW_TERMS_EXIT;
     }
     else {
       warning_msg(warnstr,
           "Giving up on getting cuts from the partial branch-and-bound tree (bad status). Model status is %d.\n",
           cbc_model->status());
-      return ExitReason::UNKNOWN;
+      return DisjExitReason::UNKNOWN;
     }
   } // exit out early if cbc_model status is 0 or insufficiently many disjunctive terms
 
@@ -235,25 +237,25 @@ ExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface* co
 #endif
 
   if (cbc_model) { delete cbc_model; }
-  return ExitReason::SUCCESS_EXIT;
+  return DisjExitReason::SUCCESS_EXIT;
 } /* prepareDisjunction */
 
 /****************** PROTECTED **********************/
 void PartialBBDisjunction::initialize(const PartialBBDisjunction* const source,
     const VPCParameters* const params) {
-  if (params != NULL) {
-    setParams(*params);
-  }
-  if (source) {
-    Disjunction::initialize(source);
-    if (!params) {
-      setParams(source->params);
-    }
+  VPCDisjunction::initialize(source, params);
+  if (source != NULL) {
     this->root.clear();
     this->root = source->root;
     this->data = source->data;
   } else {
-    setupAsNew();
+    this->root.initialize();
+    this->data.num_nodes_on_tree = 0;
+    this->data.num_partial_bb_nodes = 0;
+    this->data.num_pruned_nodes = 0;
+    this->data.min_node_depth = std::numeric_limits<int>::max();
+    this->data.max_node_depth = 0;
+    this->data.num_fixed_vars = 0;
   }
 } /* initialize */
 
@@ -384,4 +386,4 @@ void generatePartialBBTree(PartialBBDisjunction* const owner, CbcModel* cbc_mode
     delete eventHandler;
   }
 } /* generatePartialBBTree */
-#endif
+#endif // USE_CBC

@@ -1,13 +1,11 @@
-// Name:     Disjunction.cpp
-// Author:   A. M. Kazachkov
-// Date:     2018-02-22
-//-----------------------------------------------------------------------------
+/**
+ * @file Disjunction.cpp
+ * @author A. M. Kazachkov
+ * @date 2018-02-22
+ */
 #include "Disjunction.hpp"
 #include <limits>
 #include <cmath> // abs
-
-// Project files
-#include "CglVPC.hpp" // ExitReason
 
 /****************** PUBLIC  **********************/
 /** Default constructor */
@@ -35,12 +33,11 @@ Disjunction& Disjunction::operator=(const Disjunction& source) {
   return *this;
 } /* assignment operator */
 
-/** Set up the disjunction class as new (except the timer pointer) */
+/** Set up the disjunction class as new */
 void Disjunction::setupAsNew() {
   this->name = "";
   this->best_obj = std::numeric_limits<double>::max();
   this->worst_obj = std::numeric_limits<double>::lowest();
-//  this->min_nb_obj_val = std::numeric_limits<double>::max();
   this->integer_obj = std::numeric_limits<double>::max();
   this->integer_sol.resize(0);
   this->common_changed_bound.resize(0);
@@ -69,39 +66,41 @@ void Disjunction::setCgsName(std::string& cgsName,
 void Disjunction::setCgsName(std::string& cgsName, const int num_coeff,
     const int* const termIndices, const double* const termCoeff,
     const double termRHS, const bool append) {
-if (num_coeff == 0) {
-  return;
-}
-if (!cgsName.empty()) {
-  if (!append) {
-    cgsName += " V ";
-  } else {
-    cgsName.resize(cgsName.size() - 1); // remove last ")"
-    cgsName += "; ";
+  if (num_coeff == 0) {
+    return;
   }
-}
-cgsName += append ? "" : "(";
-for (int coeff_ind = 0; coeff_ind < num_coeff; coeff_ind++) {
-  const double absCurrCoeff = std::abs(termCoeff[coeff_ind]);
-  cgsName += (termCoeff[coeff_ind] > 0) ? "+" : "-";
-  if (!isVal(absCurrCoeff, 1.)) {
-    if (isVal(absCurrCoeff, std::floor(absCurrCoeff))
-        || isVal(absCurrCoeff, std::ceil(absCurrCoeff)))
-      cgsName += std::to_string(static_cast<int>(absCurrCoeff));
-    else
-      cgsName += std::to_string(absCurrCoeff);
+  if (!cgsName.empty()) {
+    if (!append) {
+      cgsName += " V ";
+    } else {
+      cgsName.resize(cgsName.size() - 1); // remove last ")"
+      cgsName += "; ";
+    }
   }
-  cgsName += "x";
-  cgsName += std::to_string(termIndices[coeff_ind]);
-}
-cgsName += " >= ";
+  cgsName += append ? "" : "(";
+  const double EPS = 1e-7;
+  for (int coeff_ind = 0; coeff_ind < num_coeff; coeff_ind++) {
+    const double absCurrCoeff = std::abs(termCoeff[coeff_ind]);
+    cgsName += (termCoeff[coeff_ind] > 0) ? "+" : "-";
+    if (!(std::abs(absCurrCoeff - 1.) < EPS)) {
+      if ((std::abs(absCurrCoeff - std::floor(absCurrCoeff)) < EPS)
+          || (std::abs(absCurrCoeff - std::ceil(absCurrCoeff)) < EPS)) {
+        cgsName += std::to_string(static_cast<int>(absCurrCoeff));
+      } else {
+        cgsName += std::to_string(absCurrCoeff);
+      }
+    }
+    cgsName += "x";
+    cgsName += std::to_string(termIndices[coeff_ind]);
+  }
+  cgsName += " >= ";
 
-if (isVal(termRHS, std::floor(termRHS))
-    || isVal(termRHS, std::ceil(termRHS)))
-  cgsName += std::to_string(static_cast<int>(termRHS));
-else
-  cgsName += std::to_string(termRHS);
-cgsName += ")";
+  if ((std::abs(termRHS - std::floor(termRHS)) < EPS)
+      || (std::abs(termRHS - std::ceil(termRHS)) < EPS))
+    cgsName += std::to_string(static_cast<int>(termRHS));
+  else
+    cgsName += std::to_string(termRHS);
+  cgsName += ")";
 } /* setCgsName (one ineq per term) */
 
 void Disjunction::setCgsName(std::string& cgsName, const int num_ineq_per_term,
@@ -127,6 +126,15 @@ void Disjunction::setCgsName(std::string& cgsName, const int num_ineq_per_term,
   cgsName += ")";
 } /* setCgsName */
 
+void Disjunction::updateObjValue(const double objVal) {
+  if (objVal < this->best_obj) {
+    this->best_obj = objVal;
+  }
+  if (objVal > this->worst_obj) {
+    this->worst_obj = objVal;
+  }
+} /* updateObjValue */
+
 /****************** PROTECTED **********************/
 void Disjunction::initialize(const Disjunction* const source) {
   if (source != NULL) {
@@ -135,7 +143,6 @@ void Disjunction::initialize(const Disjunction* const source) {
     this->worst_obj = source->worst_obj;
     this->integer_obj = source->integer_obj;
     this->integer_sol = source->integer_sol;
-    this->timer = source->timer;
     this->common_changed_bound = source->common_changed_bound;
     this->common_changed_value = source->common_changed_value;
     this->common_changed_var = source->common_changed_var;
@@ -145,16 +152,7 @@ void Disjunction::initialize(const Disjunction* const source) {
       term.clear();
     this->terms = source->terms;
   } else {
-    this->timer = NULL;
     setupAsNew();
   }
 } /* initialize */
 
-void Disjunction::updateObjValue(const double objVal) {
-  if (objVal < this->best_obj) {
-    this->best_obj = objVal;
-  }
-  if (objVal > this->worst_obj) {
-    this->worst_obj = objVal;
-  }
-} /* updateObjValue */

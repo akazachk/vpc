@@ -14,20 +14,34 @@
 #include <CglGMI.hpp>
 
 // Project files
-#include "VPCEventHandler.hpp"
+#include "Disjunction.hpp"
 #include "PRLP.hpp"
 #include "SolverHelper.hpp"
 #include "nbspace.hpp"
 #include "utility.hpp"
+#include "VPCEventHandler.hpp"
 
 // Various pre-built disjunction options
-#include "Disjunction.hpp"
 #include "PartialBBDisjunction.hpp"
 #include "SplitDisjunction.hpp"
 
 #ifdef TRACE
 #include "debug.hpp"
 #endif
+
+/// Match DisjExitReason status to ExitReason status
+ExitReason matchStatus(const DisjExitReason status) {
+  if (status == DisjExitReason::SUCCESS_EXIT)
+    return ExitReason::SUCCESS_EXIT;
+  else if (status == DisjExitReason::OPTIMAL_SOLUTION_FOUND_EXIT)
+    return ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT;
+  else if (status == DisjExitReason::TOO_FEW_TERMS_EXIT)
+    return ExitReason::TOO_FEW_TERMS_EXIT;
+  else if (status == DisjExitReason::NO_DISJUNCTION_EXIT)
+    return ExitReason::NO_DISJUNCTION_EXIT;
+  else
+    return ExitReason::UNKNOWN;
+} /* matchStatus */
 
 const std::vector<std::string> CglVPC::VPCModeName {
   "PARTIAL_BB",
@@ -230,11 +244,11 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
           "\n## Starting VPC generation from partial branch-and-bound tree with up to %d disjunctive terms. ##\n",
           params.get(intParam::DISJ_TERMS));
       disjunction = new PartialBBDisjunction(this->params);
-      disjunction->timer = &timer;
+      dynamic_cast<PartialBBDisjunction*>(disjunction)->timer = &timer;
     } else if (mode == VPCMode::SPLITS) {
       printf("\n## Starting VPC generation from one split. ##\n");
       disjunction = new SplitDisjunction(this->params);
-      disjunction->timer = &timer;
+      dynamic_cast<SplitDisjunction*>(disjunction)->timer = &timer;
     } else {
       error_msg(errorstring,
           "Mode that is chosen has not yet been implemented for VPC generation: %s.\n",
@@ -267,8 +281,9 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     // Get disjunctive terms and obtain their optimal bases
     // (If mode is custom, i.e., disjunction is given to us,
     // then we assume that the disjunction is already prepared)
-    status = disjunction->prepareDisjunction(solver);
-    if (status == ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT) {
+    DisjExitReason disjstatus = disjunction->prepareDisjunction(solver);
+    status = matchStatus(disjstatus);
+    if (status == ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT) {
       warning_msg(warnstr,
           "An integer (optimal) solution was found prior while getting disjunction. "
           "We will generate between n and 2n cuts, restricting the value of each variable.\n");

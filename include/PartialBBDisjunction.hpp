@@ -1,13 +1,13 @@
-// Name:     PartialBBDisjunction.hpp
-// Author:   A. M. Kazachkov
-// Date:     2018-02-22
-//-----------------------------------------------------------------------------
+/**
+ * @file PartialBBDisjunction.hpp
+ * @author A. M. Kazachkov
+ * @date 2018-02-22
+ */
 #pragma once
 
 #include <limits> // numeric_limits
 
-#include "Disjunction.hpp"
-#include "VPCParameters.hpp"
+#include "VPCDisjunction.hpp"
 
 class OsiSolverInterface;
 class PartialBBDisjunction;
@@ -64,7 +64,7 @@ struct RootTerm {
 /*  Disjunction generated from a partial branch-and-bound tree  */
 /*  Currently requires the use of Cbc                           */
 /****************************************************************/
-class PartialBBDisjunction : public Disjunction {
+class PartialBBDisjunction : public VPCDisjunction {
 public:
   RootTerm root; /// Keeps split information at root and best bound on each side
 
@@ -75,12 +75,11 @@ public:
     int num_fixed_vars = 0;
   } data;
 
-  /** Params */
-  VPCParameters params;
   /** Param constructor */
   PartialBBDisjunction(const VPCParameters& params);
-  /** setParams based on VPCParameters */
-  void setParams(const VPCParameters& params);
+
+  /** Copy and param constructor */
+  PartialBBDisjunction(const PartialBBDisjunction& source, const VPCParameters& params);
 
   /** Default constructor */
   PartialBBDisjunction();
@@ -101,7 +100,7 @@ public:
   virtual void setupAsNew();
 
   /** Get disjunction */
-  virtual ExitReason prepareDisjunction(const OsiSolverInterface* const si);
+  virtual DisjExitReason prepareDisjunction(const OsiSolverInterface* const si);
 protected:
   void initialize(const PartialBBDisjunction* const source = NULL, const VPCParameters* const params = NULL);
 }; /* PartialBBDisjunction */

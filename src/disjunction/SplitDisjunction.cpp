@@ -1,7 +1,8 @@
-// Name:     SplitDisjunction.cpp
-// Author:   A. M. Kazachkov
-// Date:     2018-02-22
-//-----------------------------------------------------------------------------
+/**
+ * @file SplitDisjunction.cpp
+ * @author A. M. Kazachkov
+ * @date 2018-02-22
+ */
 #include "SplitDisjunction.hpp"
 
 // COIN-OR
@@ -21,22 +22,24 @@
 #endif
 
 /****************** PUBLIC  **********************/
-/** Handle parameters */
+/** Param constructor */
 SplitDisjunction::SplitDisjunction(const VPCParameters& param) {
   initialize(NULL, &param);
 } /* param constructor */
-void SplitDisjunction::setParams(const VPCParameters& param) {
-  this->params = param;
-} /* setParams */
+
+/** Copy and param constructor */
+SplitDisjunction::SplitDisjunction(const SplitDisjunction& source, const VPCParameters& param) {
+  initialize(&source, &param);
+} /* copy & param constructor */
 
 /** Default constructor */
 SplitDisjunction::SplitDisjunction() {
-  initialize();
+  initialize(NULL, NULL);
 } /* default constructor */
 
 /** Copy constructor */
-SplitDisjunction::SplitDisjunction(const SplitDisjunction& source) : Disjunction(source) {
-  initialize(&source);
+SplitDisjunction::SplitDisjunction(const SplitDisjunction& source) {
+  initialize(&source, NULL);
 } /* copy constructor */
 
 /** Destructor */
@@ -46,7 +49,7 @@ SplitDisjunction::~SplitDisjunction() {
 /** Assignment operator */
 SplitDisjunction& SplitDisjunction::operator=(const SplitDisjunction& source) {
   if (this != &source) {
-    initialize(&source);
+    initialize(&source, NULL);
   }
   return *this;
 } /* assignment operator */
@@ -62,7 +65,7 @@ SplitDisjunction* SplitDisjunction::clone() const {
  * in addition, here we do not reset var, in case user has set it)
  */
 void SplitDisjunction::setupAsNew() {
-  Disjunction::setupAsNew();
+  VPCDisjunction::setupAsNew();
 } /* setupAsNew */
 
 /**
@@ -70,7 +73,7 @@ void SplitDisjunction::setupAsNew() {
  *
  * This will throw away all the information from the old disjunction, except it will not reset the timer
  */
-ExitReason SplitDisjunction::prepareDisjunction(const OsiSolverInterface* const si) {
+DisjExitReason SplitDisjunction::prepareDisjunction(const OsiSolverInterface* const si) {
   // Reset things in case we are reusing the class for some reason
   setupAsNew();
 //  if (!timer) {
@@ -104,12 +107,12 @@ ExitReason SplitDisjunction::prepareDisjunction(const OsiSolverInterface* const 
 
   // If var >= 0, that means user has picked a variable already
   // Otherwise, var < 0, and we need to pick one
-  ExitReason retVal = ExitReason::UNKNOWN;
+  DisjExitReason retVal = DisjExitReason::UNKNOWN;
   if (var >= 0) {
     if (checkVar(solver, var)) {
-      retVal = ExitReason::SUCCESS_EXIT;
+      retVal = DisjExitReason::SUCCESS_EXIT;
     } else {
-      retVal = ExitReason::NO_DISJUNCTION_EXIT;
+      retVal = DisjExitReason::NO_DISJUNCTION_EXIT;
     }
   }
   else { // loop through variables and find a split disjunction we can use
@@ -131,7 +134,7 @@ ExitReason SplitDisjunction::prepareDisjunction(const OsiSolverInterface* const 
     if (fracCore.size() == 0) {
       if (solver)
         delete solver;
-      return ExitReason::NO_DISJUNCTION_EXIT;
+      return DisjExitReason::NO_DISJUNCTION_EXIT;
     }
 
     // Sort by fractionality
@@ -150,7 +153,7 @@ ExitReason SplitDisjunction::prepareDisjunction(const OsiSolverInterface* const 
 #ifdef TRACE
         printf("Selected var %d (value %1.3f) for split variable to branch on.\n", col, solver->getColSolution()[col]);
 #endif
-        retVal = ExitReason::SUCCESS_EXIT;
+        retVal = DisjExitReason::SUCCESS_EXIT;
         break; // stop when we find a disjunction; might want to sort by strong branching value instead, but that can be too expensive
       }
     } // loop through fractional core
@@ -162,7 +165,7 @@ ExitReason SplitDisjunction::prepareDisjunction(const OsiSolverInterface* const 
 
   if (timer)
     timer->end_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
-  if (retVal == ExitReason::SUCCESS_EXIT) {
+  if (retVal == DisjExitReason::SUCCESS_EXIT) {
     setCgsName(var, si->getColSolution()[var]);
   }
   return retVal;
@@ -171,18 +174,11 @@ ExitReason SplitDisjunction::prepareDisjunction(const OsiSolverInterface* const 
 /****************** PROTECTED **********************/
 void SplitDisjunction::initialize(const SplitDisjunction* const source,
     const VPCParameters* const params) {
-  if (params != NULL) {
-    setParams(*params);
-  }
+  VPCDisjunction::initialize(source, params);
   if (source) {
-    Disjunction::initialize(source);
-    if (!params) {
-      setParams(source->params);
-    }
     this->var = source->var;
   } else {
     this->var = -1;
-    setupAsNew();
   }
 } /* initialize */
 

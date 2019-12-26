@@ -1,7 +1,8 @@
-// Name:     Disjunction.hpp
-// Author:   A. M. Kazachkov
-// Date:     2018-02-22
-//-----------------------------------------------------------------------------
+/**
+ * @file Disjunction.hpp
+ * @author A. M. Kazachkov
+ * @date 2018-02-22
+ */
 #pragma once
 
 #include <string>
@@ -9,12 +10,16 @@
 
 // COIN-OR
 #include <OsiSolverInterface.hpp>
+#include <OsiRowCut.hpp>
 
-// Project files
-#include "TimeStats.hpp"
-
-// Project files
-enum class ExitReason; // defined in CglVPC.hpp, which is included in the source file
+enum class DisjExitReason {
+  SUCCESS_EXIT = 0,
+  OPTIMAL_SOLUTION_FOUND_EXIT, /// integer-optimal solution found during creation of disjunction
+  TOO_FEW_TERMS_EXIT, /// disjunction has only one term
+  NO_DISJUNCTION_EXIT, /// no disjunction was able to be created
+  UNKNOWN, /// unknown exit reason
+  NUM_DISJ_EXIT_REASONS
+}; /* DisjExitReason */
 
 /**
  * Struct DisjunctiveTerm
@@ -50,13 +55,9 @@ struct DisjunctiveTerm {
 
 /**********************************************/
 /*  Generic abstract Disjunction class        */
-/*  from which a point-ray collection can be  */
-/*  constructed and VPCs can be generated     */
 /**********************************************/
 class Disjunction {
 public:
-  friend class CglVPC;
-
   // Required members
   int num_terms;
   std::vector<DisjunctiveTerm> terms; // optimal bases of parents of each of the disjunctive terms
@@ -66,7 +67,6 @@ public:
   double best_obj, worst_obj; // value of term with best and worst objective
   double integer_obj;  // value of best integer-feasible solution
   std::vector<double> integer_sol; // integer-feasible solution
-  TimeStats* timer; // not owned by Disjunction
 
   /// Save changed variable bounds at root node (bound <= 0 is LB, bound = 1 is UB)
   std::vector<int> common_changed_var;
@@ -93,7 +93,7 @@ public:
   virtual void setupAsNew();
 
   /** Get disjunction */
-  virtual ExitReason prepareDisjunction(const OsiSolverInterface* const si) = 0;
+  virtual DisjExitReason prepareDisjunction(const OsiSolverInterface* const si) = 0;
 
   /** Set/update name of cut generating set (disjunction) */
   static void setCgsName(std::string& cgsName, const std::string& disjTermName);
@@ -105,8 +105,8 @@ public:
       const std::vector<std::vector<double> >& termCoeff,
       const std::vector<double>& termRHS, const bool append = false);
 
+  void updateObjValue(const double obj);
+
 protected:
   void initialize(const Disjunction* const source = NULL);
-  void updateObjValue(const double obj);
-//  void updateNBObjValue(const double curr_nb_obj_val);
 }; /* Disjunction */

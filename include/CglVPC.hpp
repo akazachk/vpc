@@ -18,6 +18,7 @@
 
 class Disjunction; // include is in source file
 class PRLP;
+enum class DisjExitReason;
 
 /**
  * @brief Documenting the exit status after / whether cuts are generated
@@ -26,7 +27,7 @@ enum class ExitReason {
   SUCCESS_EXIT = 0,
   CUT_LIMIT_EXIT,
   FAIL_LIMIT_EXIT,
-  PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT,
+  OPTIMAL_SOLUTION_FOUND_EXIT,
   PRLP_INFEASIBLE_EXIT,
   TIME_LIMIT_EXIT,
   TOO_FEW_TERMS_EXIT,
@@ -40,7 +41,7 @@ const std::vector<std::string> ExitReasonName {
   "SUCCESS",
   "CUT_LIMIT",
   "FAIL_LIMIT",
-  "PARTIAL_BB_INTEGER_SOLUTION_FOUND",
+  "OPTIMAL_SOLUTION_FOUND",
   "PRLP_INFEASIBLE_EXIT",
   "TIME_LIMIT",
   "TOO_FEW_TERMS",
@@ -48,6 +49,8 @@ const std::vector<std::string> ExitReasonName {
   "NO_DISJUNCTION",
   "UNKNOWN"
 }; /* ExitReasonName */
+
+ExitReason matchStatus(const DisjExitReason status);
 
 /**********************************************************************************************************
  * CglVPC Class, implemented as a CglCutGenerator

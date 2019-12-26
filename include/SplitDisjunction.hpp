@@ -1,27 +1,25 @@
-// Name:     SplitDisjunction.hpp
-// Author:   A. M. Kazachkov
-// Date:     2018-02-24
-//-----------------------------------------------------------------------------
+/**
+ * @file SplitDisjunction.hpp
+ * @author A. M. Kazachkov
+ * @date 2018-02-24
+ */
 #pragma once
 
 /****************************************/
 /*  Disjunction generated from a split  */
 /****************************************/
 
-#include "Disjunction.hpp"
-#include "TimeStats.hpp"
-#include "VPCParameters.hpp"
+#include "VPCDisjunction.hpp"
 
-class SplitDisjunction : public Disjunction {
+class SplitDisjunction : public VPCDisjunction {
 public:
   int var;
 
-  /** Params */
-  VPCParameters params;
   /** Param constructor */
   SplitDisjunction(const VPCParameters& params);
-  /** setParams based on VPCParameters */
-  void setParams(const VPCParameters& params);
+
+  /** Copy and param constructor */
+  SplitDisjunction(const SplitDisjunction& source, const VPCParameters& params);
 
   /** Default constructor */
   SplitDisjunction();
@@ -42,7 +40,8 @@ public:
   virtual void setupAsNew();
 
   /** Get disjunction */
-  virtual ExitReason prepareDisjunction(const OsiSolverInterface* const si);
+  virtual DisjExitReason prepareDisjunction(const OsiSolverInterface* const si);
+
 protected:
   void initialize(const SplitDisjunction* const source = NULL, const VPCParameters* const params = NULL);
   bool checkVar(OsiSolverInterface* si, int col);

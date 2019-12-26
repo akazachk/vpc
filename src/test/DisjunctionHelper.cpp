@@ -26,9 +26,9 @@ ExitReason setDisjunctions(std::vector<Disjunction*>& disjVec,
       return ExitReason::NO_DISJUNCTION_EXIT;
     }
     PartialBBDisjunction* disj = new PartialBBDisjunction(params);
-    ExitReason status = disj->prepareDisjunction(si);
+    DisjExitReason status = disj->prepareDisjunction(si);
     disjVec.push_back(disj);
-    return status;
+    return matchStatus(status);
   } // PARTIAL_BB
   else if (mode == CglVPC::VPCMode::SPLITS) {
     if (generateSplitDisjunctions(disjVec, si, params)) {

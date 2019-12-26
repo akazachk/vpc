@@ -514,7 +514,7 @@ void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_dis
   const int numDisj = disjVec.size();
 
   // If integer-optimal solution was found, all disjunctions but one will have been deleted
-  if (setDisjExitReason == ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT) {
+  if (setDisjExitReason == ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT) {
     warning_msg(warnstr,
         "An integer (optimal) solution was found prior while getting disjunction. "
         "We will generate between n and 2n cuts, restricting the value of each variable.\n");
@@ -544,7 +544,7 @@ void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_dis
         }
       }
     } // iterate over columns and add optimality cut if needed
-    exitReason = ExitReason::PARTIAL_BB_OPTIMAL_SOLUTION_FOUND_EXIT;
+    exitReason = ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT;
     boundInfo.num_vpc += gen.num_cuts;
     updateCutInfo(cutInfoVec[round_ind], gen);
   } // check if integer-optimal solution
