@@ -5,6 +5,9 @@
 #include "OsiProblemData.hpp"
 #include "VPCParameters.hpp" // SolverInterface defined here
 
+#ifdef USE_COIN
+#include <OsiSolverInterface.hpp>
+
 std::vector<SparseCut> convertCutsToSparseCuts(const OsiCuts* const cuts) {
   if (!cuts) {
     return std::vector<SparseCut>();
@@ -43,6 +46,7 @@ std::vector<DenseCut> convertCutsToDenseCuts(const OsiCuts* const cuts, const in
   }
   return cuts_out;
 } /* convertCutsToDenseCuts */
+#endif // USE_COIN
 
 /** Default constructor */
 VPCSolverInterface::VPCSolverInterface() {
@@ -139,12 +143,18 @@ void VPCSolverInterface::load(std::string filename) {
   }
 } /* load (filename) */
 
+#ifdef USE_COIN
 void VPCSolverInterface::load(const OsiSolverInterface* const si) {
   if (solver)
     delete solver;
   solver = si->clone();
 } /* load (OsiSolverInterface) */
+#endif // USE_COIN
 
+/**
+ * If we wish to replace Osi solver with something else,
+ * we need to implement loadProblem, setInteger, setColLower, setColUpper, setInteger
+ */
 void VPCSolverInterface::load(OsiProblemData *data) {
   if (!solver)
     solver = new SolverInterface;
@@ -222,9 +232,11 @@ int VPCSolverInterface::numCuts() {
     return 0;
 } /* numCuts */
 
+#ifdef USE_COIN
 const OsiCuts* const VPCSolverInterface::getCuts() {
   return cuts;
 } /* getCuts */
+#endif // USE_COIN
 
 std::vector<SparseCut> VPCSolverInterface::getCutsSparse() {
   return convertCutsToSparseCuts(cuts);
@@ -245,26 +257,31 @@ void VPCSolverInterface::initialize(const VPCSolverInterface *const source,
   }
   if (source != NULL) {
     free();
+#ifdef USE_COIN
     solver = source->solver->clone();
     cuts = new OsiCuts(*source->cuts);
+#endif
     disj = source->disj->clone();
     setParams(source->params);
   } else {
+#ifdef USE_COIN
     solver = new SolverInterface;
-#ifdef USE_CPLEX_SOLVER
-  CPXENVptr env = dynamic_cast<OsiCpxSolverInterface*>(solver)->getEnvironmentPtr();
-  CPXsetintparam(env, CPXPARAM_Threads, 1);
-#ifndef TRACE
-  CPXsetintparam(env, CPX_PARAM_SCRIND, CPX_OFF);
-#endif
-#endif
     cuts = new OsiCuts;
+#endif
+#ifdef USE_CPLEX_SOLVER
+    CPXENVptr env = dynamic_cast<OsiCpxSolverInterface*>(solver)->getEnvironmentPtr();
+    CPXsetintparam(env, CPXPARAM_Threads, 1);
+#ifndef TRACE
+    CPXsetintparam(env, CPX_PARAM_SCRIND, CPX_OFF);
+#endif
+#endif
     disj = NULL;
     params = new VPCParameters;
   }
 } /* initialize */
 
 void VPCSolverInterface::free() {
+#ifdef USE_COIN
   if (solver) {
     delete solver;
     solver = NULL;
@@ -273,6 +290,7 @@ void VPCSolverInterface::free() {
     delete cuts;
     cuts = NULL;
   }
+#endif
   if (disj) {
     delete disj;
     disj = NULL;

@@ -20,13 +20,16 @@ struct DenseCut
 
 // Forward declarations
 class Disjunction;
+struct VPCParameters;
+struct OsiProblemData;
+
+#ifdef USE_COIN
 class OsiCuts;
 class OsiSolverInterface;
-struct OsiProblemData;
-struct VPCParameters;
 
 std::vector<SparseCut> convertCutsToSparseCuts(const OsiCuts* const cuts);
 std::vector<DenseCut> convertCutsToDenseCuts(const OsiCuts* const cuts, const int n);
+#endif
 
 /**
  * Class VPCSolverInterface
@@ -35,8 +38,10 @@ std::vector<DenseCut> convertCutsToDenseCuts(const OsiCuts* const cuts, const in
  */
 class VPCSolverInterface {
 public:
+#ifdef USE_COIN
 	OsiSolverInterface *solver;
 	OsiCuts *cuts;
+#endif
   Disjunction *disj;
   VPCParameters *params;
 
@@ -63,7 +68,9 @@ public:
 
   /** Load problem methods */
 	virtual void load(std::string fullfilename);
+#ifdef USE_COIN
   virtual void load(const OsiSolverInterface* const si);
+#endif
   virtual void load(OsiProblemData* data);
 
   /** Generate cuts and put them in `OsiCuts* cuts` */
@@ -77,7 +84,9 @@ public:
 
   /** Return cuts in non-OSI format */
   virtual int numCuts();
+#ifdef USE_COIN
   virtual const OsiCuts* const getCuts();
+#endif
   virtual std::vector<SparseCut> getCutsSparse();
   virtual std::vector<DenseCut> getCutsDense();
 
