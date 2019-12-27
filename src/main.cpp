@@ -32,7 +32,6 @@
 #include "SolverHelper.hpp"
 #include "SolverInterface.hpp"
 #include "VPCParameters.hpp"
-//using namespace VPCParameters;
 #include "TimeStats.hpp"
 #include "utility.hpp"
 

@@ -1,3 +1,8 @@
+/**
+ * @file utility.cpp
+ * @author A. M. Kazachkov
+ * @date 2018-Dec-24
+ */
 #include "utility.hpp"
 #include "SolverHelper.hpp"
 

@@ -13,7 +13,7 @@
 #include <CglCutGenerator.hpp>
 
 // Project files
-#include "VPCParameters.hpp" // VPCParameters
+#include "VPCParameters.hpp" // VPCParameters has to be declared here because of the class variable params
 #include "TimeStats.hpp"
 
 class Disjunction; // include is in source file

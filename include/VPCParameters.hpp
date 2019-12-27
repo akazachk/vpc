@@ -25,7 +25,6 @@
 #include <unordered_map>
 //#include <functional> // hash
 
-//namespace VPCParameters {
 #include "utility.hpp" // parseInt/Double, stringValue, lowerCaseString, and overloading << for vectors
 
 /********** PARAMETERS **********/
@@ -664,4 +663,3 @@ inline void printParams(const VPCParameters& params, FILE* logfile = stdout, con
   }
   fflush(logfile);
 } /* printParams */
-//} /* namespace VPCParameters */
