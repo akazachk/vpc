@@ -17,6 +17,7 @@
 #include "Disjunction.hpp"
 #include "PRLP.hpp"
 #include "SolverHelper.hpp"
+#include "SolverInterface.hpp"
 #include "nbspace.hpp"
 #include "utility.hpp"
 #include "VPCEventHandler.hpp"

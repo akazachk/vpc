@@ -13,7 +13,7 @@
 #include <CglCutGenerator.hpp>
 
 // Project files
-#include "VPCParameters.hpp" // SolverInterface and VPCParameters
+#include "VPCParameters.hpp" // VPCParameters
 #include "TimeStats.hpp"
 
 class Disjunction; // include is in source file

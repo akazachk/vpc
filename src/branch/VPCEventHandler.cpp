@@ -1,5 +1,5 @@
 /**
- * @file
+ * @file VPCEventHandler.cpp
  * @brief Custom event handler for Cbc
  * @author A. M. Kazachkov
  * @date 2019-02-24

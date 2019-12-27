@@ -3,7 +3,8 @@
 #include "CglVPC.hpp"
 #include "Disjunction.hpp"
 #include "OsiProblemData.hpp"
-#include "VPCParameters.hpp" // SolverInterface defined here
+#include "SolverInterface.hpp"
+#include "VPCParameters.hpp"
 
 #ifdef USE_COIN
 #include <OsiSolverInterface.hpp>

@@ -29,8 +29,10 @@
 #include "Disjunction.hpp" // needed to access disjunction properties
 #include "DisjunctionHelper.hpp" // for custom disjunctions
 #include "preprocess.hpp"
-#include "SolverHelper.hpp" // defines SolverInterface
+#include "SolverHelper.hpp"
+#include "SolverInterface.hpp"
 #include "VPCParameters.hpp"
+//using namespace VPCParameters;
 #include "TimeStats.hpp"
 #include "utility.hpp"
 

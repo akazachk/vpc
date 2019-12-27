@@ -1,20 +1,18 @@
-//============================================================================
-// Name        : VPCEventHandler.hpp
-// Author      : A. M. Kazachkov
-// Version     : 2018-Dec-25
-// Description : Custom event handler for Cbc for partial b&b tree generation (requires use of USE_CBC)
-//============================================================================
-
+/**
+ * @file VPCEventHandler.hpp
+ * @brief Custom event handler for Cbc for partial b&b tree generation (requires use of USE_CBC)
+ * @author A. M. Kazachkov
+ * @date 2018-12-25
+ */
 #pragma once
 
 #include <string>
 #include <vector>
 #include <memory> // unique_ptr
 
-#include "VPCParameters.hpp"
-
 class PartialBBDisjunction;
 class OsiCuts;
+#include "SolverInterface.hpp"
 
 #ifdef USE_CBC
 #include <CbcEventHandler.hpp>

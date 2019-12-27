@@ -6,6 +6,7 @@
 
 // Project files
 #include "SolverHelper.hpp"
+#include "SolverInterface.hpp"
 #include "TimeStats.hpp"
 #include "utility.hpp"
 #include "VPCParameters.hpp"

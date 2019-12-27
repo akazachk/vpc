@@ -7,7 +7,7 @@
 #pragma once
 #include "CglVPC.hpp"
 #include "utility.hpp"
-#include "VPCParameters.hpp"
+#include "SolverInterface.hpp"
 
 /**********************************************************************************************************
  * PRLP Class

@@ -9,6 +9,7 @@
 #include "BBHelper.hpp"
 #include "GurobiHelper.hpp"
 #include "SolverHelper.hpp"
+#include "SolverInterface.hpp"
 #include "VPCParameters.hpp"
 
 // COIN-OR
