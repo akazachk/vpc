@@ -63,7 +63,7 @@ public:
 
   /** Load problem methods */
 	virtual void load(std::string fullfilename);
-  virtual void load(OsiSolverInterface* si);
+  virtual void load(const OsiSolverInterface* const si);
   virtual void load(OsiProblemData* data);
 
   /** Generate cuts and put them in `OsiCuts* cuts` */

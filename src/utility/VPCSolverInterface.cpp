@@ -139,7 +139,7 @@ void VPCSolverInterface::load(std::string filename) {
   }
 } /* load (filename) */
 
-void VPCSolverInterface::load(OsiSolverInterface *si) {
+void VPCSolverInterface::load(const OsiSolverInterface* const si) {
   if (solver)
     delete solver;
   solver = si->clone();
