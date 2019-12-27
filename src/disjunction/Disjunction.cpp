@@ -43,7 +43,9 @@ void Disjunction::setupAsNew() {
   this->common_changed_bound.resize(0);
   this->common_changed_value.resize(0);
   this->common_changed_var.resize(0);
+#ifdef USE_COIN
   this->common_ineqs.resize(0);
+#endif
   this->num_terms = 0;
   for (auto& term : this->terms)
     term.clear();
@@ -146,7 +148,9 @@ void Disjunction::initialize(const Disjunction* const source) {
     this->common_changed_bound = source->common_changed_bound;
     this->common_changed_value = source->common_changed_value;
     this->common_changed_var = source->common_changed_var;
+#ifdef USE_COIN
     this->common_ineqs = source->common_ineqs;
+#endif
     this->num_terms = source->num_terms;
     for (auto& term : this->terms)
       term.clear();

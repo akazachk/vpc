@@ -8,9 +8,11 @@
 #include <string>
 #include <vector>
 
+#ifdef USE_COIN
 // COIN-OR
 #include <OsiSolverInterface.hpp>
 #include <OsiRowCut.hpp>
+#endif
 
 enum class DisjExitReason {
   SUCCESS_EXIT = 0,
@@ -29,12 +31,14 @@ enum class DisjExitReason {
  * We can also specify a set of inequalities to add
  */
 struct DisjunctiveTerm {
-  CoinWarmStart* basis = NULL;
   double obj = std::numeric_limits<double>::max();
   std::vector<int> changed_var;
   std::vector<int> changed_bound; // <= 0: lower bound, 1: upper bound
   std::vector<double> changed_value;
+#ifdef USE_COIN
+  CoinWarmStart* basis = NULL;
   std::vector<OsiRowCut> ineqs; // optional: inequalities to add aside from changed bounds
+#endif
 
   void initialize() {
     clear();
@@ -42,14 +46,18 @@ struct DisjunctiveTerm {
     changed_var.resize(0);
     changed_bound.resize(0);
     changed_value.resize(0);
+#ifdef USE_COIN
     ineqs.resize(0);
+#endif
   } /* initialize */
 
   void clear() {
+#ifdef USE_COIN
     if (basis) {
       delete basis;
       basis = NULL;
     }
+#endif
   } /* clear */
 }; /* DisjunctiveTerm */
 
@@ -72,7 +80,9 @@ public:
   std::vector<int> common_changed_var;
   std::vector<int> common_changed_bound;
   std::vector<double> common_changed_value;
+#ifdef USE_COIN
   std::vector<OsiRowCut> common_ineqs;
+#endif
 
   /** Default constructor */
   Disjunction();
@@ -93,7 +103,11 @@ public:
   virtual void setupAsNew();
 
   /** Get disjunction */
+#ifdef USE_COIN
   virtual DisjExitReason prepareDisjunction(const OsiSolverInterface* const si) = 0;
+#else
+  virtual DisjExitReason prepareDisjunction() = 0;
+#endif
 
   /** Set/update name of cut generating set (disjunction) */
   static void setCgsName(std::string& cgsName, const std::string& disjTermName);

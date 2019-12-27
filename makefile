@@ -116,6 +116,9 @@ ifeq ($(BUILD_CONFIG),release)
   DEFS = 
   EXTRA_FLAGS = -fmessage-length=0 -ffast-math
 endif
+ifeq ($(USE_COIN),1)
+  DEFS += -DUSE_COIN
+endif
 ifeq ($(USE_CLP),1)
   DEFS += -DUSE_CLP
 endif

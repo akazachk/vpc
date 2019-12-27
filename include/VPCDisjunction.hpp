@@ -55,7 +55,11 @@ public:
   virtual void setupAsNew();
 
   /** Get disjunction */
+#ifdef USE_COIN
   virtual DisjExitReason prepareDisjunction(const OsiSolverInterface* const si) = 0;
+#else
+  virtual DisjExitReason prepareDisjunction() = 0;
+#endif
 
 protected:
   void initialize(const VPCDisjunction* const source = NULL, const VPCParameters* const params = NULL);
