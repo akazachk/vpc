@@ -186,6 +186,7 @@ void VPCSolverInterface::generateCuts() {
   }
   CglVPC gen(*params);
   gen.generateCuts(*solver, *cuts); // solution may change slightly due to enable factorization called in getProblemData...
+  this->disj = gen.disj()->clone();
 } /* generateCuts */
 
 /** applyCuts */
