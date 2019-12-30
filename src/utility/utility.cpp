@@ -54,8 +54,8 @@ void parseFilename(std::string& dir, std::string& instname, std::string& in_file
   instname = (slashindex != std::string::npos) ? filename.substr(slashindex+1) : filename;
 } /* parseFilename (name and logfile given) */
 
-void parseFilename(std::string& dir, std::string& instname, std::string& in_file_ext, const VPCParameters& params) {
-  parseFilename(dir, instname, in_file_ext, params.get(stringParam::FILENAME), params.logfile);
+void parseFilename(std::string& dir, std::string& instname, std::string& in_file_ext, const VPCParametersNamespace::VPCParameters& params) {
+  parseFilename(dir, instname, in_file_ext, params.get(VPCParametersNamespace::stringParam::FILENAME), params.logfile);
 //  if (params.get(stringParam::OUTDIR).empty()) {
 //    params.set(stringParam::OUTDIR, dir);
 //  }

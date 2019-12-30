@@ -11,6 +11,7 @@
 #include "SolverHelper.hpp"
 #include "SolverInterface.hpp"
 #include "VPCParameters.hpp"
+using namespace VPCParametersNamespace;
 
 // COIN-OR
 #include <OsiSolverInterface.hpp>
@@ -27,7 +28,7 @@ const int countFullBBInfoEntries = static_cast<int>(BB_INFO_CONTENTS.size()) * 4
 /**
  * Perform preprocessing and get statistics
  */
-void performCleaning(const VPCParameters& params,
+void performCleaning(const VPCParametersNamespace::VPCParameters& params,
     OsiSolverInterface* const solver, const std::string& filename,
     const double ip_obj, const int CLEANING_MODE_OPTION, const char SEP) {
   FILE* logfile = params.logfile;
@@ -202,7 +203,7 @@ void performCleaning(const VPCParameters& params,
  * Makes sure no variable bounds can be tightened,
  * including via strong branching
  */
-bool cleanProblem(const VPCParameters& params, OsiSolverInterface* solver,
+bool cleanProblem(const VPCParametersNamespace::VPCParameters& params, OsiSolverInterface* solver,
     int& numBoundsChanged, int& numSBFixed) {
   bool is_clean = true;
 
@@ -348,7 +349,7 @@ bool cleanProblem(const VPCParameters& params, OsiSolverInterface* solver,
   return is_clean;
 } /* cleanProblem */
 
-void printPreprocessingHeader(const VPCParameters& params, const char SEP) {
+void printPreprocessingHeader(const VPCParametersNamespace::VPCParameters& params, const char SEP) {
   FILE* logfile = params.logfile;
   if (logfile == NULL)
     return;

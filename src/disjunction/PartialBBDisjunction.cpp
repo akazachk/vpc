@@ -39,14 +39,16 @@
 #include "debug.hpp"
 #endif
 
+using namespace VPCParametersNamespace;
+
 /****************** PUBLIC  **********************/
 /** Param constructor */
-PartialBBDisjunction::PartialBBDisjunction(const VPCParameters& param) {
+PartialBBDisjunction::PartialBBDisjunction(const VPCParametersNamespace::VPCParameters& param) {
   initialize(NULL, &param);
 } /* param constructor */
 
 /** Copy and param constructor */
-PartialBBDisjunction::PartialBBDisjunction(const PartialBBDisjunction& source, const VPCParameters& param) {
+PartialBBDisjunction::PartialBBDisjunction(const PartialBBDisjunction& source, const VPCParametersNamespace::VPCParameters& param) {
   initialize(&source, &param);
 } /* copy & param constructor */
 
@@ -242,7 +244,7 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
 
 /****************** PROTECTED **********************/
 void PartialBBDisjunction::initialize(const PartialBBDisjunction* const source,
-    const VPCParameters* const params) {
+    const VPCParametersNamespace::VPCParameters* const params) {
   VPCDisjunction::initialize(source, params);
   if (source != NULL) {
     this->root.clear();
@@ -263,7 +265,7 @@ void PartialBBDisjunction::initialize(const PartialBBDisjunction* const source,
 /**
  * Set parameters for Cbc used for VPCs, as well as the custom branching decision
  */
-void setCbcParametersForPartialBB(const VPCParameters& params,
+void setCbcParametersForPartialBB(const VPCParametersNamespace::VPCParameters& params,
     CbcModel* const cbc_model, CbcEventHandler* eventHandler,
     const int numStrong, const int numBeforeTrusted, const double max_time) {
   setIPSolverParameters(cbc_model);

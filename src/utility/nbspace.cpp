@@ -11,6 +11,7 @@
 #include "CutHelper.hpp" // setOsiRowCut
 #include "SolverHelper.hpp"
 #include "VPCParameters.hpp"
+using namespace VPCParametersNamespace;
 #include "utility.hpp" // dotProduct
 
 /**

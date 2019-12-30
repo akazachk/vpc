@@ -20,7 +20,9 @@ struct DenseCut
 
 // Forward declarations
 class Disjunction;
-struct VPCParameters;
+namespace VPCParametersNamespace {
+  struct VPCParameters;
+}
 struct OsiProblemData;
 
 #ifdef USE_COIN
@@ -43,7 +45,7 @@ public:
 	OsiCuts *cuts;
 #endif
   Disjunction *disj;
-  VPCParameters *params;
+  VPCParametersNamespace::VPCParameters *params;
 
 	/** Default constructor */
 	VPCSolverInterface();
@@ -61,7 +63,7 @@ public:
 	virtual VPCSolverInterface *clone() const;
 
   /** Set params based on VPCParameters */
-  void setParams(const VPCParameters* const param);
+  void setParams(const VPCParametersNamespace::VPCParameters* const param);
 
   /** Set disjunction */
   virtual void setDisjunction(const Disjunction* const disj);
@@ -95,6 +97,6 @@ public:
 
 protected:
   void initialize(const VPCSolverInterface *const source = NULL,
-      const VPCParameters *const param = NULL);
+      const VPCParametersNamespace::VPCParameters *const param = NULL);
   void free();
 }; /* VPCSolverInterface */

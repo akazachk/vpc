@@ -21,6 +21,7 @@
 #include "nbspace.hpp"
 #include "utility.hpp"
 #include "VPCEventHandler.hpp"
+using namespace VPCParametersNamespace;
 
 // Various pre-built disjunction options
 #include "PartialBBDisjunction.hpp"

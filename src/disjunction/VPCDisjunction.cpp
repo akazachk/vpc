@@ -9,17 +9,17 @@
 
 /****************** PUBLIC  **********************/
 /** Handle parameters */
-void VPCDisjunction::setParams(const VPCParameters& param) {
+void VPCDisjunction::setParams(const VPCParametersNamespace::VPCParameters& param) {
   this->params = param;
 } /* setParams */
 
 /** Param constructor */
-VPCDisjunction::VPCDisjunction(const VPCParameters& param) {
+VPCDisjunction::VPCDisjunction(const VPCParametersNamespace::VPCParameters& param) {
   initialize(NULL, &param);
 } /* param constructor */
 
 /** Copy and param constructor */
-VPCDisjunction::VPCDisjunction(const VPCDisjunction& source, const VPCParameters& param) {
+VPCDisjunction::VPCDisjunction(const VPCDisjunction& source, const VPCParametersNamespace::VPCParameters& param) {
   initialize(&source, &param);
 } /* copy & param constructor */
 
@@ -52,7 +52,7 @@ void VPCDisjunction::setupAsNew() {
 
 /****************** PROTECTED **********************/
 void VPCDisjunction::initialize(const VPCDisjunction* const source,
-    const VPCParameters* const params) {
+    const VPCParametersNamespace::VPCParameters* const params) {
   Disjunction::initialize(source);
   if (params != NULL) {
     setParams(*params);

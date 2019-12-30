@@ -22,19 +22,19 @@ class VPCDisjunction : public Disjunction {
 public:
   friend class CglVPC; // to access protected members
 
-  VPCParameters params; // parameters for the class
+  VPCParametersNamespace::VPCParameters params; // parameters for the class
 
   // Optional members
   TimeStats* timer; // not owned by VPCDisjunction
 
   /** setParams based on VPCParameters */
-  void setParams(const VPCParameters& params);
+  void setParams(const VPCParametersNamespace::VPCParameters& params);
 
   /** Param constructor */
-  VPCDisjunction(const VPCParameters& params);
+  VPCDisjunction(const VPCParametersNamespace::VPCParameters& params);
 
   /** Copy and param constructor */
-  VPCDisjunction(const VPCDisjunction& source, const VPCParameters& params);
+  VPCDisjunction(const VPCDisjunction& source, const VPCParametersNamespace::VPCParameters& params);
 
   /** Default constructor */
   VPCDisjunction();
@@ -62,5 +62,5 @@ public:
 #endif
 
 protected:
-  void initialize(const VPCDisjunction* const source = NULL, const VPCParameters* const params = NULL);
+  void initialize(const VPCDisjunction* const source = NULL, const VPCParametersNamespace::VPCParameters* const params = NULL);
 }; /* VPCDisjunction */

@@ -205,15 +205,15 @@ bool badDynamism(const OsiRowCut* const cut, const double minAbsCoeff, const dou
  * Returns 0 if no error, otherwise returns -1 * (fail index + 1)
  */
 int cleanCut(OsiRowCut* const cut, const OsiSolverInterface* const solver,
-    const VPCParameters& params, const double min_abs_coeff,
+    const VPCParametersNamespace::VPCParameters& params, const double min_abs_coeff,
     const double max_abs_coeff, const double EPS, const double beta,
     const bool checkViolation) {
-  const double EPS_COEFF = params.get(doubleConst::EPS_COEFF);
-  const double MAX_DYN = params.get(doubleConst::MAX_DYN);
-  const int MAX_SUP_ABS = params.get(intConst::MAX_SUPPORT_ABS);
-  const double MAX_SUP_REL = params.get(doubleConst::MAX_SUPPORT_REL);
-  const double MIN_VIOL_ABS = params.get(doubleConst::MIN_VIOL_ABS);
-  const double MIN_VIOL_REL = params.get(doubleConst::MIN_VIOL_REL);
+  const double EPS_COEFF = params.get(VPCParametersNamespace::doubleConst::EPS_COEFF);
+  const double MAX_DYN = params.get(VPCParametersNamespace::doubleConst::MAX_DYN);
+  const int MAX_SUP_ABS = params.get(VPCParametersNamespace::intConst::MAX_SUPPORT_ABS);
+  const double MAX_SUP_REL = params.get(VPCParametersNamespace::doubleConst::MAX_SUPPORT_REL);
+  const double MIN_VIOL_ABS = params.get(VPCParametersNamespace::doubleConst::MIN_VIOL_ABS);
+  const double MIN_VIOL_REL = params.get(VPCParametersNamespace::doubleConst::MIN_VIOL_REL);
 
   removeSmallCoefficients(cut, solver, EPS, EPS_COEFF);
   if (badSupport(cut->row().getNumElements(), solver->getNumCols(), MAX_SUP_ABS, MAX_SUP_REL)) {

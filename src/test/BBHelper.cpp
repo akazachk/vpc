@@ -15,6 +15,7 @@
 #include "SolverHelper.hpp"
 #include "VPCEventHandler.hpp"
 #include "VPCParameters.hpp"
+using namespace VPCParametersNamespace;
 #include "TimeStats.hpp"
 #include "utility.hpp"
 
@@ -41,11 +42,11 @@
 /**
  * Solver is changed unless we are doing row/col permutations
  */
-void runBBTests(const VPCParameters& base_params, SummaryBBInfo* const info_nocuts,
+void runBBTests(const VPCParametersNamespace::VPCParameters& base_params, SummaryBBInfo* const info_nocuts,
     SummaryBBInfo* const info_mycuts, SummaryBBInfo* const info_allcuts,
     const std::string fullfilename, OsiSolverInterface* const solver,
     const double best_bound, const OsiCuts* vpcs, const OsiCuts* const gmics) {
-  VPCParameters params = base_params;
+  VPCParametersNamespace::VPCParameters params = base_params;
   const int num_vpcs = (vpcs != NULL) ? vpcs->sizeCuts() : 0;
   // Set number of b&b runs to be zero if no cuts generated (unless no disjunctions were requested in the first place)
   const int num_bb_runs = std::abs(params.get(intParam::BB_RUNS))
@@ -334,7 +335,7 @@ void createStringFromBBInfoVec(const std::vector<BBInfo>& vec_info,
  * Creates temporary file (in /tmp) so that it can be read by a different solver
  * It does not delete the file
  */
-void createTmpFileCopy(const VPCParameters& params,
+void createTmpFileCopy(const VPCParametersNamespace::VPCParameters& params,
     const OsiSolverInterface* const solver, std::string& f_name) {
   // Generate temporary file name
   char template_name[] = "/tmp/tmpmpsXXXXXX";
@@ -353,7 +354,7 @@ void createTmpFileCopy(const VPCParameters& params,
 } /* createTmpFileCopy (Osi) */
 
 #ifdef USE_CBC
-void setStrategyForBBTestCbc(const VPCParameters& params,
+void setStrategyForBBTestCbc(const VPCParametersNamespace::VPCParameters& params,
     CbcModel* const cbc_model,
     int seed = -1) {
   if (seed < 0) seed = params.get(intParam::RANDOM_SEED);
@@ -408,7 +409,7 @@ void setStrategyForBBTestCbc(const VPCParameters& params,
 /**
  * Perform branch-and-bound without cuts
  */
-void doBranchAndBoundNoCuts(const VPCParameters& params,
+void doBranchAndBoundNoCuts(const VPCParametersNamespace::VPCParameters& params,
     const OsiSolverInterface* const solver, BBInfo& info) {
 #ifdef TRACE
   printf("\nBB with no cuts.\n");
@@ -481,7 +482,7 @@ void doBranchAndBoundNoCuts(const VPCParameters& params,
 /**
  * Perform branch-and-bound using the given cuts, perhaps doing cut selection
  */
-void doBranchAndBoundYesCuts(const VPCParameters& params,
+void doBranchAndBoundYesCuts(const VPCParametersNamespace::VPCParameters& params,
     const OsiSolverInterface* const solver, BBInfo& info, const OsiCuts& structCuts,
     const bool doCutSelection, const int numCutsToAddPerRound,
     const int maxRounds, const std::string logstring) {

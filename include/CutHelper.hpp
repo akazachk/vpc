@@ -12,7 +12,9 @@ class OsiRowCut;
 class OsiCuts;
 class OsiSolverInterface;
 
-struct VPCParameters; // defined in VPCParameters.hpp
+namespace VPCParametersNamespace {
+  struct VPCParameters;
+}
 
 void setOsiRowCut(OsiRowCut* const cut, const std::vector<int>& nonZeroColIndex,
     const int num_coeff, const double* coeff, const double rhs,
@@ -25,7 +27,7 @@ void setConstantObjectiveFromPackedVector(OsiSolverInterface* const solver,
     const double val = 0., const int numIndices = 0, const int* indices = 0);
 
 int cleanCut(OsiRowCut* const cut, const OsiSolverInterface* const solver,
-    const VPCParameters& params, const double min_abs_coeff,
+    const VPCParametersNamespace::VPCParameters& params, const double min_abs_coeff,
     const double max_abs_coeff, const double EPS, const double beta,
     const bool checkViolation);
 

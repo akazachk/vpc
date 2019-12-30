@@ -19,7 +19,7 @@ class CbcEventHandler;
 /**
  * Set parameters for Cbc used for VPCs, as well as the custom branching decision
  */
-void setCbcParametersForPartialBB(const VPCParameters& param,
+void setCbcParametersForPartialBB(const VPCParametersNamespace::VPCParameters& param,
     CbcModel* const cbc_model, CbcEventHandler* eventHandler = NULL,
     const int numStrong = 5, const int numBeforeTrusted = 10,
     const double max_time = std::numeric_limits<double>::max());
@@ -76,10 +76,10 @@ public:
   } data;
 
   /** Param constructor */
-  PartialBBDisjunction(const VPCParameters& params);
+  PartialBBDisjunction(const VPCParametersNamespace::VPCParameters& params);
 
   /** Copy and param constructor */
-  PartialBBDisjunction(const PartialBBDisjunction& source, const VPCParameters& params);
+  PartialBBDisjunction(const PartialBBDisjunction& source, const VPCParametersNamespace::VPCParameters& params);
 
   /** Default constructor */
   PartialBBDisjunction();
@@ -102,5 +102,5 @@ public:
   /** Get disjunction */
   virtual DisjExitReason prepareDisjunction(const OsiSolverInterface* const si);
 protected:
-  void initialize(const PartialBBDisjunction* const source = NULL, const VPCParameters* const params = NULL);
+  void initialize(const PartialBBDisjunction* const source = NULL, const VPCParametersNamespace::VPCParameters* const params = NULL);
 }; /* PartialBBDisjunction */

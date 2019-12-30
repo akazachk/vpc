@@ -23,12 +23,12 @@
 
 /****************** PUBLIC  **********************/
 /** Param constructor */
-SplitDisjunction::SplitDisjunction(const VPCParameters& param) {
+SplitDisjunction::SplitDisjunction(const VPCParametersNamespace::VPCParameters& param) {
   initialize(NULL, &param);
 } /* param constructor */
 
 /** Copy and param constructor */
-SplitDisjunction::SplitDisjunction(const SplitDisjunction& source, const VPCParameters& param) {
+SplitDisjunction::SplitDisjunction(const SplitDisjunction& source, const VPCParametersNamespace::VPCParameters& param) {
   initialize(&source, &param);
 } /* copy & param constructor */
 
@@ -125,7 +125,7 @@ DisjExitReason SplitDisjunction::prepareDisjunction(const OsiSolverInterface* co
       const double floorxk = std::floor(val);
       const double ceilxk = std::ceil(val);
       const double frac = CoinMin(val - floorxk, ceilxk - val);
-      if (!isVal(frac, 0., params.get(doubleConst::AWAY))) {
+      if (!isVal(frac, 0., params.get(VPCParametersNamespace::doubleConst::AWAY))) {
         fracCore.push_back(col);
         fractionality.push_back(frac);
       }
@@ -173,7 +173,7 @@ DisjExitReason SplitDisjunction::prepareDisjunction(const OsiSolverInterface* co
 
 /****************** PROTECTED **********************/
 void SplitDisjunction::initialize(const SplitDisjunction* const source,
-    const VPCParameters* const params) {
+    const VPCParametersNamespace::VPCParameters* const params) {
   VPCDisjunction::initialize(source, params);
   if (source) {
     this->var = source->var;
@@ -198,8 +198,8 @@ bool SplitDisjunction::checkVar(OsiSolverInterface* si, int col) {
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }
-  if (isVal(val, floorxk, params.get(doubleConst::AWAY))
-        || isVal(val, ceilxk, params.get(doubleConst::AWAY))) {
+  if (isVal(val, floorxk, params.get(VPCParametersNamespace::doubleConst::AWAY))
+        || isVal(val, ceilxk, params.get(VPCParametersNamespace::doubleConst::AWAY))) {
     error_msg(errorstring, "Chosen variable %d is not fractional (value: %1.6e).\n", col, val);
     writeErrorToLog(errorstring, params.logfile);
     exit(1);

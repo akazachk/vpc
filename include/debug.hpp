@@ -8,7 +8,9 @@
 #include <string>
 #include <vector>
 
-struct VPCParameters;
+namespace VPCParametersNamespace {
+  struct VPCParameters;
+}
 class VPCEventHandler;
 class PartialBBDisjunction;
 class OsiSolverInterface;
@@ -44,7 +46,7 @@ void printMatrix(const CoinPackedMatrix& mx_in);
 void printTree(PartialBBDisjunction* const orig_owner,
     OsiSolverInterface* solver, OsiCuts* vpcs, OsiCuts* gmics);
 #endif
-std::string generateTreePlotString(const VPCEventHandler* eventHandler, const VPCParameters& params,
+std::string generateTreePlotString(const VPCEventHandler* eventHandler, const VPCParametersNamespace::VPCParameters& params,
     const bool saveToFile = false);
-std::string generateTikzTreeString(const VPCEventHandler* eventHandler, const VPCParameters& params,
+std::string generateTikzTreeString(const VPCEventHandler* eventHandler, const VPCParametersNamespace::VPCParameters& params,
     const int orig_strategy, const double branching_lb, const bool saveToFile);

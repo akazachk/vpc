@@ -16,10 +16,10 @@ public:
   int var;
 
   /** Param constructor */
-  SplitDisjunction(const VPCParameters& params);
+  SplitDisjunction(const VPCParametersNamespace::VPCParameters& params);
 
   /** Copy and param constructor */
-  SplitDisjunction(const SplitDisjunction& source, const VPCParameters& params);
+  SplitDisjunction(const SplitDisjunction& source, const VPCParametersNamespace::VPCParameters& params);
 
   /** Default constructor */
   SplitDisjunction();
@@ -43,7 +43,7 @@ public:
   virtual DisjExitReason prepareDisjunction(const OsiSolverInterface* const si);
 
 protected:
-  void initialize(const SplitDisjunction* const source = NULL, const VPCParameters* const params = NULL);
+  void initialize(const SplitDisjunction* const source = NULL, const VPCParametersNamespace::VPCParameters* const params = NULL);
   bool checkVar(OsiSolverInterface* si, int col);
   void setCgsName(const int var, const double val);
   void addTerm(const int branching_variable,

@@ -13,14 +13,16 @@
 #include <OsiSolverInterface.hpp>
 
 // VPC
-struct VPCParameters;
+namespace VPCParametersNamespace {
+  struct VPCParameters;
+}
 
 /**
  * Assumed to be on the same set of variables
  * We also need that the right-hand side of the original solver remains unchanged (except the bounds)
  */
 void setCompNBCoorPoint(CoinPackedVector& vec, double& objViolation,
-    const VPCParameters& params,
+    const VPCParametersNamespace::VPCParameters& params,
     const OsiSolverInterface* const tmpSolver,
     const OsiSolverInterface* const origSolver,
     const std::vector<int>& nonBasicVarIndex,
@@ -31,7 +33,7 @@ void setCompNBCoorPoint(CoinPackedVector& vec, double& objViolation,
  * In that case, tmpNBVar is in the space of tmpSolver
  */
 void setCompNBCoorRay(CoinPackedVector& vec, const double* ray, double& objViolation, double& scale,
-    const VPCParameters& params, const OsiSolverInterface* const tmpSolver,
+    const VPCParametersNamespace::VPCParameters& params, const OsiSolverInterface* const tmpSolver,
     const OsiSolverInterface* const origSolver,
     const std::vector<int>& rowOfOrigNBVar,
     const std::vector<int>& nonBasicVarIndex,
@@ -46,7 +48,7 @@ void setCompNBCoorRay(CoinPackedVector& vec, const double* ray, double& objViola
  * We also need that the right-hand side of the original solver remains unchanged (except the bounds)
  */
 void setCompNBCoor(CoinPackedVector& vec, double& objViolation,
-    const VPCParameters& params,
+    const VPCParametersNamespace::VPCParameters& params,
     const double* const currColValue, const double* const currSlackValue,
     const OsiSolverInterface* const origSolver,
     const std::vector<int>& nonBasicVarIndex,

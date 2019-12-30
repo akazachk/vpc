@@ -18,6 +18,8 @@
 #include "debug.hpp"
 #endif
 
+using namespace VPCParametersNamespace;
+
 /** Default constructor */
 PRLP::PRLP() {
   initialize();

@@ -23,6 +23,8 @@
 
 #include "CglVPC.hpp"
 
+using namespace VPCParametersNamespace;
+
 /**
  * Set statistics when a child will be counted
  * The ids and node numbers matching correctly with Cbc's statistics strongly depends on where we call this from

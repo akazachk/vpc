@@ -10,6 +10,7 @@
 #include "TimeStats.hpp"
 #include "utility.hpp"
 #include "VPCParameters.hpp"
+using namespace VPCParametersNamespace;
 
 // Disjunctions
 #include "PartialBBDisjunction.hpp"
@@ -19,7 +20,7 @@
  * Set disjunctions; if integer-optimal solution is found, delete all but one disjunction, which will have that solution
  */
 ExitReason setDisjunctions(std::vector<Disjunction*>& disjVec,
-    const OsiSolverInterface* const si, const VPCParameters& params,
+    const OsiSolverInterface* const si, const VPCParametersNamespace::VPCParameters& params,
     CglVPC::VPCMode mode) {
 //  CglVPC::VPCMode mode = static_cast<CglVPC::VPCMode>(params.get(MODE));
   if (mode == CglVPC::VPCMode::PARTIAL_BB) {
@@ -50,7 +51,7 @@ ExitReason setDisjunctions(std::vector<Disjunction*>& disjVec,
 /**
  * Return number of split disjunctions generated
  */
-int generateSplitDisjunctions(std::vector<Disjunction*>& disjVec, const OsiSolverInterface* const si, const VPCParameters& params) {
+int generateSplitDisjunctions(std::vector<Disjunction*>& disjVec, const OsiSolverInterface* const si, const VPCParametersNamespace::VPCParameters& params) {
   std::vector<int> fracCore = si->getFractionalIndices(params.get(doubleConst::AWAY));
   if (fracCore.size() == 0)
     return 0;

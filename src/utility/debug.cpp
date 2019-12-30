@@ -8,6 +8,7 @@
 
 #include "utility.hpp"
 #include "VPCParameters.hpp"
+using namespace VPCParametersNamespace;
 #include "VPCEventHandler.hpp"
 #include "SolverHelper.hpp"
 #include "PartialBBDisjunction.hpp" // for generationPartialTree
@@ -122,7 +123,7 @@ void printTree(PartialBBDisjunction* const orig_owner,
             && (TEMP_VAL == static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_GMICS)
                 || TEMP_VAL == static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS_AND_GMICS));
 
-    VPCParameters tmp_params = orig_owner->params;
+    VPCParametersNamespace::VPCParameters tmp_params = orig_owner->params;
     const int old_param_val = tmp_params.get(PARTIAL_BB_STRATEGY);
     int num_strong = tmp_params.get(intParam::PARTIAL_BB_NUM_STRONG);
     if (num_strong == -1) {
@@ -213,7 +214,7 @@ void printTree(PartialBBDisjunction* const orig_owner,
  */
 std::string generateTreePlotString(
     const VPCEventHandler* eventHandler, 
-    const VPCParameters& params,
+    const VPCParametersNamespace::VPCParameters& params,
     const bool saveToFile) {
   const std::vector<NodeStatistics>& stats = eventHandler->getStatsVector();
   const std::vector<NodeStatistics>& pruned_stats = eventHandler->getPrunedStatsVector();
@@ -393,7 +394,7 @@ void setChildForTikzTreeString(std::vector<std::vector<int> >& children,
  * Create a string that can be fed into LuaLaTeX to plot the tree
  */
 std::string generateTikzTreeString(const VPCEventHandler* eventHandler,
-    const VPCParameters& params,
+    const VPCParametersNamespace::VPCParameters& params,
     const int orig_strategy, const double branching_lb, const bool saveToFile) {
   const std::vector<NodeStatistics>& stats = eventHandler->getStatsVector();
   const std::vector<NodeStatistics>& pruned_stats = eventHandler->getPrunedStatsVector();

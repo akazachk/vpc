@@ -11,6 +11,7 @@
 #include "CutHelper.hpp" // applyCuts
 #include "SolverHelper.hpp"
 #include "VPCParameters.hpp"
+using namespace VPCParametersNamespace;
 
 // COIN-OR
 #include <CoinTime.hpp>

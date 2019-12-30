@@ -27,6 +27,7 @@
 
 #include "utility.hpp" // parseInt/Double, stringValue, lowerCaseString, and overloading << for vectors
 
+namespace VPCParametersNamespace {
 /********** PARAMETERS **********/
 enum intParam {
   CUTLIMIT, // max number of cuts generated; 0 = none, -k = k * # fractional variables at root
@@ -663,3 +664,4 @@ inline void printParams(const VPCParameters& params, FILE* logfile = stdout, con
   }
   fflush(logfile);
 } /* printParams */
+} // namespace VPCParameters

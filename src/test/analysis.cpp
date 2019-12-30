@@ -17,6 +17,7 @@
 #include "PRLP.hpp"
 #include "SolverHelper.hpp"
 #include "VPCParameters.hpp"
+using namespace VPCParametersNamespace;
 #include "utility.hpp" // isInfinity, stringValue
 
 const int countBoundInfoEntries = 11;

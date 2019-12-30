@@ -78,10 +78,10 @@ VPCSolverInterface* VPCSolverInterface::clone() const {
 } /* clone */
 
 /** Set params based on VPCParameters */
-void VPCSolverInterface::setParams(const VPCParameters* const param) {
+void VPCSolverInterface::setParams(const VPCParametersNamespace::VPCParameters* const param) {
   if (params)
     delete params;
-  this->params = new VPCParameters(*param);
+  this->params = new VPCParametersNamespace::VPCParameters(*param);
 }
 
 void VPCSolverInterface::setDisjunction(const Disjunction *const disj) {
@@ -252,7 +252,7 @@ double VPCSolverInterface::getObjValue() {
 }
 
 void VPCSolverInterface::initialize(const VPCSolverInterface *const source,
-    const VPCParameters *const param) {
+    const VPCParametersNamespace::VPCParameters *const param) {
   if (param != NULL) {
     setParams(param);
   }
@@ -277,7 +277,7 @@ void VPCSolverInterface::initialize(const VPCSolverInterface *const source,
 #endif
 #endif
     disj = NULL;
-    params = new VPCParameters;
+    params = new VPCParametersNamespace::VPCParameters;
   }
 } /* initialize */
 

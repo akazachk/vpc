@@ -150,7 +150,7 @@ public:
   static int getCutLimit(const int CUTLIMIT, const int numFracVar);
 
   // Class variables
-  VPCParameters params;
+  VPCParametersNamespace::VPCParameters params;
   VPCMode mode;
   ExitReason exitReason;
   TimeStats timer;
@@ -183,7 +183,7 @@ public:
   CglVPC();
 
   /** Param constructor */
-  CglVPC(const VPCParameters& param);
+  CglVPC(const VPCParametersNamespace::VPCParameters& param);
 
   /** Copy constructor */
   CglVPC(const CglVPC& source);
@@ -198,7 +198,7 @@ public:
   virtual CglCutGenerator* clone() const;
 
   /** Set params based on VPCParameters */
-  void setParams(const VPCParameters& param);
+  void setParams(const VPCParametersNamespace::VPCParameters& param);
 
   /**
    * Prepare for repeated use (e.g., multiple disjunctions in one round)
@@ -297,7 +297,7 @@ protected:
   void setupAsNew();
 
   /** Initialize everything */
-  void initialize(const CglVPC* const source = NULL, const VPCParameters* const param = NULL);
+  void initialize(const CglVPC* const source = NULL, const VPCParametersNamespace::VPCParameters* const param = NULL);
 
   void getProblemData(OsiSolverInterface* const solver, ProblemData& probData,
       const ProblemData* const origProbData = NULL,

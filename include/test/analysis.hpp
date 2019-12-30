@@ -12,7 +12,9 @@ class OsiSolverInterface;
 class OsiCuts;
 
 #include "CglVPC.hpp"
-struct VPCParameters;
+namespace VPCParametersNamespace {
+  struct VPCParameters;
+}
 
 struct SummaryBBInfo;
 struct SummaryBoundInfo {
@@ -57,7 +59,7 @@ struct SummaryCutInfo {
   std::vector<int> numFails;
 }; /* SummaryCutInfo */
 
-void printHeader(const VPCParameters& params,
+void printHeader(const VPCParametersNamespace::VPCParameters& params,
     const std::vector<std::string>& time_name,
     const char SEP = ',');
 void printBoundAndGapInfo(const SummaryBoundInfo& boundInfo, FILE* logfile,
@@ -76,13 +78,13 @@ void printDisjInfo(const SummaryDisjunctionInfo& disjInfo, FILE* logfile,
 void printCutInfo(const SummaryCutInfo& cutInfoGMICs,
     const SummaryCutInfo& cutInfo, FILE* logfile, const char SEP = ',');
 
-void analyzeStrength(const VPCParameters& params, const OsiSolverInterface* solver,
+void analyzeStrength(const VPCParametersNamespace::VPCParameters& params, const OsiSolverInterface* solver,
     SummaryCutInfo& cutInfoGMICs, SummaryCutInfo& cutInfoVPCs, 
     const OsiCuts* const gmics, const OsiCuts* const vpcs,
     const SummaryBoundInfo& boundInfo, std::string& output);
-void analyzeBB(const VPCParameters& params, SummaryBBInfo& info_nocuts,
+void analyzeBB(const VPCParametersNamespace::VPCParameters& params, SummaryBBInfo& info_nocuts,
     SummaryBBInfo& info_mycuts, SummaryBBInfo& info_allcuts, std::string& output);
-double getNumGomoryRounds(const VPCParameters& params,
+double getNumGomoryRounds(const VPCParametersNamespace::VPCParameters& params,
     const OsiSolverInterface* const origSolver,
     const OsiSolverInterface* const postCutSolver);
 
