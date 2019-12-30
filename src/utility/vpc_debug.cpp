@@ -588,7 +588,7 @@ std::string generateTikzTreeString(const VPCEventHandler* eventHandler,
 
   if (saveToFile) {
     std::string dir, instname, ext;
-    parseFilename(dir, instname, ext, params);
+    parseFilename(dir, instname, ext, params.get(FILENAME), params.logfile);
     std::string filename = dir + "/" + instname + "-Tree.alex";
     FILE* myfile = fopen(filename.c_str(), "a");
     if (!myfile) {

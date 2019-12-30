@@ -21,9 +21,6 @@
 class CoinPackedVectorBase;
 class CoinPackedVector;
 class CoinPackedMatrix;
-namespace VPCParametersNamespace {
-  struct VPCParameters;
-}
 
 inline std::ostream& operator<<(std::ostream& os, const std::vector<int> &input) {
   os << "{";
@@ -118,7 +115,6 @@ inline void writeErrorToLog(std::string text, FILE *myfile) {
 
 /** Separate filename into the directory, instance name, and extension */
 void parseFilename(std::string& dir, std::string& instname, std::string& in_file_ext, const std::string& fullfilename, FILE* logfile);
-void parseFilename(std::string& dir, std::string& instname, std::string& in_file_ext, const VPCParametersNamespace::VPCParameters& params);
 
 double getObjValueFromFile(std::string opt_filename, std::string fullfilename, FILE* logfile);
 

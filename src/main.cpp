@@ -316,7 +316,7 @@ void startUp(int argc, char** argv) {
   // Get instance file
   printf("Instance file: %s\n", params.get(stringParam::FILENAME).c_str());
   
-  parseFilename(dir, instname, in_file_ext, params);
+  parseFilename(dir, instname, in_file_ext, params.get(stringParam::FILENAME), params.logfile);
   filename = dir + "/" + instname;
 
   // Prepare logfile
