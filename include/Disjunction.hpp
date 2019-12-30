@@ -30,7 +30,8 @@ enum class DisjExitReason {
  * (not counting the changed values at the root node that are common to all nodes)
  * We can also specify a set of inequalities to add
  */
-struct DisjunctiveTerm {
+class DisjunctiveTerm {
+public:
   double obj = std::numeric_limits<double>::max();
   std::vector<int> changed_var;
   std::vector<int> changed_bound; // <= 0: lower bound, 1: upper bound
@@ -40,25 +41,26 @@ struct DisjunctiveTerm {
   std::vector<OsiRowCut> ineqs; // optional: inequalities to add aside from changed bounds
 #endif
 
-  void initialize() {
-    clear();
-    obj = std::numeric_limits<double>::max();
-    changed_var.resize(0);
-    changed_bound.resize(0);
-    changed_value.resize(0);
-#ifdef USE_COIN
-    ineqs.resize(0);
-#endif
-  } /* initialize */
+  /** Default constructor */
+  DisjunctiveTerm();
 
-  void clear() {
-#ifdef USE_COIN
-    if (basis) {
-      delete basis;
-      basis = NULL;
-    }
-#endif
-  } /* clear */
+  /** Copy constructor */
+  DisjunctiveTerm(const DisjunctiveTerm& source);
+
+  /** Destructor */
+  virtual ~DisjunctiveTerm();
+
+  /** Assignment operator */
+  DisjunctiveTerm& operator=(const DisjunctiveTerm& source);
+
+  /** Clone */
+  virtual DisjunctiveTerm* clone() const;
+
+  /** Initialize class members */
+  virtual void initialize(const DisjunctiveTerm* const source);
+
+  /** Clear memory */
+  void clear();
 }; /* DisjunctiveTerm */
 
 /**********************************************/

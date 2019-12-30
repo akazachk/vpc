@@ -7,6 +7,74 @@
 #include <limits>
 #include <cmath> // abs
 
+// Defining DisjunctiveTerm class
+/** Default constructor */
+DisjunctiveTerm::DisjunctiveTerm() {
+  initialize(NULL);
+} /* default constructor */
+
+/** Copy constructor */
+DisjunctiveTerm::DisjunctiveTerm(const DisjunctiveTerm& source) {
+  initialize(&source);
+} /* copy constructor */
+
+/** Destructor */
+DisjunctiveTerm::~DisjunctiveTerm() {
+  clear();
+} /* destructor */
+
+/** Assignment operator */
+DisjunctiveTerm& DisjunctiveTerm::operator=(const DisjunctiveTerm& source) {
+  if (this != &source) {
+    initialize(&source);
+  }
+  return *this;
+} /* assignment operator */
+
+/** Clone */
+DisjunctiveTerm* DisjunctiveTerm::clone() const {
+  return new DisjunctiveTerm(*this);
+}
+
+/**
+ * Initialize members of DisjunctiveTerm
+ * (copy from source when that is provided)
+ */
+void DisjunctiveTerm::initialize(const DisjunctiveTerm* const source) {
+  if (source != NULL) {
+    obj = source->obj;
+    changed_var = source->changed_var;
+    changed_bound = source->changed_bound;
+    changed_value = source->changed_value;
+#ifdef USE_COIN
+    basis = source->basis->clone();
+    ineqs = source->ineqs;
+#endif
+  } else {
+    clear();
+    obj = std::numeric_limits<double>::max();
+    changed_var.resize(0);
+    changed_bound.resize(0);
+    changed_value.resize(0);
+#ifdef USE_COIN
+    ineqs.resize(0);
+#endif
+  }
+} /* initialize */
+
+/**
+ * Clear memory
+ */
+void DisjunctiveTerm::clear() {
+#ifdef USE_COIN
+  if (basis) {
+    delete basis;
+    basis = NULL;
+  }
+#endif
+} /* clear */
+
+// Defining Disjunction class
 /****************** PUBLIC  **********************/
 /** Default constructor */
 Disjunction::Disjunction() {
