@@ -14,7 +14,7 @@
 #include "VPCEventHandler.hpp"
 
 #ifdef TRACE
-#include "debug.hpp"
+#include "vpc_debug.hpp"
 #endif
 
 #ifdef USE_CLP

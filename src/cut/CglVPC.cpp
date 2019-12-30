@@ -28,7 +28,7 @@ using namespace VPCParametersNamespace;
 #include "SplitDisjunction.hpp"
 
 #ifdef TRACE
-#include "debug.hpp"
+#include "vpc_debug.hpp"
 #endif
 
 /// Match DisjExitReason status to ExitReason status

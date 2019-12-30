@@ -1,10 +1,10 @@
 /**
- * @file debug.cpp
+ * @file vpc_debug.cpp
  *
  * @author A. M. Kazachkov
  * @date 2018-12-25
  */
-#include "debug.hpp"
+#include "vpc_debug.hpp"
 
 #include "utility.hpp"
 #include "VPCParameters.hpp"

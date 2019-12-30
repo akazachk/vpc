@@ -95,7 +95,7 @@ SOURCES += test/analysis.cpp test/BBHelper.cpp test/DisjunctionHelper.cpp
 ### Set build values based on user variables ###
 ifeq ($(BUILD_CONFIG),debug)
   # "Debug" build - no optimization, include debugging symbols, and keep inline functions
-	SOURCES += utility/debug.cpp
+	SOURCES += utility/vpc_debug.cpp
   OUT_DIR = Debug
   DEBUG_FLAG = -g3
   OPT_FLAG = -O0

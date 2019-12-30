@@ -1,5 +1,5 @@
 /**
- * @file debug.hpp
+ * @file vpc_debug.hpp
  * @brief Useful functions for debugging that are not necessary in the rest of the code
  *
  * @author A. M. Kazachkov

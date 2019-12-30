@@ -36,7 +36,7 @@
 #include "VPCEventHandler.hpp" // currently requires Cbc
 
 #ifdef TRACE
-#include "debug.hpp"
+#include "vpc_debug.hpp"
 #endif
 
 using namespace VPCParametersNamespace;
