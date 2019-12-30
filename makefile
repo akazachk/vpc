@@ -21,7 +21,7 @@ BUILD_CONFIG = debug
 ### Variables user should set ###
 PROJ_DIR=${PWD}
 COIN_VERSION = 2.9
-COIN_OR = $(PROJ_DIR)/lib/Cbc-$(COIN_VERSION)
+COIN_OR = ../lib/Cbc-$(COIN_VERSION)
 ifeq ($(USER),otherperson)
   #COIN_OR = enter/dir/here
 
@@ -101,7 +101,7 @@ ifeq ($(BUILD_CONFIG),debug)
   OPT_FLAG = -O0
   DEFS = -DTRACE -DPRINT_LP_WITH_CUTS
   # message-length sets line wrapping for error messages; 0 = no line wrapping
-  EXTRA_FLAGS = -fmessage-length=0
+  EXTRA_FLAGS = -fmessage-length=0 -fPIC
   ifeq ($(CC),g++)
     ifneq ($(USE_CPLEX),1)
       EXTRA_FLAGS += -fkeep-inline-functions 
@@ -114,7 +114,7 @@ ifeq ($(BUILD_CONFIG),release)
   DEBUG_FLAG = 
   OPT_FLAG = -O3
   DEFS = 
-  EXTRA_FLAGS = -fmessage-length=0 -ffast-math
+  EXTRA_FLAGS = -fmessage-length=0 -ffast-math -fPIC
 endif
 ifeq ($(USE_COIN),1)
   DEFS += -DUSE_COIN
@@ -256,6 +256,28 @@ $(LIB_DIR)/lib$(EXECUTABLE_STUB).a: $(OUT_OBJECTS)
 		@echo 'Invoking archiver'
 		$(AR) $(AR_FLAGS) $@ $^
 		@echo 'Finished making archive'
+
+### Shared object library file ###
+SO_TARGET_STUB = $(LIB_DIR)/lib$(EXECUTABLE_STUB)
+ifeq ($(UNAME),Linux)
+  SO_TARGET = $(SO_TARGET_STUB).so
+  SO_FLAGS = -shared
+endif
+ifeq ($(UNAME),Darwin)
+  SO_TARGET = $(SO_TARGET_STUB).dylib
+  #SO_FLAGS += -undefined dynamic_lookup
+  SO_FLAGS += -dynamiclib
+endif
+shared_lib_%:
+	@$(MAKE) shared_lib "BUILD_CONFIG=$*"
+
+shared_lib: $(SO_TARGET)
+
+$(SO_TARGET): $(OUT_OBJECTS)
+		@echo ' '
+		@echo 'Making shared object library file: $@'
+		$(CC) $(DEFS) $(CXXLINKFLAGS) $(APPLINCLS) $(SO_FLAGS) -o $@ $^ $(APPLLIB)
+		@echo 'Finished making shared object library file'
 
 ### Dependencies ###
 # Dependencies (the -include says to ignore errors)
