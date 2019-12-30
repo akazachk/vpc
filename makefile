@@ -21,7 +21,7 @@ BUILD_CONFIG = debug
 ### Variables user should set ###
 PROJ_DIR=${PWD}
 COIN_VERSION = 2.9
-COIN_OR = ../lib/Cbc-$(COIN_VERSION)
+COIN_OR = lib/Cbc-$(COIN_VERSION)
 ifeq ($(USER),otherperson)
   #COIN_OR = enter/dir/here
 
