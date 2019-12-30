@@ -751,7 +751,7 @@ ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver, OsiCuts
     tmpSolver->disableFactorization();
 
     // Change bounds in the solver
-    DisjunctiveTerm* term = &this->disjunction->terms[tmp_ind];
+    DisjunctiveTerm* term = &(this->disjunction->terms[tmp_ind]);
     const int curr_num_changed_bounds = term->changed_var.size();
     std::vector < std::vector<int> > commonTermIndices(curr_num_changed_bounds);
     std::vector < std::vector<double> > commonTermCoeff(curr_num_changed_bounds);
