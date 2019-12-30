@@ -1,7 +1,8 @@
-// Name:     CutHelper.cpp
-// Author:   A. M. Kazachkov
-// Date:     2019-Feb-20
-//-----------------------------------------------------------------------------
+/**
+ * @file CutHelper.hpp
+ * @author A. M. Kazachkov
+ * @date 2019-02-20
+ */
 #include "CutHelper.hpp"
 
 #include <numeric> // inner_product, sqrt
@@ -11,7 +12,6 @@
 
 #include "CglVPC.hpp" // For FailureType
 #include "SolverHelper.hpp"
-#include "VPCParameters.hpp"
 
 /**
  * The cut is stored as alpha x >= beta.
@@ -205,25 +205,24 @@ bool badDynamism(const OsiRowCut* const cut, const double minAbsCoeff, const dou
  * Returns 0 if no error, otherwise returns -1 * (fail index + 1)
  */
 int cleanCut(OsiRowCut* const cut, const OsiSolverInterface* const solver,
-    const VPCParametersNamespace::VPCParameters& params, const double min_abs_coeff,
-    const double max_abs_coeff, const double EPS, const double beta,
+    const double EPS_COEFF,
+    const double MAX_DYN,
+    const int MAX_SUP_ABS,
+    const double MAX_SUP_REL,
+    const double MIN_VIOL_ABS,
+    const double MIN_VIOL_REL,
+    const double MIN_ABS_COEFF, 
+    const double MAX_ABS_COEFF, 
+    const double EPS, 
     const bool checkViolation) {
-  const double EPS_COEFF = params.get(VPCParametersNamespace::doubleConst::EPS_COEFF);
-  const double MAX_DYN = params.get(VPCParametersNamespace::doubleConst::MAX_DYN);
-  const int MAX_SUP_ABS = params.get(VPCParametersNamespace::intConst::MAX_SUPPORT_ABS);
-  const double MAX_SUP_REL = params.get(VPCParametersNamespace::doubleConst::MAX_SUPPORT_REL);
-  const double MIN_VIOL_ABS = params.get(VPCParametersNamespace::doubleConst::MIN_VIOL_ABS);
-  const double MIN_VIOL_REL = params.get(VPCParametersNamespace::doubleConst::MIN_VIOL_REL);
-
   removeSmallCoefficients(cut, solver, EPS, EPS_COEFF);
   if (badSupport(cut->row().getNumElements(), solver->getNumCols(), MAX_SUP_ABS, MAX_SUP_REL)) {
     return -1 * (static_cast<int>(CglVPC::FailureType::BAD_SUPPORT) + 1);
   }
-  // checkViolation = !inNBSpace && !lessThanVal(beta, 0.) 
   if (checkViolation && badViolation(cut, solver, MIN_VIOL_ABS, MIN_VIOL_REL)) {
     return -1 * (static_cast<int>(CglVPC::FailureType::BAD_VIOLATION) + 1);
   }
-  if (badDynamism(cut, min_abs_coeff, max_abs_coeff,
+  if (badDynamism(cut, MIN_ABS_COEFF, MAX_ABS_COEFF,
       CoinMax((EPS > 0) ? 1. / EPS : MAX_DYN, MAX_DYN), EPS)) {
     return -1 * (static_cast<int>(CglVPC::FailureType::BAD_DYNAMISM) + 1);
   }

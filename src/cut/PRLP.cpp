@@ -619,9 +619,16 @@ int PRLP::genCutHelper(OsiCuts& cuts,
   }
 
   // Clean
-  const int clean_error = cleanCut(&currCut, origSolver, owner->params,
-      owner->probData.minAbsCoeff, owner->probData.maxAbsCoeff,
-      owner->probData.EPS, beta,
+  const int clean_error = cleanCut(&currCut, origSolver, 
+      owner->params.get(VPCParametersNamespace::doubleConst::EPS_COEFF),
+      owner->params.get(VPCParametersNamespace::doubleConst::MAX_DYN),
+      owner->params.get(VPCParametersNamespace::intConst::MAX_SUPPORT_ABS),
+      owner->params.get(VPCParametersNamespace::doubleConst::MAX_SUPPORT_REL),
+      owner->params.get(VPCParametersNamespace::doubleConst::MIN_VIOL_ABS),
+      owner->params.get(VPCParametersNamespace::doubleConst::MIN_VIOL_REL),
+      owner->probData.minAbsCoeff, 
+      owner->probData.maxAbsCoeff,
+      owner->probData.EPS,
       !inNBSpace);
   if (clean_error != 0) {
     return clean_error;
