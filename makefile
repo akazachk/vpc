@@ -156,7 +156,7 @@ OBJECTS = $(SOURCES:.cpp=.o)
 OUT_OBJECTS = $(addprefix $(OBJ_DIR)/,$(OBJECTS))
 
 # Set includes
-APPLINCLS = -Iinclude -Iinclude/test
+APPLINCLS = -Iinclude -Iinclude/test -Iinclude/common
 
 APPLLIB = -lm -lz -lbz2 -lreadline
 
