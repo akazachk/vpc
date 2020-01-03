@@ -59,7 +59,7 @@ OsiSolverInterface* GMICSolver = NULL;
 OsiSolverInterface* VPCSolver = NULL;
 OsiCuts gmics, vpcs;
 std::string dir = "", filename = "", instname = "", in_file_ext = "";
-ExitReason exitReason;
+CglVPC::ExitReason exitReason;
 TimeStats timer;
 std::time_t start_time_t, end_time_t;
 char start_time_string[25];
@@ -246,7 +246,7 @@ int main(int argc, char** argv) {
     printf(
         "\n## Round %d/%d: Completed round of VPC generation (exit reason: %s). # cuts generated = %d.\n",
         round_ind + 1, params.get(ROUNDS),
-        ExitReasonName[static_cast<int>(exitReason)].c_str(),
+        CglVPC::ExitReasonName[static_cast<int>(exitReason)].c_str(),
         vpcs_by_round[round_ind].sizeCuts());
     fflush(stdout);
     printf("Initial obj value: %1.6f. New obj value: %s. Disj lb: %s. ##\n",
@@ -391,7 +391,7 @@ int wrapUp(int retCode /*= 0*/) {
       // Print time info
       timer.print(params.logfile, 2); // only values
       // Print exit reason and finish
-      fprintf(logfile, "%s,", ExitReasonName[exitReasonInt].c_str());
+      fprintf(logfile, "%s,", CglVPC::ExitReasonName[exitReasonInt].c_str());
     } else {
     }
 
@@ -430,7 +430,7 @@ int wrapUp(int retCode /*= 0*/) {
   // Print branch-and-bound results
   printf("%s", bb_output.c_str());
 
-  printf("\n## Exiting VPC generation with reason %s. ##\n", ExitReasonName[exitReasonInt].c_str());
+  printf("\n## Exiting VPC generation with reason %s. ##\n", CglVPC::ExitReasonName[exitReasonInt].c_str());
   printf("Instance: %s\n", instname.c_str());
   printf("Start time: %s\n", start_time_string);
   printf("End time: %s\n", end_time_string);
@@ -511,12 +511,12 @@ void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_dis
   std::vector<Disjunction*> disjVec;
   printf("\n## Setting up disjunction(s) ##\n");
   gen.timer.start_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
-  ExitReason setDisjExitReason = setDisjunctions(disjVec, solver, params, CglVPC::VPCMode::SPLITS);
+  CglVPC::ExitReason setDisjExitReason = setDisjunctions(disjVec, solver, params, CglVPC::VPCMode::SPLITS);
   gen.timer.end_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
   const int numDisj = disjVec.size();
 
   // If integer-optimal solution was found, all disjunctions but one will have been deleted
-  if (setDisjExitReason == ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT) {
+  if (setDisjExitReason == CglVPC::ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT) {
     warning_msg(warnstr,
         "An integer (optimal) solution was found prior while getting disjunction. "
         "We will generate between n and 2n cuts, restricting the value of each variable.\n");
@@ -546,11 +546,11 @@ void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_dis
         }
       }
     } // iterate over columns and add optimality cut if needed
-    exitReason = ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT;
+    exitReason = CglVPC::ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT;
     boundInfo.num_vpc += gen.num_cuts;
     updateCutInfo(cutInfoVec[round_ind], gen);
   } // check if integer-optimal solution
-  else if (setDisjExitReason == ExitReason::SUCCESS_EXIT && numDisj > 0) {
+  else if (setDisjExitReason == CglVPC::ExitReason::SUCCESS_EXIT && numDisj > 0) {
     const int cutLimit = std::ceil(
         gen.getCutLimit(params.get(CUTLIMIT),
             solver->getFractionalIndices().size()) / numDisj); // distribute cut limit over the disjunctions
@@ -576,12 +576,12 @@ void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_dis
     }
     gen.setupRepeatedUse(false);
   }  // if successful generation of disjunction, generate cuts
-  else if (setDisjExitReason == ExitReason::NO_DISJUNCTION_EXIT) {
+  else if (setDisjExitReason == CglVPC::ExitReason::NO_DISJUNCTION_EXIT) {
     // Do nothing
-    exitReason = ExitReason::NO_DISJUNCTION_EXIT;
+    exitReason = CglVPC::ExitReason::NO_DISJUNCTION_EXIT;
   }
   else {
-    error_msg(errorstring, "Unknown exit reason (%s) from setDisjunctions.\n", ExitReasonName[static_cast<int>(setDisjExitReason)].c_str());
+    error_msg(errorstring, "Unknown exit reason (%s) from setDisjunctions.\n", CglVPC::ExitReasonName[static_cast<int>(setDisjExitReason)].c_str());
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }

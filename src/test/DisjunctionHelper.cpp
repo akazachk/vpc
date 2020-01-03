@@ -19,13 +19,13 @@ using namespace VPCParametersNamespace;
 /**
  * Set disjunctions; if integer-optimal solution is found, delete all but one disjunction, which will have that solution
  */
-ExitReason setDisjunctions(std::vector<Disjunction*>& disjVec,
+CglVPC::ExitReason setDisjunctions(std::vector<Disjunction*>& disjVec,
     const OsiSolverInterface* const si, const VPCParametersNamespace::VPCParameters& params,
     CglVPC::VPCMode mode) {
 //  CglVPC::VPCMode mode = static_cast<CglVPC::VPCMode>(params.get(MODE));
   if (mode == CglVPC::VPCMode::PARTIAL_BB) {
     if (params.get(intParam::DISJ_TERMS) < 2) {
-      return ExitReason::NO_DISJUNCTION_EXIT;
+      return CglVPC::ExitReason::NO_DISJUNCTION_EXIT;
     }
     PartialBBDisjunction* disj = new PartialBBDisjunction(params);
     DisjExitReason status = disj->prepareDisjunction(si);
@@ -34,9 +34,9 @@ ExitReason setDisjunctions(std::vector<Disjunction*>& disjVec,
   } // PARTIAL_BB
   else if (mode == CglVPC::VPCMode::SPLITS) {
     if (generateSplitDisjunctions(disjVec, si, params)) {
-      return ExitReason::SUCCESS_EXIT;
+      return CglVPC::ExitReason::SUCCESS_EXIT;
     } else {
-      return ExitReason::NO_DISJUNCTION_EXIT;
+      return CglVPC::ExitReason::NO_DISJUNCTION_EXIT;
     }
   } else {
     error_msg(errorstring,
@@ -45,7 +45,7 @@ ExitReason setDisjunctions(std::vector<Disjunction*>& disjVec,
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }
-  return ExitReason::UNKNOWN;
+  return CglVPC::ExitReason::UNKNOWN;
 } /* setDisjunctions */
 
 /**

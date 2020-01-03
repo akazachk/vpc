@@ -32,19 +32,31 @@ using namespace VPCParametersNamespace;
 #endif
 
 /// Match DisjExitReason status to ExitReason status
-ExitReason matchStatus(const DisjExitReason status) {
+CglVPC::ExitReason matchStatus(const DisjExitReason status) {
   if (status == DisjExitReason::SUCCESS_EXIT)
-    return ExitReason::SUCCESS_EXIT;
+    return CglVPC::ExitReason::SUCCESS_EXIT;
   else if (status == DisjExitReason::OPTIMAL_SOLUTION_FOUND_EXIT)
-    return ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT;
+    return CglVPC::ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT;
   else if (status == DisjExitReason::TOO_FEW_TERMS_EXIT)
-    return ExitReason::TOO_FEW_TERMS_EXIT;
+    return CglVPC::ExitReason::TOO_FEW_TERMS_EXIT;
   else if (status == DisjExitReason::NO_DISJUNCTION_EXIT)
-    return ExitReason::NO_DISJUNCTION_EXIT;
+    return CglVPC::ExitReason::NO_DISJUNCTION_EXIT;
   else
-    return ExitReason::UNKNOWN;
+    return CglVPC::ExitReason::UNKNOWN;
 } /* matchStatus */
 
+const std::vector<std::string> CglVPC::ExitReasonName {
+  "SUCCESS",
+  "CUT_LIMIT",
+  "FAIL_LIMIT",
+  "OPTIMAL_SOLUTION_FOUND",
+  "PRLP_INFEASIBLE_EXIT",
+  "TIME_LIMIT",
+  "TOO_FEW_TERMS",
+  "NO_CUTS_LIKELY",
+  "NO_DISJUNCTION",
+  "UNKNOWN"
+}; /* ExitReasonName */
 const std::vector<std::string> CglVPC::VPCModeName {
   "PARTIAL_BB",
   "SPLITS",
@@ -182,14 +194,14 @@ void CglVPC::setDisjunction(Disjunction* const sourceDisj, int ownIt) {
  * @brief Generate VPCs from a disjunction (e.g., arising from a partial branch-and-bound tree)
  */
 void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const CglTreeInfo info) {
-  ExitReason status = ExitReason::UNKNOWN;
+  CglVPC::ExitReason status = CglVPC::ExitReason::UNKNOWN;
   if (params.get(intParam::DISJ_TERMS) == 0) {
-    status = ExitReason::NO_DISJUNCTION_EXIT;
+    status = CglVPC::ExitReason::NO_DISJUNCTION_EXIT;
     finish(status);
     return;
   }
   if (reachedTimeLimit(VPCTimeStats::TOTAL_TIME, params.get(TIMELIMIT))) {
-    status = ExitReason::TIME_LIMIT_EXIT;
+    status = CglVPC::ExitReason::TIME_LIMIT_EXIT;
     finish(status);
     return;
   }
@@ -222,7 +234,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
       CglVPC::getCutLimit(params.get(CUTLIMIT),
           si.getFractionalIndices().size()));
   if (reachedCutLimit() && (std::abs(params.get(TEMP)) < (int) TempOptions::GEN_TIKZ_STRING_WITH_VPCS || std::abs(params.get(TEMP)) > (int) TempOptions::GEN_TIKZ_STRING_AND_EXIT)) {
-    status = ExitReason::CUT_LIMIT_EXIT;
+    status = CglVPC::ExitReason::CUT_LIMIT_EXIT;
     finish(status);
     return;
   }
@@ -238,7 +250,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     ownsDisjunction = true;
     if (mode == VPCMode::PARTIAL_BB) {
       if (params.get(intParam::DISJ_TERMS) < 2) {
-        status = ExitReason::NO_DISJUNCTION_EXIT;
+        status = CglVPC::ExitReason::NO_DISJUNCTION_EXIT;
         finish(status);
         return;
       }
@@ -285,7 +297,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     // then we assume that the disjunction is already prepared)
     DisjExitReason disjstatus = disjunction->prepareDisjunction(solver);
     status = matchStatus(disjstatus);
-    if (status == ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT) {
+    if (status == CglVPC::ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT) {
       warning_msg(warnstr,
           "An integer (optimal) solution was found prior while getting disjunction. "
           "We will generate between n and 2n cuts, restricting the value of each variable.\n");
@@ -311,7 +323,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
         } // iterate over columns and add optimality cut if needed
       }
     } // exit out early if integer-optimal solution found
-    if (status != ExitReason::SUCCESS_EXIT) {
+    if (status != CglVPC::ExitReason::SUCCESS_EXIT) {
       finish(status);
       return;
     }
@@ -322,7 +334,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   
   // Save the V-polyhedral relaxations of each optimal basis in the terms of the PRLP
   status = setupConstraints(vpcsolver, cuts);
-  if (status != ExitReason::SUCCESS_EXIT) {
+  if (status != CglVPC::ExitReason::SUCCESS_EXIT) {
     if (vpcsolver) { delete vpcsolver; }
     finish(status);
     return;
@@ -353,7 +365,7 @@ void CglVPC::addCut(const OsiRowCut& cut, OsiCuts& cuts, const CutType& type,
  * (in order to enable replacing the cuts in PRLP)
  */
 void CglVPC::setupAsNew() {
-  this->exitReason = ExitReason::UNKNOWN;
+  this->exitReason = CglVPC::ExitReason::UNKNOWN;
   this->numCutsOfType.clear();
   this->numCutsOfType.resize(static_cast<int>(CutType::NUM_CUT_TYPES), 0);
   this->numCutsFromHeur.clear();
@@ -597,7 +609,7 @@ void CglVPC::getProblemData(
     solver->disableFactorization();
 } /* getProblemData */
 
-ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver, OsiCuts& cuts) {
+CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver, OsiCuts& cuts) {
   /***********************************************************************************
    * Change initial bounds
    ***********************************************************************************/
@@ -924,7 +936,7 @@ ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver, OsiCuts
       "\nFinished setting up constraints. Min obj val: Structural: %1.3f, NB: %1.3f.\n",
       this->disjunction->best_obj, this->disjunction->best_obj - this->probData.lp_opt);
 #endif
-  return ExitReason::SUCCESS_EXIT;
+  return CglVPC::ExitReason::SUCCESS_EXIT;
 } /* setupConstraints */
 
 /**
@@ -1075,16 +1087,16 @@ void CglVPC::genDepth1PRCollection(const OsiSolverInterface* const vpcsolver,
   } // iterate over nonbasic vars
 } /* genDepth1PRCollection */
 
-ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
+CglVPC::ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
     const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs) {
   if (reachedTimeLimit(VPCTimeStats::TOTAL_TIME, params.get(TIMELIMIT))) {
-    return ExitReason::TIME_LIMIT_EXIT;
+    return CglVPC::ExitReason::TIME_LIMIT_EXIT;
   }
   if (reachedCutLimit()) {
-    return ExitReason::CUT_LIMIT_EXIT;
+    return CglVPC::ExitReason::CUT_LIMIT_EXIT;
   }
 
-  ExitReason status = ExitReason::UNKNOWN;
+  CglVPC::ExitReason status = CglVPC::ExitReason::UNKNOWN;
 
   // We can scale the rhs for points by min_nb_obj_val
   const double min_nb_obj_val = this->disjunction->best_obj - this->probData.lp_opt;
@@ -1104,7 +1116,7 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
     this->numFails[static_cast<int>(FailureType::DLB_EQUALS_DUB_NO_OBJ)]++;
   }
   if (LP_OPT_IS_NOT_CUT && DLB_EQUALS_DUB && !flipBeta) {
-    return ExitReason::NO_CUTS_LIKELY_EXIT;
+    return CglVPC::ExitReason::NO_CUTS_LIKELY_EXIT;
   }
 
   printf("\n## CglVPC: Finished setting up constraints. Trying objectives. ##\n");
@@ -1123,16 +1135,16 @@ ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
       prlp->targetStrongAndDifferentCuts(beta, cuts, origSolver, structSICs,
           VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
       if (reachedTimeLimit(VPCTimeStats::TOTAL_TIME, params.get(TIMELIMIT))) {
-        status = ExitReason::TIME_LIMIT_EXIT;
+        status = CglVPC::ExitReason::TIME_LIMIT_EXIT;
       } else if (reachedCutLimit()) {
-        status = ExitReason::CUT_LIMIT_EXIT;
+        status = CglVPC::ExitReason::CUT_LIMIT_EXIT;
       } else if (reachedFailureLimit(num_cuts - init_num_cuts, num_failures - init_num_failures)) {
-        status = ExitReason::FAIL_LIMIT_EXIT;
+        status = CglVPC::ExitReason::FAIL_LIMIT_EXIT;
       } else {
-        status = ExitReason::SUCCESS_EXIT;
+        status = CglVPC::ExitReason::SUCCESS_EXIT;
       }
     } else {
-      status = ExitReason::PRLP_INFEASIBLE_EXIT;
+      status = CglVPC::ExitReason::PRLP_INFEASIBLE_EXIT;
     }
   }
 
@@ -1225,7 +1237,7 @@ bool CglVPC::reachedFailureLimit(const int num_cuts, const int num_fails, //cons
     reached_limit = true;
   }
 //  if (reached_limit) {
-//    this->exitReason = ExitReason::FAIL_LIMIT_EXIT;
+//    this->exitReason = CglVPC::ExitReason::FAIL_LIMIT_EXIT;
 //  }
   return reached_limit;
 } /* reachedFailureLimit */

@@ -20,38 +20,6 @@ class Disjunction; // include is in source file
 class PRLP;
 enum class DisjExitReason;
 
-/**
- * @brief Documenting the exit status after / whether cuts are generated
- */
-enum class ExitReason {
-  SUCCESS_EXIT = 0,
-  CUT_LIMIT_EXIT,
-  FAIL_LIMIT_EXIT,
-  OPTIMAL_SOLUTION_FOUND_EXIT,
-  PRLP_INFEASIBLE_EXIT,
-  TIME_LIMIT_EXIT,
-  TOO_FEW_TERMS_EXIT,
-  NO_CUTS_LIKELY_EXIT,
-  NO_DISJUNCTION_EXIT,
-  UNKNOWN,
-  NUM_EXIT_REASONS
-};
-/* ExitReason */
-const std::vector<std::string> ExitReasonName {
-  "SUCCESS",
-  "CUT_LIMIT",
-  "FAIL_LIMIT",
-  "OPTIMAL_SOLUTION_FOUND",
-  "PRLP_INFEASIBLE_EXIT",
-  "TIME_LIMIT",
-  "TOO_FEW_TERMS",
-  "NO_CUTS_LIKELY",
-  "NO_DISJUNCTION",
-  "UNKNOWN"
-}; /* ExitReasonName */
-
-ExitReason matchStatus(const DisjExitReason status);
-
 /**********************************************************************************************************
  * CglVPC Class, implemented as a CglCutGenerator
  * Takes a Disjunction as an input and generates cuts from it based on the relaxed V-polyhedral strategy
@@ -60,8 +28,26 @@ class CglVPC : public CglCutGenerator {
 public:
   friend class PRLP;
 
-  // Enums
-  // If adding to any of these enums, do not forget to add the appropriate name (in the right position) in *Name in the source file
+  ///@{
+  /// @name Class enums and structs
+  /// If adding to any of these enums, do not forget to add the appropriate name (in the right position) in *Name in the source file
+
+  /// @brief Documenting the exit status after / whether cuts are generated
+  enum class ExitReason {
+    SUCCESS_EXIT = 0,
+    CUT_LIMIT_EXIT,
+    FAIL_LIMIT_EXIT,
+    OPTIMAL_SOLUTION_FOUND_EXIT,
+    PRLP_INFEASIBLE_EXIT,
+    TIME_LIMIT_EXIT,
+    TOO_FEW_TERMS_EXIT,
+    NO_CUTS_LIKELY_EXIT,
+    NO_DISJUNCTION_EXIT,
+    UNKNOWN,
+    NUM_EXIT_REASONS
+  }; /* ExitReason */
+
+  /// @brief Mode in which VPCs will be generated (disjunction type, in fact)
   enum class VPCMode {
     PARTIAL_BB,
     SPLITS,
@@ -70,6 +56,7 @@ public:
     NUM_VPC_MODES
   }; /* VPCMode */
 
+  /// @brief Timing
   enum class VPCTimeStats {
     TOTAL_TIME,
     INIT_SOLVE_TIME,
@@ -81,6 +68,7 @@ public:
     NUM_TIME_STATS
   }; /* VPCTimeStats */
 
+  /// @brief Type of cuts generated
   enum class CutType {
     ONE_SIDED_CUT,
     OPTIMALITY_CUT,
@@ -88,6 +76,7 @@ public:
     NUM_CUT_TYPES
   }; /* CutType */
 
+  /// @brief Types of objectives used to generate the cuts
   enum class ObjectiveType {
     DUMMY_OBJ,
     ALL_ONES,
@@ -103,6 +92,7 @@ public:
     NUM_OBJECTIVE_TYPES
   }; /* ObjectiveType */
 
+  /// @brief Types of failures that occurred during cut generation
   enum class FailureType {
     ABANDONED,
     BAD_DYNAMISM,
@@ -138,8 +128,11 @@ public:
       this->objViolation.push_back(viol);
     }
   }; /* PRLPData */
+  ///@} // class enums and structs
 
-  // Static variables/functions
+  ///@{
+  /// @name Static variables/functions
+  static const std::vector<std::string> ExitReasonName;
   static const std::vector<std::string> VPCModeName;
   static const std::vector<std::string> VPCTimeStatsName;
   static const std::vector<std::string> CutTypeName;
@@ -148,8 +141,10 @@ public:
   static const std::string time_T1; // = "TIME_TYPE1_";
   static const std::string time_T2; // = "TIME_TYPE2_";
   static int getCutLimit(const int CUTLIMIT, const int numFracVar);
+  ///@}
 
-  // Class variables
+  ///@{
+  // @name Class variables
   VPCParametersNamespace::VPCParameters params;
   VPCMode mode;
   ExitReason exitReason;
@@ -178,6 +173,7 @@ public:
   // On the other hand, if the instance is not setup for repeated use, we require that canReplaceGivenCuts is false
   // (Though the user can still give a set of old cuts to prevent duplicating them)
   bool canReplaceGivenCuts; // default is false
+  ///@}
 
   /** Default constructor */
   CglVPC();
@@ -303,12 +299,12 @@ protected:
       const ProblemData* const origProbData = NULL,
       const bool enable_factorization = true);
 
-  ExitReason setupConstraints(OsiSolverInterface* const vpcsolver, OsiCuts& cuts);
+  CglVPC::ExitReason setupConstraints(OsiSolverInterface* const vpcsolver, OsiCuts& cuts);
   void genDepth1PRCollection(const OsiSolverInterface* const vpcsolver,
       const OsiSolverInterface* const tmpSolver, const ProblemData& origProbData,
       const ProblemData& tmpProbData, const int term_ind);
 
-  ExitReason tryObjectives(OsiCuts& cuts,
+  CglVPC::ExitReason tryObjectives(OsiCuts& cuts,
       const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs);
 
   inline bool reachedCutLimit() const {
@@ -335,11 +331,15 @@ protected:
       const double many_obj_fail_threshold = 0.80,
       const double time_fail_threshold = 0.66) const;
 
-  inline void finish(ExitReason exitReason = ExitReason::UNKNOWN) {
+  inline void finish(CglVPC::ExitReason exitReason = CglVPC::ExitReason::UNKNOWN) {
     this->exitReason = exitReason;
     this->timer.end_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
 #ifdef TRACE
-    printf("CglVPC: Finishing with exit reason: %s. Number cuts: %d.\n", ExitReasonName[static_cast<int>(exitReason)].c_str(), num_cuts);
+    printf("CglVPC: Finishing with exit reason: %s. Number cuts: %d.\n", CglVPC::ExitReasonName[static_cast<int>(exitReason)].c_str(), num_cuts);
 #endif
   }
-}; /* CglVPC */
+}; /* Class CglVPC */
+
+/** @brief Match status from generating disjunction to status of CglVPC exit */
+CglVPC::ExitReason matchStatus(const DisjExitReason status);
+
