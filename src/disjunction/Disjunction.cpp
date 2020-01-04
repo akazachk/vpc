@@ -7,6 +7,9 @@
 #include <limits>
 #include <cmath> // abs
 
+#include "SolverHelper.hpp" // checkSolverOptimality
+#include "utility.hpp" // error_msg, warning_msg, writeErrorToLogfile, stringValue
+
 // Defining DisjunctiveTerm class
 /** Default constructor */
 DisjunctiveTerm::DisjunctiveTerm() {
@@ -119,6 +122,106 @@ void Disjunction::setupAsNew() {
     term.clear();
   this->terms.resize(0);
 } /* setupAsNew */
+
+#ifdef USE_COIN
+/// Retrieve solver set up for disjunctive term (user responsibility to free this solver)
+void Disjunction::getSolverForTerm(
+    /// [out] solver that is created by this method, corresponding to the specified disjunctive term
+    OsiSolverInterface*& termSolver,
+    /// [in] term index
+    const int term_ind,
+    /// [in] original solver
+    const OsiSolverInterface* const solver,
+    /// [in] tolerance for reconstructing disjunctive term solution
+    const double DIFFEPS,
+    /// [in] logfile for error printing
+    FILE* logfile) const {
+  termSolver = solver->clone();
+  const DisjunctiveTerm* const term = &(this->terms[term_ind]);
+
+  const int curr_num_changed_bounds = term->changed_var.size();
+  std::vector < std::vector<int> > commonTermIndices(curr_num_changed_bounds);
+  std::vector < std::vector<double> > commonTermCoeff(curr_num_changed_bounds);
+  std::vector<double> commonTermRHS(curr_num_changed_bounds);
+  for (int i = 0; i < curr_num_changed_bounds; i++) {
+    const int col = term->changed_var[i];
+    const double coeff = (term->changed_bound[i] <= 0) ? 1. : -1.;
+    const double val = term->changed_value[i];
+    commonTermIndices[i].resize(1, col);
+    commonTermCoeff[i].resize(1, coeff);
+    commonTermRHS[i] = coeff * val;
+    if (term->changed_bound[i] <= 0) {
+      termSolver->setColLower(col, val);
+    } else {
+      termSolver->setColUpper(col, val);
+    }
+  }
+
+  const int curr_num_added_ineqs = term->ineqs.size();
+  for (int i = 0; i < curr_num_added_ineqs; i++) {
+    const OsiRowCut* currCut = &term->ineqs[i];
+    termSolver->applyRowCuts(1, currCut); // hopefully this works
+  }
+
+  // Set the warm start
+  if (term->basis && !(termSolver->setWarmStart(term->basis))) {
+    error_msg(errorstring,
+        "Warm start information not accepted for term %d/%d.\n", term_ind+1, this->num_terms);
+    writeErrorToLog(errorstring, logfile);
+    exit(1);
+  }
+
+  // Resolve and check the objective matches
+#ifdef TRACE
+  printf("\n## Solving for term %d/%d. ##\n", term_ind+1, this->num_terms);
+#endif
+  termSolver->resolve();
+  const bool calcAndFeasTerm = checkSolverOptimality(termSolver, true);
+
+  if (!calcAndFeasTerm) {
+    printf("\n## Term %d/%d is not proven optimal. Exiting from this term. ##\n", term_ind+1, this->num_terms);
+    delete termSolver;;
+    return;
+  }
+
+  // Sometimes we run into a few issues getting the ``right'' value
+  if (!isVal(termSolver->getObjValue(), term->obj, DIFFEPS)) {
+    termSolver->resolve();
+  }
+  if (!isVal(termSolver->getObjValue(), term->obj, DIFFEPS)) {
+    double ratio = termSolver->getObjValue() / term->obj;
+    if (ratio < 1.) {
+      ratio = 1. / ratio;
+    }
+    // Allow it to be up to 3% off without causing an error
+    if (greaterThanVal(ratio, 1.03)) {
+      error_msg(errorstring,
+          "Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
+          term_ind+1, this->num_terms, stringValue(term->obj, "%1.3f").c_str(),
+          stringValue(termSolver->getObjValue(), "%1.3f").c_str());
+      writeErrorToLog(errorstring, logfile);
+      exit(1);
+    } else {
+      warning_msg(warnstring,
+          "Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
+          term_ind+1, this->num_terms, stringValue(term->obj, "%1.3f").c_str(),
+          stringValue(termSolver->getObjValue(), "%1.3f").c_str());
+    }
+#ifdef TRACE
+    std::string commonName;
+    Disjunction::setCgsName(commonName, curr_num_changed_bounds, commonTermIndices,
+        commonTermCoeff, commonTermRHS, false);
+    printf("Bounds changed: %s.\n", commonName.c_str());
+#endif
+  } // check that objective value matches
+} /* getSolverForTerm */
+#else
+void Disjunction::getSolverForTerm(
+    /// [in] term index
+    const int term_ind) const {
+  // This function left intentionally blank for now
+} /* getSolverForTerm */
+#endif // USE_COIN
 
 void Disjunction::setCgsName(std::string& cgsName,
     const std::string& disjTermName) {

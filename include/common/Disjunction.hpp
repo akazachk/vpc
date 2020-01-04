@@ -111,6 +111,18 @@ public:
   virtual DisjExitReason prepareDisjunction() = 0;
 #endif
 
+  /** Retrieve disjunction */
+#ifdef USE_COIN
+  void getSolverForTerm(
+    OsiSolverInterface*& termSolver,
+    const int term_ind,
+    const OsiSolverInterface* const solver,
+    const double DIFFEPS,
+    FILE* logfile) const;
+#else
+  void getSolverForTerm(const int term_ind) const;
+#endif
+
   /** Set/update name of cut generating set (disjunction) */
   static void setCgsName(std::string& cgsName, const std::string& disjTermName);
   static void setCgsName(std::string& cgsName, const int num_coeff,
