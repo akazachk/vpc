@@ -132,6 +132,8 @@ void Disjunction::getSolverForTerm(
     const int term_ind,
     /// [in] original solver
     const OsiSolverInterface* const solver,
+    /// [in] whether bounds should be changed or explicit constraints should be added
+    const bool shouldChangeBounds,
     /// [in] tolerance for reconstructing disjunctive term solution
     const double DIFFEPS,
     /// [in] logfile for error printing
@@ -150,10 +152,14 @@ void Disjunction::getSolverForTerm(
     commonTermIndices[i].resize(1, col);
     commonTermCoeff[i].resize(1, coeff);
     commonTermRHS[i] = coeff * val;
-    if (term->changed_bound[i] <= 0) {
-      termSolver->setColLower(col, val);
+    if (shouldChangeBounds) {
+      if (term->changed_bound[i] <= 0) {
+        termSolver->setColLower(col, val);
+      } else {
+        termSolver->setColUpper(col, val);
+      }
     } else {
-      termSolver->setColUpper(col, val);
+      termSolver->addRow(1, &col, &coeff, coeff * val, solver->getInfinity());
     }
   }
 

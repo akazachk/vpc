@@ -117,6 +117,7 @@ public:
     OsiSolverInterface*& termSolver,
     const int term_ind,
     const OsiSolverInterface* const solver,
+    const bool shouldChangeBounds,
     const double DIFFEPS,
     FILE* logfile) const;
 #else
