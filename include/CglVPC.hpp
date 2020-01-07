@@ -88,6 +88,7 @@ public:
     TIGHT_RAYS,
     TIGHT_POINTS2,
     TIGHT_RAYS2,
+    OBJ_CUT,
     ONE_SIDED,
     NUM_OBJECTIVE_TYPES
   }; /* ObjectiveType */

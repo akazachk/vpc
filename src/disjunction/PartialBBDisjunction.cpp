@@ -200,6 +200,7 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
       // Set strong branching lb and ub to both be this value
       this->best_obj = cbc_model->getObjValue();
       this->worst_obj = cbc_model->getObjValue();
+      this->integer_obj = cbc_model->getObjValue();
       const double* sol = cbc_model->getColSolution();
       this->integer_sol.assign(sol, sol + si->getNumCols());
       return DisjExitReason::OPTIMAL_SOLUTION_FOUND_EXIT;

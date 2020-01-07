@@ -86,6 +86,7 @@ const std::vector<std::string> CglVPC::ObjectiveTypeName {
   "TIGHT_RAYS",
   "TIGHT_POINTS2",
   "TIGHT_RAYS2",
+  "OBJ_CUT",
   "ONE_SIDED"
 }; /* ObjectiveTypeName */
 const std::vector<std::string> CglVPC::FailureTypeName {
@@ -299,9 +300,10 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     status = matchStatus(disjstatus);
     if (status == CglVPC::ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT) {
       warning_msg(warnstr,
-          "An integer (optimal) solution was found prior while getting disjunction. "
-          "We will generate between n and 2n cuts, restricting the value of each variable.\n");
-      const double* solution = disjunction->integer_sol.data();
+          "An integer (optimal) solution with value %.6g was found prior while getting disjunction.\n",
+          disjunction->integer_obj);
+          //" We will generate between n and 2n cuts, restricting the value of each variable.\n");
+      /*const double* solution = disjunction->integer_sol.data();
       if (solution) {
         for (int col = 0; col < solver->getNumCols(); col++) {
           const double val = solution[col];
@@ -321,7 +323,24 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
             }
           }
         } // iterate over columns and add optimality cut if needed
+      }*/
+
+      // Add objective cut
+      OsiRowCut objCut;
+      std::vector<int> indices;
+      std::vector<double> vals;
+      indices.reserve(solver->getNumCols());
+      vals.reserve(solver->getNumCols());
+      for (int i = 0; i < solver->getNumCols(); i++) {
+        if (!isVal(solver->getObjCoefficients()[i], probData.EPS)) {
+          indices.push_back(i);
+          vals.push_back(solver->getObjCoefficients()[i]);
+        }
       }
+      objCut.setRow(indices.size(), indices.data(), vals.data(), false);
+      objCut.setLb(disjunction->integer_obj);
+      addCut(objCut, cuts, CutType::OPTIMALITY_CUT,
+          ObjectiveType::OBJ_CUT);
     } // exit out early if integer-optimal solution found
     if (status != CglVPC::ExitReason::SUCCESS_EXIT) {
       finish(status);
