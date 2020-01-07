@@ -22,6 +22,7 @@ void addToObjectiveFromPackedVector(OsiSolverInterface* const solver,
     const double mult = 1., const std::vector<int>* const nonZeroColIndices = 0);
 void setConstantObjectiveFromPackedVector(OsiSolverInterface* const solver,
     const double val = 0., const int numIndices = 0, const int* indices = 0);
+void setSolverSolution(OsiSolverInterface* const solver, const double* const sol = NULL);
 
 int cleanCut(OsiRowCut* const cut, const OsiSolverInterface* const solver,
     const double EPS_COEFF,

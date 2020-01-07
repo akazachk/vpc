@@ -93,6 +93,16 @@ void setConstantObjectiveFromPackedVector(
   }
 } /* setConstantObjectiveFromPackedVector */
 
+/** Set solution (set to zero if the second argument is NULL) */
+void setSolverSolution(OsiSolverInterface* const solver, const double* const sol) {
+  if (sol) {
+    solver->setColSolution(sol);
+  } else {
+    std::vector<double> zerosol(solver->getNumCols(), 0.);
+    solver->setColSolution(zerosol.data());
+  }
+} /* setSolverSolution */
+
 /**
  * Taken from CglGMI with some minor modifications, including switching to >= cut as we use
  */

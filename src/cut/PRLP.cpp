@@ -373,6 +373,9 @@ bool PRLP::setup(const double scale) {
 
   owner->timer.end_timer(CglVPC::ObjectiveTypeName[static_cast<int>(CglVPC::ObjectiveType::DUMMY_OBJ)] + "_TIME");
 
+  // Set column solution to be all-zeroes
+  setSolverSolution(this, 0);
+
   // Check that prlp is not primal infeasible
   // This can happen if 0 \in cone(\rayset), for instance, in the nonbasic space.
   // We might also get that the cut LP is "bad" and does not solve quickly
@@ -1377,6 +1380,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
   this->getModelPtr()->setNumberIterations(0);
   setTimeLimit(this, -1.);
   this->initialSolve();
+  setSolverSolution(this, 0);
   owner->timer.end_timer(PRLP_SOLVE_TIME);
 
   // Let us try to target the strong branching lower bound
