@@ -730,7 +730,12 @@ VPCEventHandler::event(CbcEvent whichEvent) {
     // Update parent if it has branches left
     if (parentInfo_->numberBranchesLeft() > 0) {
       NodeStatistics currNodeStats;
-      setNodeStatistics(currNodeStats, parentInfo_->owner(), model_, stats_,
+#ifdef CBC_VERSION_210PLUS
+      const CbcNode* parent_node = model_->parentNode();
+#else
+      const CbcNode* parent_node = parentInfo_->owner();
+#endif
+      setNodeStatistics(currNodeStats, parent_node, model_, stats_,
           originalLB_, originalUB_, will_create_child);
       stats_.push_back(currNodeStats);
     }

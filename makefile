@@ -20,7 +20,8 @@ BUILD_CONFIG = debug
 
 ### Variables user should set ###
 PROJ_DIR=${PWD}
-COIN_VERSION = 2.9
+COIN_VERSION = 2.9r2376
+COIN_VERSION = 2.10
 COIN_OR = $(PROJ_DIR)/lib/Cbc-$(COIN_VERSION)
 ifeq ($(USER),otherperson)
   #COIN_OR = enter/dir/here
@@ -38,10 +39,11 @@ endif
 
 ifeq ($(USER),kazaalek)
   GUROBI_LINK = gurobi81
-  #GUROBI_DIR = /opt/gurobi811/linux64
 	#GUROBI_DIR = /home/gurobi/8.1.0/linux64
-	GUROBI_DIR = ${HOME}/gurobi/linux64
+	GUROBI_DIR = ${HOME}/gurobi/8.1.0/linux64
   CPLEX_DIR = /home/ibm/cplex-studio/12.9.0.0/cplex
+	#COIN_OR = /local_workspace/$(USER)/coin-or/Cbc-$(COIN_VERSION)
+	COIN_OR = /local_workspace/$(USER)/coin-or/Cbc-trunk
 endif
 
 ifeq ($(USER),akazachk)
@@ -191,7 +193,9 @@ ifeq ($(USE_COIN),1)
 		CBC = $(COIN_OR)/build
 	endif
 	CBClib = $(CBC)/lib
-	CBCinc = $(CBC)/include/coin
+	# When switching from svn to coinbrew, the new include directory is coin-or not coin
+	#CBCinc = $(CBC)/include/coin
+	CBCinc = $(CBC)/include/coin-or
 	APPLINCLS += -isystem $(CBCinc)
 	APPLLIB += -L$(CBClib)
   CXXLINKFLAGS += -Wl,-rpath $(CBClib)

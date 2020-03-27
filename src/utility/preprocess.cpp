@@ -1,7 +1,8 @@
-// Name:     preprocess.cpp
-// Author:   A. M. Kazachkov
-// Date:     2019-03-16
-//-----------------------------------------------------------------------------
+/**
+ * @file preprocess.cpp
+ * @author A. M. Kazachkov
+ * @date 2019-03-16
+ */
 #include "preprocess.hpp"
 
 // Project files
@@ -32,8 +33,10 @@ void performCleaning(const VPCParametersNamespace::VPCParameters& params,
     OsiSolverInterface* const solver, const std::string& filename,
     const double ip_obj, const int CLEANING_MODE_OPTION, const char SEP) {
   FILE* logfile = params.logfile;
-  if (logfile == NULL)
+  if (logfile == NULL) {
+    std::cerr << "Cleaning operations currently will not be performed when logfile == NULL.\n";
     return;
+  }
 
   // Save strategy
   const int strategy = params.get(BB_STRATEGY);

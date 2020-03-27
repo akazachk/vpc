@@ -436,6 +436,7 @@ void doBranchAndBoundNoCuts(const VPCParametersNamespace::VPCParameters& params,
     cbc_model->branchAndBound(0);
 #endif
   } else {
+#ifndef CBC_VERSION_210PLUS
     CbcMain0(*cbc_model);
     std::string name, logLevel, presolveOnOff, preprocessOnOff, cutsOnOff, heurOnOff, solveOption;
     name = "BBHelper_doBranchAndBoundNoCuts";
@@ -462,6 +463,7 @@ void doBranchAndBoundNoCuts(const VPCParametersNamespace::VPCParameters& params,
 
     CbcMain1(argc, cbc_options, *cbc_model);
     delete[] cbc_options;
+#endif
   }
 
   // Collect statistics
@@ -526,6 +528,7 @@ void doBranchAndBoundYesCuts(const VPCParametersNamespace::VPCParameters& params
     cbc_model->branchAndBound(0);
 #endif
   } else {
+#ifndef CBC_VERSION_210PLUS
     CbcMain0(*cbc_model);
     std::string name, logLevel, presolveOnOff, preprocessOnOff, cutsOnOff, heurOnOff, solveOption;
     name = "BBHelper_doBranchAndBoundYesCuts";
@@ -552,6 +555,7 @@ void doBranchAndBoundYesCuts(const VPCParametersNamespace::VPCParameters& params
 
     CbcMain1(argc, cbc_options, *cbc_model);
     delete[] cbc_options;
+#endif
   }
 
   // Collect statistics

@@ -1,7 +1,8 @@
-// Name:     GurobiHelper.cpp
-// Author:   A. M. Kazachkov
-// Date:     2019-Feb-28
-//-----------------------------------------------------------------------------
+/**
+ * @file GurobiHelper.cpp
+ * @author A. M. Kazachkov
+ * @date 2019-Feb-28
+ */
 #include "GurobiHelper.hpp"
 
 #include <cstdio> // for tmpnam
@@ -82,8 +83,12 @@ void setStrategyForBBTestGurobi(const VPCParameters& params, const int strategy,
     // Feed the solver the best bound provided
     if (use_bb_option(strategy, BB_Strategy_Options::use_best_bound)) {
       if (!isInfinity(std::abs(best_bound))) {
-//        model.set(GRB_DoubleParam_BestObjStop, best_bound + 1e-3); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
+        // BestObjStop: stop when primal bound <= z
+        // BestBdStop: stop when dual bound >= z
+        // Cutoff: prune subtrees with objective value > z
+        //model.set(GRB_DoubleParam_BestObjStop, best_bound + 1e-3); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
         model.set(GRB_DoubleParam_BestBdStop, best_bound - 1e-7); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
+        //model.set(GRB_DoubleParam_Cutoff, best_bound + 1e-3); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
       }
     }
   } /* strategy > 0 */
