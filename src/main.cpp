@@ -180,8 +180,11 @@ int main(int argc, char** argv) {
     if (params.get(GOMORY) == -1 || params.get(GOMORY) == 1) {
       OsiCuts currGMICs;
       CglGMI GMIGen;
+      // Set parameters so that many GMIs are generated
       GMIGen.getParam().setMAX_SUPPORT(solver->getNumCols());
       GMIGen.getParam().setMAX_SUPPORT_REL(0.5);
+      //GMIGen.getParam().setMAXDYN(params.get(doubleConst::MAX_DYN));
+      GMIGen.getParam().setMAXDYN(solver->getInfinity());
       GMIGen.generateCuts(*solver, currGMICs);
       gmics.insert(currGMICs);
       boundInfo.num_gmic += currGMICs.sizeCuts();
@@ -224,7 +227,7 @@ int main(int argc, char** argv) {
 
     timer.start_timer(OverallTimeStats::VPC_APPLY_TIME);
     applyCutsCustom(solver, vpcs_by_round[round_ind]);
-    if (params.get(GOMORY) > 0) {
+    if (params.get(GOMORY) > 0) { // GMICs added to solver, so VPCSolver tracks values without GMICs
       boundInfo.gmic_vpc_obj = solver->getObjValue();
       applyCutsCustom(VPCSolver, vpcs_by_round[round_ind]);
       boundInfo.vpc_obj = VPCSolver->getObjValue();
@@ -287,7 +290,13 @@ int main(int argc, char** argv) {
 
   // Do analyses in preparation for printing
   setCutInfo(cutInfo, num_rounds, cutInfoVec.data());
-  analyzeStrength(params, solver, cutInfoGMICs, cutInfo, &gmics, &vpcs,
+  analyzeStrength(params, 
+      params.get(GOMORY) == 0 ? NULL : GMICSolver,
+      params.get(GOMORY) >= 0 ? VPCSolver : solver, 
+      params.get(GOMORY) >= 0 ? solver : VPCSolver, 
+      cutInfoGMICs, cutInfo, 
+      params.get(GOMORY) == 0 ? NULL : &gmics, 
+      &vpcs,
       boundInfo, cut_output);
   analyzeBB(params, info_nocuts, info_mycuts, info_allcuts, bb_output);
   return wrapUp(0);

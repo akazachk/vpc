@@ -1,7 +1,8 @@
-// Name:     analysis.cpp
-// Author:   A. M. Kazachkov
-// Date:     2019-Mar-04
-//-----------------------------------------------------------------------------
+/**
+ * @file analysis.cpp
+ * @author A. M. Kazachkov
+ * @date 2019-03-04
+ */
 #include "analysis.hpp"
 
 // COIN-OR
@@ -25,7 +26,7 @@ const int countGapInfoEntries = 4;
 const int countSummaryBBInfoEntries = 4 * 2;
 const int countFullBBInfoEntries = static_cast<int>(BB_INFO_CONTENTS.size()) * 4 * 2;
 const int countOrigProbEntries = 13;
-const int countPostCutProbEntries = 6;
+const int countPostCutProbEntries = 10;
 const int countDisjInfoEntries = 10;
 const int countCutInfoEntries = 10;
 const int countObjInfoEntries = 1 + 4 * static_cast<int>(CglVPC::ObjectiveType::NUM_OBJECTIVE_TYPES);
@@ -145,8 +146,12 @@ void printHeader(const VPCParameters& params,
     fprintf(logfile, "%s%c", "NEW MIN FRACTIONALITY", SEP); count++;
     fprintf(logfile, "%s%c", "NEW MAX FRACTIONALITY", SEP); count++;
     fprintf(logfile, "%s%c", "NEW A-DENSITY", SEP); count++;
-    fprintf(logfile, "%s%c", "ACTIVE GMIC", SEP); count++;
-    fprintf(logfile, "%s%c", "ACTIVE VPC", SEP); count++;
+    fprintf(logfile, "%s%c", "ACTIVE GMIC (gmics)", SEP); count++;
+    fprintf(logfile, "%s%c", "ACTIVE VPC (gmics)", SEP); count++;
+    fprintf(logfile, "%s%c", "ACTIVE GMIC (vpcs)", SEP); count++;
+    fprintf(logfile, "%s%c", "ACTIVE VPC (vpcs)", SEP); count++;
+    fprintf(logfile, "%s%c", "ACTIVE GMIC (all cuts)", SEP); count++;
+    fprintf(logfile, "%s%c", "ACTIVE VPC (all cuts)", SEP); count++;
     assert(count == countPostCutProbEntries);
   } // POST-CUT PROB
   { // DISJ INFO
@@ -604,8 +609,12 @@ void printPostCutProbInfo(const OsiSolverInterface* const solver,
   fprintf(logfile, "%s%c", stringValue(min_frac, "%.5f").c_str(), SEP); count++;
   fprintf(logfile, "%s%c", stringValue(max_frac, "%.5f").c_str(), SEP); count++;
   fprintf(logfile, "%s%c", stringValue((double) solver->getMatrixByCol()->getNumElements() / (num_rows * num_cols)).c_str(), SEP); count++;
-  fprintf(logfile, "%s%c", stringValue(cutInfoGMICs.num_active).c_str(), SEP); count++;
-  fprintf(logfile, "%s%c", stringValue(cutInfoVPCs.num_active).c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(cutInfoGMICs.num_active_gmic).c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(cutInfoVPCs.num_active_gmic).c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(cutInfoGMICs.num_active_vpc).c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(cutInfoVPCs.num_active_vpc).c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(cutInfoGMICs.num_active_all).c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(cutInfoVPCs.num_active_all).c_str(), SEP); count++;
   fflush(logfile);
   assert(count == countPostCutProbEntries);
 } /* printPostCutProbInfo */
@@ -683,35 +692,60 @@ void printCutInfo(const SummaryCutInfo& cutInfoGMICs,
   fflush(logfile);
 } /* printCutInfo */
 
+bool checkCutActivity(
+  SummaryCutInfo& cutInfo,
+  const OsiSolverInterface* const solver,
+  const OsiRowCut* const cut) {
+  const int num_elem = cut->row().getNumElements();
+  if (num_elem < cutInfo.min_support)
+    cutInfo.min_support = num_elem;
+  if (num_elem > cutInfo.max_support)
+    cutInfo.max_support = num_elem;
+  if (solver && solver->isProvenOptimal()) {
+    const double activity = dotProduct(cut->row(), solver->getColSolution());
+    return isVal(activity, cut->rhs());
+  } else {
+    return false;
+  }
+} /* checkCutActivity */
+
 /**
  * The cut properties we want to look at are:
  * 1. Gap closed
  * 2. Activity (after adding cuts)
  * 3. Density
  */
-void analyzeStrength(const VPCParameters& params, const OsiSolverInterface* solver,
+void analyzeStrength(
+    const VPCParameters& params, 
+    const OsiSolverInterface* const solver_gmic,
+    const OsiSolverInterface* const solver_vpc,
+    const OsiSolverInterface* const solver_all,
     SummaryCutInfo& cutInfoGMICs, SummaryCutInfo& cutInfoVPCs,
     const OsiCuts* const gmics, const OsiCuts* const vpcs,
     const SummaryBoundInfo& boundInfo, std::string& output) {
-  cutInfoGMICs.num_active = 0;
-  cutInfoVPCs.num_active = 0;
+  cutInfoGMICs.num_active_gmic = 0;
+  cutInfoGMICs.num_active_vpc = 0;
+  cutInfoGMICs.num_active_all = 0;
+  cutInfoVPCs.num_active_gmic = 0;
+  cutInfoVPCs.num_active_vpc = 0;
+  cutInfoVPCs.num_active_all = 0;
   cutInfoVPCs.numActiveFromHeur.resize(static_cast<int>(CglVPC::ObjectiveType::NUM_OBJECTIVE_TYPES), 0);
   if (vpcs) {
     const int num_vpcs = vpcs->sizeCuts();
     int total_support = 0;
     for (int cut_ind = 0; cut_ind < num_vpcs; cut_ind++) {
-      const double activity = dotProduct(vpcs->rowCutPtr(cut_ind)->row(),
-          solver->getColSolution());
-      if (isVal(activity, vpcs->rowCutPtr(cut_ind)->rhs())) {
-        cutInfoVPCs.num_active++;
+      const OsiRowCut* const cut = vpcs->rowCutPtr(cut_ind);
+      if (checkCutActivity(cutInfoVPCs, solver_gmic, cut)) {
+        cutInfoVPCs.num_active_gmic++;
+      }
+      if (checkCutActivity(cutInfoVPCs, solver_vpc, cut)) {
+        cutInfoVPCs.num_active_vpc++;
         cutInfoVPCs.numActiveFromHeur[static_cast<int>(cutInfoVPCs.objType[cut_ind])]++;
       }
-      int num_elem = vpcs->rowCutPtr(cut_ind)->row().getNumElements();
-      if (num_elem < cutInfoVPCs.min_support)
-        cutInfoVPCs.min_support = num_elem;
-      if (num_elem > cutInfoVPCs.max_support)
-        cutInfoVPCs.max_support = num_elem;
-      total_support += num_elem;
+      if (checkCutActivity(cutInfoVPCs, solver_all, cut)) {
+        cutInfoVPCs.num_active_all++;
+      }
+      total_support += cut->row().getNumElements();
     }
     cutInfoVPCs.avg_support = (double) total_support / num_vpcs;
   }
@@ -720,17 +754,17 @@ void analyzeStrength(const VPCParameters& params, const OsiSolverInterface* solv
     cutInfoGMICs.num_cuts = num_gmics;
     int total_support = 0;
     for (int cut_ind = 0; cut_ind < num_gmics; cut_ind++) {
-      const double activity = dotProduct(gmics->rowCutPtr(cut_ind)->row(),
-          solver->getColSolution());
-      if (isVal(activity, gmics->rowCutPtr(cut_ind)->rhs())) {
-        cutInfoGMICs.num_active++;
+      const OsiRowCut* const cut = gmics->rowCutPtr(cut_ind);
+      if (checkCutActivity(cutInfoGMICs, solver_gmic, cut)) {
+        cutInfoGMICs.num_active_gmic++;
       }
-      int num_elem = gmics->rowCutPtr(cut_ind)->row().getNumElements();
-      if (num_elem < cutInfoGMICs.min_support)
-        cutInfoGMICs.min_support = num_elem;
-      if (num_elem > cutInfoGMICs.max_support)
-        cutInfoGMICs.max_support = num_elem;
-      total_support += num_elem;
+      if (checkCutActivity(cutInfoGMICs, solver_vpc, cut)) {
+        cutInfoGMICs.num_active_vpc++;
+      }
+      if (checkCutActivity(cutInfoGMICs, solver_all, cut)) {
+        cutInfoGMICs.num_active_all++;
+      }
+      total_support += cut->row().getNumElements();
     }
     cutInfoGMICs.avg_support = (double) total_support / num_gmics;
   }
@@ -751,24 +785,51 @@ void analyzeStrength(const VPCParameters& params, const OsiSolverInterface* solv
   output += tmpstring;
   if (!isInfinity(std::abs(boundInfo.gmic_obj))) {
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
-        "%-*.*s%s (%d cuts, %d active)\n", NAME_WIDTH, NAME_WIDTH, "GMICs: ",
+        "%-*.*s%s (%d cuts", NAME_WIDTH, NAME_WIDTH, "GMICs: ",
         stringValue(boundInfo.gmic_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC,
-            NUM_DIGITS_AFTER_DEC).c_str(), boundInfo.num_gmic, cutInfoGMICs.num_active);
+            NUM_DIGITS_AFTER_DEC).c_str(), boundInfo.num_gmic);
     output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
+        ", %d active GMICs", cutInfoGMICs.num_active_gmic);
+    output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
+        ", %d active VPCs", cutInfoVPCs.num_active_gmic);
+    output += tmpstring;
+    output += ")\n";
   }
   if (!isInfinity(std::abs(boundInfo.vpc_obj))) {
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
-        "%-*.*s%s (%d cuts, %d active)\n", NAME_WIDTH, NAME_WIDTH, "VPCs: ",
+        "%-*.*s%s (%d cuts", NAME_WIDTH, NAME_WIDTH, "VPCs: ",
         stringValue(boundInfo.vpc_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC,
-            NUM_DIGITS_AFTER_DEC).c_str(), boundInfo.num_vpc, cutInfoVPCs.num_active);
+            NUM_DIGITS_AFTER_DEC).c_str(), boundInfo.num_vpc);
     output += tmpstring;
+    if (gmics && gmics->sizeCuts() > 0) {
+      snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
+          ", %d active GMICs", cutInfoGMICs.num_active_vpc);
+      output += tmpstring;
+    }
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
+        ", %d active VPCs", cutInfoVPCs.num_active_vpc);
+    output += tmpstring;
+    output += ")\n";
   }
   if (boundInfo.num_gmic + boundInfo.num_lpc > 0) {
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
-        "%-*.*s%s (%d cuts)\n", NAME_WIDTH, NAME_WIDTH, "All: ",
+        "%-*.*s%s (%d cuts", NAME_WIDTH, NAME_WIDTH, "All: ",
         stringValue(boundInfo.all_cuts_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str(), 
-        boundInfo.num_vpc + boundInfo.num_lpc + boundInfo.num_vpc);
+        boundInfo.num_gmic + boundInfo.num_lpc + boundInfo.num_vpc);
     output += tmpstring;
+    if (gmics && gmics->sizeCuts() > 0) {
+      snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
+          ", %d active GMICs", cutInfoGMICs.num_active_all);
+      output += tmpstring;
+    }
+    if (vpcs && vpcs->sizeCuts() > 0) {
+      snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
+          ", %d active VPCs", cutInfoVPCs.num_active_all);
+      output += tmpstring;
+    }
+    output += ")\n";
   }
   if (!isInfinity(std::abs(boundInfo.best_disj_obj))) {
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%-*.*s%s\n",
@@ -1013,7 +1074,9 @@ void setCutInfo(SummaryCutInfo& cutInfo, const int num_rounds,
   const int numFailTypes = static_cast<int>(CglVPC::FailureType::NUM_FAILURE_TYPES);
 
   cutInfo.num_cuts = 0;
-  cutInfo.num_active = 0;
+  cutInfo.num_active_gmic = 0;
+  cutInfo.num_active_vpc = 0;
+  cutInfo.num_active_all = 0;
   cutInfo.num_obj_tried = 0;
   cutInfo.num_failures = 0;
   cutInfo.num_rounds = num_rounds;
@@ -1034,7 +1097,9 @@ void setCutInfo(SummaryCutInfo& cutInfo, const int num_rounds,
 
   for (int round = 0; round < num_rounds; round++) {
     cutInfo.num_cuts += oldCutInfos[round].num_cuts;
-    cutInfo.num_cuts += oldCutInfos[round].num_active;
+    cutInfo.num_active_gmic += oldCutInfos[round].num_active_gmic;
+    cutInfo.num_active_vpc += oldCutInfos[round].num_active_vpc;
+    cutInfo.num_active_all += oldCutInfos[round].num_active_all;
     cutInfo.num_obj_tried += oldCutInfos[round].num_obj_tried;
     cutInfo.num_failures += oldCutInfos[round].num_failures;
 

@@ -1,7 +1,8 @@
-// Name:     analysis.hpp
-// Author:   A. M. Kazachkov
-// Date:     2019-Mar-04
-//-----------------------------------------------------------------------------
+/**
+ * @file analysis.hpp
+ * @author A. M. Kazachkov
+ * @date 2019-03-04
+ */
 #pragma once
 
 #include <string>
@@ -11,12 +12,12 @@
 class OsiSolverInterface;
 class OsiCuts;
 
-#include "CglVPC.hpp"
+#include "CglVPC.hpp" // CutType, ObjectiveType
 namespace VPCParametersNamespace {
   struct VPCParameters;
 }
 
-struct SummaryBBInfo;
+struct SummaryBBInfo; // BBHelper.hpp
 struct SummaryBoundInfo {
   double lp_obj = std::numeric_limits<double>::max();
   double best_disj_obj = std::numeric_limits<double>::lowest();
@@ -45,7 +46,7 @@ struct SummaryDisjunctionInfo {
 
 struct SummaryCutInfo {
   int num_cuts = 0;
-  int num_active = 0;
+  int num_active_gmic = 0, num_active_lpc = 0, num_active_vpc, num_active_all = 0;
   int num_obj_tried = 0, num_failures = 0;
   int num_rounds = 0;
   int min_support = std::numeric_limits<int>::max();
@@ -78,7 +79,10 @@ void printDisjInfo(const SummaryDisjunctionInfo& disjInfo, FILE* logfile,
 void printCutInfo(const SummaryCutInfo& cutInfoGMICs,
     const SummaryCutInfo& cutInfo, FILE* logfile, const char SEP = ',');
 
-void analyzeStrength(const VPCParametersNamespace::VPCParameters& params, const OsiSolverInterface* solver,
+void analyzeStrength(const VPCParametersNamespace::VPCParameters& params, 
+    const OsiSolverInterface* const solver_gmic,
+    const OsiSolverInterface* const solver_vpc,
+    const OsiSolverInterface* const solver_all,
     SummaryCutInfo& cutInfoGMICs, SummaryCutInfo& cutInfoVPCs, 
     const OsiCuts* const gmics, const OsiCuts* const vpcs,
     const SummaryBoundInfo& boundInfo, std::string& output);
