@@ -292,7 +292,7 @@ int main(int argc, char** argv) {
   setCutInfo(cutInfo, num_rounds, cutInfoVec.data());
   analyzeStrength(params, 
       params.get(GOMORY) == 0 ? NULL : GMICSolver,
-      params.get(GOMORY) >= 0 ? VPCSolver : solver, 
+      params.get(GOMORY) <= 0 ? solver : VPCSolver, 
       params.get(GOMORY) >= 0 ? solver : VPCSolver, 
       cutInfoGMICs, cutInfo, 
       params.get(GOMORY) == 0 ? NULL : &gmics, 
