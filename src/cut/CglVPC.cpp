@@ -50,7 +50,9 @@ const std::vector<std::string> CglVPC::ExitReasonName {
   "CUT_LIMIT",
   "FAIL_LIMIT",
   "OPTIMAL_SOLUTION_FOUND",
-  "PRLP_INFEASIBLE_EXIT",
+  "PRLP_INFEASIBLE",
+  "PRLP_NUMERICAL_ISSUES",
+  "PRLP_TIME_LIMIT",
   "TIME_LIMIT",
   "TOO_FEW_TERMS",
   "NO_CUTS_LIKELY",
@@ -1150,11 +1152,11 @@ CglVPC::ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
   if (!LP_OPT_IS_NOT_CUT || !DLB_EQUALS_DUB) {
     prlp = new PRLP(this);
     setLPSolverParameters(prlp, params.get(VERBOSITY));
-    const bool isCutSolverPrimalFeas = prlp->setup(scale);
+    const CglVPC::ExitReason prlp_status = prlp->setup(scale);
   //  printf("# rows: %d\t # cols: %d\n", prlp->getNumRows(), prlp->getNumCols());
   //  printf("# points: %d\t # rays: %d\n", prlp->numPoints, prlp->numRays);
 
-    if (isCutSolverPrimalFeas) {
+    if (prlp_status == CglVPC::ExitReason::SUCCESS_EXIT) {
       prlp->targetStrongAndDifferentCuts(beta, cuts, origSolver, structSICs,
           VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
       if (reachedTimeLimit(VPCTimeStats::TOTAL_TIME, params.get(TIMELIMIT))) {
@@ -1167,7 +1169,7 @@ CglVPC::ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
         status = CglVPC::ExitReason::SUCCESS_EXIT;
       }
     } else {
-      status = CglVPC::ExitReason::PRLP_INFEASIBLE_EXIT;
+      status = prlp_status;
     }
   }
 

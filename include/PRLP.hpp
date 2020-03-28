@@ -45,7 +45,7 @@ public:
   virtual OsiSolverInterface* clone(bool copyData = true) const;
 
   /** Setup PRLP */
-  bool setup(const double scale);
+  CglVPC::ExitReason setup(const double scale);
 
   /** 
    * @brief Loop for generating cuts

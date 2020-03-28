@@ -58,7 +58,7 @@ OsiSolverInterface* PRLP::clone(bool copyData) const {
  * The rows are \alpha (p or r) \ge \beta = 1 (or 0 or -1)
  * @return Is prlp primal feasible?
  */
-bool PRLP::setup(const double scale) {
+CglVPC::ExitReason PRLP::setup(const double scale) {
   owner->timer.start_timer(static_cast<int>(CglVPC::VPCTimeStats::PRLP_SETUP_TIME));
   const int num_constraints = owner->prlpData.rhs.size();
   const int num_disj_terms = owner->disj()->num_terms;
@@ -342,7 +342,7 @@ bool PRLP::setup(const double scale) {
   owner->timer.end_timer(static_cast<int>(CglVPC::VPCTimeStats::PRLP_SETUP_TIME));
 
   if (numPoints < 0 || numRays < 0) {
-    return true;
+    return CglVPC::ExitReason::SUCCESS_EXIT;
   }
   this->density =
     (double) this->getMatrixByCol()->getNumElements()
@@ -380,32 +380,38 @@ bool PRLP::setup(const double scale) {
   // This can happen if 0 \in cone(\rayset), for instance, in the nonbasic space.
   // We might also get that the cut LP is "bad" and does not solve quickly
   // in which case we abort with numerical issues as the error.
-  bool retval;
+  CglVPC::ExitReason retval;
   if (this->isProvenOptimal()) {
-    retval = true;
+    retval = CglVPC::ExitReason::SUCCESS_EXIT;
   } else if (this->isProvenPrimalInfeasible() && !this->isAbandoned()) {
     warning_msg(errorstring,
         "PRLP is primal infeasible; giving up on this point-ray collection.\n");
     owner->numFails[static_cast<int>(CglVPC::FailureType::PRIMAL_INFEASIBLE_NO_OBJ)]++;
-    retval = false;
+    retval = CglVPC::ExitReason::PRLP_INFEASIBLE_EXIT;
+  } else if (!lessThanVal(end - start,max_time)) {
+    warning_msg(errorstring,
+        "PRLP took too long to solve (%f sec, with limit of %f sec); giving up on this point-ray collection.\n",
+        end - start, max_time);
+    owner->numFails[static_cast<int>(CglVPC::FailureType::NUMERICAL_ISSUES_NO_OBJ)]++;
+    retval = CglVPC::ExitReason::PRLP_TIME_LIMIT_EXIT;
   } else if (this->isIterationLimitReached()
       || this->getModelPtr()->hitMaximumIterations()) {
     warning_msg(errorstring,
         "PRLP is having numerical issues; giving up on this point-ray collection.\n");
     owner->numFails[static_cast<int>(CglVPC::FailureType::NUMERICAL_ISSUES_NO_OBJ)]++;
-    retval = false;
+    retval = CglVPC::ExitReason::PRLP_NUMERICAL_ISSUES_EXIT;
   } else if (this->isProvenDualInfeasible() && !this->isAbandoned()) {
     // This should never happen, but we are going to chock it up to numerical problems
     warning_msg(errorstring,
         "PRLP is having numerical issues; giving up on this point-ray collection.\n");
     owner->numFails[static_cast<int>(CglVPC::FailureType::NUMERICAL_ISSUES_NO_OBJ)]++;
-    retval = false;
+    retval = CglVPC::ExitReason::PRLP_NUMERICAL_ISSUES_EXIT;
   } else {
     // Something else happened; still bad...
     warning_msg(errorstring,
         "PRLP is failing, probably due to numerical issues; giving up on this point-ray collection.\n");
     owner->numFails[static_cast<int>(CglVPC::FailureType::UNKNOWN)]++;
-    retval = false;
+    retval = CglVPC::ExitReason::PRLP_NUMERICAL_ISSUES_EXIT;
   }
   return retval;
 } /* setup */
