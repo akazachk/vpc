@@ -4769,8 +4769,7 @@ void CbcModel::branchAndBound(int doStatistics)
       tree_->setComparison(*nodeCompare_);
       unlockThread();
     }
-    //if (numberNodes_ >= lastPrintEvery && CoinWallclockTime()-lastSecPrintProgress_ > secsPrintFrequency_) {
-    if (numberNodes_ >= lastPrintEvery) {
+    if (numberNodes_ >= lastPrintEvery && CoinWallclockTime()-lastSecPrintProgress_ > secsPrintFrequency_) {
       lastPrintEvery = numberNodes_ + printFrequency_;
       lockThread();
       int nNodes = tree_->size();

@@ -1,7 +1,8 @@
-// Name:     PartialBBDisjunction.cpp
-// Author:   A. M. Kazachkov
-// Date:     2018-02-22
-//-----------------------------------------------------------------------------
+/**
+ * @file PartialBBDisjunction.cpp
+ * @author A. M. Kazachkov
+ * @date 2018-02-22
+ */
 #include "PartialBBDisjunction.hpp"
 
 // COIN-OR
@@ -270,6 +271,9 @@ void setCbcParametersForPartialBB(const VPCParametersNamespace::VPCParameters& p
     CbcModel* const cbc_model, CbcEventHandler* eventHandler,
     const int numStrong, const int numBeforeTrusted, const double max_time) {
   setIPSolverParameters(cbc_model);
+#ifdef CBC_VERSION_210PLUS
+  cbc_model->setSecsPrintFrequency(-1); // to reach tree status correctly
+#endif
   cbc_model->solver()->setIntParam(OsiMaxNumIterationHotStart, 100);
 
   // What is the partial strategy?
