@@ -9,10 +9,11 @@ CBC_VERSION="2.10"
 #CBC_REVISION="2376"
 #CBC_URL="https://projects.coin-or.org/svn/Cbc/stable/${CBC_VERSION}"
 CBC_URL="https://projects.coin-or.org/svn/Cbc/trunk"
-COIN_DIR_NAME="Cbc-${CBC_VERSION}_trunk"
+#COIN_DIR_NAME="Cbc-${CBC_VERSION}"
+COIN_DIR_NAME="Cbc-trunk"
 #COIN_DIR_NAME="Cbc-${CBC_VERSION}r${CBC_REVISION}"
 
-USE_COINBREW = 1
+USE_COINBREW=1
 
 ## Check settings
 if [ -z "$PROJ_DIR" ]
@@ -28,11 +29,13 @@ fi
 mkdir -p $COIN_DIR
 
 if [ ${USE_COINBREW} == "1" ]
+then
   cd $COIN_DIR
   wget https://raw.githubusercontent.com/coin-or/coinbrew/master/coinbrew
   #./coinbrew fetch Cbc:stable/2.9
   #./coinbrew fetch Cbc:stable/2.10
   ./coinbrew fetch Cbc
+  cp ${PROJ_DIR}/lib/CbcModel.* ${COIN_DIR}/Cbc/src/
   # -b: specify build directory
   # -p: install in same directory as build
   #./coinbrew build install Cbc --no-prompt -b build -p --test --with-cplex=false CXXDEFS="-DSAVE_NODE_INFO" CDEFS="-DSAVE_NODE_INFO" ADD_CXXFLAGS="-DSAVE_NODE_INFO"
@@ -62,6 +65,7 @@ else
     svn co -r ${CBC_REVISION} $CBC_URL $COIN_DIR
   fi
   cd $COIN_DIR
+  cp ${PROJ_DIR}/lib/CbcModel.* ${COIN_DIR}/Cbc/src/
 
   mkdir -p build
   cd build
