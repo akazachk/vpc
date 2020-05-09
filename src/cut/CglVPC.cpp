@@ -641,6 +641,10 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
   const int num_changed_bounds = this->disjunction->common_changed_var.size();
   int num_fixed = 0;
   for (int i = 0; i < num_changed_bounds; i++) {
+    if (reachedCutLimit()) {
+      printf("CglVPC::setupConstraints: Reached cut limit from one-sided cuts due to bounds fixed at the root.\n");
+      return CglVPC::ExitReason::CUT_LIMIT_EXIT;
+    }
     const int col = this->disjunction->common_changed_var[i];
     if (this->disjunction->common_changed_bound[i] <= 0) {
       vpcsolver->setColLower(col, this->disjunction->common_changed_value[i]);
@@ -663,6 +667,10 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
 
   const int num_added_ineqs = this->disjunction->common_ineqs.size();
   for (int i = 0; i < num_added_ineqs; i++) {
+    if (reachedCutLimit()) {
+      printf("CglVPC::setupConstraints: Reached cut limit from one-sided cuts added at the root.\n");
+      return CglVPC::ExitReason::CUT_LIMIT_EXIT;
+    }
     OsiRowCut* currCut = &(this->disjunction->common_ineqs[i]);
     vpcsolver->applyRowCuts(1, currCut); // hopefully this works
     addCut(*currCut, cuts, CutType::ONE_SIDED_CUT, ObjectiveType::ONE_SIDED);

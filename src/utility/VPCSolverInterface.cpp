@@ -178,6 +178,22 @@ void VPCSolverInterface::load(OsiProblemData *data) {
   }
 } /* load (OsiProblemData) */
 
+void VPCSolverInterface::solve() {
+#ifdef USE_COIN
+  solver->initialSolve();
+#else
+  fprintf(stderr, "No solver defined.\n");
+#endif
+} /* solve */
+
+void VPCSolverInterface::resolve() {
+#ifdef USE_COIN
+  solver->resolve();
+#else
+  fprintf(stderr, "No solver defined.\n");
+#endif
+} /* resolve */
+
 /** generateCuts */
 void VPCSolverInterface::generateCuts() {
   if (!solver->isProvenOptimal()) {
@@ -187,6 +203,7 @@ void VPCSolverInterface::generateCuts() {
   CglVPC gen(*params);
   gen.generateCuts(*solver, *cuts); // solution may change slightly due to enable factorization called in getProblemData...
   if (gen.disj()) {
+    if (this->disj) { delete this->disj; }
     this->disj = gen.disj()->clone();
   }
 } /* generateCuts */
@@ -207,7 +224,7 @@ int VPCSolverInterface::applyCuts(
       }
     }
     num_applied = solver->getNumRows() - num_before;
-    if(clear_cuts){
+    if (clear_cuts) {
       delete cuts;
       cuts = new OsiCuts;
     }
@@ -216,8 +233,10 @@ int VPCSolverInterface::applyCuts(
     OsiSolverInterface::ApplyCutsReturnCode code;
     code = solver->applyCuts(*(cuts));
     num_applied = code.getNumApplied();
-    delete cuts;
-    cuts = new OsiCuts;
+    if (clear_cuts) {
+      delete cuts;
+      cuts = new OsiCuts;
+    }
   }
 #ifdef TRACE
     printf("\n## Applied %d/%d cuts. ##\n", num_applied, num_cuts);
@@ -230,9 +249,11 @@ void VPCSolverInterface::save(std::string filename) {
 } /* save (to filename) */
 
 int VPCSolverInterface::numCuts() {
+#ifdef USE_COIN
   if (cuts)
     return cuts->sizeCuts();
   else
+#endif
     return 0;
 } /* numCuts */
 
@@ -264,6 +285,8 @@ void VPCSolverInterface::initialize(const VPCSolverInterface *const source,
 #ifdef USE_COIN
     solver = source->solver->clone();
     cuts = new OsiCuts(*source->cuts);
+#else
+    fprintf(stderr, "No solver defined.\n");
 #endif
     disj = source->disj->clone();
     setParams(source->params);
@@ -271,6 +294,8 @@ void VPCSolverInterface::initialize(const VPCSolverInterface *const source,
 #ifdef USE_COIN
     solver = new SolverInterface;
     cuts = new OsiCuts;
+#else
+    fprintf(stderr, "No solver defined.\n");
 #endif
 #ifdef USE_CPLEX_SOLVER
     CPXENVptr env = dynamic_cast<OsiCpxSolverInterface*>(solver)->getEnvironmentPtr();

@@ -75,6 +75,11 @@ public:
 #endif
   virtual void load(OsiProblemData* data);
 
+  /** Solve LP relaxation */
+  virtual void solve();
+  /** Resolve LP relaxation */
+  virtual void resolve();
+
   /** Generate cuts and put them in `OsiCuts* cuts` */
   virtual void generateCuts();
 
