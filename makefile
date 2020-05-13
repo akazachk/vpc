@@ -1,3 +1,10 @@
+### Makefile for vpc project
+# If there are errors, debug with
+#   make --just-print
+# or check defined variables with
+#   make --print-data-base
+# You can also use
+#   make --warn-undefined-variables
 ### Shell type ###
 # REMEMBER: use hard tabs only in a makefile
 UNAME := $(shell uname)
@@ -48,6 +55,11 @@ endif
 
 ifeq ($(USER),akazachk)
   ifeq ($(UNAME),Linux)
+	  COIN_OR = ${HOME}/projects/def-alodi/$(USER)/coin-or
+		COIN_OR = $(HOME)/scratch/coin-test
+    GUROBI_LINK = gurobi90
+    GUROBI_DIR = ${GUROBI_HOME}
+    #CPLEX_DIR =
   endif
   ifeq ($(UNAME),Darwin)
     GUROBI_LINK = gurobi81

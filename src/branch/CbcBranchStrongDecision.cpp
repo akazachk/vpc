@@ -5,6 +5,7 @@
 // Edwin 11/10/2009-- carved out of CbcBranchActual
 // AMK 03/21/2017 Set method to 1
 // AMK 03/28/2017 Added chooseMethod
+// AMK 2020/04/04 CoinTypes.hpp --> CoinTypes.h
 
 #if defined(_MSC_VER)
 // Turn off compiler warning about long names
@@ -16,7 +17,7 @@
 #include <cfloat>
 //#define CBC_DEBUG
 
-#include "CoinTypes.hpp"
+#include "CoinTypes.h" // changed in CoinUtils with commit 0db1926 on April 4, 2020
 #include "OsiSolverInterface.hpp"
 #include "OsiSolverBranch.hpp"
 #include "CbcModel.hpp"
