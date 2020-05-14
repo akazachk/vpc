@@ -1,11 +1,25 @@
-// Name:     CplexHelper.cpp
-// Author:   A. M. Kazachkov
-// Date:     2019-Mar-01
-//-----------------------------------------------------------------------------
-#include "GurobiHelper.hpp"
+/**
+ * @file CplexHelper.cpp
+ * @author A. M. Kazachkov
+ * @date 2020-May-13
+ */
+#include "CplexHelper.hpp"
+
+#include <cstdio> // for tmpnam
+
+// Project files
+#include "BBHelper.hpp"
+#include "CutHelper.hpp" // applyCuts
+#include "SolverHelper.hpp"
+#include "VPCParameters.hpp"
+using namespace VPCParametersNamespace;
+
+// COIN-OR
+#include <CoinTime.hpp>
+#include <OsiCuts.hpp>
 
 // CPLEX
-#ifdef VPC_USE_CPLEX
+#ifdef USE_CPLEX
 // C interface
 #include <ilcplex/cplexx.h>
 
@@ -13,7 +27,7 @@
  * Creates temporary file (in /tmp) so that it can be read by a different solver
  * It does not delete the file
  */
-void createTmpFileCopy(CPXENVptr& env, CPXLPptr& lp, std::string& f_name) {
+void createTmpFileCopy(const VPCParameters& params, CPXENVptr& env, CPXLPptr& lp, std::string& f_name) {
   if (f_name.empty()) {
     // Generate temporary file name
     char template_name[] = "/tmp/tmpmpsXXXXXX";
@@ -30,36 +44,34 @@ void createTmpFileCopy(CPXENVptr& env, CPXLPptr& lp, std::string& f_name) {
   CPXXwriteprob(env, lp, f_name.c_str(), NULL);
 } /* createTmpFileCopy (Cplex) */
 
-void setStrategyForBBTestCplexCallable(CPXENVptr& env,
-    const int seed = params.get(intConst::RANDOM_SEED),
-    const double best_bound = GlobalVariables::bestObjValue) {
+void setStrategyForBBTestCplexCallable(const VPCParameters& params, const int strategy,
+    CPXENVptr& env, const double best_bound, int seed = -1) {
+  if (seed < 0) seed = params.get(intParam::RANDOM_SEED);
   int status = 0;
 
   // Parameters that should always be set
-  status += CPXXsetdblparam(env, CPXPARAM_TimeLimit, GlobalVariables::param.getBB_TIMELIMIT()); // time limit
+  status += CPXXsetdblparam(env, CPXPARAM_TimeLimit, params.get(doubleConst::BB_TIMELIMIT)); // time limit
   status += CPXXsetlongparam(env, CPXPARAM_Threads, 1); // single-threaded
   status += CPXXsetintparam(env, CPXPARAM_RandomSeed, seed); // random seed
 
-#ifndef TRACE
-  status += CPXXsetintparam(env, CPXPARAM_ScreenOutput, CPX_OFF);
-#endif
-#ifdef TRACE
-  status += CPXXsetintparam(env, CPXPARAM_ScreenOutput, CPX_ON);
-  status += CPXXsetintparam(env, CPXPARAM_MIP_Interval, 1);
-#endif
+  if (params.get(VERBOSITY) == 0) {
+    status += CPXXsetintparam(env, CPXPARAM_ScreenOutput, CPX_OFF);
+  } else {
+    status += CPXXsetintparam(env, CPXPARAM_ScreenOutput, CPX_ON);
+    status += CPXXsetintparam(env, CPXPARAM_MIP_Interval, 1);
+  }
 
-  int strategy = param.getParamVal(ParamIndices::BB_STRATEGY_PARAM_IND);
   if (strategy <= 0) {
     // Default strategy
   } else {
-    if (strategy & BB_Strategy_Options::user_cuts) {
+    if (use_bb_option(strategy, BB_Strategy_Options::user_cuts)) {
       status += CPXXsetlongparam(env, CPXPARAM_MIP_Strategy_Search, CPX_MIPSEARCH_TRADITIONAL); // disable dynamic search
       status += CPXXsetlongparam(env, CPXPARAM_Preprocessing_Linear, 0); // disable this so that presolve does not discard user cuts during preprocessing
       status += CPXXsetlongparam(env, CPXPARAM_Preprocessing_Reduce, CPX_PREREDUCE_PRIMALONLY); // disable dual reductions
     }
 
     // Turn off all cuts
-    if (strategy & BB_Strategy_Options::all_cuts_off) {
+    if (use_bb_option(strategy, BB_Strategy_Options::all_cuts_off)) {
       //status += CPXXsetdblparam(env, CPXPARAM_MIP_Limits_CutsFactor, 0);
       //status += CPXXsetlongparam(env, CPXPARAM_MIP_Limits_CutPasses, -1);
       //status += CPXXsetlongparam(env, CPXPARAM_MIP_Limits_EachCutLimit, 0); // all but Gomory
@@ -83,7 +95,7 @@ void setStrategyForBBTestCplexCallable(CPXENVptr& env,
     }
 
     // Presolve
-    if (strategy & BB_Strategy_Options::presolve_off) {
+    if (use_bb_option(strategy, BB_Strategy_Options::presolve_off)) {
       status += CPXXsetlongparam(env, CPXPARAM_Preprocessing_Presolve, 0); // turn off presolve overall
       status += CPXXsetlongparam(env, CPXPARAM_MIP_Strategy_PresolveNode, 0); // turn off presolve at nodes (not turned off by above?)
       status += CPXXsetlongparam(env, CPXPARAM_Preprocessing_Relax, 0); // turn off LP presolve at root
@@ -91,7 +103,7 @@ void setStrategyForBBTestCplexCallable(CPXENVptr& env,
     }
 
     // Heuristics
-    if (strategy & BB_Strategy_Options::heuristics_off) {
+    if (use_bb_option(strategy, BB_Strategy_Options::heuristics_off)) {
       status += CPXXsetlongparam(env, CPXPARAM_MIP_Strategy_HeuristicFreq, -1); // turn off the "periodic" heuristic
       status += CPXXsetlongparam(env, CPXPARAM_MIP_Strategy_FPHeur, -1); // turn off feasibility pump
       status += CPXXsetlongparam(env, CPXPARAM_MIP_Strategy_LBHeur, 0); // local branching heuristic (default is off anyway)
@@ -99,15 +111,16 @@ void setStrategyForBBTestCplexCallable(CPXENVptr& env,
     }
 
     // Feed the solver the best bound provided
-    if (strategy & BB_Strategy_Options::use_best_bound) {
-      if (!isInfinity(best_bound)) {
-        status += CPXXsetdblparam(env, CPXPARAM_MIP_Tolerances_UpperCutoff, best_bound + 1e-3); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
+    if (use_bb_option(strategy, BB_Strategy_Options::use_best_bound)) {
+      if (!isInfinity(std::abs(best_bound))) {
+        //status += CPXXsetdblparam(env, CPXPARAM_MIP_Tolerances_UpperCutoff, best_bound + 1e-3); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
+        status += CPXXsetdblparam(env, CPXPARAM_MIP_Tolerances_UpperCutoff, best_bound - 1e-7); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
       }
     }
-  } /* else, strategy > 0 */
+  } /* strategy > 0 */
 
   // Check if we should use strong branching
-  if (std::abs(strategy) & BB_Strategy_Options::strong_branching_on) {
+  if (use_bb_option(std::abs(strategy), BB_Strategy_Options::strong_branching_on)) {
     status += CPXXsetintparam(env, CPXPARAM_MIP_Strategy_VariableSelect, CPX_VARSEL_STRONG);
     status += CPXXsetintparam(env, CPXPARAM_MIP_Limits_StrongCand, CPX_BIGINT); // smaller than max int
     //std::numeric_limits<int>::max());
@@ -124,7 +137,8 @@ void setStrategyForBBTestCplexCallable(CPXENVptr& env,
   }
 } /* setStrategyForBBTestCplexCallable */
 
-void readFileIntoCplexCallable(const char* f_name, CPXENVptr& env, CPXLPptr& lp) {
+void readFileIntoCplexCallable(const VPCParameters& params, 
+    const char* f_name, CPXENVptr& env, CPXLPptr& lp) {
   int status = 0;
 
   /* Initialize the CPLEX environment */
@@ -169,24 +183,27 @@ void readFileIntoCplexCallable(const char* f_name, CPXENVptr& env, CPXLPptr& lp)
   }
 } /* readFileIntoCplexCallable */
 
-void presolveModelWithCplexCallable(CPXENVptr& env, CPXLPptr& lp, double& presolved_opt, std::string& presolved_name) {
-#ifdef TRACE
+void presolveModelWithCplexCallable(const VPCParameters& params, int strategy, 
+    CPXENVptr& env, CPXLPptr& lp, double& presolved_opt, std::string& presolved_name,
+    const double best_bound) {
   printf("\n## CPLEX (C): Presolving model ##\n");
-#endif
   //warning_msg(warnstring, "CPLEX presolve saving not currently working.\n");
   //return; // Currently not functioning
-  const int strategy = param.getParamVal(ParamIndices::BB_STRATEGY_PARAM_IND);
-  param.setParamVal(ParamIndices::BB_STRATEGY_PARAM_IND, BB_Strategy_Options::presolve_on);
-  setStrategyForBBTestCplexCallable(env);
-  param.setParamVal(ParamIndices::BB_STRATEGY_PARAM_IND, strategy);
+  strategy = static_cast<int>(BB_Strategy_Options::presolve_on);
+  setStrategyForBBTestCplexCallable(params, strategy, env, best_bound);
 
   int status = 0;
 
   // Save presolved model
   if (presolved_name.empty()) {
     char template_name[] = "/tmp/tmpmpsXXXXXX"; // generate temporary file name
-    mktemp(template_name);
+    mkstemp(template_name);
     presolved_name = template_name;
+    if (presolved_name.empty()) {
+      error_msg(errorstring, "Could not generate temp file.\n");
+      writeErrorToLog(errorstring, params.logfile);
+      exit(1);
+    }
   }
   if (presolved_name.empty()) {
     error_msg(errorstring, "Could not generate temp file.\n");
@@ -215,7 +232,9 @@ void presolveModelWithCplexCallable(CPXENVptr& env, CPXLPptr& lp, double& presol
   }
 
   // Create the problem, using the correct problem name
-  new_lp = CPXXcreateprob(new_env, &status, GlobalVariables::prob_name.c_str());
+  size_t slashindex = presolved_name.find_last_of("/\\");
+  std::string prob_name = presolved_name.substr(slashindex+1);
+  new_lp = CPXXcreateprob(new_env, &status, prob_name.c_str());
   if ( new_lp == NULL ) {
     error_msg(errorstring, "CPLEX (C): Failed to create the LP.\n");
     writeErrorToLog(errorstring, params.logfile);
@@ -329,11 +348,13 @@ void presolveModelWithCplexCallable(CPXENVptr& env, CPXLPptr& lp, double& presol
   */
 } /* presolveModelWithCplexCallable (CPXENVptr, CPXLPptr) */
 
-void presolveModelWithCplexCallable(const char* f_name, double& presolved_opt, std::string& presolved_name) {
+void presolveModelWithCplexCallable(const VPCParametersNamespace::VPCParameters& params, int strategy,
+    const char* f_name, double& presolved_opt, std::string& presolved_name, 
+    const double best_bound) {
   CPXENVptr env = NULL;
   CPXLPptr lp = NULL;
-  readFileIntoCplexCallable(f_name, env, lp);
-  presolveModelWithCplexCallable(env, lp, presolved_opt, presolved_name);
+  readFileIntoCplexCallable(params, f_name, env, lp);
+  presolveModelWithCplexCallable(params, strategy, env, lp, presolved_opt, presolved_name, best_bound);
 
   /* Free up the problem as allocated by CPXXcreateprob, if necessary */
   int status = 0;
@@ -363,21 +384,26 @@ void presolveModelWithCplexCallable(const char* f_name, double& presolved_opt, s
    }
 } /* presolveModelWithCplexCallable (filename) */
 
-void presolveModelWithCplexCallable(const OsiSolverInterface* const solver, double& presolved_opt, std::string& presolved_name) {
+void presolveModelWithCplexCallable(const VPCParametersNamespace::VPCParameters& params, int strategy,
+    const OsiSolverInterface* const solver, double& presolved_opt, std::string& presolved_name,
+    const double best_bound) {
   std::string f_name;
-  createTmpFileCopy(solver, f_name);
-  presolveModelWithCplexCallable(f_name.c_str(), presolved_opt, presolved_name);
+  createTmpFileCopy(params, solver, f_name);
+  presolveModelWithCplexCallable(params, strategy, f_name.c_str(), presolved_opt, presolved_name, best_bound);
   remove(f_name.c_str()); // remove temporary file
 } /* presolveModelWithCplexCallable (Osi) */
 
-void doBranchAndBoundWithCplexCallable(CPXENVptr& env, CPXLPptr& lp, BBInfo& info) {
+void doBranchAndBoundWithCplexCallable(const VPCParameters& params, int strategy,
+    CPXENVptr& env, CPXLPptr& lp, BBInfo& info, const double best_bound,
+    std::vector<double>* const solution = NULL) {
 //#ifdef TRACE
-  printf("\n## Running B&B with CPLEX (Callable). Strategy: %d. ##\n", param.getParamVal(ParamIndices::BB_STRATEGY_PARAM_IND));
+  printf("\n## Running B&B with CPLEX (callable). Strategy: %d. Random seed: %d. ##\n",
+      strategy, params.get(intParam::RANDOM_SEED));
 //#endif
   int status = 0;
 
   // Set CPLEX parameters
-  setStrategyForBBTestCplexCallable(env);
+  setStrategyForBBTestCplexCallable(params, strategy, env, best_bound);
 
   // Optimize the LP
   //status = CPXXlpopt (env, lp);
@@ -451,13 +477,15 @@ void doBranchAndBoundWithCplexCallable(CPXENVptr& env, CPXLPptr& lp, BBInfo& inf
     case CPXMIP_TIME_LIM_FEAS: {
     }
     case CPXMIP_TIME_LIM_INFEAS: {
-      status = CPXXgetbestobjval (env, lp, &info.obj);
+      status += CPXXgetobjval (env, lp, &info.obj);
+      status += CPXXgetbestobjval (env, lp, &info.obj);
       break;
     }
     case CPXMIP_OPTIMAL_TOL: {
     }
     case CPXMIP_OPTIMAL: {
-      status = CPXXgetobjval (env, lp, &info.obj);
+      status += CPXXgetobjval (env, lp, &info.obj);
+      status += CPXXgetbestobjval (env, lp, &info.obj);
       break;
     }
     default: {
@@ -481,10 +509,23 @@ void doBranchAndBoundWithCplexCallable(CPXENVptr& env, CPXLPptr& lp, BBInfo& inf
 
 #ifdef TRACE
   printf("CPLEX (C): Solution value: %1.6f.\n", info.obj);
+  printf("CPLEX (C): Best bound: %1.6f.\n", info.bound);
   printf("CPLEX (C): Number iterations: %ld.\n", info.iters);
   printf("CPLEX (C): Number nodes: %ld.\n", info.nodes);
   printf("CPLEX (C): Time: %f.\n", info.time);
 #endif
+
+  // Save the solution if needed
+  if (solution) {
+    // Get variables
+    const int num_vars = CPXXgetnumcols(env, lp);
+    (*solution).resize(num_vars);
+    status = CPXXgetx(env, lp, &((*solution)[0]), 0, num_vars-1);
+    if ( status ) {
+      error_msg(errorstring, "CPLEX (C): CPXXgetx failed, error code %d.\n", status);
+      writeErrorToLog(errorstring, params.logfile);
+    }
+  }
 
   /* Free up the problem as allocated by CPXXcreateprob, if necessary */
   if ( lp != NULL ) {
@@ -513,26 +554,26 @@ void doBranchAndBoundWithCplexCallable(CPXENVptr& env, CPXLPptr& lp, BBInfo& inf
    }
 } /* doBranchAndBoundWithCplexCallable (CPXENVptr, CPXLPptr) */
 
-void doBranchAndBoundWithUserCutsCplexCallable(CPXENVptr& env, CPXLPptr& lp,
-    const OsiCuts* cuts, BBInfo& info, const bool addAsLazy) {
+void doBranchAndBoundWithUserCutsCplexCallable(const VPCParameters& params,
+    int strategy, CPXENVptr& env, CPXLPptr& lp, const OsiCuts* cuts, BBInfo& info,
+    const double best_bound, const bool addAsLazy,
+    std::vector<double>* const solution = NULL) {
   // Ensure that user cuts setting is enabled
-  const int strategy = GlobalVariables::param.getParamVal(ParamIndices::BB_STRATEGY_PARAM_IND);
-  if (!(strategy & BB_Strategy_Options::user_cuts)) {
+  if (!use_bb_option(strategy, BB_Strategy_Options::user_cuts)) {
     warning_msg(warnstring, "Need to use user_cuts option; strategy currently: %d.\n", strategy);
-    GlobalVariables::param.setParamVal(ParamIndices::BB_STRATEGY_PARAM_IND,
-        strategy | BB_Strategy_Options::user_cuts);
+    strategy = enable_bb_option(strategy, BB_Strategy_Options::user_cuts);
   }
 
   // Add user cuts
   if (cuts) {
-    const int num_cuts = cuts.sizeCuts();
+    const int num_cuts = cuts->sizeCuts();
     std::vector<CPXNNZ> cutbeg(num_cuts); // index where each cut starts
     std::vector<CPXDIM> cutind; // variables involved in each cut
     std::vector<double> cutval; // coefficients for the variabels in each cut
     std::vector<double> cutrhs(num_cuts); // rhs of each cut
     std::string cutsens = ""; // sense of each cut
     for (int cut_ind = 0; cut_ind < num_cuts; cut_ind++) {
-      const OsiRowCut* curr_cut = cuts.rowCutPtr(cut_ind);
+      const OsiRowCut* curr_cut = cuts->rowCutPtr(cut_ind);
       const int num_el = curr_cut->row().getNumElements();
       const int* ind = curr_cut->row().getIndices();
       const double* vals = curr_cut->row().getElements();
@@ -561,36 +602,53 @@ void doBranchAndBoundWithUserCutsCplexCallable(CPXENVptr& env, CPXLPptr& lp,
     }
   } /* ensure cuts is not NULL */
   // Continue in normal routine
-  doBranchAndBoundWithCplexCallable(env, lp, info); // does freeing
+  doBranchAndBoundWithCplexCallable(params, strategy, env, lp, info, best_bound, solution); // does freeing
 
-  GlobalVariables::param.setParamVal(ParamIndices::BB_STRATEGY_PARAM_IND, strategy);
+  /*TODO // Save information
+  info.root_passes = cb.info.root_passes;
+  if (info.root_passes > 0) {
+    info.first_cut_pass = cb.info.first_cut_pass; // second because first is lp opt val
+    info.last_cut_pass = cb.info.last_cut_pass;
+    info.root_time = cb.info.root_time;
+    info.last_sol_time = cb.info.last_sol_time;
+  } else {
+    info.first_cut_pass = info.obj;
+    info.last_cut_pass = info.obj;
+    info.root_time = info.time; // all time was spent at the root
+    info.last_sol_time = cb.info.last_sol_time; // roughly the same as total time in this case
+  }*/
 } /* doBranchAndBoundWithUserCutsCplexCallable (CPXenvptr) */
 
-void doBranchAndBoundWithCplexCallable(const char* f_name, BBInfo& info) {
+void doBranchAndBoundWithCplexCallable(const VPCParametersNamespace::VPCParameters& params, int strategy,
+    const char* f_name, BBInfo& info,
+    const double best_bound,
+    std::vector<double>* const solution) {
 #ifdef TRACE
   printf("\n## Reading from file into CPLEX (C). ##\n");
 #endif
   CPXENVptr env = NULL;
   CPXLPptr lp = NULL;
-  readFileIntoCplexCallable(f_name, env, lp);
-  const int strategy = GlobalVariables::param.getParamVal(ParamIndices::BB_STRATEGY_PARAM_IND);
-  if (strategy & BB_Strategy_Options::user_cuts) {
-    doBranchAndBoundWithUserCutsCplexCallable(env, lp, NULL, info, false); // add as lazy switch not available here
+  readFileIntoCplexCallable(params, f_name, env, lp);
+  if (use_bb_option(strategy, BB_Strategy_Options::user_cuts)) {
+    doBranchAndBoundWithUserCutsCplexCallable(params, strategy, env, lp, NULL, info, best_bound, false, solution); // add as lazy switch not available here
   } else {
-    doBranchAndBoundWithCplexCallable(env, lp, info); // does freeing
+    doBranchAndBoundWithCplexCallable(params, strategy, env, lp, info, best_bound, solution); // does freeing
   }
 } /* doBranchAndBoundWithCplexCallable (file) */
 
-void doBranchAndBoundWithCplexCallable(const OsiSolverInterface* const solver,
-    BBInfo& info) {
+void doBranchAndBoundWithCplexCallable(const VPCParametersNamespace::VPCParameters& params, int strategy,
+    const OsiSolverInterface* const solver, BBInfo& info,
+    const double best_bound,
+    std::vector<double>* const solution) {
   std::string f_name;
-  createTmpFileCopy(solver, f_name);
-  doBranchAndBoundWithCplexCallable(f_name.c_str(), info);
+  createTmpFileCopy(params, solver, f_name);
+  doBranchAndBoundWithCplexCallable(params, strategy, f_name.c_str(), info, best_bound, solution);
   remove(f_name.c_str());
 } /* doBranchAndBoundWithCplexCallable (Osi) */
 
-void doBranchAndBoundWithUserCutsCplexCallable(const char* f_name,
-    const OsiCuts* cuts, BBInfo& info, const bool addAsLazy) {
+void doBranchAndBoundWithUserCutsCplexCallable(const VPCParametersNamespace::VPCParameters& params, int strategy,
+    const char* f_name, const OsiCuts* cuts, BBInfo& info,
+    const double best_bound, const bool addAsLazy) {
 #ifdef TRACE
   printf("\n## Reading from file into CPLEX (C) and adding user cuts. ##\n");
 #endif
@@ -639,27 +697,28 @@ void doBranchAndBoundWithUserCutsCplexCallable(const char* f_name,
     exit(1);
   }
 
-  doBranchAndBoundWithUserCutsCplexCallable(env, lp, cuts, info, addAsLazy); // does freeing
+  doBranchAndBoundWithUserCutsCplexCallable(params, strategy, env, lp, cuts, info, best_bound, addAsLazy); // does freeing
 } /* doBranchAndBoundWithUserCutsCplexCallable (filename) */
 
-void doBranchAndBoundWithUserCutsCplexCallable(const OsiSolverInterface* const solver,
-    const OsiCuts& cuts, BBInfo& info, const bool addAsLazy) {
+void doBranchAndBoundWithUserCutsCplexCallable(const VPCParametersNamespace::VPCParameters& params, int strategy,
+    const OsiSolverInterface* const solver, const OsiCuts* cuts, BBInfo& info,
+    const double best_bound, const bool addAsLazy) {
   std::string f_name;
-  createTmpFileCopy(solver, f_name);
-  doBranchAndBoundWithUserCutsCplexCallable(f_name.c_str(), cuts, info, addAsLazy);
+  createTmpFileCopy(params, solver, f_name);
+  doBranchAndBoundWithUserCutsCplexCallable(params, strategy, f_name.c_str(), cuts, info, best_bound, addAsLazy);
   remove(f_name.c_str()); // remove temporary file
 } /* doBranchAndBoundWithUserCutsCplexCallable (Osi) */
 
+#ifdef USE_CPLEX_CONCERT
 // C++ interface
-#ifdef VPC_USE_CPLEX_CONCERT
 #include <ilcplex/ilocplex.h>
 ILOSTLBEGIN
 
-void setStrategyForBBTestCplexConcert(IloCplex& cplex,
-    const int seed = params.get(intConst::RANDOM_SEED),
-    const double best_bound = GlobalVariables::bestObjValue) {
+void setStrategyForBBTestCplexConcert(const VPCParameters& params, const int strategy,
+    IloCplex& cplex, const double best_bound, int seed = -1) {
+  if (seed < 0) seed = params.get(intParam::RANDOM_SEED);
   // Parameters that should always be set
-  cplex.setParam(IloCplex::Param::TimeLimit, GlobalVariables::param.getBB_TIMELIMIT()); // time limit
+  cplex.setParam(IloCplex::Param::TimeLimit, params.get(doubleConst::BB_TIMELIMIT)); // time limit
   cplex.setParam(IloCplex::Param::Threads, 1); // single-threaded
   cplex.setParam(IloCplex::Param::RandomSeed, seed); // random seed
 
@@ -737,7 +796,8 @@ void setStrategyForBBTestCplexConcert(IloCplex& cplex,
   }
 } /* setStrategyForBBTestCplexConcert */
 
-void doBranchAndBoundWithCplexConcert(IloEnv& env, IloModel& model, IloCplex& cplex,
+void doBranchAndBoundWithUserCutsCplexConcert(const VPCParametersNamespace::VPCParameters& params, int strategy,
+    IloEnv& env, IloModel& model, IloCplex& cplex,
     BBInfo& info) {
 #ifdef TRACE
   printf("\n## Running B&B with CPLEX (Concert). Strategy: %d. ##\n", param.getParamVal(ParamIndices::BB_STRATEGY_PARAM_IND));
@@ -839,15 +899,15 @@ void doBranchAndBoundWithCplexConcert(IloEnv& env, IloModel& model, IloCplex& cp
   env.end();
 } /* doBranchAndBoundWithCplexConcert (IloEnv, IloModel, IloCplex) */
 
-void doBranchAndBoundWithUserCutsCplexConcert(IloEnv& env, IloModel& model, IloCplex& cplex,
-    const OsiCuts* cuts, BBInfo& info, const bool addAsLazy) {
+void doBranchAndBoundWithUserCutsCplexConcert(const VPCParametersNamespace::VPCParameters& params, int strategy,
+    IloEnv& env, IloModel& model, IloCplex& cplex,
+    const OsiCuts* cuts, BBInfo& info, 
+    const double best_bound, const bool addAsLazy) {
   // Ensure that user cuts setting is enabled
-  const int strategy = GlobalVariables::param.getParamVal(ParamIndices::BB_STRATEGY_PARAM_IND);
-  if (!(strategy & BB_Strategy_Options::user_cuts)) {
+  if (!use_bb_option(strategy, BB_Strategy_Options::user_cuts)) {
     warning_msg(warnstring,
         "Need to use user_cuts option; strategy currently: %d.\n", strategy);
-    GlobalVariables::param.setParamVal(ParamIndices::BB_STRATEGY_PARAM_IND,
-        strategy | BB_Strategy_Options::user_cuts);
+    strategy = enable_bb_option(strategy, BB_Strategy_Options::user_cuts);
   }
 
 #ifdef TRACE
@@ -880,7 +940,7 @@ void doBranchAndBoundWithUserCutsCplexConcert(IloEnv& env, IloModel& model, IloC
       cplex_cuts.end();
     } /* check that cuts is not NULL */
 
-    doBranchAndBoundWithCplexConcert(env, model, cplex, info); // does freeing
+    doBranchAndBoundWithCplexConcert(params, strategy, env, model, cplex, info); // does freeing
   } catch (IloException& e) {
     error_msg(errorstring, "CPLEX (C++): Exception caught: %s.\n", e.getMessage());
     writeErrorToLog(errorstring, params.logfile);
@@ -890,8 +950,6 @@ void doBranchAndBoundWithUserCutsCplexConcert(IloEnv& env, IloModel& model, IloC
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }
-
-  GlobalVariables::param.setParamVal(ParamIndices::BB_STRATEGY_PARAM_IND, strategy);
 } /* doBranchAndBoundWithUserCutsCplexConcert (IloEnv, IloModel, IloCplex) */
 
 void doBranchAndBoundWithCplexConcert(const char* f_name, BBInfo& info) {
@@ -953,5 +1011,5 @@ void doBranchAndBoundWithUserCutsCplexConcert(const OsiSolverInterface* const so
   doBranchAndBoundWithUserCutsCplexConcert(f_name.c_str(), cuts, info, addAsLazy);
   remove(f_name.c_str()); // remove temporary file
 } /* doBranchAndBoundWithUserCutsCplexConcert (Osi) */
-#endif /* VPC_USE_CPLEX_CONCERT */
-#endif /* VPC_USE_CPLEX */
+#endif /* USE_CPLEX_CONCERT */
+#endif /* USE_CPLEX */

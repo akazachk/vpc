@@ -28,7 +28,7 @@
 #include "CutHelper.hpp"
 #include "Disjunction.hpp" // needed to access disjunction properties
 #include "DisjunctionHelper.hpp" // for custom disjunctions
-#include "preprocess.hpp"
+#include "preprocess.hpp" // performCleaning
 #include "SolverHelper.hpp"
 #include "SolverInterface.hpp"
 #include "VPCParameters.hpp"

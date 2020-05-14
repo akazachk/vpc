@@ -3,14 +3,18 @@
 
 ## User needs to define
 #PROJ_DIR="~/repos/vpc"
-CBC_VERSION="2.10"
+#CBC_VERSION="2.10"
 #CBC_VERSION="2.9"
+CBC_VERSION="trunk"
 ##CBC_REVISION="2352"
 #CBC_REVISION="2376"
-#CBC_URL="https://projects.coin-or.org/svn/Cbc/stable/${CBC_VERSION}"
-CBC_URL="https://projects.coin-or.org/svn/Cbc/trunk"
-#COIN_DIR_NAME="Cbc-${CBC_VERSION}"
-COIN_DIR_NAME="Cbc-trunk"
+if [ ${CBC_VERSION} == "trunk" ]
+then
+  CBC_URL="https://projects.coin-or.org/svn/Cbc/trunk"
+else
+  CBC_URL="https://projects.coin-or.org/svn/Cbc/stable/${CBC_VERSION}"
+fi
+COIN_DIR_NAME="Cbc-${CBC_VERSION}"
 #COIN_DIR_NAME="Cbc-${CBC_VERSION}r${CBC_REVISION}"
 
 USE_COINBREW=1
@@ -33,9 +37,12 @@ then
   cd $COIN_DIR
   wget https://raw.githubusercontent.com/coin-or/coinbrew/master/coinbrew
   chmod u+x coinbrew
-  #./coinbrew fetch Cbc:stable/2.9
-  #./coinbrew fetch Cbc:stable/2.10
-  ./coinbrew fetch Cbc
+  if [ ${CBC_VERSION} == "trunk" ]
+  then
+    ./coinbrew fetch Cbc
+  else
+    ./coinbrew fetch Cbc:stable/${CBC_VERSION}
+  fi
   #cp ${PROJ_DIR}/lib/CbcModel.* ${COIN_DIR}/Cbc/src/
   # -b: specify build directory
   # -p: install in same directory as build

@@ -4920,10 +4920,10 @@ void CbcModel::branchAndBound(int doStatistics)
       // Deterministic parallel
       if ((tree_->size() < CoinMax(numberThreads_, 8) || hotstartSolution_) && !goneParallel) {
         node = tree_->bestNode(cutoff);
-//#ifdef SAVE_NODE_INFO
+#ifdef SAVE_NODE_INFO
 	// Save parent node (for user)
 	parentNode_ = node;
-//#endif
+#endif
         // Possible one on tree worse than cutoff
         if (!node || node->objectiveValue() > cutoff)
           continue;

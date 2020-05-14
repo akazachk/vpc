@@ -93,12 +93,12 @@ template<class T> struct index_cmp_asc {
   std::cerr << str */
 
 #define error_msg(str, fmt, ...) \
-  char str[500]; \
+  char str[2028]; \
   snprintf(str, sizeof(str) / sizeof(char), "*** ERROR: %s:%d: " fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
   std::cerr << str
 
 #define warning_msg(str, fmt, ...) \
-  char str[500]; \
+  char str[2028]; \
   snprintf(str, sizeof(str) / sizeof(char), "*** WARNING: %s:%d: " fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
   std::cerr << str
 

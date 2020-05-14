@@ -2576,13 +2576,13 @@ public:
   {
     return currentNode_;
   }
-//#ifdef SAVE_NODE_INFO
+#ifdef SAVE_NODE_INFO
   /// Get a pointer to parent node (be very very careful)
   inline CbcNode *parentNode() const
   {
     return parentNode_;
   }
-//#endif
+#endif
   /// Delete a node and possibly null out currentNode_
   void deleteNode(CbcNode * node);
   /// Get a pointer to probing info

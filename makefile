@@ -29,6 +29,7 @@ BUILD_CONFIG = debug
 PROJ_DIR=${PWD}
 COIN_VERSION = 2.9r2376
 COIN_VERSION = 2.10
+COIN_VERSION = trunk
 COIN_OR = $(PROJ_DIR)/lib/Cbc-$(COIN_VERSION)
 ifeq ($(USER),otherperson)
   #COIN_OR = enter/dir/here
@@ -55,16 +56,16 @@ endif
 
 ifeq ($(USER),akazachk)
   ifeq ($(UNAME),Linux)
-	  COIN_OR = ${HOME}/projects/def-alodi/$(USER)/coin-or
-		COIN_OR = $(HOME)/scratch/coin-test
+	  #COIN_OR = ${HOME}/projects/def-alodi/$(USER)/coin-or
+		#COIN_OR = $(HOME)/scratch/coin-test
     GUROBI_LINK = gurobi90
-    GUROBI_DIR = ${GUROBI_HOME}
-    #CPLEX_DIR =
+    GUROBI_DIR = ${GUROBI_LOCAL}
+    CPLEX_DIR = ${CPLEX_HOME}
   endif
   ifeq ($(UNAME),Darwin)
-    GUROBI_LINK = gurobi81
-    GUROBI_DIR = /Library/gurobi811/mac64
-    CPLEX_DIR = /Applications/CPLEX_Studio129/cplex
+    GUROBI_LINK = gurobi90
+    GUROBI_DIR = /Library/gurobi902/mac64
+    CPLEX_DIR = /Applications/CPLEX_Studio1210/cplex
   endif
 endif
 
@@ -150,12 +151,18 @@ ifeq ($(USE_GUROBI),1)
 endif
 ifeq ($(USE_CPLEX),1)
   DEFS += -DIL_STD -DUSE_CPLEX
+  SOURCES += test/CplexHelper.cpp
+  CPLEX_INC = $(CPLEX_DIR)/include
+  CPLEX_LIB = $(CPLEX_DIR)/lib/$(SYSTEM)/static_pic
 endif
 ifeq ($(USE_CPLEX_SOLVER),1)
   DEFS += -DUSE_CPLEX_SOLVER
 endif
 ifeq ($(COIN_VERSION),2.10)
-  DEFS += -DCBC_VERSION_210PLUS
+  DEFS += -DCBC_VERSION_210PLUS -DSAVE_NODE_INFO
+endif
+ifeq ($(COIN_VERSION),trunk)
+  DEFS += -DCBC_VERSION_210PLUS -DSAVE_NODE_INFO
 endif
 
 EXECUTABLE = $(OUT_DIR)/$(EXECUTABLE_STUB)
@@ -229,11 +236,9 @@ ifeq ($(USE_GUROBI),1)
   APPLLIB   += -L${GUROBI_LIB} -lgurobi_c++ -l${GUROBI_LINK} -lm
 endif
 ifeq ($(USE_CPLEX),1)
-  CPLEX_INC_DIR   =  $(CPLEX_DIR)/include
-  CPLEX_LIB_DIR   =  $(CPLEX_DIR)/lib/$(SYSTEM)/static_pic
-  APPLINCLS      += -isystem "$(CPLEX_INC_DIR)"
-  APPLLIB        += -L${CPLEX_LIB_DIR} -lilocplex -lcplex -lm -lpthread -ldl
-  CXXLINKFLAGS   += -Wl,-rpath $(CPLEX_LIB_DIR)
+  APPLINCLS      += -isystem "$(CPLEX_INC)"
+  APPLLIB        += -L${CPLEX_LIB} -lilocplex -lcplex -lm -lpthread -ldl
+  CXXLINKFLAGS   += -Wl,-rpath $(CPLEX_LIB)
   #APPLLIB       += -lOsiCpx
 endif
 

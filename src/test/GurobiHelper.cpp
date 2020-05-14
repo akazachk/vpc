@@ -227,8 +227,9 @@ class GurobiUserCutCallback : public GRBCallback {
     } /* callback */
 }; /* class GurobiUserCutCallback */
 
-void presolveModelWithGurobi(const VPCParameters& params, int strategy, GRBModel& model,
-    double& presolved_opt, std::string& presolved_name, const double best_bound) {
+void presolveModelWithGurobi(const VPCParameters& params, int strategy, 
+    GRBModel& model, double& presolved_opt, std::string& presolved_name, 
+    const double best_bound) {
 //#ifdef TRACE
   printf("\n## Gurobi: Presolving model ##\n");
 //#endif
@@ -298,8 +299,9 @@ void presolveModelWithGurobi(const VPCParameters& params, int strategy,
   remove(f_name.c_str()); // remove temporary file
 } /* presolveModelWithGurobi (Osi) */
 
-void doBranchAndBoundWithGurobi(const VPCParameters& params, int strategy, GRBModel& model,
-    BBInfo& info, const double best_bound, std::vector<double>* const solution = NULL) {
+void doBranchAndBoundWithGurobi(const VPCParameters& params, int strategy,
+    GRBModel& model, BBInfo& info, const double best_bound, 
+    std::vector<double>* const solution = NULL) {
 //#ifdef TRACE
   printf("\n## Running B&B with Gurobi. Strategy: %d. Random seed: %d. ##\n",
       strategy, params.get(intParam::RANDOM_SEED));

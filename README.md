@@ -10,6 +10,8 @@ The code relies on [Cbc](https://github.com/coin-or/Cbc). It was extensively tes
 
 The user needs to export the shell variable `PROJ_DIR`, pointing to the repository location, or define it in `makefile`, `scripts/install_coin.sh`, `test/run_test.sh`, and possibly other locations.
 
+You may need to use a compatible version of `g++`, and make sure that the same compiler is used when running `install_coin.sh` and the one used to generate `libgurobi_c++.a`, which can be rebuilt in the `Gurobi` directory under `src/build`.
+
 ## Compilation
 
 There are two compilation modes: `debug` and `release`. These can be compiled with `make [debug or release]`, which create the executable `vpc` in a new subdirectory `Debug` or `Release` of the main folder.
