@@ -47,16 +47,14 @@ endif
 
 ifeq ($(USER),kazaalek)
   GUROBI_LINK = gurobi81
-	#GUROBI_DIR = /home/gurobi/8.1.0/linux64
-	GUROBI_DIR = ${HOME}/gurobi/8.1.0/linux64
-  CPLEX_DIR = /home/ibm/cplex-studio/12.9.0.0/cplex
+	GUROBI_DIR = ${HOME}/gurobi/9.0.0/linux64
+  CPLEX_DIR = /home/ibm/cplex-studio/12.10.0.0/cplex
 	COIN_OR = /local_workspace/$(USER)/coin-or/Cbc-$(COIN_VERSION)
 endif
 
 ifeq ($(USER),akazachk)
   ifeq ($(UNAME),Linux)
 	  COIN_OR = ${HOME}/projects/def-alodi/$(USER)/coin-or/Cbc-$(COIN_VERSION)
-		#COIN_OR = $(HOME)/scratch/coin-test
     GUROBI_LINK = gurobi90
     GUROBI_DIR = ${GUROBI_LOCAL}
     CPLEX_DIR = ${CPLEX_HOME}

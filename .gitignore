@@ -24,3 +24,6 @@ data/instances/*
 *.mps*
 test/
 lib/
+bin/
+results/
+doxygen/
