@@ -39,7 +39,7 @@ then
   chmod u+x coinbrew
   if [ ${CBC_VERSION} == "trunk" ]
   then
-    ./coinbrew fetch Cbc
+    ./coinbrew fetch Cbc:master
   else
     ./coinbrew fetch Cbc:stable/${CBC_VERSION}
   fi
