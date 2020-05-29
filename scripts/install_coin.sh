@@ -35,7 +35,7 @@ mkdir -p $COIN_DIR
 if [ ${USE_COINBREW} == "1" ]
 then
   cd $COIN_DIR
-  wget https://raw.githubusercontent.com/coin-or/coinbrew/master/coinbrew coinbrew
+  wget -N https://raw.githubusercontent.com/coin-or/coinbrew/master/coinbrew
   chmod u+x coinbrew
   if [ ${CBC_VERSION} == "trunk" ]
   then
