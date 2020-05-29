@@ -35,20 +35,21 @@ mkdir -p $COIN_DIR
 if [ ${USE_COINBREW} == "1" ]
 then
   cd $COIN_DIR
-  wget https://raw.githubusercontent.com/coin-or/coinbrew/master/coinbrew
+  wget https://raw.githubusercontent.com/coin-or/coinbrew/master/coinbrew coinbrew
   chmod u+x coinbrew
   if [ ${CBC_VERSION} == "trunk" ]
   then
     ./coinbrew fetch Cbc:master
   else
-    ./coinbrew fetch Cbc:stable/${CBC_VERSION}
+    ./coinbrew fetch Cbc:stable@${CBC_VERSION}
   fi
   #cp ${PROJ_DIR}/lib/CbcModel.* ${COIN_DIR}/Cbc/src/
   # -b: specify build directory
   # -p: install in same directory as build
-  #./coinbrew build install Cbc --no-prompt -b build -p --test --with-cplex=false CXXDEFS="-DSAVE_NODE_INFO" CDEFS="-DSAVE_NODE_INFO" ADD_CXXFLAGS="-DSAVE_NODE_INFO"
-  ./coinbrew build install Cbc -b build -p --no-prompt --test --with-cplex=false ADD_CXXFLAGS="-DSAVE_NODE_INFO"
-  ./coinbrew build install Cbc -b buildg -p --no-prompt --test --with-cplex=false --enable-debug ADD_CXXFLAGS="-DSAVE_NODE_INFO"
+  #./coinbrew build install Cbc -b build -p --no-prompt --test --with-cplex=false ADD_CXXFLAGS="-DSAVE_NODE_INFO"
+  #./coinbrew build install Cbc -b buildg -p --no-prompt --test --with-cplex=false --enable-debug ADD_CXXFLAGS="-DSAVE_NODE_INFO"
+  ./coinbrew build install Cbc -b build -p --no-prompt --test ADD_CXXFLAGS="-DSAVE_NODE_INFO"
+  #./coinbrew build install Cbc -b buildg -p --no-prompt --test --enable-debug ADD_CXXFLAGS="-DSAVE_NODE_INFO"
 else
   ## Ignore below unless you wish to use OsiCpxSolverInterface
   #UNAME=`uname`
@@ -73,7 +74,7 @@ else
     svn co -r ${CBC_REVISION} $CBC_URL $COIN_DIR
   fi
   cd $COIN_DIR
-  cp ${PROJ_DIR}/lib/CbcModel.* ${COIN_DIR}/Cbc/src/
+  #cp ${PROJ_DIR}/lib/CbcModel.* ${COIN_DIR}/Cbc/src/
 
   mkdir -p build
   cd build
