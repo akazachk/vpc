@@ -39,9 +39,9 @@ then
   chmod u+x coinbrew
   if [ ${CBC_VERSION} == "trunk" ]
   then
-    ./coinbrew fetch Cbc:master
+    ./coinbrew fetch Cbc@master
   else
-    ./coinbrew fetch Cbc:stable@${CBC_VERSION}
+    ./coinbrew fetch Cbc@${CBC_VERSION}
   fi
   # -b: specify build directory
   # -p: install in same directory as build
