@@ -20,12 +20,12 @@ COIN_DIR_NAME="Cbc-${CBC_VERSION}"
 USE_COINBREW=1
 
 ## Check settings
-if [ -z "$PROJ_DIR" ]
-  then echo "Need to define PROJ_DIR. Exiting."
-  exit
-fi
 if [ -z "$1" ]
 then
+  if [ -z "$PROJ_DIR" ]
+    then echo "Need to define PROJ_DIR. Exiting."
+    exit
+  fi
   COIN_DIR="${PROJ_DIR}/lib/${COIN_DIR_NAME}"
 else
   COIN_DIR="${1}/${COIN_DIR_NAME}"
@@ -43,7 +43,6 @@ then
   else
     ./coinbrew fetch Cbc:stable@${CBC_VERSION}
   fi
-  #cp ${PROJ_DIR}/lib/CbcModel.* ${COIN_DIR}/Cbc/src/
   # -b: specify build directory
   # -p: install in same directory as build
   #./coinbrew build install Cbc -b build -p --no-prompt --test --with-cplex=false ADD_CXXFLAGS="-DSAVE_NODE_INFO"
@@ -74,7 +73,6 @@ else
     svn co -r ${CBC_REVISION} $CBC_URL $COIN_DIR
   fi
   cd $COIN_DIR
-  #cp ${PROJ_DIR}/lib/CbcModel.* ${COIN_DIR}/Cbc/src/
 
   mkdir -p build
   cd build
