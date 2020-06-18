@@ -48,7 +48,7 @@ then
   #./coinbrew build install Cbc -b build -p --no-prompt --test --with-cplex=false ADD_CXXFLAGS="-DSAVE_NODE_INFO"
   #./coinbrew build install Cbc -b buildg -p --no-prompt --test --with-cplex=false --enable-debug ADD_CXXFLAGS="-DSAVE_NODE_INFO"
   ./coinbrew build install Cbc -b build -p --no-prompt --test ADD_CXXFLAGS="-DSAVE_NODE_INFO"
-  #./coinbrew build install Cbc -b buildg -p --no-prompt --test --enable-debug ADD_CXXFLAGS="-DSAVE_NODE_INFO"
+  ./coinbrew build install Cbc -b buildg -p --no-prompt --test --enable-debug ADD_CXXFLAGS="-DSAVE_NODE_INFO"
 else
   ## Ignore below unless you wish to use OsiCpxSolverInterface
   #UNAME=`uname`

@@ -23,12 +23,13 @@ RM = rm -f
 # Can also be chosen through make "BUILD_CONFIG=XX" from command line 
 # Or one can call make debug or make release directly
 BUILD_CONFIG = release
-BUILD_CONFIG = debug
+#BUILD_CONFIG = debug
 
 ### Variables user should set ###
 PROJ_DIR=${PWD}
-COIN_VERSION = 2.9r2376
-COIN_VERSION = 2.10
+#COIN_VERSION = 2.9
+#COIN_VERSION = 2.9r2376
+#COIN_VERSION = 2.10
 COIN_VERSION = trunk
 COIN_OR = $(PROJ_DIR)/lib/Cbc-$(COIN_VERSION)
 ifeq ($(USER),otherperson)
@@ -310,7 +311,7 @@ DEPENDENCIES = $(OUT_OBJECTS:.o=.d)
 #		print print_dep \
 #		archive_debug archive_release archive
 
-.PHONY = all clean directories distclean doxygen print
+.PHONY = all clean directories distclean doxygen print test
 
 ### Docs ###
 doxygen: FORCE
@@ -341,6 +342,12 @@ dir_lib_%: FORCE
 	@$(MAKE) dir_lib "BUILD_CONFIG=$*"
 dir_lib: FORCE
 	$(MKDIR_P) $(LIB_DIR)
+
+test_%: FORCE
+	@$(MAKE) test "BUILD_CONFIG=$*"
+test: FORCE
+	@$(EXECUTABLE) -f test/bm23.mps -d 2
+
 print: FORCE
 	$(info UNAME: ${UNAME})
 	$(info CC: ${CC})
