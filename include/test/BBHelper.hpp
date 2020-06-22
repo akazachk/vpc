@@ -51,16 +51,16 @@ inline int disable_bb_option(const int strategy, const BB_Strategy_Options optio
 }
 
 struct BBInfo {
-  double obj = 0.;
-  double bound = 0.;
-  long iters = 0;
-  long nodes = 0;
-  long root_passes = 0;
-  double first_cut_pass = 0.;
-  double last_cut_pass = 0.;
-  double root_time = 0.;
-  double last_sol_time = 0.;
-  double time = 0.;
+  double obj = 0.; // objective value of best IP-feasible solution
+  double bound = 0.; // best dual bound found (best objective of any leaf node)
+  long iters = 0; // # iters to solve the instance
+  long nodes = 0; // # nodes to solve the instance
+  long root_passes = 0; // # passes of cuts at the root node
+  double first_cut_pass = 0.; // bound after one round of cuts at the root
+  double last_cut_pass = 0.; // bound after last round of cuts at the root
+  double root_time = 0.; // time spent at the root node
+  double last_sol_time = 0.; // time that best IP-feasible solution was found
+  double time = 0.; // total time to solve the instance
 }; /* BBInfo */
 enum BBInfoEnum {
   OBJ_BB_INFO_IND,
