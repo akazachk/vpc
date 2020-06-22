@@ -23,7 +23,7 @@ RM = rm -f
 # Can also be chosen through make "BUILD_CONFIG=XX" from command line 
 # Or one can call make debug or make release directly
 BUILD_CONFIG = release
-#BUILD_CONFIG = debug
+BUILD_CONFIG = debug
 
 ### Variables user should set ###
 PROJ_DIR=${PWD}
