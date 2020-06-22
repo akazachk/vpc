@@ -1,7 +1,8 @@
-// Name:     VPCParameters.hpp
-// Author:   A. M. Kazachkov
-// Date:     2019-Feb-20
-//-----------------------------------------------------------------------------
+/**
+ * @file VPCParameters.hpp
+ * @author A. M. Kazachkov
+ * @date 2019-Feb-20
+ */
 #pragma once
 
 /********************************************************************************************************************
@@ -41,6 +42,7 @@ enum intParam {
   // node comparison decision => ones digit: 0: default: 1: bfs, 2: depth, 3: estimate, 4: objective
   PARTIAL_BB_STRATEGY,
   PARTIAL_BB_NUM_STRONG, // -1: num cols, -2: sqrt(num cols), >= 0: that many
+  PREPROCESS, // 0: off, 1: on
   PRLP_FLIP_BETA, // controls rhs in nb space, -1: do not cut away LP opt, 0: cut away LP opt, 1: both
   ROUNDS, // number of VPC rounds to do
   STRENGTHEN, // 0: no, 1: yes, when possible, 2: same as 1 plus add GMICs to strengthen each disjunctive term
@@ -72,7 +74,7 @@ enum intParam {
   //  heuristics_on = 4096,
   //  use_best_bound = 8192,
   //  strong_branching_on = 16384
-  BB_STRATEGY, // bit vector; sum of above bits
+  BB_STRATEGY, // bit vector; sum of above bits, default: 10776
   BB_MODE, // 111: each bit represents whether to branch with gmics, vpcs, and no cuts (from largest to smallest bit)
   NUM_INT_PARAMS
 }; /* intParam */
@@ -139,7 +141,7 @@ enum class doubleConst {
 enum class TempOptions {
   NONE = 0,
   PREPROCESS = 1,
-  PREPROCESS_CUSTOM = 2,
+  PREPROCESS_CUSTOM = 2, // preprocess using solver + do own cleaning process
   CHECK_CUTS_AGAINST_BB_OPT = 3,
   CALC_NUM_GOMORY_ROUNDS_TO_MATCH = 4,
   // Options for generating tikz string
@@ -347,7 +349,7 @@ struct VPCParameters {
     {intParam::BB_MODE,
         IntParameter(intParam::BB_MODE, "BB_MODE",
             10, 0, 111)},
-    // BB_STRATEGY: see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 1, user_cuts: 1, presolve_off: 1, heuristics_off: 1, use_best_bound: 1
+    // BB_STRATEGY: see BBHelper.hpp; 10776 = 010101000011000 => gurobi: 8, user_cuts: 16, presolve_off: 512, heuristics_off: 2048, use_best_bound: 8192
     {intParam::BB_STRATEGY,
         IntParameter(intParam::BB_STRATEGY, "BB_STRATEGY",
             10776, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
@@ -396,6 +398,9 @@ struct VPCParameters {
     {intParam::PRLP_FLIP_BETA,
         IntParameter(intParam::PRLP_FLIP_BETA, "PRLP_FLIP_BETA",
             0, -1, 1)},
+    {intParam::PREPROCESS,
+            IntParameter(intParam::PREPROCESS, "PREPROCESS",
+                0, 0, 1)},
     {intParam::PARTIAL_BB_NUM_STRONG,
         IntParameter(intParam::PARTIAL_BB_NUM_STRONG, "PARTIAL_BB_NUM_STRONG",
             5, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
