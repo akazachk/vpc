@@ -58,6 +58,7 @@ void setStrategyForBBTestCplexCallable(const VPCParameters& params, const int st
     status += CPXXsetintparam(env, CPXPARAM_ScreenOutput, CPX_OFF);
   } else {
     status += CPXXsetintparam(env, CPXPARAM_ScreenOutput, CPX_ON);
+    status += CPXXsetintparam(env, CPXPARAM_MIP_Display, 3);
     status += CPXXsetintparam(env, CPXPARAM_MIP_Interval, 1);
   }
 
@@ -65,15 +66,15 @@ void setStrategyForBBTestCplexCallable(const VPCParameters& params, const int st
     // Default strategy
   } else {
     if (use_bb_option(strategy, BB_Strategy_Options::user_cuts)) {
-      status += CPXXsetlongparam(env, CPXPARAM_MIP_Strategy_Search, CPX_MIPSEARCH_TRADITIONAL); // disable dynamic search
+      //status += CPXXsetlongparam(env, CPXPARAM_MIP_Strategy_Search, CPX_MIPSEARCH_TRADITIONAL); // disable dynamic search
       status += CPXXsetlongparam(env, CPXPARAM_Preprocessing_Linear, 0); // disable this so that presolve does not discard user cuts during preprocessing
-      status += CPXXsetlongparam(env, CPXPARAM_Preprocessing_Reduce, CPX_PREREDUCE_PRIMALONLY); // disable dual reductions
+      //status += CPXXsetlongparam(env, CPXPARAM_Preprocessing_Reduce, CPX_PREREDUCE_PRIMALONLY); // disable dual reductions
     }
 
     // Turn off all cuts
     if (use_bb_option(strategy, BB_Strategy_Options::all_cuts_off)) {
       //status += CPXXsetdblparam(env, CPXPARAM_MIP_Limits_CutsFactor, 0);
-      //status += CPXXsetlongparam(env, CPXPARAM_MIP_Limits_CutPasses, -1);
+//      status += CPXXsetlongparam(env, CPXPARAM_MIP_Limits_CutPasses, -1);
       //status += CPXXsetlongparam(env, CPXPARAM_MIP_Limits_EachCutLimit, 0); // all but Gomory
       status += CPXXsetlongparam(env, CPXPARAM_MIP_Cuts_BQP, -1);
       status += CPXXsetlongparam(env, CPXPARAM_MIP_Cuts_Cliques, -1);
@@ -117,6 +118,8 @@ void setStrategyForBBTestCplexCallable(const VPCParameters& params, const int st
         status += CPXXsetdblparam(env, CPXPARAM_MIP_Tolerances_UpperCutoff, best_bound - 1e-7); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
       }
     }
+
+    // TODO Add MIP start
   } /* strategy > 0 */
 
   // Check if we should use strong branching
@@ -177,11 +180,147 @@ void readFileIntoCplexCallable(const VPCParameters& params,
   /* Now read the file, and copy the data into the created lp */
   status = CPXXreadcopyprob (env, lp, f_name, NULL);
   if ( status ) {
-    error_msg(errorstring, "CPLEX (C): Failed to read and copy the problem data.\n");
+    error_msg(errorstring, "CPLEX (C): Failed to read and copy the problem data from %s.\n", f_name);
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }
 } /* readFileIntoCplexCallable */
+
+/**
+ * CPLEX callback to get root node information that we need
+ *
+ * user cut callback -> query bound, number of cuts in problem, node LP (# cuts, bound), number of times we see a loop whereFrom = number of root passes?
+ * whereFrom = loop during cut loop
+ * whereFrom = last -> after CPLEX gives up
+ */
+int CPXPUBLIC logcallback(CPXCENVptr env, void *cbdata,
+    int wherefrom, void *cbhandle) {
+  int status = 0;
+
+  BBInfo *info = (BBInfo*) cbhandle;
+//  int nodenum = 0;
+  int hasincumbent = 0;
+  double objval = 0.;
+//  double objbound = 0.;
+  double start_time = 0;
+  double end_time = 0;
+//  int numiter = 0;
+
+  int cb = 0;
+
+//  cb = CPX_CALLBACK_INFO_NODE_COUNT;
+//  status = CPXXgetcallbackinfo(env, cbdata, wherefrom, cb, &nodenum);
+//  if (status) {
+//    error_msg(errorstring, "CPLEX (C): Error %d while querying callback %d.\n",
+//        status, cb);
+//    return status;
+//  }
+
+//  cb = CPX_CALLBACK_INFO_BEST_REMAINING;
+//  status = CPXXgetcallbackinfo(env, cbdata, wherefrom, cb, &objbound);
+//  if (status) {
+//    error_msg(errorstring, "CPLEX (C): Error %d while querying callback %d.\n",
+//        status, cb);
+//    return status;
+//  }
+
+//  cb = CPX_CALLBACK_INFO_MIP_ITERATIONS;
+//  status = CPXXgetcallbackinfo(env, cbdata, wherefrom, cb, &numiter);
+//  if (status) {
+//    error_msg(errorstring, "CPLEX (C): Error %d while querying callback %d.\n",
+//        status, cb);
+//    return status;
+//  }
+
+  cb = CPX_CALLBACK_INFO_MIP_FEAS;
+  status = CPXXgetcallbackinfo(env, cbdata, wherefrom, cb, &hasincumbent);
+  if (status) {
+    error_msg(errorstring, "CPLEX (C): Error %d while querying callback %d.\n",
+        status, cb);
+    return CPX_CALLBACK_DEFAULT;
+  }
+
+  if (hasincumbent) {
+    cb = CPX_CALLBACK_INFO_BEST_INTEGER;
+    status = CPXXgetcallbackinfo(env, cbdata, wherefrom, cb, &objval);
+    if (status) {
+      error_msg(errorstring, "CPLEX (C): Error %d while querying callback %d.\n", status, cb);
+      return CPX_CALLBACK_DEFAULT;
+    }
+
+    if (std::abs(info->obj - objval) > 1e-7) {
+      info->obj = objval;
+
+      cb = CPX_CALLBACK_INFO_STARTTIME;
+      status = CPXXgetcallbackinfo(env, cbdata, wherefrom, cb, &start_time);
+      if (status) {
+        error_msg(errorstring,
+            "CPLEX (C): Error %d while querying callback %d.\n", status, cb);
+        return CPX_CALLBACK_DEFAULT;
+      }
+      CPXXgettime(env, &end_time);
+      info->last_sol_time = end_time - start_time;
+    }
+  }
+
+  return status;
+} /* logcallback */
+
+int CPXPUBLIC usercutcallback(CPXCENVptr env, void *cbdata, int wherefrom,
+    void *cbhandle, int *useraction_p) {
+  int status = 0;
+
+  BBInfo* info = (BBInfo*) cbhandle;
+  int nodenum = 0;
+  double objbound = 0.;
+  double start_time = 0.;
+  double end_time = 0.;
+
+  int cb = CPX_CALLBACK_INFO_NODE_COUNT;
+  status = CPXXgetcallbackinfo(env, cbdata, wherefrom, cb, &nodenum);
+  if (status) {
+    error_msg(errorstring, "CPLEX (C): Error %d while querying callback %d.\n",
+        status, cb);
+    return CPX_CALLBACK_DEFAULT;
+  }
+
+  if (nodenum > 1)
+    return CPX_CALLBACK_DEFAULT;
+
+  cb = CPX_CALLBACK_INFO_BEST_REMAINING;
+  status = CPXXgetcallbackinfo(env, cbdata, wherefrom, cb, &objbound);
+  if (status) {
+    error_msg(errorstring, "CPLEX (C): Error %d while querying callback %d.\n",
+        status, cb);
+    return CPX_CALLBACK_DEFAULT;
+  }
+
+  if (info->root_passes == 1 && isInfinity(std::abs(info->first_cut_pass))) {
+    info->first_cut_pass = objbound;
+  }
+
+  if (nodenum == 0 && wherefrom == CPX_CALLBACK_MIP_CUT_LOOP) {
+    info->root_passes++;
+  }
+
+  if (nodenum <= 1 && wherefrom == CPX_CALLBACK_MIP_CUT_LAST && isInfinity(std::abs(info->last_cut_pass))) {
+    if (isInfinity(std::abs(info->first_cut_pass))) {
+      info->first_cut_pass = objbound;
+    }
+    info->last_cut_pass = objbound;
+    cb = CPX_CALLBACK_INFO_STARTTIME;
+    status = CPXXgetcallbackinfo(env, cbdata, wherefrom, cb, &start_time);
+    if (status) {
+      error_msg(errorstring,
+          "CPLEX (C): Error %d while querying callback %d.\n", status, cb);
+      return CPX_CALLBACK_DEFAULT;
+    }
+    CPXXgettime(env, &end_time);
+    info->root_time = end_time - start_time;
+  }
+
+  return CPX_CALLBACK_DEFAULT;
+} /* usercutcallback */
 
 void presolveModelWithCplexCallable(const VPCParameters& params, int strategy, 
     CPXENVptr& env, CPXLPptr& lp, double& presolved_opt, std::string& presolved_name,
@@ -207,6 +346,23 @@ void presolveModelWithCplexCallable(const VPCParameters& params, int strategy,
   }
   if (presolved_name.empty()) {
     error_msg(errorstring, "Could not generate temp file.\n");
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
+
+  status = CPXXsetintparam (env, 2133, 1); // secret parameter to stop after whole presolve loop
+  if ( status ) {
+    error_msg(errorstring,
+        "CPLEX (C): Failure to set mip iteration limit, status =  %d.\n", status);
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
+
+  status = CPXXmipopt (env, lp);
+  if ( status ) {
+    error_msg(errorstring,
+        "CPLEX (C): Failed to optimize MIP with mipopt, status =  %d.\n",
+        status);
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }
@@ -478,14 +634,14 @@ void doBranchAndBoundWithCplexCallable(const VPCParameters& params, int strategy
     }
     case CPXMIP_TIME_LIM_INFEAS: {
       status += CPXXgetobjval (env, lp, &info.obj);
-      status += CPXXgetbestobjval (env, lp, &info.obj);
+      status += CPXXgetbestobjval (env, lp, &info.bound);
       break;
     }
     case CPXMIP_OPTIMAL_TOL: {
     }
     case CPXMIP_OPTIMAL: {
       status += CPXXgetobjval (env, lp, &info.obj);
-      status += CPXXgetbestobjval (env, lp, &info.obj);
+      status += CPXXgetbestobjval (env, lp, &info.bound);
       break;
     }
     default: {
@@ -591,6 +747,7 @@ void doBranchAndBoundWithUserCutsCplexCallable(const VPCParameters& params,
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
     }
+    // TODO Save in SAV format
 
     if (addAsLazy) {
       status = CPXXaddlazyconstraints(env, lp, cutbeg.size(), cutind.size(), cutrhs.data(), cutsens.c_str(), cutbeg.data(), cutind.data(), cutval.data(), NULL);
@@ -601,22 +758,34 @@ void doBranchAndBoundWithUserCutsCplexCallable(const VPCParameters& params,
       }
     }
   } /* ensure cuts is not NULL */
+
+  // Add callback to get root_passes, etc.
+  info.first_cut_pass = -1. * params.get(doubleConst::INF);
+  info.last_cut_pass = -1. * params.get(doubleConst::INF);
+  int status = CPXXsetinfocallbackfunc (env, logcallback, &info)
+    || CPXXsetusercutcallbackfunc (env, usercutcallback, &info);
+//  int status = CPXXsetnodecallbackfunc (env, logcallback, &info);
+  if (status) {
+    error_msg(errorstring, "CPLEX (C): Error callback function. Error: %d.\n", status);
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
+
   // Continue in normal routine
   doBranchAndBoundWithCplexCallable(params, strategy, env, lp, info, best_bound, solution); // does freeing
 
-  /*TODO // Save information
-  info.root_passes = cb.info.root_passes;
-  if (info.root_passes > 0) {
-    info.first_cut_pass = cb.info.first_cut_pass; // second because first is lp opt val
-    info.last_cut_pass = cb.info.last_cut_pass;
-    info.root_time = cb.info.root_time;
-    info.last_sol_time = cb.info.last_sol_time;
-  } else {
+  if (info.root_passes == 0) {
     info.first_cut_pass = info.obj;
     info.last_cut_pass = info.obj;
     info.root_time = info.time; // all time was spent at the root
-    info.last_sol_time = cb.info.last_sol_time; // roughly the same as total time in this case
-  }*/
+  }
+#ifdef TRACE
+  printf("CPLEX (C): Root passes: %ld.\n", info.root_passes);
+  printf("CPLEX (C): First cut pass: %f.\n", info.first_cut_pass);
+  printf("CPLEX (C): Last cut pass: %f.\n", info.last_cut_pass);
+  printf("CPLEX (C): Root time: %f.\n", info.root_time);
+  printf("CPLEX (C): Last sol time: %f. \n", info.last_sol_time);
+#endif
 } /* doBranchAndBoundWithUserCutsCplexCallable (CPXenvptr) */
 
 void doBranchAndBoundWithCplexCallable(const VPCParametersNamespace::VPCParameters& params, int strategy,
@@ -1013,3 +1182,104 @@ void doBranchAndBoundWithUserCutsCplexConcert(const OsiSolverInterface* const so
 } /* doBranchAndBoundWithUserCutsCplexConcert (Osi) */
 #endif /* USE_CPLEX_CONCERT */
 #endif /* USE_CPLEX */
+
+
+
+
+
+//static int CPXPUBLIC logcallback(CPXCENVptr env, void *cbdata, int wherefrom,
+//    void *cbhandle) {
+//  int status = 0;
+//
+//  VPCParameters params;
+//  int num_vars;
+//  double obj_offset;
+//  const OsiCuts* cuts;
+//  bool addAsLazy;
+//  double first_lp_opt;
+//  BBInfo info;
+//
+//  LOGINFOptr info = (LOGINFOptr) cbhandle;
+//  int        hasincumbent = 0;
+//  int        newincumbent = 0;
+//  CPXCNT     nodecnt;
+//  CPXCNT     nodesleft;
+//  double     objval;
+//  double     bound;
+//  double     *x = NULL;
+//
+//
+//  status = CPXXgetcallbackinfo (env, cbdata, wherefrom,
+//                               CPX_CALLBACK_INFO_NODE_COUNT_LONG, &nodecnt);
+//  if ( status )  goto TERMINATE;
+//
+//  status = CPXXgetcallbackinfo (env, cbdata, wherefrom,
+//                               CPX_CALLBACK_INFO_NODES_LEFT_LONG, &nodesleft);
+//  if ( status )  goto TERMINATE;
+//
+//  status = CPXXgetcallbackinfo (env, cbdata, wherefrom,
+//                               CPX_CALLBACK_INFO_MIP_FEAS, &hasincumbent);
+//  if ( status )  goto TERMINATE;
+//
+//  if ( hasincumbent ) {
+//     status = CPXXgetcallbackinfo (env, cbdata, wherefrom,
+//                                  CPX_CALLBACK_INFO_BEST_INTEGER, &objval);
+//     if ( status )  goto TERMINATE;
+//
+//     if ( fabs(info->lastincumbent - objval) > 1e-5*(1.0 + fabs(objval)) ) {
+//        newincumbent = 1;
+//        info->lastincumbent = objval;
+//     }
+//  }
+//
+//
+//  if ( nodecnt >= info->lastlog + 100  ||  newincumbent ) {
+//     double walltime;
+//     double dettime;
+//
+//     status = CPXXgetcallbackinfo (env, cbdata, wherefrom,
+//                                  CPX_CALLBACK_INFO_BEST_REMAINING, &bound);
+//     if ( status )  goto TERMINATE;
+//
+//     if ( !newincumbent )  info->lastlog = nodecnt;
+//
+//     status = CPXXgettime (env, &walltime);
+//     if ( status )  goto TERMINATE;
+//
+//     status = CPXXgetdettime (env, &dettime);
+//     if ( status )  goto TERMINATE;
+//
+//     printf ("Time = %.2f  Dettime = %.2f  Nodes = %lld(%lld)  "
+//             "Best objective = %g",
+//             walltime - info->timestart, dettime - info->dettimestart,
+//             nodecnt, nodesleft, bound);
+//     if ( hasincumbent )  printf ("  Incumbent objective = %g\n", objval);
+//     else                 printf ("\n");
+//  }
+//
+//  if ( newincumbent ) {
+//     int j;
+//     CPXDIM numcols = info->numcols;
+//
+//     x = malloc (numcols*sizeof(*x));
+//     if ( x == NULL ) {
+//        status = CPXERR_NO_MEMORY;
+//        goto TERMINATE;
+//     }
+//     status = CPXXgetcallbackincumbent (env, cbdata, wherefrom,
+//                                       x, 0, numcols-1);
+//     if ( status )  goto TERMINATE;
+//
+//     printf ("New incumbent values:\n");
+//     for (j = 0; j < numcols; j++) {
+//        if ( fabs(x[j]) > 1e-6 ) {
+//           printf ("  Column %d:  %g\n", j, x[j]);
+//        }
+//     }
+//  }
+//
+//TERMINATE:
+//
+//  free_and_null ((char **) &x);
+//  return (status);
+//} /* logcallback */

@@ -38,6 +38,9 @@ using namespace VPCParametersNamespace;
 #ifdef USE_GUROBI
 #include "GurobiHelper.hpp"
 #endif
+#ifdef USE_CPLEX
+#include "CplexHelper.hpp"
+#endif
 
 /**
  * Solver is changed unless we are doing row/col permutations
@@ -229,13 +232,45 @@ void runBBTests(const VPCParametersNamespace::VPCParameters& base_params, Summar
       }
 #endif // USE_GUROBI
     } else if (use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::cplex)) {
-//#ifdef USE_CPLEX
-//      doBranchAndBoundWithUserCutsCplexCallable(
-//          GlobalVariables::in_f_name.c_str(), &structVPC, vec_bb_info_mycuts[run_ind]);
-//      doBranchAndBoundWithUserCutsCplexCallable(
-//          GlobalVariables::in_f_name.c_str(), &SICsAndVPCs,
-//          vec_bb_info_allcuts[run_ind]);
-//#endif // USE_CPLEX
+#ifdef USE_CPLEX
+      if (params.get(TEMP) == static_cast<int>(TempOptions::CHECK_CUTS_AGAINST_BB_OPT) && num_vpcs > 0) {
+        // Get the original solution
+        BBInfo tmp_bb_info;
+        std::vector<double> solution;
+        doBranchAndBoundWithCplexCallable(params, params.get(BB_STRATEGY),
+            fullfilename.c_str(), tmp_bb_info, best_bound, &solution);
+
+        // Check cuts
+        for (int cut_ind = 0; cut_ind < num_vpcs; cut_ind++) {
+          OsiRowCut currCut = vpcs->rowCut(cut_ind);
+          const double rhs = currCut.rhs();
+          const int num_el = currCut.row().getNumElements();
+          const int* ind = currCut.row().getIndices();
+          const double* el = currCut.row().getElements();
+          const double activity = dotProduct(num_el, ind, el, solution.data());
+
+          if (lessThanVal(activity, rhs)) {
+            warning_msg(warnstring, "Cut %d removes optimal solution. Activity: %.10f. Rhs: %.10f.\n", cut_ind, activity, rhs);
+          }
+        }
+      } // checking cuts for violating the IP opt
+      if (branch_with_no_cuts) {
+        // NB: If user cuts is not explicitly set, this is WITHOUT user cuts
+        doBranchAndBoundWithCplexCallable(params, params.get(BB_STRATEGY),
+            fullfilename.c_str(), info_nocuts->vec_bb_info[run_ind],
+            best_bound);
+      }
+      if (branch_with_vpcs) {
+        doBranchAndBoundWithUserCutsCplexCallable(params, params.get(BB_STRATEGY),
+            fullfilename.c_str(), vpcs, info_mycuts->vec_bb_info[run_ind],
+            best_bound);
+      }
+      if (branch_with_gmics) {
+        doBranchAndBoundWithUserCutsCplexCallable(params, params.get(BB_STRATEGY),
+            fullfilename.c_str(), &GMICsAndVPCs,
+            info_allcuts->vec_bb_info[run_ind], best_bound);
+      }
+#endif // USE_CPLEX
     } else if (use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::cbc)) {
       if (branch_with_no_cuts) {
         doBranchAndBoundNoCuts(params, runSolver, info_nocuts->vec_bb_info[run_ind]);

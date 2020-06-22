@@ -76,9 +76,9 @@ void performCleaning(const VPCParametersNamespace::VPCParameters& params,
 #ifdef USE_GUROBI
   if (use_bb_option(strategy, BB_Strategy_Options::gurobi)) {
 #ifdef TRACE
-    printf("Presolve model with Gurobi.\n");
+    printf("\n## Presolve model with Gurobi. ##\n");
 #endif
-    presolveModelWithGurobi(params, strategy, filename.c_str(),
+    presolveModelWithGurobi(params, strategy, params.get(stringParam::FILENAME).c_str(),
         presolvedLPOpt, presolved_name_stub, ip_obj); // returns mps.gz
     cleanedSolver->readMps(presolved_name_stub.c_str());
 
@@ -140,9 +140,9 @@ void performCleaning(const VPCParametersNamespace::VPCParameters& params,
 #ifdef USE_CPLEX
   if (use_bb_option(strategy, BB_Strategy_Options::cplex)) {
 #ifdef TRACE
-    printf("Presolve model with CPLEX.\n");
+    printf("\n## Presolve model with CPLEX. ##\n");
 #endif
-    presolveModelWithCplexCallable(params, strategy, filename.c_str(),
+    presolveModelWithCplexCallable(params, strategy, params.get(stringParam::FILENAME).c_str(),
         presolvedLPOpt, presolved_name_stub, ip_obj); // returns mps.gz
     cleanedSolver->readMps(presolved_name_stub.c_str());
 
@@ -240,9 +240,9 @@ void performCleaning(const VPCParametersNamespace::VPCParameters& params,
       || (cleanedNumNonZero != origNumNonZero);
   if (cleanedNumNonZero > 0 && was_cleaned) {
 #ifdef TRACE
-    printf("Performing branch-and-bound on cleaned instance.\n");
+    printf("\n## Performing branch-and-bound on cleaned instance. ##\n");
 #endif
-    runBBTests(params, &cleaned_info, NULL, NULL, cleaned_name, cleanedSolver,
+    runBBTests(params, &cleaned_info, NULL, NULL, cleaned_name + ".mps", cleanedSolver,
         ip_obj, NULL, NULL);
   } /* check if any cleaning was performed */
   else if (cleanedNumNonZero == 0) {
