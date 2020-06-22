@@ -12,6 +12,8 @@ The user needs to export the shell variable `PROJ_DIR`, pointing to the reposito
 
 You may need to use a compatible version of `g++`, and make sure that the same compiler is used when running `install_coin.sh` and the one used to generate `libgurobi_c++.a`, which can be rebuilt in the `Gurobi` directory under `src/build`.
 
+You may need to install several dependencies, such as `libbz2-dev`, or comment out from `makefile` any linking to the relevant libraries you are missing.
+
 ## Compilation
 
 There are two compilation modes: `debug` and `release`. These can be compiled with `make [debug or release]`, which create the executable `vpc` in a new subdirectory `Debug` or `Release` of the main folder.
@@ -52,6 +54,9 @@ There are many things left to be implemented in the future:
 2. Objective functions based on intermediate nodes of the partial branch-and-bound tree, to cut off points other than the LP optimum.
 3. Dynamic disjunctions, in which cutting and branching are alternated.
 4. Strengthening cuts.
+
+## Issues install COIN
+You may need `gfortran`, `pkg-conf`, `LAPACK`, `BLAS`
 
 ## Contact Information
 Aleksandr M. Kazachkov
