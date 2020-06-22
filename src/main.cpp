@@ -12,10 +12,7 @@
 #include <memory> // for smart pointers
 
 // For option handling
-#include <getopt.h> // getopt, getopt_long
-#define no_argument 0
-#define required_argument 1
-#define optional_argument 2
+#include <getopt.h> // getopt, getopt_long, no_argument = 0, required_argument = 1, optional_argument = 2
 
 // COIN-OR
 #include <OsiCuts.hpp>
@@ -632,6 +629,7 @@ void processArgs(int argc, char** argv) {
       {"partial_bb_strategy",   required_argument, 0, 's'},
       {"partial_bb_num_strong", required_argument, 0, 'S'},
       {"partial_bb_timelimit",  required_argument, 0, 'T'},
+      {"preprocess",            no_argument,       0, 'p'*'1'},
       {"rounds",                required_argument, 0, 'r'},
       {"prlp_timelimit",        required_argument, 0, 'R'},
       {"temp",                  required_argument, 0, 't'*'1'},
@@ -771,6 +769,27 @@ void processArgs(int argc, char** argv) {
                   params.set(param, val);
                   break;
                 }
+      case 'p'*'1': {
+//                  int val;
+//                  intParam param = intParam::PREPROCESS;
+//                  if (!parseInt(optarg, val)) {
+//                    error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+//                    exit(1);
+//                  }
+                  params.set(intParam::PREPROCESS, 1);
+                  params.set(intParam::TEMP, static_cast<int>(TempOptions::PREPROCESS));
+                  params.set(intParam::BB_RUNS, 7);
+                  params.set(intParam::BB_MODE, 001);
+#ifdef USE_GUROBI
+                  params.set(intParam::BB_STRATEGY, 10776);
+#elif USE_CPLEX
+                  params.set(intParam::BB_STRATEGY, 10772);
+#else
+                  params.set(intParam::BB_STRATEGY, 10768);
+#endif
+                  params.set(doubleParam::TIMELIMIT, 7200);
+                  break;
+                }
       case 'R': {
                   double val;
                   doubleParam param = doubleParam::PRLP_TIMELIMIT;
@@ -890,6 +909,7 @@ void processArgs(int argc, char** argv) {
                 helpstring += "Code for generating V-polyhedral disjunctive cuts.\n";
                 helpstring += "\n## OPTIONS ##\n";
                 helpstring += "-h, --help\n\tPrint this help message.\n";
+                helpstring += "--preprocess\n\tSet default preprocessing options (temp=1, bb_mode=001, bb_runs=7, timelimit=7200).\n";
                 helpstring += "--temp\n\tSet temporary options (e.g., value of 1 = do preprocessing on instance).\n";
                 helpstring += "\n# Input/output #\n";
                 helpstring += "-f file, --file=file\n\tFilename.\n";
@@ -918,7 +938,7 @@ void processArgs(int argc, char** argv) {
                 helpstring += "--use_unit_vectors=0/1\n\tUse unit vectors in nonbasic space.\n";
                 helpstring += "\n# Branch-and-bound options #\n";
                 helpstring += "-b 0+ --bb_runs=0+\n\tNumber of branch-and-bound repeats.\n";
-                helpstring += "-B strategy --bb_strategy=strategy\n\tBranch-and-bound strategy (see BBHelper.hpp).\n";
+                helpstring += "-B strategy --bb_strategy=strategy\n\tBranch-and-bound strategy (see VPCParameters.hpp; default = 10776, corresponding to gurobi: 8, user_cuts: 16, presolve_off: 512, heuristics_off: 2048, use_best_bound: 8192).\n";
                 helpstring += "--bb_mode={0,1,10,11,100,...,111}\n\tWhich branch-and-bound experiments to run (ones = no cuts, tens = vpcs, hundreds = gmics).\n";
                 helpstring += "## END OF HELP ##\n";
                 std::cout << helpstring << std::endl;
