@@ -269,6 +269,7 @@ int CPXPUBLIC logcallback(CPXCENVptr env, void *cbdata,
 int CPXPUBLIC usercutcallback(CPXCENVptr env, void *cbdata, int wherefrom,
     void *cbhandle, int *useraction_p) {
   int status = 0;
+  *useraction_p = CPX_CALLBACK_DEFAULT;
 
   BBInfo* info = (BBInfo*) cbhandle;
   int nodenum = 0;
@@ -281,7 +282,7 @@ int CPXPUBLIC usercutcallback(CPXCENVptr env, void *cbdata, int wherefrom,
   if (status) {
     error_msg(errorstring, "CPLEX (C): Error %d while querying callback %d.\n",
         status, cb);
-    return CPX_CALLBACK_DEFAULT;
+    return status;
   }
 
   if (nodenum > 1)
@@ -292,7 +293,7 @@ int CPXPUBLIC usercutcallback(CPXCENVptr env, void *cbdata, int wherefrom,
   if (status) {
     error_msg(errorstring, "CPLEX (C): Error %d while querying callback %d.\n",
         status, cb);
-    return CPX_CALLBACK_DEFAULT;
+    return status;
   }
 
   if (info->root_passes == 1 && isInfinity(std::abs(info->first_cut_pass))) {
@@ -313,13 +314,13 @@ int CPXPUBLIC usercutcallback(CPXCENVptr env, void *cbdata, int wherefrom,
     if (status) {
       error_msg(errorstring,
           "CPLEX (C): Error %d while querying callback %d.\n", status, cb);
-      return CPX_CALLBACK_DEFAULT;
+      return status;
     }
     CPXXgettime(env, &end_time);
     info->root_time = end_time - start_time;
   }
 
-  return CPX_CALLBACK_DEFAULT;
+  return status;
 } /* usercutcallback */
 
 void presolveModelWithCplexCallable(const VPCParameters& params, int strategy, 
