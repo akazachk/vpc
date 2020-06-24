@@ -116,10 +116,10 @@ void printHeader(const VPCParameters& params,
     int count = 0;
     std::vector<std::string> nameVec = {"NODES", "TIME"};
     for (auto name : nameVec) {
-      fprintf(logfile, "%s%c", ("FIRST GUR " + name).c_str(), SEP); count++;
-      fprintf(logfile, "%s%c", ("FIRST GUR+V " + name).c_str(), SEP); count++;
-      fprintf(logfile, "%s%c", ("BEST GUR " + name).c_str(), SEP); count++;
-      fprintf(logfile, "%s%c", ("BEST GUR+V " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("FIRST REF " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("FIRST REF+V " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("BEST REF " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("BEST REF+V " + name).c_str(), SEP); count++;
     }
     assert(count == countSummaryBBInfoEntries);
   } // BB INFO
@@ -215,18 +215,18 @@ void printHeader(const VPCParameters& params,
   { // FULL BB INFO
     int count = 0;
     for (std::string name : BB_INFO_CONTENTS) {
-      fprintf(logfile, "%s%c", ("FIRST GUR " + name).c_str(), SEP); count++;
-      fprintf(logfile, "%s%c", ("FIRST GUR+V " + name).c_str(), SEP); count++;
-      fprintf(logfile, "%s%c", ("BEST GUR " + name).c_str(), SEP); count++;
-      fprintf(logfile, "%s%c", ("BEST GUR+V " + name).c_str(), SEP); count++;
-      fprintf(logfile, "%s%c", ("AVG GUR " + name).c_str(), SEP); count++;
-      fprintf(logfile, "%s%c", ("AVG GUR+V " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("FIRST REF " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("FIRST REF+V " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("BEST REF " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("BEST REF+V " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("AVG REF " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("AVG REF+V " + name).c_str(), SEP); count++;
     }
     for (std::string name : BB_INFO_CONTENTS) {
-      fprintf(logfile, "%s%c", ("ALL GUR " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("ALL REF " + name).c_str(), SEP); count++;
     }
     for (std::string name : BB_INFO_CONTENTS) {
-      fprintf(logfile, "%s%c", ("ALL GUR+V " + name).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", ("ALL REF+V " + name).c_str(), SEP); count++;
     }
     assert(count == countFullBBInfoEntries);
   } // FULL BB INFO
