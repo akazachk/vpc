@@ -5,7 +5,7 @@
  */
 #include "GurobiHelper.hpp"
 
-#include <cstdio> // for tmpnam
+//#include <cstdio> // for tmpnam
 
 // Project files
 #include "BBHelper.hpp"
@@ -26,20 +26,21 @@ using namespace VPCParametersNamespace;
  * Creates temporary file (in /tmp) so that it can be read by a different solver
  * It does not delete the file
  */
-void createTmpFileCopy(const VPCParameters& params, GRBModel& model, std::string& f_name) {
+void createTmpFileCopy(const VPCParameters& params, GRBModel& model, std::string& f_name, const std::string add_ext = ".mps.gz") {
   if (f_name.empty()) {
-    // Generate temporary file name
-    char template_name[] = "/tmp/tmpmpsXXXXXX";
-
-    mkstemp(template_name);
-    f_name = template_name;
-    if (f_name.empty()) {
-      error_msg(errorstring, "Could not generate temp file.\n");
+    try {
+      createTmpFilename(f_name, add_ext);
+    } catch (const std::exception &e) {
+      error_msg(errorstring, "Could not generate temp file: %s.\n", e.what());
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
     }
+  } else {
+    // Ensure f_name has proper extension
+    if (!add_ext.empty() && f_name.compare(f_name.size()-add_ext.size(), add_ext.size(), add_ext) != 0) {
+      f_name += add_ext;
+    }
   }
-  f_name += ".mps.gz"; // if something is given, it should be given as a stub
   model.write(f_name.c_str());
 } /* createTmpFileCopy (Gurobi) */
 
@@ -228,7 +229,7 @@ class GurobiUserCutCallback : public GRBCallback {
 }; /* class GurobiUserCutCallback */
 
 void presolveModelWithGurobi(const VPCParameters& params, int strategy, 
-    GRBModel& model, double& presolved_opt, std::string& presolved_name, 
+    GRBModel& model, double& presolved_lp_opt, std::string& presolved_name,
     const double best_bound) {
 //#ifdef TRACE
   printf("\n## Gurobi: Presolving model ##\n");
@@ -250,7 +251,7 @@ void presolveModelWithGurobi(const VPCParameters& params, int strategy,
     // Save optimal value
     int optimstatus = presolved_model.get(GRB_IntAttr_Status);
     if (optimstatus == GRB_OPTIMAL) {
-        presolved_opt = presolved_model.get(GRB_DoubleAttr_ObjVal);
+        presolved_lp_opt = presolved_model.get(GRB_DoubleAttr_ObjVal);
         size_t slashindex = presolved_name.find_last_of("/\\");
         presolved_model_mip.set(GRB_StringAttr_ModelName, presolved_name.substr(slashindex+1));
         createTmpFileCopy(params, presolved_model_mip, presolved_name);
@@ -274,11 +275,11 @@ void presolveModelWithGurobi(const VPCParameters& params, int strategy,
 } /* presolveModelWithGurobi (GRBModel) */
 
 void presolveModelWithGurobi(const VPCParameters& params, int strategy, const char* f_name,
-    double& presolved_opt, std::string& presolved_name, const double best_bound) {
+    double& presolved_lp_opt, std::string& presolved_name, const double best_bound) {
   try {
     GRBEnv env = GRBEnv();
     GRBModel model = GRBModel(env, f_name);
-    presolveModelWithGurobi(params, strategy, model, presolved_opt, presolved_name, best_bound);
+    presolveModelWithGurobi(params, strategy, model, presolved_lp_opt, presolved_name, best_bound);
   } catch (GRBException& e) {
     error_msg(errorstring, "Gurobi: Exception caught: %s\n", e.getMessage().c_str());
     writeErrorToLog(errorstring, params.logfile);
@@ -291,11 +292,11 @@ void presolveModelWithGurobi(const VPCParameters& params, int strategy, const ch
 } /* presolveModelWithGurobi (filename) */
 
 void presolveModelWithGurobi(const VPCParameters& params, int strategy,
-    const OsiSolverInterface* const solver, double& presolved_opt,
+    const OsiSolverInterface* const solver, double& presolved_lp_opt,
     std::string& presolved_name, const double best_bound) {
-  std::string f_name;
+  std::string f_name = "";
   createTmpFileCopy(params, solver, f_name);
-  presolveModelWithGurobi(params, strategy, f_name.c_str(), presolved_opt, presolved_name, best_bound);
+  presolveModelWithGurobi(params, strategy, f_name.c_str(), presolved_lp_opt, presolved_name, best_bound);
   remove(f_name.c_str()); // remove temporary file
 } /* presolveModelWithGurobi (Osi) */
 

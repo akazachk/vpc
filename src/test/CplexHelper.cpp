@@ -5,7 +5,7 @@
  */
 #include "CplexHelper.hpp"
 
-#include <cstdio> // for tmpnam
+//#include <cstdio> // for tmpnam
 
 // Project files
 #include "BBHelper.hpp"
@@ -27,19 +27,21 @@ using namespace VPCParametersNamespace;
  * Creates temporary file (in /tmp) so that it can be read by a different solver
  * It does not delete the file
  */
-void createTmpFileCopy(const VPCParameters& params, CPXENVptr& env, CPXLPptr& lp, std::string& f_name) {
+void createTmpFileCopy(const VPCParameters& params, CPXENVptr& env, CPXLPptr& lp, std::string& f_name,
+    const std::string add_ext = ".mps.gz") {
   if (f_name.empty()) {
-    // Generate temporary file name
-    char template_name[] = "/tmp/tmpmpsXXXXXX";
-
-    mkstemp(template_name);
-    f_name = template_name;
-    if (f_name.empty()) {
-      error_msg(errorstring, "Could not generate temp file.\n");
+    try {
+      createTmpFilename(f_name, add_ext);
+    } catch (const std::exception &e) {
+      error_msg(errorstring, "Could not generate temp file: %s.\n", e.what());
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
     }
-    f_name += ".mps.gz";
+  } else {
+    // Ensure f_name has proper extension
+    if (!add_ext.empty() && f_name.compare(f_name.size()-add_ext.size(), add_ext.size(), add_ext) != 0) {
+      f_name += add_ext;
+    }
   }
   CPXXwriteprob(env, lp, f_name.c_str(), NULL);
 } /* createTmpFileCopy (Cplex) */
@@ -324,7 +326,7 @@ int CPXPUBLIC usercutcallback(CPXCENVptr env, void *cbdata, int wherefrom,
 } /* usercutcallback */
 
 void presolveModelWithCplexCallable(const VPCParameters& params, int strategy, 
-    CPXENVptr& env, CPXLPptr& lp, double& presolved_opt, std::string& presolved_name,
+    CPXENVptr& env, CPXLPptr& lp, double& presolved_lp_opt, std::string& presolved_name,
     const double best_bound) {
   printf("\n## CPLEX (C): Presolving model ##\n");
   //warning_msg(warnstring, "CPLEX presolve saving not currently working.\n");
@@ -336,25 +338,19 @@ void presolveModelWithCplexCallable(const VPCParameters& params, int strategy,
 
   // Save presolved model
   if (presolved_name.empty()) {
-    char template_name[] = "/tmp/tmpmpsXXXXXX"; // generate temporary file name
-    mkstemp(template_name);
-    presolved_name = template_name;
-    if (presolved_name.empty()) {
-      error_msg(errorstring, "Could not generate temp file.\n");
+    try {
+      createTmpFilename(presolved_name, "");
+    } catch (const std::exception &e) {
+      error_msg(errorstring, "Could not generate temp file: %s.\n", e.what());
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
     }
-  }
-  if (presolved_name.empty()) {
-    error_msg(errorstring, "Could not generate temp file.\n");
-    writeErrorToLog(errorstring, params.logfile);
-    exit(1);
   }
 
   status = CPXXsetintparam (env, 2133, 1); // secret parameter to stop after whole presolve loop
   if ( status ) {
     error_msg(errorstring,
-        "CPLEX (C): Failure to set mip iteration limit, status =  %d.\n", status);
+        "CPLEX (C): Failure to set presolve parameter to 1, status =  %d.\n", status);
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }
@@ -376,6 +372,16 @@ void presolveModelWithCplexCallable(const VPCParameters& params, int strategy,
     exit(1);
   }
 
+  status = CPXXsetintparam(env, 2133, 0); // secret parameter to stop after whole presolve loop
+  if (status) {
+    error_msg(errorstring,
+        "CPLEX (C): Failure to set presolve parameter to 0, status =  %d.\n",
+        status);
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
+
+  // Now get the LP optimum for the presolved model
   CPXENVptr new_env = NULL;
   CPXLPptr new_lp = NULL;
   // Initialize the CPLEX environment
@@ -442,7 +448,7 @@ void presolveModelWithCplexCallable(const VPCParameters& params, int strategy,
   }
 
   // Save the presolved objective value
-  status = CPXXgetobjval(new_env, new_lp, &presolved_opt);
+  status = CPXXgetobjval(new_env, new_lp, &presolved_lp_opt);
   if (status) {
     error_msg(errorstring, "CPLEX (C): Unable to get presolved objective value.\n");
     writeErrorToLog(errorstring, params.logfile);
@@ -506,12 +512,12 @@ void presolveModelWithCplexCallable(const VPCParameters& params, int strategy,
 } /* presolveModelWithCplexCallable (CPXENVptr, CPXLPptr) */
 
 void presolveModelWithCplexCallable(const VPCParametersNamespace::VPCParameters& params, int strategy,
-    const char* f_name, double& presolved_opt, std::string& presolved_name, 
+    const char* f_name, double& presolved_lp_opt, std::string& presolved_name, 
     const double best_bound) {
   CPXENVptr env = NULL;
   CPXLPptr lp = NULL;
   readFileIntoCplexCallable(params, f_name, env, lp);
-  presolveModelWithCplexCallable(params, strategy, env, lp, presolved_opt, presolved_name, best_bound);
+  presolveModelWithCplexCallable(params, strategy, env, lp, presolved_lp_opt, presolved_name, best_bound);
 
   /* Free up the problem as allocated by CPXXcreateprob, if necessary */
   int status = 0;
@@ -542,11 +548,11 @@ void presolveModelWithCplexCallable(const VPCParametersNamespace::VPCParameters&
 } /* presolveModelWithCplexCallable (filename) */
 
 void presolveModelWithCplexCallable(const VPCParametersNamespace::VPCParameters& params, int strategy,
-    const OsiSolverInterface* const solver, double& presolved_opt, std::string& presolved_name,
+    const OsiSolverInterface* const solver, double& presolved_lp_opt, std::string& presolved_name,
     const double best_bound) {
-  std::string f_name;
+  std::string f_name = "";
   createTmpFileCopy(params, solver, f_name);
-  presolveModelWithCplexCallable(params, strategy, f_name.c_str(), presolved_opt, presolved_name, best_bound);
+  presolveModelWithCplexCallable(params, strategy, f_name.c_str(), presolved_lp_opt, presolved_name, best_bound);
   remove(f_name.c_str()); // remove temporary file
 } /* presolveModelWithCplexCallable (Osi) */
 

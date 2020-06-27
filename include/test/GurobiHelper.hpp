@@ -19,10 +19,10 @@ namespace VPCParametersNamespace {
 
 #ifdef USE_GUROBI
 void presolveModelWithGurobi(const VPCParametersNamespace::VPCParameters& params, int strategy,
-    const char* f_name, double& presolved_opt, std::string& presolved_name,
+    const char* f_name, double& presolved_lp_opt, std::string& presolved_name,
     const double best_bound);
 void presolveModelWithGurobi(const VPCParametersNamespace::VPCParameters& params, int strategy,
-    const OsiSolverInterface* const solver, double& presolved_opt, std::string& presolved_name);
+    const OsiSolverInterface* const solver, double& presolved_lp_opt, std::string& presolved_name);
 void doBranchAndBoundWithGurobi(const VPCParametersNamespace::VPCParameters& params, int strategy, 
     const char* f_name, BBInfo& info,
     const double best_bound = std::numeric_limits<double>::max(),

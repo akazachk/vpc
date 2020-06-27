@@ -372,20 +372,18 @@ void createStringFromBBInfoVec(const std::vector<BBInfo>& vec_info,
  */
 void createTmpFileCopy(const VPCParametersNamespace::VPCParameters& params,
     const OsiSolverInterface* const solver, std::string& f_name) {
-  // Generate temporary file name
-  char template_name[] = "/tmp/tmpmpsXXXXXX";
-
-  mkstemp(template_name);
-  f_name = template_name;
   if (f_name.empty()) {
-    error_msg(errorstring, "Could not generate temp file.\n");
-    writeErrorToLog(errorstring, params.logfile);
-    exit(1);
+    try {
+      createTmpFilename(f_name, "");
+    } catch (const std::exception &e) {
+      error_msg(errorstring, "Could not generate temp file: %s.\n", e.what());
+      writeErrorToLog(errorstring, params.logfile);
+      exit(1);
+    }
   }
-  solver->writeMps(template_name, "mps", solver->getObjSense());
+
+  solver->writeMps(f_name.c_str(), "mps", solver->getObjSense());
   f_name += ".mps.gz"; // writeMps calls writeMpsNative, which invokes the CoinMpsIO writer with gzip option = 1
-  //doBranchAndBoundWithCplex(f_name.c_str(), bb_opt, bb_iters, bb_nodes, bb_time);
-  //remove(f_name.c_str());
 } /* createTmpFileCopy (Osi) */
 
 #ifdef USE_CBC

@@ -10,10 +10,31 @@
 #include <fstream>
 #include <sstream>
 #include <sys/stat.h> // for fexists
+//#include <cstdio> // for tmpnam
 
 #include <CoinPackedVectorBase.hpp>
 #include <CoinPackedVector.hpp>
 #include <CoinPackedMatrix.hpp>
+
+/**
+ * Creates temporary file (in /tmp) so that it can be accessed later
+ * It does not delete the file
+ */
+void createTmpFilename(std::string& f_name,
+    const std::string add_ext) {
+//  if (f_name.empty()) {
+    // Generate temporary file name
+    char template_name[] = "/tmp/tmpvpcXXXXXX";
+
+    mkstemp(template_name);
+    f_name = template_name;
+    if (f_name.empty()) {
+      error_msg(errorstring, "Could not generate temp file.\n");
+      throw errorstring;
+    }
+    f_name += add_ext;
+//  }
+} /* createTmpFilename */
 
 /** Separate filename into the directory, instance name, and extension */
 void parseFilename(std::string& dir, std::string& instname, std::string& in_file_ext, const std::string& fullfilename, FILE* logfile) {
