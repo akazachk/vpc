@@ -20,16 +20,44 @@ COIN_DIR_NAME="Cbc-${CBC_VERSION}"
 USE_COINBREW=1
 
 ## Check settings
+if [ -z "$CPLEX_HOME" ]
+then
+  echo "[optional] Please locate CPLEX if you would like to use it (e.g., /Applications/CPLEX_Studio1210/cplex/ on mac), or press enter if you do not wish to use CPLEX:"
+  read CPLEX_HOME
+fi
+if [ ! -z "$CPLEX_HOME" ]
+then
+  echo "CPLEX_HOME set to $CPLEX_HOME"
+fi
+
+if [ -z "$GUROBI_HOME" ]
+then
+  echo "[optional] Please locate Gurobi if you would like to use it (e.g., /Library/gurobi_902/mac64 on mac), or press enter if you do not wish to use Gurobi:"
+  read GUROBI_HOME
+fi
+if [ ! -z "$GUROBI_HOME" ]
+then
+  echo "GUROBI_HOME set to $GUROBI_HOME"
+fi
+
 if [ -z "$1" ]
 then
   if [ -z "$PROJ_DIR" ]
-    then echo "Need to define PROJ_DIR. Exiting."
-    exit
+  then 
+    echo "Please define PROJ_DIR (the root vpc dir):"
+    read PROJ_DIR
+    echo "Set PROJ_DIR=$PROJ_DIR"
+    if [ -z "$PROJ_DIR" ]
+      then echo "Need to define PROJ_DIR. Exiting."
+      exit
+    fi
   fi
   COIN_DIR="${PROJ_DIR}/lib/${COIN_DIR_NAME}"
 else
   COIN_DIR="${1}/${COIN_DIR_NAME}"
 fi
+echo "COIN-OR files will be installed into ${COIN_DIR}"
+exit
 mkdir -p $COIN_DIR
 
 if [ ${USE_COINBREW} == "1" ]
