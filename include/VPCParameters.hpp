@@ -42,7 +42,7 @@ enum intParam {
   // node comparison decision => ones digit: 0: default: 1: bfs, 2: depth, 3: estimate, 4: objective
   PARTIAL_BB_STRATEGY,
   PARTIAL_BB_NUM_STRONG, // -1: num cols, -2: sqrt(num cols), >= 0: that many
-  PREPROCESS, // 0: off, 1: on
+  PREPROCESS, // 0: off, 1: on (with solver), 2: on (solver + custom cleaning process)
   PRLP_FLIP_BETA, // controls rhs in nb space, -1: do not cut away LP opt, 0: cut away LP opt, 1: both
   ROUNDS, // number of VPC rounds to do
   STRENGTHEN, // 0: no, 1: yes, when possible, 2: same as 1 plus add GMICs to strengthen each disjunctive term
@@ -140,10 +140,11 @@ enum class doubleConst {
 
 enum class TempOptions {
   NONE = 0,
-  PREPROCESS = 1,
-  PREPROCESS_CUSTOM = 2, // preprocess using solver + do own cleaning process
+//  PREPROCESS = 1,
+//  PREPROCESS_CUSTOM = 2, // preprocess using solver + do own cleaning process
   CHECK_CUTS_AGAINST_BB_OPT = 3,
   CALC_NUM_GOMORY_ROUNDS_TO_MATCH = 4,
+  SAVE_IP_OPT = 5,
   // Options for generating tikz string
   GEN_TIKZ_STRING_WITH_VPCS = 10,
   GEN_TIKZ_STRING_WITH_GMICS = 11,
@@ -400,7 +401,7 @@ struct VPCParameters {
             0, -1, 1)},
     {intParam::PREPROCESS,
             IntParameter(intParam::PREPROCESS, "PREPROCESS",
-                0, 0, 1)},
+                0, 0, 2)},
     {intParam::PARTIAL_BB_NUM_STRONG,
         IntParameter(intParam::PARTIAL_BB_NUM_STRONG, "PARTIAL_BB_NUM_STRONG",
             5, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},

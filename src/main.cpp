@@ -151,11 +151,10 @@ int main(int argc, char** argv) {
   }
 
   // Possibly preprocess instead of doing cuts
-  if ((params.get(TEMP) == static_cast<int>(TempOptions::PREPROCESS))
-      || params.get(TEMP) == static_cast<int>(TempOptions::PREPROCESS_CUSTOM)) {
+  if (params.get(PREPROCESS) != 0) {
     // Cleaning involves running presolve and branching
     params.set(intParam::BB_MODE, 1); // only do no cuts branching
-    performCleaning(params, solver, filename, boundInfo.ip_obj, params.get(TEMP));
+    performCleaning(params, solver, filename, boundInfo.ip_obj, params.get(PREPROCESS));
 
     printf("\n## Finished cleaning. ##\n");
     return wrapUp(0);
@@ -352,14 +351,14 @@ void startUp(int argc, char** argv) {
   }
   if (params.logfile != NULL) {
     if (!logexists) {
-      if (params.get(TEMP) != static_cast<int>(TempOptions::PREPROCESS)) {
+      if (params.get(PREPROCESS) == 0) {
         printHeader(params, OverallTimeStatsName);
       } else {
         printPreprocessingHeader(params);
       }
     }
     fprintf(params.logfile, "%s,", instname.c_str());
-    if (params.get(TEMP) != static_cast<int>(TempOptions::PREPROCESS)) {
+    if (params.get(PREPROCESS) == 0) {
       printParams(params, params.logfile, 2); // only values
     }
     fflush(params.logfile);
@@ -379,7 +378,7 @@ int wrapUp(int retCode /*= 0*/) {
 
   FILE* logfile = params.logfile;
   if (logfile != NULL) {
-    if (params.get(TEMP) != static_cast<int>(TempOptions::PREPROCESS)) {
+    if (params.get(PREPROCESS) == 0) {
       // Bound and gap info
       printBoundAndGapInfo(boundInfo, params.logfile);
       // B&B info
@@ -629,7 +628,7 @@ void processArgs(int argc, char** argv) {
       {"partial_bb_strategy",   required_argument, 0, 's'},
       {"partial_bb_num_strong", required_argument, 0, 'S'},
       {"partial_bb_timelimit",  required_argument, 0, 'T'},
-      {"preprocess",            no_argument,       0, 'p'*'1'},
+      {"preprocess",            required_argument, 0, 'p'*'1'},
       {"rounds",                required_argument, 0, 'r'},
       {"prlp_timelimit",        required_argument, 0, 'R'},
       {"temp",                  required_argument, 0, 't'*'1'},
@@ -770,14 +769,13 @@ void processArgs(int argc, char** argv) {
                   break;
                 }
       case 'p'*'1': {
-//                  int val;
-//                  intParam param = intParam::PREPROCESS;
-//                  if (!parseInt(optarg, val)) {
-//                    error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
-//                    exit(1);
-//                  }
-                  params.set(intParam::PREPROCESS, 1);
-                  params.set(intParam::TEMP, static_cast<int>(TempOptions::PREPROCESS));
+                  int val;
+                  intParam param = intParam::PREPROCESS;
+                  if (!parseInt(optarg, val)) {
+                    error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                    exit(1);
+                  }
+                  params.set(intParam::PREPROCESS, val);
                   params.set(intParam::BB_RUNS, 7);
                   params.set(intParam::BB_MODE, 001);
 #ifdef USE_GUROBI
