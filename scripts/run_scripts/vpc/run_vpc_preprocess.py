@@ -80,7 +80,7 @@ for inst in list_to_use:
   params = ' -f ' + infile
   params = params + ' --logfile=' + outinfo
   params = params + ' --optfile=' + PROJ_DIR + '/data/ip_obj.csv'
-  params = params + ' --temp=1'
+  params = params + ' --preprocess=1'
   params = params + ' -t 7200'
   params = params + ' --bb_runs=7' 
   params = params + ' --bb_mode=001'
