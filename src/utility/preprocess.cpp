@@ -39,8 +39,10 @@ void performCleaning(const VPCParametersNamespace::VPCParameters& params,
     const double ip_obj, const int CLEANING_MODE_OPTION, const char SEP) {
   FILE* logfile = params.logfile;
   if (logfile == NULL) {
-    std::cerr << "Cleaning operations currently will not be performed when logfile == NULL.\n";
-    return;
+    error_msg(errorstring,
+        "Cleaning operations currently will not be performed when logfile == NULL.\n");
+    writeErrorToLog(errorstring, stdout);
+    exit(1);
   }
 
   // Save strategy
