@@ -236,7 +236,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   params.set(CUTLIMIT,
       CglVPC::getCutLimit(params.get(CUTLIMIT),
           si.getFractionalIndices().size()));
-  if (reachedCutLimit() && (std::abs(params.get(TEMP)) < (int) TempOptions::GEN_TIKZ_STRING_WITH_VPCS || std::abs(params.get(TEMP)) > (int) TempOptions::GEN_TIKZ_STRING_AND_EXIT)) {
+  if (reachedCutLimit() && !use_temp_option(std::abs(params.get(intParam::TEMP)), TempOptions::GEN_TIKZ_STRING)) {
     if (si.getFractionalIndices().size() > 0) {
       status = CglVPC::ExitReason::CUT_LIMIT_EXIT;
     } else {

@@ -161,13 +161,23 @@ enum class TempOptions {
   CALC_NUM_GOMORY_ROUNDS_TO_MATCH = ENUM_OPTION_4,
   SAVE_IP_OPT = ENUM_OPTION_5,
   // Options for generating tikz string
-  GEN_TIKZ_STRING_WITH_VPCS = ENUM_OPTION_10,
-  GEN_TIKZ_STRING_WITH_GMICS = ENUM_OPTION_11,
-  GEN_TIKZ_STRING_WITH_VPCS_AND_GMICS = ENUM_OPTION_10 & ENUM_OPTION_11,
-  GEN_TIKZ_STRING_NO_CUTS = ENUM_OPTION_12,
-  GEN_TIKZ_STRING_AND_RETURN = ENUM_OPTION_13,
-  GEN_TIKZ_STRING_AND_EXIT = ENUM_OPTION_14,
+  GEN_TIKZ_STRING = ENUM_OPTION_10,
+  GEN_TIKZ_STRING_WITH_VPCS = ENUM_OPTION_11,
+  GEN_TIKZ_STRING_WITH_GMICS = ENUM_OPTION_12,
+//  GEN_TIKZ_STRING_WITH_VPCS_AND_GMICS = (ENUM_OPTION_10 & ENUM_OPTION_11),
+  GEN_TIKZ_STRING_AND_RETURN = ENUM_OPTION_14,
+  GEN_TIKZ_STRING_AND_EXIT = ENUM_OPTION_15,
 };
+
+inline bool use_temp_option(const int strategy, const TempOptions option) {
+  return strategy & static_cast<int>(option);
+}
+inline int enable_temp_option(const int strategy, const TempOptions option) {
+  return strategy | static_cast<int>(option);
+}
+inline int disable_temp_option(const int strategy, const TempOptions option) {
+  return strategy & ~static_cast<int>(option);
+}
 
 /********** DEFINITIONS **********/
 //template <class T> class Parameter;

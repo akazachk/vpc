@@ -25,17 +25,14 @@ using namespace VPCParametersNamespace;
  */
 void printTree(PartialBBDisjunction* const orig_owner,
     const OsiSolverInterface* const solver, OsiCuts* vpcs, OsiCuts* gmics) {
-  const int TEMP_VAL= orig_owner->params.get(intParam::TEMP);
-  if (std::abs(TEMP_VAL) >= static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS)
-      && std::abs(TEMP_VAL) <= static_cast<int>(TempOptions::GEN_TIKZ_STRING_NO_CUTS)) {
+  const int TEMP_VAL = orig_owner->params.get(intParam::TEMP);
+
+  if (use_temp_option(std::abs(TEMP_VAL), TempOptions::GEN_TIKZ_STRING)) {
+//      && !use_temp_option(std::abs(TEMP_VAL), TempOptions::GEN_TIKZ_STRING_NO_CUTS)) {
     const bool shouldApplyVPCs =
-        (vpcs != NULL)
-            && (TEMP_VAL == static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS)
-                || TEMP_VAL == static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS_AND_GMICS));
+        (vpcs != NULL) && use_temp_option(TEMP_VAL, TempOptions::GEN_TIKZ_STRING_WITH_VPCS);
     const bool shouldApplySICs =
-        (gmics != NULL)
-            && (TEMP_VAL == static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_GMICS)
-                || TEMP_VAL == static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS_AND_GMICS));
+        (gmics != NULL) && use_temp_option(TEMP_VAL, TempOptions::GEN_TIKZ_STRING_WITH_GMICS);
 
     VPCParametersNamespace::VPCParameters tmp_params = orig_owner->params;
     const int old_param_val = tmp_params.get(PARTIAL_BB_STRATEGY);

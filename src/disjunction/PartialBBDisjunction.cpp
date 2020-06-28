@@ -180,16 +180,17 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
   
 #ifdef TRACE
   const int TEMP_VAL = params.get(intParam::TEMP);
-  if (std::abs(TEMP_VAL) >= static_cast<int>(TempOptions::GEN_TIKZ_STRING_WITH_VPCS)
-      && std::abs(TEMP_VAL) <= static_cast<int>(TempOptions::GEN_TIKZ_STRING_AND_EXIT)) {
+  if (use_temp_option(std::abs(TEMP_VAL), TempOptions::GEN_TIKZ_STRING)) {
     generateTikzTreeString(eventHandler, params, params.get(intParam::PARTIAL_BB_STRATEGY), si->getObjValue(), true);
-    if (std::abs(TEMP_VAL) == static_cast<int>(TempOptions::GEN_TIKZ_STRING_AND_RETURN)) {
+    if (use_temp_option(TEMP_VAL, TempOptions::GEN_TIKZ_STRING_AND_RETURN)) {
       // Free
       if (cbc_model) { delete cbc_model; }
       return DisjExitReason::SUCCESS_EXIT;
     }
-    if (std::abs(TEMP_VAL) == static_cast<int>(TempOptions::GEN_TIKZ_STRING_AND_EXIT)) {
-      exit(1); // this is during debug and does not free memory
+    if (use_temp_option(TEMP_VAL, TempOptions::GEN_TIKZ_STRING_AND_EXIT)) {
+      // Free
+      if (cbc_model) { delete cbc_model; }
+      exit(1); // this should only be used during debug and will have memory leaks
     }
   }
 #endif

@@ -815,6 +815,15 @@ void processArgs(int argc, char** argv) {
                         error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
                         exit(1);
                       }
+
+                      // Validate temp parameter when tikz_string is being used
+                      if (use_temp_option(std::abs(val), TempOptions::GEN_TIKZ_STRING_WITH_VPCS)
+                          || use_temp_option(std::abs(val), TempOptions::GEN_TIKZ_STRING_WITH_GMICS)
+                          || use_temp_option(std::abs(val), TempOptions::GEN_TIKZ_STRING_AND_RETURN)
+                          || use_temp_option(std::abs(val), TempOptions::GEN_TIKZ_STRING_AND_EXIT)) {
+                        val = enable_temp_option(val, TempOptions::GEN_TIKZ_STRING); // TODO ensure this works with negative values
+                      }
+
                       params.set(param, val);
                       break;
                     }
