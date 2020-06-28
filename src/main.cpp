@@ -55,7 +55,7 @@ OsiSolverInterface *solver, *origSolver;
 OsiSolverInterface* GMICSolver = NULL;
 OsiSolverInterface* VPCSolver = NULL;
 OsiCuts gmics, vpcs;
-std::string dir = "", filename = "", instname = "", in_file_ext = "";
+std::string dir = "", filename_stub = "", instname = "", in_file_ext = "";
 CglVPC::ExitReason exitReason;
 TimeStats timer;
 std::time_t start_time_t, end_time_t;
@@ -154,7 +154,7 @@ int main(int argc, char** argv) {
   if (params.get(PREPROCESS) != 0) {
     // Cleaning involves running presolve and branching
     params.set(intParam::BB_MODE, 1); // only do no cuts branching
-    performCleaning(params, solver, filename, boundInfo.ip_obj, params.get(PREPROCESS));
+    performCleaning(params, solver, filename_stub, boundInfo.ip_obj, params.get(PREPROCESS));
 
     printf("\n## Finished cleaning. ##\n");
     return wrapUp(0);
@@ -279,7 +279,7 @@ int main(int argc, char** argv) {
 
 #ifdef PRINT_LP_WITH_CUTS
   if (boundInfo.num_vpc > 0) {
-    std::string fileWithCuts = filename + "_cuts";
+    std::string fileWithCuts = filename_stub + "_cuts";
     solver->writeMps(fileWithCuts.c_str());
   }
 #endif
@@ -322,7 +322,7 @@ void startUp(int argc, char** argv) {
   printf("Instance file: %s\n", params.get(stringParam::FILENAME).c_str());
   
   parseFilename(dir, instname, in_file_ext, params.get(stringParam::FILENAME), params.logfile);
-  filename = dir + "/" + instname;
+  filename_stub = dir + "/" + instname;
 
   // Prepare logfile
   const std::string logname = params.get(stringParam::LOGFILE);

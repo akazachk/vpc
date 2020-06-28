@@ -254,7 +254,8 @@ void presolveModelWithGurobi(const VPCParameters& params, int strategy,
         presolved_lp_opt = presolved_model.get(GRB_DoubleAttr_ObjVal);
         size_t slashindex = presolved_name.find_last_of("/\\");
         presolved_model_mip.set(GRB_StringAttr_ModelName, presolved_name.substr(slashindex+1));
-        createTmpFileCopy(params, presolved_model_mip, presolved_name);
+        printf("Saving Gurobi-presolved model to %s.mps.gz.\n", presolved_name.c_str());
+        createTmpFileCopy(params, presolved_model_mip, presolved_name, ".mps.gz"); // adds .mps.gz ext
         if (vars) {
           delete[] vars;
         }

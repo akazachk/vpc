@@ -80,61 +80,6 @@ void performCleaning(const VPCParametersNamespace::VPCParameters& params,
 #endif
     presolveModelWithGurobi(params, strategy, params.get(stringParam::FILENAME).c_str(),
         presolvedLPOpt, presolved_name_stub, ip_obj); // returns mps.gz
-    cleanedSolver->readMps(presolved_name_stub.c_str());
-
-    // Check if any bounds were changed, but only if no rows/cols deleted
-    // NB: this is being done to avoid redoing BB in case presolve did nothing
-    // If the # of rows and cols are the same and all their bounds are the same...
-    // it seems safe to assume that the instance has not changed
-    if (solver->getNumRows() == cleanedSolver->getNumRows()) {
-      for (int row = 0; row < cleanedSolver->getNumRows(); row++) {
-        if (!isVal(solver->getRightHandSide()[row],
-            cleanedSolver->getRightHandSide()[row])) {
-          numBoundsChanged++;
-        }
-      }
-    }
-    if (solver->getNumCols() == cleanedSolver->getNumCols()) {
-      for (int col = 0; col < cleanedSolver->getNumCols(); col++) {
-        if (!isVal(solver->getColLower()[col],
-            cleanedSolver->getColLower()[col])) {
-          numBoundsChanged++;
-        }
-        if (!isVal(solver->getColUpper()[col],
-            cleanedSolver->getColUpper()[col])) {
-          numBoundsChanged++;
-        }
-      }
-    }
-
-    // Make sure we are doing a minimization problem; this is just to make later
-    // comparisons simpler (i.e., a higher LP obj after adding the cut is better).
-    if (cleanedSolver->getObjSense() < 1e-3) {
-      printf(
-          "\n## Detected maximization problem. Negating objective function to make it minimization. ##\n");
-      cleanedSolver->setObjSense(1.0);
-      const double* obj = cleanedSolver->getObjCoefficients();
-      for (int col = 0; col < cleanedSolver->getNumCols(); col++) {
-        cleanedSolver->setObjCoeff(col, -1. * obj[col]);
-      }
-      double objOffset = 0.;
-      cleanedSolver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
-      if (objOffset != 0.) {
-        cleanedSolver->setDblParam(OsiDblParam::OsiObjOffset, -1. * objOffset);
-      }
-    }
-
-    // Perform initial solve
-    cleanedSolver->initialSolve();
-    if (!checkSolverOptimality(cleanedSolver, false)) {
-      error_msg(errorstring, "After initial solve, solver is not optimal.\n");
-      writeErrorToLog(errorstring, params.logfile);
-      exit(1);
-    }
-
-    if (CLEANING_MODE_OPTION > 1) {
-      remove(presolved_name_stub.c_str()); // remove the temporary file
-    }
   } // gurobi
 #endif // use_gurobi
 #ifdef USE_CPLEX
@@ -144,63 +89,65 @@ void performCleaning(const VPCParametersNamespace::VPCParameters& params,
 #endif
     presolveModelWithCplexCallable(params, strategy, params.get(stringParam::FILENAME).c_str(),
         presolvedLPOpt, presolved_name_stub, ip_obj); // returns mps.gz
-    cleanedSolver->readMps(presolved_name_stub.c_str());
-
-    // Check if any bounds were changed, but only if no rows/cols deleted
-    // NB: this is being done to avoid redoing BB in case presolve did nothing
-    // If the # of rows and cols are the same and all their bounds are the same...
-    // it seems safe to assume that the instance has not changed
-    if (solver->getNumRows() == cleanedSolver->getNumRows()) {
-      for (int row = 0; row < cleanedSolver->getNumRows(); row++) {
-        if (!isVal(solver->getRightHandSide()[row],
-            cleanedSolver->getRightHandSide()[row])) {
-          numBoundsChanged++;
-        }
-      }
-    }
-    if (solver->getNumCols() == cleanedSolver->getNumCols()) {
-      for (int col = 0; col < cleanedSolver->getNumCols(); col++) {
-        if (!isVal(solver->getColLower()[col],
-            cleanedSolver->getColLower()[col])) {
-          numBoundsChanged++;
-        }
-        if (!isVal(solver->getColUpper()[col],
-            cleanedSolver->getColUpper()[col])) {
-          numBoundsChanged++;
-        }
-      }
-    }
-
-    // Make sure we are doing a minimization problem; this is just to make later
-    // comparisons simpler (i.e., a higher LP obj after adding the cut is better).
-    if (cleanedSolver->getObjSense() < 1e-3) {
-      printf(
-          "\n## Detected maximization problem. Negating objective function to make it minimization. ##\n");
-      cleanedSolver->setObjSense(1.0);
-      const double* obj = cleanedSolver->getObjCoefficients();
-      for (int col = 0; col < cleanedSolver->getNumCols(); col++) {
-        cleanedSolver->setObjCoeff(col, -1. * obj[col]);
-      }
-      double objOffset = 0.;
-      cleanedSolver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
-      if (objOffset != 0.) {
-        cleanedSolver->setDblParam(OsiDblParam::OsiObjOffset, -1. * objOffset);
-      }
-    }
-
-    // Perform initial solve
-    cleanedSolver->initialSolve();
-    if (!checkSolverOptimality(cleanedSolver, false)) {
-      error_msg(errorstring, "After initial solve, solver is not optimal.\n");
-      writeErrorToLog(errorstring, params.logfile);
-      exit(1);
-    }
-
-    if (CLEANING_MODE_OPTION > 1) {
-      remove(presolved_name_stub.c_str()); // remove the temporary file
-    }
   } // cplex
 #endif // use_cplex
+
+  cleanedSolver->readMps(presolved_name_stub.c_str());
+
+  // Check if any bounds were changed, but only if no rows/cols deleted
+  // NB: this is being done to avoid redoing BB in case presolve did nothing
+  // If the # of rows and cols are the same and all their bounds are the same...
+  // it seems safe to assume that the instance has not changed
+  if (solver->getNumRows() == cleanedSolver->getNumRows()) {
+    for (int row = 0; row < cleanedSolver->getNumRows(); row++) {
+      if (!isVal(solver->getRightHandSide()[row],
+          cleanedSolver->getRightHandSide()[row])) {
+        numBoundsChanged++;
+      }
+    }
+  }
+  if (solver->getNumCols() == cleanedSolver->getNumCols()) {
+    for (int col = 0; col < cleanedSolver->getNumCols(); col++) {
+      if (!isVal(solver->getColLower()[col],
+          cleanedSolver->getColLower()[col])) {
+        numBoundsChanged++;
+      }
+      if (!isVal(solver->getColUpper()[col],
+          cleanedSolver->getColUpper()[col])) {
+        numBoundsChanged++;
+      }
+    }
+  }
+
+  // Make sure we are doing a minimization problem; this is just to make later
+  // comparisons simpler (i.e., a higher LP obj after adding the cut is better).
+  if (cleanedSolver->getObjSense() < 1e-3) {
+    printf(
+        "\n## Detected maximization problem. Negating objective function to make it minimization. ##\n");
+    cleanedSolver->setObjSense(1.0);
+    const double* obj = cleanedSolver->getObjCoefficients();
+    for (int col = 0; col < cleanedSolver->getNumCols(); col++) {
+      cleanedSolver->setObjCoeff(col, -1. * obj[col]);
+    }
+    double objOffset = 0.;
+    cleanedSolver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
+    if (objOffset != 0.) {
+      cleanedSolver->setDblParam(OsiDblParam::OsiObjOffset, -1. * objOffset);
+    }
+  }
+
+  // Perform initial solve
+  cleanedSolver->initialSolve();
+  if (!checkSolverOptimality(cleanedSolver, false)) {
+    error_msg(errorstring, "After initial solve, presolved model is not optimal.\n");
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
+  presolvedLPOpt = cleanedSolver->getObjValue();
+
+  if (CLEANING_MODE_OPTION > 1) {
+    remove(presolved_name_stub.c_str()); // remove the temporary file
+  }
 
   // Now (perhaps) clean using our own methods
   int numSBFixed = 0;

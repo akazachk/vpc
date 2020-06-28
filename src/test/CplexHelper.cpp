@@ -329,8 +329,6 @@ void presolveModelWithCplexCallable(const VPCParameters& params, int strategy,
     CPXENVptr& env, CPXLPptr& lp, double& presolved_lp_opt, std::string& presolved_name,
     const double best_bound) {
   printf("\n## CPLEX (C): Presolving model ##\n");
-  //warning_msg(warnstring, "CPLEX presolve saving not currently working.\n");
-  //return; // Currently not functioning
   strategy = static_cast<int>(BB_Strategy_Options::presolve_on);
   setStrategyForBBTestCplexCallable(params, strategy, env, best_bound);
 
@@ -364,6 +362,7 @@ void presolveModelWithCplexCallable(const VPCParameters& params, int strategy,
     exit(1);
   }
 
+  printf("Saving CPLEX-presolved model to %s.pre.\n", presolved_name.c_str());
   double objoff; // objective offset between the original and presolved models
   status = CPXXpreslvwrite(env, lp, (presolved_name + ".pre").c_str(), &objoff);
   if (status) {
@@ -414,15 +413,6 @@ void presolveModelWithCplexCallable(const VPCParameters& params, int strategy,
     exit(1);
   }
 
-  // Write the problem to an mps file format
-  presolved_name += ".mps.gz";
-  status = CPXXwriteprob(new_env, new_lp, presolved_name.c_str(), NULL);
-  if (status) {
-    error_msg(errorstring, "CPLEX (C): Error occurred during writing of presolved file to mps file.\n");
-    writeErrorToLog(errorstring, params.logfile);
-    exit(1);
-  }
-
   // Change to an lp to get the presolved lp optimum
   status = CPXXchgprobtype(new_env, new_lp, CPXPROB_LP);
   if (status) {
@@ -446,6 +436,9 @@ void presolveModelWithCplexCallable(const VPCParameters& params, int strategy,
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }
+
+  // Write the problem to an mps file format
+  createTmpFileCopy(params, new_env, new_lp, presolved_name, ".mps.gz"); // adds .mps.gz ext
 
   // Save the presolved objective value
   status = CPXXgetobjval(new_env, new_lp, &presolved_lp_opt);
