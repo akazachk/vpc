@@ -53,8 +53,12 @@ void setStrategyForBBTestGurobi(const VPCParameters& params, const int strategy,
   model.set(GRB_IntParam_Seed, seed); // random seed
 //  model.set(GRB_DoubleParam_MIPGap, param.getEPS()); // I guess the default 1e-4 is okay, though it messes up for large objective values
 
-  if (params.get(VERBOSITY) == 0)
+  if (params.get(VERBOSITY) == 0) {
     model.set(GRB_IntParam_OutputFlag, 0); // turn off output
+  } else {
+    model.set(GRB_IntParam_OutputFlag, 1); // turn on output
+    model.set(GRB_IntParam_DisplayInterval, 1); // set display frequency
+  }
 
   if (strategy <= 0) {
     // Default strategy
@@ -378,6 +382,16 @@ void doBranchAndBoundWithGurobi(const VPCParameters& params, int strategy,
      }
      if (vars) {
        delete[] vars;
+     }
+   }
+
+   if (use_temp_option(params.get(intParam::TEMP), TempOptions::SAVE_IP_OPT)) {
+     std::string dir, instname, in_file_ext;
+     std::string filename = params.get(stringParam::FILENAME);
+     parseFilename(dir, instname, in_file_ext, filename, params.logfile);
+     std::string f_name = dir + "/" + instname + "_gurobi.mst.gz";
+     if (!fexists(f_name.c_str())) {
+       model.write(f_name);
      }
    }
   } catch(GRBException& e) {

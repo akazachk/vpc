@@ -432,7 +432,7 @@ void presolveModelWithCplexCallable(const VPCParameters& params, int strategy,
   // Ensure that we are optimal
   int optimstatus = CPXXgetstat(new_env, new_lp);
   if (optimstatus != CPX_STAT_OPTIMAL) {
-    error_msg(errorstring, "CPLEX (C): Error occurred during solving presolved lp.\n");
+    error_msg(errorstring, "CPLEX (C): Unable to solve presolved lp to optimality. Optimality status: %d.\n", optimstatus);
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }
@@ -572,7 +572,7 @@ void doBranchAndBoundWithCplexCallable(const VPCParameters& params, int strategy
   status = CPXXmipopt (env, lp);
   CPXXgettime(env, &end_time);
   if ( status ) {
-    error_msg(errorstring, "CPLEX (C): Failed to optimize MIP.\n");
+    error_msg(errorstring, "CPLEX (C): Failed to optimize MIP. Exited with status %d.\n", status);
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }
@@ -654,7 +654,7 @@ void doBranchAndBoundWithCplexCallable(const VPCParameters& params, int strategy
   } /* switch optimstatus */
 
   if ( status ) {
-    error_msg(errorstring, "CPLEX (C): Failed to obtain objective value.\n");
+    error_msg(errorstring, "CPLEX (C): Failed to obtain objective value. Optimstatus: %d.\n", optimstatus);
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }
@@ -680,6 +680,22 @@ void doBranchAndBoundWithCplexCallable(const VPCParameters& params, int strategy
     if ( status ) {
       error_msg(errorstring, "CPLEX (C): CPXXgetx failed, error code %d.\n", status);
       writeErrorToLog(errorstring, params.logfile);
+      exit(1);
+    }
+  }
+
+  if (use_temp_option(params.get(intParam::TEMP), TempOptions::SAVE_IP_OPT)) {
+    std::string dir, instname, in_file_ext;
+    parseFilename(dir, instname, in_file_ext, params.get(stringParam::FILENAME),
+        params.logfile);
+    std::string f_name = dir + "/" + instname + "_cplex.mst.gz";
+    if (!fexists(f_name.c_str())) {
+      status = CPXXsolwrite(env, lp, f_name.c_str());
+      if ( status ) {
+        error_msg(errorstring, "CPLEX (C): CPXXsolwrite failed, error code %d.\n", status);
+        writeErrorToLog(errorstring, params.logfile);
+        exit(1);
+      }
     }
   }
 
@@ -689,6 +705,7 @@ void doBranchAndBoundWithCplexCallable(const VPCParameters& params, int strategy
     if ( status ) {
       error_msg(errorstring, "CPLEX (C): CPXXfreeprob failed, error code %d.\n", status);
       writeErrorToLog(errorstring, params.logfile);
+      exit(1);
     }
   }
 
@@ -706,6 +723,7 @@ void doBranchAndBoundWithCplexCallable(const VPCParameters& params, int strategy
         CPXXgeterrorstring (env, status, errmsg);
         error_msg(errorstring, "CPLEX (C): Could not close CPLEX environment. Error: %s\n", errmsg);
         writeErrorToLog(errorstring, params.logfile);
+        exit(1);
       }
    }
 } /* doBranchAndBoundWithCplexCallable (CPXENVptr, CPXLPptr) */
