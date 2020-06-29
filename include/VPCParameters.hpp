@@ -509,6 +509,7 @@ struct VPCParameters {
     this->logfile = source.logfile;
     this->intParamValues = source.intParamValues;
     this->doubleParamValues = source.doubleParamValues;
+    this->stringParamValues = source.stringParamValues;
     this->intConstValues = source.intConstValues;
     this->doubleConstValues = source.doubleConstValues;
   } /* copy constructor */
