@@ -193,7 +193,7 @@ void runBBTests(const VPCParametersNamespace::VPCParameters& base_params, Summar
     // Do branch and bound
     if (use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::gurobi)) {
 #ifdef USE_GUROBI
-      if (params.get(TEMP) == static_cast<int>(TempOptions::CHECK_CUTS_AGAINST_BB_OPT) && num_vpcs > 0) {
+      if (use_temp_option(params.get(TEMP), TempOptions::CHECK_CUTS_AGAINST_BB_OPT) && num_vpcs > 0) {
         // Get the original solution
         BBInfo tmp_bb_info;
         std::vector<double> solution;
@@ -233,7 +233,7 @@ void runBBTests(const VPCParametersNamespace::VPCParameters& base_params, Summar
 #endif // USE_GUROBI
     } else if (use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::cplex)) {
 #ifdef USE_CPLEX
-      if (params.get(TEMP) == static_cast<int>(TempOptions::CHECK_CUTS_AGAINST_BB_OPT) && num_vpcs > 0) {
+      if (use_temp_option(params.get(TEMP), TempOptions::CHECK_CUTS_AGAINST_BB_OPT) && num_vpcs > 0) {
         // Get the original solution
         BBInfo tmp_bb_info;
         std::vector<double> solution;
