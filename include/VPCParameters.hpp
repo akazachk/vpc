@@ -160,7 +160,7 @@ enum class TempOptions {
   CHECK_CUTS_AGAINST_BB_OPT = ENUM_OPTION_3,
   CALC_NUM_GOMORY_ROUNDS_TO_MATCH = ENUM_OPTION_4,
   SAVE_IP_OPT = ENUM_OPTION_5,
-  // Options for generating tikz string
+  // Options for generating tikz string (if negative, then print nodes without the LP value at the node)
   GEN_TIKZ_STRING = ENUM_OPTION_10,
   GEN_TIKZ_STRING_WITH_VPCS = ENUM_OPTION_11,
   GEN_TIKZ_STRING_WITH_GMICS = ENUM_OPTION_12,
