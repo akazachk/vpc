@@ -5,6 +5,8 @@
  */
 #include "preprocess.hpp"
 
+//#include <filesystem> // for std::copy, C++17 introduces std::copy_file
+
 // Project files
 #include "analysis.hpp"
 #include "BBHelper.hpp"
@@ -35,8 +37,8 @@ const int countFullBBInfoEntries = static_cast<int>(BB_INFO_CONTENTS.size()) * 4
  * Perform preprocessing and get statistics
  */
 void performCleaning(const VPCParametersNamespace::VPCParameters& params,
-    OsiSolverInterface* const solver, const std::string& filename,
-    const double ip_obj, const int CLEANING_MODE_OPTION, const char SEP) {
+    const OsiSolverInterface* const solver, const std::string& filename_stub,
+    const double ip_obj, const int CLEANING_MODE, const char SEP) {
   FILE* logfile = params.logfile;
   if (logfile == NULL) {
     error_msg(errorstring,
@@ -57,38 +59,33 @@ void performCleaning(const VPCParametersNamespace::VPCParameters& params,
   const double origLPOpt = solver->getObjValue();
 
   // Get original instance branching info
-#ifdef TRACE
-    printf("Performing branch-and-bound on original instance.\n");
-#endif
+  printf("\n## Performing branch-and-bound on original instance. ##\n");
   runBBTests(params, &orig_info, NULL, NULL,
       params.get(stringParam::FILENAME),
       solver, ip_obj, NULL, NULL);
 
   /********** Now we do the cleaning **********/
   SolverInterface* cleanedSolver = new SolverInterface;
+  setLPSolverParameters(cleanedSolver, params.get(VERBOSITY));
   std::string presolved_name_stub =
-      (CLEANING_MODE_OPTION <= 1) ? filename + "_presolved" : "";
-  const std::string cleaned_name =
-      (CLEANING_MODE_OPTION <= 1) ?
-          presolved_name_stub : filename + "_cleaned";
+      (CLEANING_MODE <= 1) ? filename_stub + "_presolved" : "";
+  const std::string cleaned_name_stub =
+      (CLEANING_MODE <= 1) ?
+          presolved_name_stub : filename_stub + "_cleaned";
 
   // First get presolved opt using commercial solver of choice
   double presolvedLPOpt;
   int numBoundsChanged = 0;
 #ifdef USE_GUROBI
   if (use_bb_option(strategy, BB_Strategy_Options::gurobi)) {
-#ifdef TRACE
     printf("\n## Presolve model with Gurobi. ##\n");
-#endif
     presolveModelWithGurobi(params, strategy, params.get(stringParam::FILENAME).c_str(),
         presolvedLPOpt, presolved_name_stub, ip_obj); // returns mps.gz
   } // gurobi
 #endif // use_gurobi
 #ifdef USE_CPLEX
   if (use_bb_option(strategy, BB_Strategy_Options::cplex)) {
-#ifdef TRACE
     printf("\n## Presolve model with CPLEX. ##\n");
-#endif
     presolveModelWithCplexCallable(params, strategy, params.get(stringParam::FILENAME).c_str(),
         presolvedLPOpt, presolved_name_stub, ip_obj); // returns mps.gz
   } // cplex
@@ -147,24 +144,19 @@ void performCleaning(const VPCParametersNamespace::VPCParameters& params,
   }
   presolvedLPOpt = cleanedSolver->getObjValue();
 
-  if (CLEANING_MODE_OPTION > 1) {
-    remove(presolved_name_stub.c_str()); // remove the temporary file
-  }
-
   // Now (perhaps) clean using our own methods
   int numSBFixed = 0;
-  if (CLEANING_MODE_OPTION > 1) {
+  if (CLEANING_MODE > 1) {
+    remove(presolved_name_stub.c_str()); // remove the temporary file
     bool is_clean = false; // 2 (or higher) = do our own cleaning
     const int MAX_ITER = 5;
     int iter = 0;
     while (!is_clean && iter < MAX_ITER) {
-#ifdef TRACE
-      printf("Clean model with custom method (remove one-sided split disjunctions and tighten bounds, iteratively).\n");
-#endif
+      printf("\n## Clean model with custom method (remove one-sided split disjunctions and tighten bounds, iteratively). ##\n");
       is_clean = cleanProblem(params, cleanedSolver, numBoundsChanged, numSBFixed);
       iter++;
     }
-    cleanedSolver->writeMps(cleaned_name.c_str(), "mps", cleanedSolver->getObjSense());
+    cleanedSolver->writeMps(cleaned_name_stub.c_str(), "mps", cleanedSolver->getObjSense());
 
     if (numBoundsChanged > 0 || numSBFixed > 0) {
       cleanedSolver->resolve();
@@ -188,18 +180,51 @@ void performCleaning(const VPCParametersNamespace::VPCParameters& params,
       || (cleanedNumCols != origNumCols) || (cleanedNumRows != origNumRows)
       || (cleanedNumNonZero != origNumNonZero);
   if (cleanedNumNonZero > 0 && was_cleaned) {
-#ifdef TRACE
     printf("\n## Performing branch-and-bound on cleaned instance. ##\n");
-#endif
-    runBBTests(params, &cleaned_info, NULL, NULL, cleaned_name + ".mps", cleanedSolver,
-        ip_obj, NULL, NULL);
+    VPCParametersNamespace::VPCParameters cleaned_params = params;
+    cleaned_params.set(stringParam::FILENAME, cleaned_name_stub + ".mps.gz");
+    std::string optfile = params.get(stringParam::OPTFILE);
+    if (!optfile.empty()) {
+      std::string dir, instname, in_ext;
+      parseFilename(dir, instname, in_ext, optfile, params.logfile);
+      if ((in_ext.compare(".sol") == 0) || (in_ext.compare(".sol.gz") == 0)
+          || (in_ext.compare(".mst") == 0) || (in_ext.compare(".mst.gz") == 0)) {
+        optfile = dir + "/"  + instname + ((CLEANING_MODE <= 1) ? "_presolved" : "_cleaned") + in_ext;
+        cleaned_params.set(stringParam::OPTFILE, optfile);
+      }
+    }
+    runBBTests(cleaned_params, &cleaned_info, NULL, NULL,
+        cleaned_name_stub + ".mps",
+        cleanedSolver, ip_obj, NULL, NULL);
   } /* check if any cleaning was performed */
   else if (cleanedNumNonZero == 0) {
+    warning_msg(warnstring, "Presolve left an empty problem.\n");
     presolvedLPOpt = ip_obj;
 //    initializeBBInfo(cleanedBBInfo, ip_obj);
   } /* check if cleaning yielded an empty problem */
   else {
+    printf("Presolve did not change instance.\n");
     cleaned_info = orig_info;
+
+    // Copy over the mip start / solution information (TODO)
+    if (use_temp_option(params.get(intParam::TEMP), TempOptions::SAVE_IP_OPT)) {
+      std::string solver = "";
+#ifdef USE_GUROBI
+      if (use_bb_option(strategy, BB_Strategy_Options::gurobi)) {
+        solver = "_gurobi";
+      }
+#endif
+#ifdef USE_CPLEX
+      if (use_bb_option(strategy, BB_Strategy_Options::cplex)) {
+        solver = "_cplex";
+      }
+#endif
+      const std::string optfile = filename_stub + solver + ".mst.gz";
+      const std::string optfile_cleaned = cleaned_name_stub + solver + ".mst.gz";
+      if (fexists(optfile.c_str())) {
+//        std::copy_file(optfile.c_str(), optfile_cleaned.c_str()); // needs C++17
+      }
+    }
   } /* strong branching did nothing so do not repeat the experiments */
 
   // Now save everything to the logfile; instance name is already saved

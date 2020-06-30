@@ -50,7 +50,9 @@ void setStrategyForBBTestGurobi(const VPCParameters& params, const int strategy,
   // Parameters that should always be set
   model.set(GRB_DoubleParam_TimeLimit, params.get(doubleConst::BB_TIMELIMIT)); // time limit
   model.set(GRB_IntParam_Threads, 1); // single-threaded
-  model.set(GRB_IntParam_Seed, seed); // random seed
+  if (seed >= 0) {
+    model.set(GRB_IntParam_Seed, seed); // random seed
+  }
 //  model.set(GRB_DoubleParam_MIPGap, param.getEPS()); // I guess the default 1e-4 is okay, though it messes up for large objective values
 
   if (params.get(VERBOSITY) == 0) {
@@ -94,6 +96,20 @@ void setStrategyForBBTestGurobi(const VPCParameters& params, const int strategy,
         //model.set(GRB_DoubleParam_BestObjStop, best_bound + 1e-3); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
         model.set(GRB_DoubleParam_BestBdStop, best_bound - 1e-7); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
         //model.set(GRB_DoubleParam_Cutoff, best_bound + 1e-3); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
+      }
+      // Check if user provides mip start or solution file
+      std::string optfile = params.get(stringParam::OPTFILE);
+      std::string ext1 = "_gurobi.sol.gz";
+      std::string ext2 = "_gurobi.sol";
+      std::string ext3 = "_gurobi.mst.gz";
+      std::string ext4 = "_gurobi.mst";
+      bool user_provides_start = false;
+      user_provides_start |= (optfile.size() > ext1.size()) && (optfile.compare(optfile.size() - ext1.size(), ext1.size(), ext1) == 0);
+      user_provides_start |= (optfile.size() > ext2.size()) && (optfile.compare(optfile.size() - ext2.size(), ext2.size(), ext2) == 0);
+      user_provides_start |= (optfile.size() > ext3.size()) && (optfile.compare(optfile.size() - ext3.size(), ext3.size(), ext3) == 0);
+      user_provides_start |= (optfile.size() > ext4.size()) && (optfile.compare(optfile.size() - ext4.size(), ext4.size(), ext4) == 0);
+      if (user_provides_start) {
+        model.read(optfile);
       }
     }
   } /* strategy > 0 */
@@ -250,6 +266,7 @@ void presolveModelWithGurobi(const VPCParameters& params, int strategy,
     strategy = static_cast<int>(BB_Strategy_Options::presolve_on);
     setStrategyForBBTestGurobi(params, strategy, presolved_model, best_bound);
 
+    printf("Solving Gurobi-presolved model to get new LP optimum value.\n");
     presolved_model.optimize();
 
     // Save optimal value
@@ -258,7 +275,7 @@ void presolveModelWithGurobi(const VPCParameters& params, int strategy,
         presolved_lp_opt = presolved_model.get(GRB_DoubleAttr_ObjVal);
         size_t slashindex = presolved_name.find_last_of("/\\");
         presolved_model_mip.set(GRB_StringAttr_ModelName, presolved_name.substr(slashindex+1));
-        printf("Saving Gurobi-presolved model to %s.mps.gz.\n", presolved_name.c_str());
+        printf("Saving Gurobi-presolved model to \"%s.mps.gz\".\n", presolved_name.c_str());
         createTmpFileCopy(params, presolved_model_mip, presolved_name, ".mps.gz"); // adds .mps.gz ext
         if (vars) {
           delete[] vars;
@@ -391,6 +408,7 @@ void doBranchAndBoundWithGurobi(const VPCParameters& params, int strategy,
      parseFilename(dir, instname, in_file_ext, filename, params.logfile);
      std::string f_name = dir + "/" + instname + "_gurobi.mst.gz";
      if (!fexists(f_name.c_str())) {
+       printf("Saving Gurobi MIP start file to \"%s\".\n", f_name.c_str());
        model.write(f_name);
      }
    }

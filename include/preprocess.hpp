@@ -12,7 +12,7 @@ namespace VPCParametersNamespace {
 
 void printPreprocessingHeader(const VPCParametersNamespace::VPCParameters& params, const char SEP = ',');
 void performCleaning(const VPCParametersNamespace::VPCParameters& orig_params,
-    OsiSolverInterface* const solver, const std::string& filename,
+    const OsiSolverInterface* const solver, const std::string& filename,
     const double ip_obj, const int CLEANING_MODE_OPTION, const char SEP = ',');
 bool cleanProblem(const VPCParametersNamespace::VPCParameters& params, OsiSolverInterface* solver,
     int& numBoundsChanged, int& numSBFixed);

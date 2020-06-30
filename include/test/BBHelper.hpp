@@ -87,7 +87,7 @@ struct SummaryBBInfo {
 
 void runBBTests(const VPCParametersNamespace::VPCParameters& base_params, SummaryBBInfo* const info_nocuts,
     SummaryBBInfo* const info_mycuts, SummaryBBInfo* const info_allcuts,
-    const std::string fullfilename, OsiSolverInterface* const solver,
+    const std::string fullfilename, const OsiSolverInterface* const solver,
     const double best_bound, const OsiCuts* vpcs, const OsiCuts* const gmics = NULL);
 
 inline void initializeBBInfo(BBInfo& info, double obj = 0.) {

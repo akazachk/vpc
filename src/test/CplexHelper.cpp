@@ -46,15 +46,21 @@ void createTmpFileCopy(const VPCParameters& params, CPXENVptr& env, CPXLPptr& lp
   CPXXwriteprob(env, lp, f_name.c_str(), NULL);
 } /* createTmpFileCopy (Cplex) */
 
+/**
+ * * CPXLPptr passed only for MIP start / solution
+ */
 void setStrategyForBBTestCplexCallable(const VPCParameters& params, const int strategy,
-    CPXENVptr& env, const double best_bound, int seed = -1) {
+    CPXENVptr& env, CPXLPptr& lp, const double best_bound, int seed = -1) {
   if (seed < 0) seed = params.get(intParam::RANDOM_SEED);
   int status = 0;
 
   // Parameters that should always be set
   status += CPXXsetdblparam(env, CPXPARAM_TimeLimit, params.get(doubleConst::BB_TIMELIMIT)); // time limit
   status += CPXXsetlongparam(env, CPXPARAM_Threads, 1); // single-threaded
-  status += CPXXsetintparam(env, CPXPARAM_RandomSeed, seed); // random seed
+
+  if (seed >= 0) {
+    status += CPXXsetintparam(env, CPXPARAM_RandomSeed, seed); // random seed
+  }
 
   if (params.get(VERBOSITY) == 0) {
     status += CPXXsetintparam(env, CPXPARAM_ScreenOutput, CPX_OFF);
@@ -117,11 +123,29 @@ void setStrategyForBBTestCplexCallable(const VPCParameters& params, const int st
     if (use_bb_option(strategy, BB_Strategy_Options::use_best_bound)) {
       if (!isInfinity(std::abs(best_bound))) {
         //status += CPXXsetdblparam(env, CPXPARAM_MIP_Tolerances_UpperCutoff, best_bound + 1e-3); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
-        status += CPXXsetdblparam(env, CPXPARAM_MIP_Tolerances_UpperCutoff, best_bound - 1e-7); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
+        status += CPXXsetdblparam(env, CPXPARAM_MIP_Tolerances_UpperCutoff, best_bound + 1e-7); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
+      }
+      // Check if user provides mip start or solution file
+      std::string optfile = params.get(stringParam::OPTFILE);
+      std::string ext1 = "_cplex.sol.gz";
+      std::string ext2 = "_cplex.sol";
+      std::string ext3 = "_cplex.mst.gz";
+      std::string ext4 = "_cplex.mst";
+      bool user_provides_start = false;
+      user_provides_start |= (optfile.size() > ext1.size()) && (optfile.compare(optfile.size() - ext1.size(), ext1.size(), ext1) == 0);
+      user_provides_start |= (optfile.size() > ext2.size()) && (optfile.compare(optfile.size() - ext2.size(), ext2.size(), ext2) == 0);
+      if (user_provides_start) {
+        CPXXsetintparam(env, CPXPARAM_Advance, 1);
+        CPXXreadcopysol(env, lp, optfile.c_str());
+      }
+      user_provides_start = false;
+      user_provides_start |= (optfile.size() > ext3.size()) && (optfile.compare(optfile.size() - ext3.size(), ext3.size(), ext3) == 0);
+      user_provides_start |= (optfile.size() > ext4.size()) && (optfile.compare(optfile.size() - ext4.size(), ext4.size(), ext4) == 0);
+      if (user_provides_start) {
+        CPXXsetintparam(env, CPXPARAM_Advance, 1);
+        CPXXreadcopymipstarts(env, lp, optfile.c_str());
       }
     }
-
-    // TODO Add MIP start
   } /* strategy > 0 */
 
   // Check if we should use strong branching
@@ -330,7 +354,7 @@ void presolveModelWithCplexCallable(const VPCParameters& params, int strategy,
     const double best_bound) {
   printf("\n## CPLEX (C): Presolving model ##\n");
   strategy = static_cast<int>(BB_Strategy_Options::presolve_on);
-  setStrategyForBBTestCplexCallable(params, strategy, env, best_bound);
+  setStrategyForBBTestCplexCallable(params, strategy, env, lp, best_bound);
 
   int status = 0;
 
@@ -362,9 +386,9 @@ void presolveModelWithCplexCallable(const VPCParameters& params, int strategy,
     exit(1);
   }
 
-  printf("Saving CPLEX-presolved model to %s.pre.\n", presolved_name.c_str());
+  printf("Saving SAV version of CPLEX-presolved model to \"%s.pre\".\n", presolved_name.c_str());
   double objoff; // objective offset between the original and presolved models
-  status = CPXXpreslvwrite(env, lp, (presolved_name + ".pre").c_str(), &objoff);
+  status = CPXXpreslvwrite(env, lp, (presolved_name + ".pre").c_str(), &objoff); // TODO will this run *another* round of presolve?
   if (status) {
     error_msg(errorstring, "CPLEX (C): Error occurred during call to CPXXpreslvwrite.\n");
     writeErrorToLog(errorstring, params.logfile);
@@ -413,6 +437,10 @@ void presolveModelWithCplexCallable(const VPCParameters& params, int strategy,
     exit(1);
   }
 
+  // Write the problem to an mps file format
+  printf("Saving CPLEX-presolved model to \"%s.mps.gz\".\n", presolved_name.c_str());
+  createTmpFileCopy(params, new_env, new_lp, presolved_name, ".mps.gz"); // adds .mps.gz ext
+
   // Change to an lp to get the presolved lp optimum
   status = CPXXchgprobtype(new_env, new_lp, CPXPROB_LP);
   if (status) {
@@ -422,6 +450,7 @@ void presolveModelWithCplexCallable(const VPCParameters& params, int strategy,
   }
 
   // Optimize the lp
+  printf("Solving CPLEX-presolved model to get new LP optimum value.\n");
   status = CPXXlpopt(new_env, new_lp);
   if (status) {
     error_msg(errorstring, "CPLEX (C): Error occurred during solving presolved lp.\n");
@@ -436,9 +465,6 @@ void presolveModelWithCplexCallable(const VPCParameters& params, int strategy,
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }
-
-  // Write the problem to an mps file format
-  createTmpFileCopy(params, new_env, new_lp, presolved_name, ".mps.gz"); // adds .mps.gz ext
 
   // Save the presolved objective value
   status = CPXXgetobjval(new_env, new_lp, &presolved_lp_opt);
@@ -559,7 +585,7 @@ void doBranchAndBoundWithCplexCallable(const VPCParameters& params, int strategy
   int status = 0;
 
   // Set CPLEX parameters
-  setStrategyForBBTestCplexCallable(params, strategy, env, best_bound);
+  setStrategyForBBTestCplexCallable(params, strategy, env, lp, best_bound);
 
   // Optimize the LP
   //status = CPXXlpopt (env, lp);
@@ -690,7 +716,9 @@ void doBranchAndBoundWithCplexCallable(const VPCParameters& params, int strategy
         params.logfile);
     std::string f_name = dir + "/" + instname + "_cplex.mst.gz";
     if (!fexists(f_name.c_str())) {
-      status = CPXXsolwrite(env, lp, f_name.c_str());
+      printf("Saving CPLEX MIP start file to \"%s\".\n", f_name.c_str());
+//      status = CPXXsolwrite(env, lp, f_name.c_str());
+      status = CPXXwritemipstarts(env, lp, f_name.c_str(), 0, 0);
       if ( status ) {
         error_msg(errorstring, "CPLEX (C): CPXXsolwrite failed, error code %d.\n", status);
         writeErrorToLog(errorstring, params.logfile);

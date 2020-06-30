@@ -47,7 +47,7 @@ using namespace VPCParametersNamespace;
  */
 void runBBTests(const VPCParametersNamespace::VPCParameters& base_params, SummaryBBInfo* const info_nocuts,
     SummaryBBInfo* const info_mycuts, SummaryBBInfo* const info_allcuts,
-    const std::string fullfilename, OsiSolverInterface* const solver,
+    const std::string fullfilename, const OsiSolverInterface* const solver,
     const double best_bound, const OsiCuts* vpcs, const OsiCuts* const gmics) {
   VPCParametersNamespace::VPCParameters params = base_params;
   const int num_vpcs = (vpcs != NULL) ? vpcs->sizeCuts() : 0;
@@ -170,6 +170,7 @@ void runBBTests(const VPCParametersNamespace::VPCParameters& base_params, Summar
       }
 
       runSolver = new SolverInterface;
+      setLPSolverParameters(runSolver, params.get(intParam::VERBOSITY));
       runSolver->setObjSense(solver->getObjSense());
       double objOffset = 0.;
       solver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
@@ -186,9 +187,6 @@ void runBBTests(const VPCParametersNamespace::VPCParameters& base_params, Summar
         }
       }
     } // test whether num_bb_runs >= 2 and permute row/col order
-    else {
-      runSolver = solver;
-    }
 
     // Do branch and bound
     if (use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::gurobi)) {
@@ -273,14 +271,14 @@ void runBBTests(const VPCParametersNamespace::VPCParameters& base_params, Summar
 #endif // USE_CPLEX
     } else if (use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::cbc)) {
       if (branch_with_no_cuts) {
-        doBranchAndBoundNoCuts(params, runSolver, info_nocuts->vec_bb_info[run_ind]);
+        doBranchAndBoundNoCuts(params, (should_permute_rows_and_cols ? runSolver : solver), info_nocuts->vec_bb_info[run_ind]);
       }
       if (branch_with_vpcs) {
-        doBranchAndBoundYesCuts(params, runSolver, info_mycuts->vec_bb_info[run_ind],
+        doBranchAndBoundYesCuts(params, (should_permute_rows_and_cols ? runSolver : solver), info_mycuts->vec_bb_info[run_ind],
             *vpcs, false, numCutsToAddPerRound, 1, "\nBB with VPCs.\n");
       }
       if (branch_with_gmics) {
-        doBranchAndBoundYesCuts(params, runSolver, info_allcuts->vec_bb_info[run_ind],
+        doBranchAndBoundYesCuts(params, (should_permute_rows_and_cols ? runSolver : solver), info_allcuts->vec_bb_info[run_ind],
             GMICsAndVPCs, false, numCutsToAddPerRound, 1, "\nBB with VPC+Gomorys.\n");
       }
     }
