@@ -59,5 +59,5 @@ There are many things left to be implemented in the future:
 You may need `gfortran`, `pkg-conf`, `LAPACK`, `BLAS`
 
 ## Contact Information
-Aleksandr M. Kazachkov
-aleksandr DOT kazachkov AT polymtl DOT ca
+Aleksandr M. Kazachkov,
+akazachk AT discreteopt DOT com
