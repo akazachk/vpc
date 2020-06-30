@@ -37,16 +37,17 @@ void createTmpFilename(std::string& f_name,
 } /* createTmpFilename */
 
 /** Separate filename into the directory, instance name, and extension */
-void parseFilename(std::string& dir, std::string& instname, std::string& in_file_ext, const std::string& fullfilename, FILE* logfile) {
+int parseFilename(std::string& dir, std::string& instname, std::string& in_file_ext, const std::string& fullfilename, FILE* logfile) {
   // Get file name stub
   size_t found_dot = fullfilename.find_last_of(".");
   std::string filename = fullfilename.substr(0, found_dot);
 
   // Put string after last '.' into string in_file_ext
   if (found_dot >= fullfilename.length()) {
-    /*error_msg(errorstring, "Cannot find the file extension (no '.' in input file name: %s).\n", fullfilename.c_str());
-    writeErrorToLog(errorstring, logfile);
-    exit(1);*/
+    warning_msg(warnstring, "Cannot find the file extension (no '.' in input file name: \"%s\").\n", fullfilename.c_str());
+//    writeErrorToLog(errorstring, logfile);
+//    exit(1);
+    return 1;
   }
 
   // Check if archived file
@@ -59,11 +60,12 @@ void parseFilename(std::string& dir, std::string& instname, std::string& in_file
       in_file_ext = filename.substr(found_dot_tmp + 1);
       filename = filename.substr(0, found_dot_tmp);
     } else {
-      /*error_msg(errorstring,
-          "Other than gz or bz2, cannot find the file extension (no '.' in input file name: %s).\n",
+      warning_msg(warnstring,
+          "Other than gz or bz2, cannot find the file extension (no '.' in input file name: \"%s\").\n",
           fullfilename.c_str());
-      writeErrorToLog(errorstring, logfile);
-      exit(1);*/
+//      writeErrorToLog(errorstring, logfile);
+//      exit(1);
+      return 1;
     }
   }
 
@@ -71,6 +73,7 @@ void parseFilename(std::string& dir, std::string& instname, std::string& in_file
   size_t slashindex = filename.find_last_of("/\\");
   dir = (slashindex != std::string::npos) ? filename.substr(0,slashindex) : ".";
   instname = (slashindex != std::string::npos) ? filename.substr(slashindex+1) : filename;
+  return 0;
 } /* parseFilename (name and logfile given) */
 
 /** We assume it is comma separated */

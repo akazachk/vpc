@@ -107,7 +107,7 @@ template<class T> struct index_cmp_asc {
  * @brief Writes error and closes file myfile.
  */
 inline void writeErrorToLog(std::string text, FILE *myfile) {
-  if (myfile == NULL || myfile == stdout)
+  if (myfile == NULL || myfile == stdout || myfile == stderr)
     return;
   fprintf(myfile, "||%c%s", ',', text.c_str());
   fclose(myfile);
@@ -117,7 +117,7 @@ inline void writeErrorToLog(std::string text, FILE *myfile) {
 void createTmpFilename(std::string& f_name, const std::string add_ext = "");
 
 /** Separate filename into the directory, instance name, and extension */
-void parseFilename(std::string& dir, std::string& instname, std::string& in_file_ext, const std::string& fullfilename, FILE* logfile);
+int parseFilename(std::string& dir, std::string& instname, std::string& in_file_ext, const std::string& fullfilename, FILE* logfile);
 
 double getObjValueFromFile(std::string opt_filename, std::string fullfilename, FILE* logfile);
 
