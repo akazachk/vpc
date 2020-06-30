@@ -153,10 +153,11 @@ int main(int argc, char** argv) {
   // Possibly preprocess instead of doing cuts
   if (params.get(PREPROCESS) != 0) {
     // Cleaning involves running presolve and branching
+    printf("\n## Starting preprocessing/cleaning of instance. ##\n");
     params.set(intParam::BB_MODE, 1); // only do no cuts branching
     performCleaning(params, solver, filename_stub, boundInfo.ip_obj, params.get(PREPROCESS));
 
-    printf("\n## Finished cleaning. ##\n");
+    printf("\n## Finished preprocessing/cleaning of instance. ##\n");
     return wrapUp(0);
   }
 
@@ -304,8 +305,8 @@ int main(int argc, char** argv) {
 void startUp(int argc, char** argv) {
   // Input handling
   printf("## V-Polyhedral Disjunctive Cuts ##\n");
-  printf("Aleksandr M. Kazachkov\n");
-  printf("Based on joint work with Egon Balas\n");
+  printf("# Aleksandr M. Kazachkov\n");
+  printf("# Based on joint work with Egon Balas\n");
   for (int i = 0; i < argc; i++) {
     std::cout << argv[i] << " ";
   }
@@ -321,7 +322,13 @@ void startUp(int argc, char** argv) {
   // Get instance file
   printf("Instance file: %s\n", params.get(stringParam::FILENAME).c_str());
   
-  parseFilename(dir, instname, in_file_ext, params.get(stringParam::FILENAME), params.logfile);
+  if (parseFilename(dir, instname, in_file_ext, params.get(stringParam::FILENAME), params.logfile) != 0) {
+    error_msg(errorstring,
+        "Unable to parse filename: %s. Found: dir=\"%s\", instname=\"%s\",ext=\"%s\".\n",
+        params.get(stringParam::FILENAME).c_str(), dir.c_str(),
+        instname.c_str(), in_file_ext.c_str());
+    exit(1);
+  }
   filename_stub = dir + "/" + instname;
 
   // Prepare logfile
@@ -337,16 +344,20 @@ void startUp(int argc, char** argv) {
     boundInfo.ip_obj = params.get(doubleParam::IP_OBJ);
   }
   if (isInfinity(boundInfo.ip_obj) && !params.get(stringParam::OPTFILE).empty()) {
-#ifdef TRACE
-    std::cout << "Reading objective information from \"" + params.get(stringParam::OPTFILE) + "\"" << std::endl;
-#endif
-    boundInfo.ip_obj = getObjValueFromFile(params.get(stringParam::OPTFILE), params.get(stringParam::FILENAME), params.logfile);
-    params.set(doubleParam::IP_OBJ, boundInfo.ip_obj);
-#ifdef TRACE
-    std::cout << "Best known objective value is " << boundInfo.ip_obj << std::endl;
-#endif
-    if (isInfinity(boundInfo.ip_obj)) {
-      warning_msg(warnstring, "Did not find objective value.\n");
+    std::string optfile = params.get(stringParam::OPTFILE);
+    std::string csvext = ".csv";
+    if (optfile.size() > csvext.size() && optfile.compare(optfile.size()-csvext.size(), csvext.size(), csvext) == 0) {
+  #ifdef TRACE
+      std::cout << "Reading objective information from \"" + params.get(stringParam::OPTFILE) + "\"" << std::endl;
+  #endif
+      boundInfo.ip_obj = getObjValueFromFile(optfile, params.get(stringParam::FILENAME), params.logfile);
+      params.set(doubleParam::IP_OBJ, boundInfo.ip_obj);
+  #ifdef TRACE
+      std::cout << "Best known objective value is " << boundInfo.ip_obj << std::endl;
+  #endif
+      if (isInfinity(boundInfo.ip_obj)) {
+        warning_msg(warnstring, "Did not find objective value.\n");
+      }
     }
   }
   if (params.logfile != NULL) {
@@ -437,6 +448,9 @@ int wrapUp(int retCode /*= 0*/) {
 
   printf("\n## Exiting VPC generation with reason %s. ##\n", CglVPC::ExitReasonName[exitReasonInt].c_str());
   printf("Instance: %s\n", instname.c_str());
+  if (!params.get(stringParam::LOGFILE).empty()) {
+    printf("Log: %s\n", params.get(stringParam::LOGFILE).c_str());
+  }
   printf("Start time: %s\n", start_time_string);
   printf("End time: %s\n", end_time_string);
   printf("Elapsed time: %.f seconds\n", difftime(end_time_t, start_time_t));
@@ -922,7 +936,7 @@ void processArgs(int argc, char** argv) {
                 helpstring += "-f file, --file=file\n\tFilename.\n";
                 helpstring += "-i val, --ip_obj=val\n\tValue of integer optimum for this instance (takes precedence over -o/--optfile).\n";
                 helpstring += "-l logfile, --logfile=logfile\n\tWhere to print log messages.\n";
-                helpstring += "-o optfile, --optfile=optfile\n\tWhere to find integer optimum value information (a csv file formatted as \"instance_name,value\" on each row).\n";
+                helpstring += "-o optfile, --optfile=optfile\n\tWhere to find integer optimum value information (a csv file formatted as \"instance_name,value\" on each row, or a .sol/.mst file to be read by CPLEX/Gurobi).\n";
                 helpstring += "-v level, --verbosity=level\n\tVerbosity level (0: print little, 1: let solver output be visible).\n";
                 helpstring += "\n# General VPC options #\n";
                 helpstring += "-c num cuts, --cutlimit=num cuts\n\tMaximum number of cuts to generate (0+ = as given, -k = k * # fractional variables at root).\n";
