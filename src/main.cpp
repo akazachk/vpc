@@ -790,7 +790,7 @@ void processArgs(int argc, char** argv) {
                     exit(1);
                   }
                   params.set(intParam::PREPROCESS, val);
-                  params.set(intParam::BB_RUNS, 7);
+                  params.set(intParam::BB_RUNS, 1);
                   params.set(intParam::BB_MODE, 001);
 #ifdef USE_GUROBI
                   params.set(intParam::BB_STRATEGY, 10776);
