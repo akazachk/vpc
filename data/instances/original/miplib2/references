@@ -1,0 +1,123 @@
+
+The following is a list of certain miplib problems and various papers that
+make reference to them.
+
+
+air02, air03:
+
+     J. Barutt, and T. Hull. " Airline Crew Scheduling:
+        Supercomputers and Algorithms," SIAM News, Vol. 23,
+        No. 6, November 1990.
+
+bell3a, bell3b, bell4, bell5:
+
+     W. Cook, T. Rutherford, H.E. Scarf, and D. Shallcross. "An
+        implementation of the generalized basis reduction algorithme
+        for integer programming," DIMACS Technical Report 92-3.
+
+     B. Gailly and L.A. Wolsey, "Capacity expansion of the local access
+        network," manuscript (1991).
+
+     D. Bienstock, "Computational experience with an effective heuristic
+        for some capacity expansion problems in the local access 
+        netorks," manuscript (1992).
+
+     W. Cook, "Integer programming solutions for capacity expansion of the
+        local access network," Bellcore Technical Memorandum TSV-018565
+        (1991).
+
+bm23:
+
+     B. Bouvier and G. Messoumian (1965). "Programmes Lineaires en
+        Variables Bivalentes--Algorithm de Balas,"  Universite de
+        Grenoble, France.
+
+     E. L. Johnson and U. H. Suhl (1980). "Experiments in Integer
+        Programming," Discrete Appl. Math. 2, pp. 39-55.
+
+dcmulti:
+
+     Eckstein, J., "Control Strategies for Parallel Mixed Integer Branch
+        and Bound", Proceedings of Supercomputing '94, IEEE Computer 
+        Society Press, Los Alamitos, CA, 41-48 (1994). 
+
+     Eckstein, J., "Parallel Branch-and-Bound Methods for Mixed-Integer
+        Programming on the CM-5," SIAM Journal on Optimization, 
+        4(4):794-814 (1994).  
+
+
+egout:
+
+     T.J. Van Roy, L.A. Wolsey (1987). "Solving Mixed Integer Programming
+        Problems Using Automatic Reformulation," Oper. Res. 35, No. 1,
+        pp. 45-57.
+
+fixnet3:
+
+     T.J. Van Roy, L.A. Wolsey (1987). "Solving Mixed Integer Programming
+        Problems Using Automatic Reformulation," Oper. Res. 35, No. 1,
+        pp. 45-57.
+
+gen:
+
+     T.J. Van Roy, L.A. Wolsey (1987). "Solving Mixed Integer Programming
+        Problems Using Automatic Reformulation," Oper. Res. 35, No. 1,
+        pp. 45-57.
+
+khb05250:
+
+     T.J. Van Roy, L.A. Wolsey (1987). "Solving Mixed Integer Programming
+        Problems Using Automatic Reformulation," Oper. Res. 35, No. 1,
+        pp. 45-57.
+
+modglob:
+
+     T.J. Van Roy, L.A. Wolsey (1987). "Solving Mixed Integer Programming
+        Problems Using Automatic Reformulation," Oper. Res. 35, No. 1,
+        pp. 45-57.
+
+lseu:
+
+     C. Lemke, K. Spielberg (1967). "Direct Search Zero-One and Mixed Integer
+        Programming," Oper. Res. 15, pp. 892-914.
+
+     E. L. Johnson and U. H. Suhl (1980). "Experiments in Integer
+        Programming," Discrete Appl. Math. 2, pp. 39-55.
+
+p0033, p0040, p0201, p0282, p0291, p0548, p2756:
+
+     Karla L. Hoffman, Manfred Padberg. "Improving LP-Representations
+        of Zero-One Linear Programs for Branch-and-Cut,"
+        ORSA Journal on Computing. Vol. 3, No. 2, Spring 1991.
+
+     Harlan Crowder, Ellis L. Johnson, and Manfred Padberg.
+        "Solving Large-Scale Zero-One Linear Programming Problems,"
+        Operations Research. Vol. 31, No. 5, September-October 1983.
+
+     E. Andrew Boyd, "Fenchel Cutting Planes for Integer Programs,"
+        to appear in Operations Research.
+
+     E. Andrew Boyd,  "Generating Fenchel Cutting Planes for Knapsack 
+        Polyhedra," TR90-20 to appear in the SIAM Journal on Optimization.
+
+     E. Andrew Boyd, "Solving Integer Programs with Enumeration Cutting 
+        Planes,"  TR92-08.
+
+qiu:
+
+     Eckstein, J., "Control Strategies for Parallel Mixed Integer Branch
+        and Bound", Proceedings of Supercomputing '94, IEEE Computer 
+        Society Press, Los Alamitos, CA, 41-48 (1994). 
+
+     Eckstein, J., "Parallel Branch-and-Bound Methods for Mixed-Integer
+        Programming on the CM-5," SIAM Journal on Optimization, 
+        4(4):794-814 (1994).  
+
+     Eckstein, J., "Parallel Branch-and-Bound Methods for Mixed Integer
+        Programming", SIAM News 27(1):1,1215 (1994).
+
+sentoy:
+
+     S. Senju, Y. Toyoda (1968). "An Approach to Linear Programming with 
+        0-1 Variables," Management Science 15, pp. B196-B207.
+

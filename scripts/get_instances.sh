@@ -41,21 +41,23 @@ cd ${DATA_DIR}/miplib3
 for f in *; do mv "$f" "$f.mps"; done
 for f in *; do gzip "$f"; done
 cd ${DATA_DIR}
+cp ${DATA_DIR}/miplib2/stein27_nocard.mps.gz ${DATA_DIR}/miplib3/
+cp ${DATA_DIR}/miplib2/stein45_nocard.mps.gz ${DATA_DIR}/miplib3/
 
-echo "Downloading MIPLIB2"
-wget http://miplib2010.zib.de/miplib2/miplib.tar.gz
-mkdir ${DATA_DIR}/miplib2
-tar -xvf miplib.tar.gz --directory ${DATA_DIR}/miplib2
-rm ${DATA_DIR}/miplib2/miplib.cat
-rm ${DATA_DIR}/miplib2/miplib/mps_format
-rm ${DATA_DIR}/miplib2/miplib/references
-cd ${DATA_DIR}/miplib2/miplib
-for f in *; do mv "$f" "$f.mps"; done
-for f in *; do gzip "$f"; done
-mv *.mps.gz ..
-cd ..
-rm -r miplib
-cd ${DATA_DIR}
+#echo "Downloading MIPLIB2"
+#wget http://miplib2010.zib.de/miplib2/miplib.tar.gz
+#mkdir ${DATA_DIR}/miplib2
+#tar -xvf miplib.tar.gz --directory ${DATA_DIR}/miplib2
+#rm ${DATA_DIR}/miplib2/miplib.cat
+#rm ${DATA_DIR}/miplib2/miplib/mps_format
+#rm ${DATA_DIR}/miplib2/miplib/references
+#cd ${DATA_DIR}/miplib2/miplib
+#for f in *; do mv "$f" "$f.mps"; done
+#for f in *; do gzip "$f"; done
+#mv *.mps.gz ..
+#cd ..
+#rm -r miplib
+#cd ${DATA_DIR}
 
 echo "Downloading COR@L instances"
 wget https://coral.ise.lehigh.edu/wp-content/uploads/mip-instances/instances/ALL_INSTANCE.tar
