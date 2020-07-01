@@ -62,6 +62,7 @@ wget https://coral.ise.lehigh.edu/wp-content/uploads/mip-instances/instances/ALL
 mv ALL_INSTANCE.tar coral.tar
 mkdir -p ${DATA_DIR}/coral
 tar -xvf coral.tar --directory ${DATA_DIR}/coral
+mv coral/mcf2.mps.bz2 coral/danoint.mps.bz2
 
 echo "Finished downloading instances to $DATA_DIR"
 cd ${START_DIR}
