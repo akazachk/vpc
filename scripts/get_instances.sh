@@ -1,42 +1,67 @@
 #!/usr/bin/env bash
 
 if [ -z "$PROJ_DIR" ]
-  then echo "Need to define PROJ_DIR. Exiting."
-  exit
+then 
+  echo "Please define PROJ_DIR (the root vpc dir):"
+  read PROJ_DIR
+  echo "Set PROJ_DIR=$PROJ_DIR"
+  if [ -z "$PROJ_DIR" ]
+    then echo "Need to define PROJ_DIR. Exiting."
+    exit
+  fi
 fi
-DATA_DIR="${PROJ_DIR}/data/instances"
+DATA_DIR="${PROJ_DIR}/data/instances/original"
 
+echo "Instances will be downloaded to $DATA_DIR"
+
+START_DIR=$PWD
+cd $DATA_DIR
+
+echo "Downloading MIPLIB2017"
 wget http://miplib2017.zib.de/downloads/collection.zip
-mkdir -p ${DATA_DIR}/original/miplib2017
-unzip collection.zip -d ${DATA_DIR}/original/miplib2017
+mkdir -p ${DATA_DIR}/miplib2017
+unzip collection.zip -d ${DATA_DIR}/miplib2017
 
+echo "Downloading MIPLIB2010"
 wget http://miplib2010.zib.de/download/miplib2010-complete.zip
-unzip miplib2010-complete.zip -d ${DATA_DIR}/original
+unzip miplib2010-complete.zip -d ${DATA_DIR}
 
+echo "Downloading MIPLIB2003"
 wget http://miplib2010.zib.de/miplib2003/download/miplib2003.tar
-mkdir -p ${DATA_DIR}/original/miplib2003
-tar -xvf miplib2003.tar --directory ${DATA_DIR}/original/miplib2003
+mkdir -p ${DATA_DIR}/miplib2003
+tar -xvf miplib2003.tar --directory ${DATA_DIR}/miplib2003
 
+echo "Downloading MIPLIB3"
 wget http://miplib2010.zib.de/miplib3/miplib3.tar.gz
-tar -xvf miplib3.tar.gz --directory ${DATA_DIR}/original
-rm ${DATA_DIR}/original/miplib3/miplib.cat
-rm ${DATA_DIR}/original/miplib3/mps_format
-rm ${DATA_DIR}/original/miplib3/references
-cd ${DATA_DIR}/original/miplib3
+tar -xvf miplib3.tar.gz --directory ${DATA_DIR}
+rm ${DATA_DIR}/miplib3/miplib.cat
+rm ${DATA_DIR}/miplib3/mps_format
+rm ${DATA_DIR}/miplib3/references
+cd ${DATA_DIR}/miplib3
 for f in *; do mv "$f" "$f.mps"; done
 for f in *; do gzip "$f"; done
-cd ${PROJ_DIR}
+cd ${DATA_DIR}
 
+echo "Downloading MIPLIB2"
 wget http://miplib2010.zib.de/miplib2/miplib.tar.gz
-mkdir ${DATA_DIR}/original/miplib2
-tar -xvf miplib.tar.gz --directory ${DATA_DIR}/original/miplib2
-rm ${DATA_DIR}/original/miplib2/miplib.cat
-rm ${DATA_DIR}/original/miplib2/miplib/mps_format
-rm ${DATA_DIR}/original/miplib2/miplib/references
-cd ${DATA_DIR}/original/miplib2/miplib
+mkdir ${DATA_DIR}/miplib2
+tar -xvf miplib.tar.gz --directory ${DATA_DIR}/miplib2
+rm ${DATA_DIR}/miplib2/miplib.cat
+rm ${DATA_DIR}/miplib2/miplib/mps_format
+rm ${DATA_DIR}/miplib2/miplib/references
+cd ${DATA_DIR}/miplib2/miplib
 for f in *; do mv "$f" "$f.mps"; done
 for f in *; do gzip "$f"; done
 mv *.mps.gz ..
 cd ..
 rm -r miplib
-cd ${PROJ_DIR}
+cd ${DATA_DIR}
+
+echo "Downloading COR@L instances"
+wget https://coral.ise.lehigh.edu/wp-content/uploads/mip-instances/instances/ALL_INSTANCE.tar
+mv ALL_INSTANCE.tar coral.tar
+mkdir -p ${DATA_DIR}/coral
+tar -xvf coral.tar --directory ${DATA_DIR}/coral
+
+echo "Finished downloading instances to $DATA_DIR"
+cd ${START_DIR}
