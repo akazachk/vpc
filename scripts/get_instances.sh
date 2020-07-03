@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 
-if [ -z "$PROJ_DIR" ]
+if [ -z "$VPC_DIR" ]
 then 
-  echo "Please define PROJ_DIR (the root vpc dir):"
-  read PROJ_DIR
-  echo "Set PROJ_DIR=$PROJ_DIR"
-  if [ -z "$PROJ_DIR" ]
-    then echo "Need to define PROJ_DIR. Exiting."
+  echo "Please define VPC_DIR (the root vpc dir):"
+  read VPC_DIR
+  if [ -z "$VPC_DIR" ]
+    then echo "Need to define VPC_DIR. Exiting."
     exit
   fi
 fi
-DATA_DIR="${PROJ_DIR}/data/instances/original"
+DATA_DIR="${VPC_DIR}/data/instances/original"
 
+echo "VPC_DIR is set to $VPC_DIR"
 echo "Instances will be downloaded to $DATA_DIR"
 
 START_DIR=$PWD

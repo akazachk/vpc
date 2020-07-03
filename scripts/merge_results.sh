@@ -8,6 +8,22 @@
 # If the first argument is not 1, then the second argument may be a 1 indicating batch mode
 # The argument after the 1 means the results are contained in ${CUT_TYPE}-best.csv, or ${CUT_TYPE}-test.csv, or ${CUT_TYPE}-bb.csv
 
+if [ -z "$VPC_DIR" ]
+then 
+  if [ -z "${REPOS_DIR}" ]
+  then
+    echo "Please define VPC_DIR (the root vpc dir, possibly ${REPOS_DIR}/vpc):"
+  else
+    echo "Please define VPC_DIR (the root vpc dir):"
+  fi
+  read VPC_DIR
+  if [ -z "$VPC_DIR" ]
+    then echo "Need to define VPC_DIR. Exiting."
+    exit
+  fi
+fi
+echo "VPC_DIR is set to $VPC_DIR"
+
 MASTER_RESULTS_DIR="${VPC_DIR}/results"
 RUN_TYPE_STUB="-test"
 SCRIPT_DIR="${VPC_DIR}/scripts/run_scripts"

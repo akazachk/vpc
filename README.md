@@ -4,28 +4,31 @@
 
 This project contains the code for one implementation of the V-polyhedral disjunctive cut paradigm.
 
+## Installation
+
+1. Clone the code using `git clone git@github.com:akazachk/vpc.git`.
+2. Install `Cbc` by running `scripts/install_coin.sh`. If there are any problems, please start an issue (in this project, [coinbrew](https://github.com/coin-or/coinbrew), or [Cbc](https://github.com/coin-or/Cbc)).
+3. [Optional] Install Gurobi or CPLEX.
+4. Choose the appropriate options in the makefile under `Variables user should set`: `PROJ_DIR`, for the location of the repository, and `COIN_OR`, for where Cbc is installed. If you wish to use Gurobi, set `USE_GUROBI=1` under `Options for solvers`, and set `GUROBI_DIR` appropriately. Similarly, set `USE_CPLEX=1` and `CPLEX_DIR` if you wish to use CPLEX.
+5. There are two compilation modes: `debug` and `release`. These can be compiled with `make [debug or release]`, which create the executable `vpc` in a new subdirectory `Debug` or `Release` of the main folder.
+6. You can test the code with `make test_debug` or `make test_release`, depending on which version you compiled. Alternatively, run `test/run_test.sh`, which assumes the `Debug` version has been compiled.
+
 ## Dependencies
 
-The code relies on [Cbc](https://github.com/coin-or/Cbc). It was extensively tested with version 2.9 (up to revision 2376 in the subversion history), while performance in the trunk and 2.10 versions has been more unstable. I have not yet tracked down the precise reason; see the related open GitHub issue. In particular, as of 2020/03/27, I need to use custom `CbcModel` files to make the code work with the latest `Cbc` versions. I provide these files in the `lib` directory.
+The code relies on [Cbc](https://github.com/coin-or/Cbc). It was extensively tested with version 2.9 (up to revision 2376 in the subversion history), while performance in the trunk and 2.10 versions has been more unstable. I have not yet tracked down the precise reason; see the related open GitHub issue #12. In particular, as of 2020/03/27, we need to compile `Cbc` with `SAVE_NODE_INFO` defined to enable access to the `parentNode` code in the `CbcModel` files.
 
-The user needs to export the shell variable `PROJ_DIR`, pointing to the repository location, or define it in `makefile`, `scripts/install_coin.sh`, `test/run_test.sh`, and possibly other locations.
+The user needs to export the shell variable `VPC_DIR`, pointing to the repository location, or define it in `scripts/install_coin.sh`, `test/run_test.sh`, and other scripts.
 
 You may need to use a compatible version of `g++`, and make sure that the same compiler is used when running `install_coin.sh` and the one used to generate `libgurobi_c++.a`, which can be rebuilt in the `Gurobi` directory under `src/build`.
 
 You may need to install several dependencies, such as `libbz2-dev`, or comment out from `makefile` any linking to the relevant libraries you are missing.
 
-## Compilation
-
-There are two compilation modes: `debug` and `release`. These can be compiled with `make [debug or release]`, which create the executable `vpc` in a new subdirectory `Debug` or `Release` of the main folder.
-
 ## Execution
-
-You can test the code by running `scripts/run_test.sh`. This assumes the `Debug` version has been compiled.
 
 In more detail, you run the code with:
 
 ```
-[Debug or Release]/vpc -f filename -d num_disj_terms/num_disjunctions
+[Debug or Release]/vpc -f filename -d num_disj_terms
 ```
 
 The flag `-f` is used to specify the filename. Then `-d` takes an integer (the number of disjunctive terms to generate, though we also use this for the number of split disjunctions). Other options are described when calling the code with `--help` or `-h`.
@@ -55,8 +58,8 @@ There are many things left to be implemented in the future:
 3. Dynamic disjunctions, in which cutting and branching are alternated.
 4. Strengthening cuts.
 
-## Issues install COIN
-You may need `gfortran`, `pkg-conf`, `LAPACK`, `BLAS`
+## To install `Cbc`
+You may need `gfortran`, `pkg-conf`, `LAPACK`, `BLAS`.
 
 ## Contact Information
 Aleksandr M. Kazachkov,

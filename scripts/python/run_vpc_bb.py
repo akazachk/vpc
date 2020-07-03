@@ -1,11 +1,12 @@
 ####
-## The inputted file is either [filename].instances or [file].batch.
-## (The extension is not important.)
-## The first line of this file will be the directory ``stub'',
-## and output will be sent to ${PROJ_DIR}/results/instances/stub if batch mode is off,
-## and to ${PROJ_DIR}/results/instances/batches/stub/batchname if it is on.
+## First argument: the path to an mps/lp file or to an instances/batch file ([file].batch or [file].instances)
+## Second argument: full path to output directory (accepted and necessary if the first argument is an instance, not batch/instances file; for a batch/instances file, we will specify the output directory stub in the first line; see below) 
+##
+## The first line of a .batch or .instances file will be the directory ``stub'',
+## and output will be sent to ${PROJ_DIR}/results/stub if batch mode is off,
+## and to ${PROJ_DIR}/results/stub/batchname if it is on.
 ## Each line contains either a relative input path to an instance (without the extension) or a batch name.
-## The path is relative to ${PROJ_DIR}/data/instances, e.g., the line will be miplib2/bm23.
+## The path is relative to ${PROJ_DIR}/data/instances, e.g., the line will be original/miplib2/bm23.
 ## A batch name is distinguished by having the batch end with a '/', e.g., '2/' or 'batch2/'.
 
 ## Set up proper path variables
@@ -20,38 +21,33 @@ depthList = [2,4,8,16,32,64]
 
 ## Set up output and input folders
 results_path = PROJ_DIR + '/results'
-#paramfile_dir = PROJ_DIR + '/data/params'
-#instances_path = PROJ_DIR + '/data/instances'
-instances_file = instances_path + '/' + "test.instances"
-
 outinfo_stub = CUT_TYPE + '-bb' 
-outinfo_dir = results_path
 
 ## Get arguments
 from sys import argv
-use_batches = False  # set to true/false depending on if mps files are all in one folder or divided up into subfolders
-if (len(argv) > 1):
-  use_batches = True if argv[1] in ['true', 'True', '1', 't'] else False
-  if (use_batches and len(argv) < 2):
-    raise ValueError('When using batches, specifying the folder is required')
-
-if (len(argv) > 2):
-  instances_file = os.path.abspath(argv[2])
+assert (len(argv) > 1)
+inst = os.path.abspath(argv[1])
+is_instance = (inst[-4:] == '.mps') or (inst[-3:] == '.lp') or (inst[-7:] == '.mps.gz') or (inst[-6:] == '.lp.gz') or (inst[-8:] == '.mps.bz2') or (inst[-7:] == '.lp.bz2')
+if is_instance:
+    if (len(argv) > 1):
+        results_path = argv[2] 
+    else:
+        raise Exception('If instance is given, so too should the full path to the results directory.')
 
 ## Where are the instances?
-with open(instances_file) as f_in:
-  list_to_use = list(filter(None, (line.rstrip() for line in f_in)))
+if is_instance:
+    list_to_use = [inst]
+else:
+    with open(inst) as f_in:
+      list_to_use = list(filter(None, (line.rstrip() for line in f_in)))
 
-## The first line will be the name of the directory we should use
-dir_stub = list_to_use[0]
-list_to_use = list_to_use[1:]
-
-if use_batches:
-  dir_stub = "batches/" + dir_stub
+    ## The first line will be the name of the directory we should use
+    results_path = results_path + '/' + list_to_use[0]
+    list_to_use = list_to_use[1:]
 
 ## Finalize outinfo
-outinfo_dir = outinfo_dir + '/' + dir_stub 
-os.system("mkdir -p " + outinfo_dir)  # make the dir if it does not exist
+#outinfo_dir = results_path + ('/' + dir_stub if len(dir_stuB) > 0 else "")
+os.system("mkdir -p " + results_path)  # make the dir if it does not exist
 
 ## Choose order so that deepest for loop are the results you want to see first, fixing all others
 batch_name = ''
@@ -64,12 +60,12 @@ for depth in depthList:
 
     ## Check if need to add "mps"
     inst_name = inst
-    if (inst[-4:] != '.mps') and (inst[-3:] != '.lp') and (inst[-7:] != '.mps.gz') and (inst[-6:] != '.lp.gz'):
+    if (inst[-4:] != '.mps') and (inst[-3:] != '.lp') and (inst[-7:] != '.mps.gz') and (inst[-6:] != '.lp.gz') and (inst[-8:] != '.mps.bz2') and (inst[-7:] != '.lp.bz2'):
       inst_name = inst_name + '.mps'
 
     ## Run on instances_path/inst.mps
     infile = instances_path + '/' + inst_name
-    curr_out_dir = outinfo_dir + '/' + batch_name
+    curr_out_dir = results_path + '/' + batch_name
     outinfo = curr_out_dir + outinfo_stub + ".csv"
     #inst_stub = inst_name.split('/')[-1]
     #inst_stub = inst_stub.split('.')[0]  # problems if inst name has periods

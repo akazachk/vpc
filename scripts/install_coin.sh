@@ -2,7 +2,7 @@
 # Takes as an (optional) argument the directory where you wish to install the COIN-OR software
 
 ## User needs to define
-#PROJ_DIR="~/repos/vpc"
+#VPC_DIR="~/repos/vpc"
 #CBC_VERSION="2.10"
 #CBC_VERSION="2.9"
 CBC_VERSION="trunk"
@@ -42,17 +42,22 @@ fi
 
 if [ -z "$1" ]
 then
-  if [ -z "$PROJ_DIR" ]
+  if [ -z "$VPC_DIR" ]
   then 
-    echo "Please define PROJ_DIR (the root vpc dir):"
-    read PROJ_DIR
-    echo "Set PROJ_DIR=$PROJ_DIR"
-    if [ -z "$PROJ_DIR" ]
-      then echo "Need to define PROJ_DIR. Exiting."
+    if [ -z "${REPOS_DIR}" ]
+    then
+      echo "COIN-OR files will be installed into VPC_DIR/lib/${COIN_DIR_NAME}. Please define VPC_DIR (the root vpc dir, possibly ${REPOS_DIR}/vpc):"
+    else
+      echo "COIN-OR files will be installed into VPC_DIR/lib/${COIN_DIR_NAME}. Please define VPC_DIR (the root vpc dir):"
+    fi
+    read VPC_DIR
+    echo "Set VPC_DIR=$VPC_DIR"
+    if [ -z "$VPC_DIR" ]
+      then echo "Need to define VPC_DIR. Exiting."
       exit
     fi
   fi
-  COIN_DIR="${PROJ_DIR}/lib/${COIN_DIR_NAME}"
+  COIN_DIR="${VPC_DIR}/lib/${COIN_DIR_NAME}"
 else
   COIN_DIR="${1}/${COIN_DIR_NAME}"
 fi
