@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Example of calling this script:
-# ./run_experiments.sh test.instances [bb, bb0, preprocess,...]
+# ./run_experiments.sh test.instances [test, bb, bb0, preprocess,...]
 #
 # The first argument is either a list of instances (each instance is assumed to be located in ${INSTANCE_DIR}, defined below as ${VPC_DIR}/data/instances) or the full path to an instance (lp/mps file)
 # The second argument is 'bb' or another suffix (sets script to be used as python/run_vpc_$1.py) [optional, but if this is not used, then subsequent options cannot be given; default: bb]
@@ -19,34 +19,30 @@
 # Defaults
 if [ -z "$VPC_DIR" ]
 then 
-  if [ -z "${REPOS_DIR}" ]
+  if [ ! -z "${REPOS_DIR}" ]
   then
     echo "Please define VPC_DIR (the root vpc dir, possibly ${REPOS_DIR}/vpc):"
   else
     echo "Please define VPC_DIR (the root vpc dir):"
   fi
   read VPC_DIR
-  echo "Set VPC_DIR=$VPC_DIR"
   if [ -z "$VPC_DIR" ]
     then echo "Need to define VPC_DIR. Exiting."
     exit
   fi
 fi
-INSTANCE_DIR="${VPC_DIR}/data/instances"
-SCRIPT_DIR="${VPC_DIR}/scripts/python"
+export VPC_DIR=${VPC_DIR} # used in python script
+export INSTANCE_DIR="${VPC_DIR}/data/instances" # used in python script
+SCRIPT_DIR="${VPC_DIR}/scripts"
 OUT_DIR="${VPC_DIR}/results"
-
-#INSTANCE_LIST_DIR="${VPC_DIR}/data/instances"
-INSTANCE_LIST_DIR="${VPC_DIR}/scripts"
-INSTANCE_LIST="${VPC_DIR}/data/instances/test.batch"
+INSTANCE_LIST="${VPC_DIR}/scripts/test.batch"
 BATCH_MODE=0
-
 CUT_TYPE="vpc"
 
 # Process instance list
 if [ -z "$1" ]
 then
-  echo "Need to provide instance list"
+  echo "*** ERROR: Need to provide instance list as first argument."
   exit 1
 else
   INSTANCE_LIST="$1"
@@ -62,11 +58,11 @@ else
   export RUN_TYPE_STUB="$2"
 fi
 
-export INSTANCE_DIR=${INSTANCE_LIST%/*}
+#export INSTANCE_DIR=${INSTANCE_LIST%/*}
 
-TMPNAME="run_${CUT_TYPE}_${RUN_TYPE_STUB}"
-TMPNAME_EXT=".py"
+SCRIPTNAME="run_${CUT_TYPE}.py"
 
+echo "Running experiments from ${SCRIPT_DIR}/${SCRIPTNAME} with instances in list ${INSTANCE_LIST} and instance dir = ${INSTANCE_DIR}."
 
 # Proceed depending on whether run is in batches or not
 line=${INSTANCE_LIST}
@@ -79,13 +75,13 @@ tmplenmpsbz="$((${#line}-8))"
 tmplentxt="$((${#line}-4))"
 tmplenbatch="$((${#line}-6))"
 tmpleninst="$((${#line}-10))"
-if [ "${line:$tmplenbatch:10}" == ".instances" ] || [ "${line:$tmplenlp:3}" == ".lp" ] || [ "${line:$tmplenmps:4}" == ".mps" ] || [ "${line:$tmplenlpgz:6}" == ".lp.gz" ] || [ "${line:$tmplenmpsgz:7}" == ".mps.gz" ] || [ "${line:$tmplenlpbz:7}" == ".lp.bz2" ] || [ "${line:$tmplenmpsbz:8}" == ".mps.bz2" ]
+if [ "${line:$tmpleninst:10}" == ".instances" ] || [ "${line:$tmplenlp:3}" == ".lp" ] || [ "${line:$tmplenmps:4}" == ".mps" ] || [ "${line:$tmplenlpgz:6}" == ".lp.gz" ] || [ "${line:$tmplenmpsgz:7}" == ".mps.gz" ] || [ "${line:$tmplenlpbz:7}" == ".lp.bz2" ] || [ "${line:$tmplenmpsbz:8}" == ".mps.bz2" ]
 then
-  echo "Running ${SCRIPT_DIR}/${TMPNAME}${TMPNAME_EXT} from ${INSTANCE_LIST} in sequential mode, output sent to ${OUT_DIR}"
-  nohup python ${SCRIPT_DIR}/${TMPNAME}${TMPNAME_EXT} ${INSTANCE_LIST} ${OUT_DIR} >& ${OUT_DIR}/nohup.out &
+  echo "Running ${SCRIPT_DIR}/${SCRIPTNAME} from ${INSTANCE_LIST} in sequential mode, output sent to ${OUT_DIR}"
+  nohup python ${SCRIPT_DIR}/${SCRIPTNAME} ${RUN_TYPE_STUB} ${INSTANCE_LIST} ${OUT_DIR} >& ${OUT_DIR}/nohup.out &
 elif [ "${line:$tmplenbatch:6}" == ".batch" ]
 then
-  echo "Running ${SCRIPT_DIR}/${TMPNAME}${TMPNAME_EXT} from ${INSTANCE_LIST} in batch mode, output sent to ${OUT_DIR}"
+  echo "Running ${SCRIPT_DIR}/${SCRIPTNAME} from ${INSTANCE_LIST} in batch mode, output sent to ${OUT_DIR}"
   FSTUB=`head -n 1 ${INSTANCE_LIST}`
   tmpfilename=""
   for line in `tail -n +2 ${INSTANCE_LIST}`; do
@@ -108,8 +104,8 @@ then
       # If there was an old batch, then run it
       if [ ! -z "${tmpfilename}" ]
       then
-        echo "Running ${SCRIPT_DIR}/${TMPNAME}${TMPNAME_EXT} from ${tmpfilename}"
-        nohup python ${SCRIPT_DIR}/${TMPNAME}${TMPNAME_EXT} ${tmpfilename} >& ${OUT_DIR}/nohup.out &
+        echo "Running ${SCRIPT_DIR}/${SCRIPTNAME} from ${tmpfilename}"
+        nohup python ${SCRIPT_DIR}/${SCRIPTNAME} ${RUN_TYPE_STUB} ${tmpfilename} ${OUT_DIR} >& ${OUT_DIR}/nohup.out &
       fi  
 
       # Now we create the new batch
@@ -127,7 +123,9 @@ then
   # Now process the last batch
   if [ ! -z "${tmpfilename}" ]
   then
-    echo "Running ${SCRIPT_DIR}/${TMPNAME}${TMPNAME_EXT} from ${tmpfilename}"
-    nohup python ${SCRIPT_DIR}/${TMPNAME}${TMPNAME_EXT} ${tmpfilename} >& ${OUT_DIR}/nohup.out &
+    echo "Running ${SCRIPT_DIR}/${SCRIPTNAME} from ${tmpfilename}"
+    nohup python ${SCRIPT_DIR}/${SCRIPTNAME} ${RUN_TYPE_STUB} ${tmpfilename} ${OUT_DIR} >& ${OUT_DIR}/nohup.out &
   fi  
+else
+  echo "Could not identify type of instance file given by $line"
 fi

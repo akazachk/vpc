@@ -33,6 +33,22 @@ In more detail, you run the code with:
 
 The flag `-f` is used to specify the filename. Then `-d` takes an integer (the number of disjunctive terms to generate, though we also use this for the number of split disjunctions). Other options are described when calling the code with `--help` or `-h`.
 
+## Advanced Execution
+
+To run experiments with a set of instances, use `scripts/run_experiments.sh`, which will put output in the `results` folder.
+You will either need to export the shell variable `VPC_DIR`, pointing to the root directory of the repository, or enter it when prompted by the script.
+The script takes two arguments:
+1. the full path to an instance (in .mps or .lp format, possibly compressed with `gzip` or `bz2`) or a set of instances given in a file with extension `.instances` or `.batch`, with a specific format detailed below
+2. the type of experiments to run; options are: "preprocess" (presolve instances), "bb0" (run each instance 7 times without cuts to gather baseline statistics), or "bb" (run each instance with VPCs from 2, 4, 8, 16, 32, and 64 term disjunctions)
+
+If the first argument to `run_experiments.sh` is not an instance, it needs to be a file with extension `.instances` or `.batch`.
+The former is for a set of instances that should be run one-by-one, and the latter is for sets of instances that should be run in parallel.
+The first line of either format must be the folder name in which you wish that output is sent within the `results` directory.
+For `.instances` files, the subsequent lines must be _relative_ paths to instances, relative to the directory `data/instances`, such as `original/miplib2/bm23` (the extension can be left out from each line).
+For `.batch` files, a new batch is indicated by a line that ends with a forward slash, e.g., `batchname/`.
+Under each batch, instances should be indicated with relative paths just as in `.instances` files.
+For examples, see `scripts/test.instances` and `scripts/test.batch`.
+
 ## Details
 
 There are many parameters that can be set from the command line. Run with `-h` or `--help` option to see these parameters. There are several more that are not currently able to be set from the command line, as they are assumed to generally be "constants"; a description of these can be found in `VPCParameters.hpp`.

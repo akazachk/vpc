@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 
 if [ -z "$VPC_DIR" ]
-then 
-  echo "Please define VPC_DIR (the root vpc dir):"
+then
+  if [ ! -z "${REPOS_DIR}" ]
+  then
+    echo "Please define VPC_DIR (the root vpc dir, possibly ${REPOS_DIR}/vpc):"
+  else
+    echo "Please define VPC_DIR (the root vpc dir):"
+  fi
   read VPC_DIR
   if [ -z "$VPC_DIR" ]
     then echo "Need to define VPC_DIR. Exiting."
