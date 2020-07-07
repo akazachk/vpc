@@ -37,9 +37,10 @@ The flag `-f` is used to specify the filename. Then `-d` takes an integer (the n
 
 To run experiments with a set of instances, use `scripts/run_experiments.sh`, which will put output in the `results` folder.
 You will either need to export the shell variable `VPC_DIR`, pointing to the root directory of the repository, or enter it when prompted by the script.
-The script takes two arguments:
+The script takes three arguments:
 1. the full path to an instance (in .mps or .lp format, possibly compressed with `gzip` or `bz2`) or a set of instances given in a file with extension `.instances` or `.batch`, with a specific format detailed below
-2. the type of experiments to run; options are: "preprocess" (presolve instances), "bb0" (run each instance 7 times without cuts to gather baseline statistics), or "bb" (run each instance with VPCs from 2, 4, 8, 16, 32, and 64 term disjunctions)
+2. the path to a directory where you wish to save results
+3. the type of experiments to run; options are: "preprocess" (presolve instances), "bb0" (run each instance 7 times without cuts to gather baseline statistics), or "bb" (run each instance with VPCs from 2, 4, 8, 16, 32, and 64 term disjunctions)
 
 If the first argument to `run_experiments.sh` is not an instance, it needs to be a file with extension `.instances` or `.batch`.
 The former is for a set of instances that should be run one-by-one, and the latter is for sets of instances that should be run in parallel.

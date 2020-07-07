@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Example of calling this script:
-# ./run_experiments.sh test.instances [test, bb, bb0, preprocess,...]
+# ./run_experiments.sh test.instances ../results [test, bb, bb0, preprocess,...]
 #
 # The first argument is either a list of instances (each instance is assumed to be located in ${INSTANCE_DIR}, defined below as ${VPC_DIR}/data/instances) or the full path to an instance (lp/mps file)
-# The second argument is 'bb' or another suffix (sets script to be used as python/run_vpc_$1.py) [optional, but if this is not used, then subsequent options cannot be given; default: bb]
-# The third argument is '1' or a '0', referring to whether batch mode is used [optional; default: 0]
+# The second argument is where results will go
+# The third argument is 'bb' or another suffix (sets script to be used as python/run_vpc_$1.py) [optional, but if this is not used, then subsequent options cannot be given; default: bb]
 #
 # If a list of instances is given, it must either be with extension ".instances" or ".batch"
 # The former indicates that the instances should be run sequentially
@@ -28,13 +28,12 @@ then
   read VPC_DIR
   if [ -z "$VPC_DIR" ]
     then echo "Need to define VPC_DIR. Exiting."
-    exit
+    exit 1
   fi
 fi
 export VPC_DIR=${VPC_DIR} # used in python script
 export INSTANCE_DIR="${VPC_DIR}/data/instances" # used in python script
 SCRIPT_DIR="${VPC_DIR}/scripts"
-OUT_DIR="${VPC_DIR}/results"
 INSTANCE_LIST="${VPC_DIR}/scripts/test.batch"
 BATCH_MODE=0
 CUT_TYPE="vpc"
@@ -48,14 +47,23 @@ else
   INSTANCE_LIST="$1"
 fi
 
-# Process run type
+# Process results directory
 if [ -z "$2" ]
+then
+  echo "*** ERROR: Need to provide results directory as second argument."
+  exit 1
+else
+  RESULTS_DIR="$2"
+fi
+
+# Process run type
+if [ -z "$3" ]
 then 
   #echo "*** ERROR: Need to specify run type."
   #exit 1
   export RUN_TYPE_STUB="bb"
 else
-  export RUN_TYPE_STUB="$2"
+  export RUN_TYPE_STUB="$3"
 fi
 
 #export INSTANCE_DIR=${INSTANCE_LIST%/*}
@@ -77,11 +85,11 @@ tmplenbatch="$((${#line}-6))"
 tmpleninst="$((${#line}-10))"
 if [ "${line:$tmpleninst:10}" == ".instances" ] || [ "${line:$tmplenlp:3}" == ".lp" ] || [ "${line:$tmplenmps:4}" == ".mps" ] || [ "${line:$tmplenlpgz:6}" == ".lp.gz" ] || [ "${line:$tmplenmpsgz:7}" == ".mps.gz" ] || [ "${line:$tmplenlpbz:7}" == ".lp.bz2" ] || [ "${line:$tmplenmpsbz:8}" == ".mps.bz2" ]
 then
-  echo "Running ${SCRIPT_DIR}/${SCRIPTNAME} from ${INSTANCE_LIST} in sequential mode, output sent to ${OUT_DIR}"
-  nohup python ${SCRIPT_DIR}/${SCRIPTNAME} ${RUN_TYPE_STUB} ${INSTANCE_LIST} ${OUT_DIR} >& ${OUT_DIR}/nohup.out &
+  echo "Running ${SCRIPT_DIR}/${SCRIPTNAME} from ${INSTANCE_LIST} in sequential mode, output sent to ${RESULTS_DIR}"
+  nohup python ${SCRIPT_DIR}/${SCRIPTNAME} ${RUN_TYPE_STUB} ${INSTANCE_LIST} ${RESULTS_DIR} >& ${RESULTS_DIR}/nohup.out &
 elif [ "${line:$tmplenbatch:6}" == ".batch" ]
 then
-  echo "Running ${SCRIPT_DIR}/${SCRIPTNAME} from ${INSTANCE_LIST} in batch mode, output sent to ${OUT_DIR}"
+  echo "Running ${SCRIPT_DIR}/${SCRIPTNAME} from ${INSTANCE_LIST} in batch mode, output sent to ${RESULTS_DIR}"
   FSTUB=`head -n 1 ${INSTANCE_LIST}`
   tmpfilename=""
   for line in `tail -n +2 ${INSTANCE_LIST}`; do
@@ -105,7 +113,7 @@ then
       if [ ! -z "${tmpfilename}" ]
       then
         echo "Running ${SCRIPT_DIR}/${SCRIPTNAME} from ${tmpfilename}"
-        nohup python ${SCRIPT_DIR}/${SCRIPTNAME} ${RUN_TYPE_STUB} ${tmpfilename} ${OUT_DIR} >& ${OUT_DIR}/nohup.out &
+        nohup python ${SCRIPT_DIR}/${SCRIPTNAME} ${RUN_TYPE_STUB} ${tmpfilename} ${RESULTS_DIR} >& ${RESULTS_DIR}/nohup.out &
       fi  
 
       # Now we create the new batch
@@ -124,7 +132,7 @@ then
   if [ ! -z "${tmpfilename}" ]
   then
     echo "Running ${SCRIPT_DIR}/${SCRIPTNAME} from ${tmpfilename}"
-    nohup python ${SCRIPT_DIR}/${SCRIPTNAME} ${RUN_TYPE_STUB} ${tmpfilename} ${OUT_DIR} >& ${OUT_DIR}/nohup.out &
+    nohup python ${SCRIPT_DIR}/${SCRIPTNAME} ${RUN_TYPE_STUB} ${tmpfilename} ${RESULTS_DIR} >& ${RESULTS_DIR}/nohup.out &
   fi  
 else
   echo "Could not identify type of instance file given by $line"
