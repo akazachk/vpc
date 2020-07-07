@@ -70,6 +70,10 @@ SummaryCutInfo cutInfo, cutInfoGMICs;
 // For output
 std::string cut_output = "", bb_output = "";
 
+#ifdef VPC_VERSION
+const std::string VERSION = x_macro_to_string(VPC_VERSION);
+#endif
+
 // Catch abort signal if it ever gets sent
 /**
  * Catch a signal. You can output debugging info.
@@ -305,6 +309,9 @@ int main(int argc, char** argv) {
 void startUp(int argc, char** argv) {
   // Input handling
   printf("## V-Polyhedral Disjunctive Cuts ##\n");
+#ifdef VPC_VERSION
+  printf("## Version %s ##\n", VERSION.substr(0,8).c_str());
+#endif
   printf("# Aleksandr M. Kazachkov\n");
   printf("# Based on joint work with Egon Balas\n");
   for (int i = 0; i < argc; i++) {
@@ -413,6 +420,9 @@ int wrapUp(int retCode /*= 0*/) {
 
     fprintf(logfile, "%s,", end_time_string);
     fprintf(logfile, "%.f,", difftime(end_time_t, start_time_t));
+#ifdef VPC_VERSION
+    fprintf(logfile, "%s,", VERSION.substr(0,8).c_str());
+#endif
     fprintf(logfile, "%s,", instname.c_str());
     fprintf(logfile, "DONE\n");
     fclose(logfile); // closes params.logfile
@@ -447,6 +457,9 @@ int wrapUp(int retCode /*= 0*/) {
   printf("%s", bb_output.c_str());
 
   printf("\n## Exiting VPC generation with reason %s. ##\n", CglVPC::ExitReasonName[exitReasonInt].c_str());
+#ifdef VPC_VERSION
+  printf("VPC Version: %s\n", VERSION.substr(0,8).c_str());
+#endif
   printf("Instance: %s\n", instname.c_str());
   if (!params.get(stringParam::LOGFILE).empty()) {
     printf("Log: %s\n", params.get(stringParam::LOGFILE).c_str());

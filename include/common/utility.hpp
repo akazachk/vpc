@@ -22,6 +22,9 @@ class CoinPackedVectorBase;
 class CoinPackedVector;
 class CoinPackedMatrix;
 
+#define macro_to_string(s) #s
+#define x_macro_to_string(s) macro_to_string(s)
+
 inline std::ostream& operator<<(std::ostream& os, const std::vector<int> &input) {
   os << "{";
   for (unsigned tmp_i = 0; tmp_i < input.size(); tmp_i++) {

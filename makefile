@@ -78,6 +78,7 @@ USE_CPLEX_SOLVER = 0
 
 # Concerning executable
 EXECUTABLE_STUB = vpc
+VPC_VERSION = $(shell git log -1 --pretty=format:"%H")
 SRC_DIR = src
 SOURCES = main.cpp
 DIR_LIST = $(SRC_DIR) $(SRC_DIR)/branch $(SRC_DIR)/cut $(SRC_DIR)/disjunction $(SRC_DIR)/utility
@@ -112,7 +113,7 @@ ifeq ($(BUILD_CONFIG),debug)
   OUT_DIR = Debug
   DEBUG_FLAG = -g3
   OPT_FLAG = -O0
-  DEFS = -DTRACE -DPRINT_LP_WITH_CUTS
+  DEFS = -DTRACE -DPRINT_LP_WITH_CUTS -DVPC_VERSION="\#${VPC_VERSION}"
   # message-length sets line wrapping for error messages; 0 = no line wrapping
   EXTRA_FLAGS = -fmessage-length=0 -fPIC
   ifeq ($(CC),g++)
@@ -126,7 +127,7 @@ ifeq ($(BUILD_CONFIG),release)
   OUT_DIR = Release
   DEBUG_FLAG = 
   OPT_FLAG = -O3
-  DEFS = 
+  DEFS = -DVPC_VERSION="\#${VPC_VERSION}"
   EXTRA_FLAGS = -fmessage-length=0 -ffast-math -fPIC
 endif
 ifeq ($(USE_COIN),1)
