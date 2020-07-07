@@ -381,8 +381,8 @@ void doBranchAndBoundWithGurobi(const VPCParameters& params, int strategy,
     info.time = model.get(GRB_DoubleAttr_Runtime);
 
 #ifdef TRACE
-    printf("Gurobi: Solution value: %1.6f.\n", info.obj);
-    printf("Gurobi: Best bound: %1.6f.\n", info.bound);
+    printf("Gurobi: Solution value: %s.\n", stringValue(info.obj, "%1.6f").c_str());
+    printf("Gurobi: Best bound: %s.\n", stringValue(info.bound, "%1.6f").c_str());
     printf("Gurobi: Number iterations: %ld.\n", info.iters);
     printf("Gurobi: Number nodes: %ld.\n", info.nodes);
     printf("Gurobi: Time: %f.\n", info.time);

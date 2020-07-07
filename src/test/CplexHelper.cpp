@@ -332,6 +332,11 @@ int CPXPUBLIC usercutcallback(CPXCENVptr env, void *cbdata, int wherefrom,
   }
 
   if (nodenum <= 1 && wherefrom == CPX_CALLBACK_MIP_CUT_LAST && isInfinity(std::abs(info->last_cut_pass))) {
+    { // DEBUG DEBUG DEBUG
+      if (nodenum == 1) {
+        warning_msg(warnstring, "Reached MIP_CUT_LAST in node 1 without seeing it in node 0. Current objbound: %f.\n", objbound);
+      }
+    } // DEBUG DEBUG DEBUG
     if (isInfinity(std::abs(info->first_cut_pass))) {
       info->first_cut_pass = objbound;
     }
@@ -828,8 +833,8 @@ void doBranchAndBoundWithUserCutsCplexCallable(const VPCParameters& params,
   }
 #ifdef TRACE
   printf("CPLEX (C): Root passes: %ld.\n", info.root_passes);
-  printf("CPLEX (C): First cut pass: %f.\n", info.first_cut_pass);
-  printf("CPLEX (C): Last cut pass: %f.\n", info.last_cut_pass);
+  printf("CPLEX (C): First cut pass: %s.\n", stringValue(info.first_cut_pass, "%f").c_str());
+  printf("CPLEX (C): Last cut pass: %s.\n", stringValue(info.last_cut_pass, "%f").c_str());
   printf("CPLEX (C): Root time: %f.\n", info.root_time);
   printf("CPLEX (C): Last sol time: %f. \n", info.last_sol_time);
 #endif
