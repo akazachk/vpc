@@ -106,13 +106,14 @@ void setStrategyForBBTestCplexCallable(const VPCParameters& params, const int st
     // Presolve
     if (use_bb_option(strategy, BB_Strategy_Options::presolve_off)) {
       status += CPXXsetlongparam(env, CPXPARAM_Preprocessing_Presolve, 0); // turn off presolve overall
-      status += CPXXsetlongparam(env, CPXPARAM_MIP_Strategy_PresolveNode, 0); // turn off presolve at nodes (not turned off by above?)
-      status += CPXXsetlongparam(env, CPXPARAM_Preprocessing_Relax, 0); // turn off LP presolve at root
-      status += CPXXsetlongparam(env, CPXPARAM_MIP_Strategy_Probe, -1); // turn off probing
+//      status += CPXXsetlongparam(env, CPXPARAM_MIP_Strategy_PresolveNode, 0); // turn off presolve at nodes (not turned off by above?)
+//      status += CPXXsetlongparam(env, CPXPARAM_Preprocessing_Relax, 0); // turn off LP presolve at root
+//      status += CPXXsetlongparam(env, CPXPARAM_MIP_Strategy_Probe, -1); // turn off probing
     }
 
     // Heuristics
     if (use_bb_option(strategy, BB_Strategy_Options::heuristics_off)) {
+      status += CPXXsetdblparam(env, CPXPARAM_MIP_Strategy_HeuristicEffort, 0); // new in CPLEX 12.10; should supersede subsequent options
       status += CPXXsetlongparam(env, CPXPARAM_MIP_Strategy_HeuristicFreq, -1); // turn off the "periodic" heuristic
       status += CPXXsetlongparam(env, CPXPARAM_MIP_Strategy_FPHeur, -1); // turn off feasibility pump
       status += CPXXsetlongparam(env, CPXPARAM_MIP_Strategy_LBHeur, 0); // local branching heuristic (default is off anyway)
