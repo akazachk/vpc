@@ -66,7 +66,7 @@ void setStrategyForBBTestGurobi(const VPCParameters& params, const int strategy,
     // Default strategy
   } else {
     if (use_bb_option(strategy, BB_Strategy_Options::user_cuts)) {
-      model.set(GRB_IntParam_DualReductions, 0); // disable dual reductions
+      //model.set(GRB_IntParam_DualReductions, 0); // disable dual reductions
       model.set(GRB_IntParam_PreCrush, 1); // must be enabled when using user cuts
     }
 
