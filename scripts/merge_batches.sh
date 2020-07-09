@@ -22,7 +22,7 @@ MASTER_RESULTS_DIR="${VPC_DIR}/results"
 SCRIPT_DIR="${VPC_DIR}/scripts"
 
 if [ -z "$1" ]
-then 
+then
   echo "Need to specify where the results are as the first argument. Exiting."
   exit
 else
@@ -47,7 +47,7 @@ i=0
 for batchname in `ls -d ${RESULTS_DIR}/*/`; do
   i=$(( $i + 1 ))  # maintain line count
   if [ $i = 1 ]
-    then 
+    then
       head -n 2 ${batchname}${TMPNAME} > ${OUTNAME}
   fi
   echo "Copying ${TMPNAME} from ${batchname} to ${OUTNAME}"

@@ -53,7 +53,7 @@ except:
     raise "Unable to read instances path from the second argument"
 is_instance = (inst[-4:] == '.mps') or (inst[-3:] == '.lp') or (inst[-7:] == '.mps.gz') or (inst[-6:] == '.lp.gz') or (inst[-8:] == '.mps.bz2') or (inst[-7:] == '.lp.bz2')
 try:
-    results_path = argv[ARG_RESULT] 
+    results_path = argv[ARG_RESULT]
 except:
     raise "Unable to read results path from the third argument"
 
@@ -61,11 +61,11 @@ except:
 depthList = [0]
 if option == OPTION_BB:
     depthList = [2,4,8,16,32,64]
-    outinfo_stub = CUT_TYPE + '-bb' 
+    outinfo_stub = CUT_TYPE + '-bb'
     extraparams = ' --optfile=' + PROJ_DIR + '/data/ip_obj.csv'
     extraparams = extraparams + ' --rounds=1'
     extraparams = extraparams + ' -t 3600'
-    extraparams = extraparams + ' --bb_runs=1' 
+    extraparams = extraparams + ' --bb_runs=1'
     extraparams = extraparams + ' --bb_mode=10'
     extraparams = extraparams + ' --use_all_ones=1'
     extraparams = extraparams + ' --use_iter_bilinear=1'
@@ -75,11 +75,11 @@ if option == OPTION_BB:
     extraparams = extraparams + ' --use_unit_vectors=0'
     extraparams = extraparams + ' --gomory=-1'
 elif option == OPTION_BB0:
-    outinfo_stub = CUT_TYPE + '-bb0' 
+    outinfo_stub = CUT_TYPE + '-bb0'
     extraparams = ' --optfile=' + PROJ_DIR + '/data/ip_obj.csv'
     extraparams = extraparams + ' --rounds=1'
     extraparams = extraparams + ' -t 3600'
-    extraparams = extraparams + ' --bb_runs=7' 
+    extraparams = extraparams + ' --bb_runs=7'
     extraparams = extraparams + ' --bb_mode=001'
     extraparams = extraparams + ' --use_all_ones=1'
     extraparams = extraparams + ' --use_iter_bilinear=1'
@@ -92,11 +92,11 @@ elif option == OPTION_PREPROCESS:
     extraparams = ' --optfile=' + PROJ_DIR + '/data/ip_obj.csv'
     extraparams = extraparams + ' --preprocess=1'
     extraparams = extraparams + ' -t 7200'
-    extraparams = extraparams + ' --bb_runs=1' 
+    extraparams = extraparams + ' --bb_runs=1'
     extraparams = extraparams + ' --bb_mode=001'
 elif option == OPTION_TEST:
     depthList = [2]
-    outinfo_stub = CUT_TYPE + '-test' 
+    outinfo_stub = CUT_TYPE + '-test'
 else:
     raise "Option not recognized"
 
@@ -106,10 +106,6 @@ if is_instance:
 else:
     with open(inst) as f_in:
       list_to_use = list(filter(None, (line.rstrip() for line in f_in)))
-
-    ## The first line will be the name of the directory we should use
-    results_path = results_path + '/' + list_to_use[0]
-    list_to_use = list_to_use[1:]
 
 ## Finalize outinfo
 #outinfo_dir = results_path + ('/' + dir_stub if len(dir_stuB) > 0 else "")
@@ -130,17 +126,17 @@ for depth in depthList:
       inst_name = inst_name + '.mps'
 
     ## Run on instances_path/inst.mps
-    infile = instances_path + '/' + inst_name
+    infile = (instances_path + '/' if not is_instance else "") + inst_name
     curr_out_dir = results_path + '/' + batch_name
     outinfo = curr_out_dir + outinfo_stub + ".csv"
     #inst_stub = inst_name.split('/')[-1]
     #inst_stub = inst_stub.split('.')[0]  # problems if inst name has periods
     #paramfile = paramfile_dir + "/" + inst_stub + "_params.txt"
-    
+
     ## In case the out directory does not exist
     os.system("mkdir -p " + curr_out_dir)
 
     ## Arguments
     cmd = EXECUTABLE + ' -f ' + infile + ' --logfile=' + outinfo + extraparams + ' -d ' + str(depth)
     print(cmd)
-    os.system(cmd + " > /dev/null 2>&1") 
+    os.system(cmd + " > /dev/null 2>&1")

@@ -43,7 +43,7 @@ fi
 if [ -z "$1" ]
 then
   if [ -z "$VPC_DIR" ]
-  then 
+  then
     if [ ! -z "${REPOS_DIR}" ]
     then
       echo "COIN-OR files will be installed into VPC_DIR/lib/${COIN_DIR_NAME}. Please define VPC_DIR (the root vpc dir, possibly ${REPOS_DIR}/vpc):"

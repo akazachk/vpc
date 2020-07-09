@@ -95,15 +95,29 @@ template<class T> struct index_cmp_asc {
   snprintf(str, sizeof(str) / sizeof(char), "*** WARNING: %s:%d: " fmt, __FILE__, __LINE__); \
   std::cerr << str */
 
+#ifdef VPC_VERSION
+#define error_msg(str, fmt, ...) \
+  char str[2028]; \
+  snprintf(str, sizeof(str) / sizeof(char), "*** ERROR (version %.8s): %s:%d: " fmt, x_macro_to_string(VPC_VERSION), __FILE__, __LINE__, ##__VA_ARGS__); \
+  std::cerr << str
+#else
 #define error_msg(str, fmt, ...) \
   char str[2028]; \
   snprintf(str, sizeof(str) / sizeof(char), "*** ERROR: %s:%d: " fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
   std::cerr << str
+#endif
 
+#ifdef VPC_VERSION
+#define warning_msg(str, fmt, ...) \
+  char str[2028]; \
+  snprintf(str, sizeof(str) / sizeof(char), "*** WARNING (version %.8s): %s:%d: " fmt, x_macro_to_string(VPC_VERSION), __FILE__, __LINE__, ##__VA_ARGS__); \
+  std::cerr << str
+#else
 #define warning_msg(str, fmt, ...) \
   char str[2028]; \
   snprintf(str, sizeof(str) / sizeof(char), "*** WARNING: %s:%d: " fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
   std::cerr << str
+#endif
 
 /***********************************************************************/
 /**

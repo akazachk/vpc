@@ -16,7 +16,7 @@
 
 # Defaults
 if [ -z "$VPC_DIR" ]
-then 
+then
   if [ ! -z "${REPOS_DIR}" ]
   then
     echo "Please define VPC_DIR (the root vpc dir, possibly ${REPOS_DIR}/vpc):"
@@ -56,7 +56,7 @@ fi
 
 # Process run type
 if [ -z "$3" ]
-then 
+then
   #echo "*** ERROR: Need to specify run type."
   #exit 1
   export RUN_TYPE_STUB="bb"
@@ -98,7 +98,7 @@ then
     then
       continue
     fi
-    
+
     #if [ ! -z $line ]
     #then
     #  echo "Current line: $line"
@@ -114,14 +114,14 @@ then
       then
         echo "Starting batch ${tmpfilename}"
         nohup python ${SCRIPT_DIR}/${SCRIPTNAME} ${RUN_TYPE_STUB} ${tmpfilename} ${RESULTS_DIR} >& ${RESULTS_DIR}/nohup.out &
-      fi  
+      fi
 
       # Now we create the new batch
       batchstub="${line:0:len}"
       tmpfilename="/tmp/${FSTUB}.batch${batchstub}XXX"
       tmpfilename=$(mktemp -q ${tmpfilename})
       #echo "${FSTUB}" > "${tmpfilename}"
-    fi  
+    fi
     # Add the current line to the current batch
     echo "${line}" >> "${tmpfilename}"
   done
@@ -131,7 +131,7 @@ then
   then
     echo "Starting batch ${tmpfilename}"
     nohup python ${SCRIPT_DIR}/${SCRIPTNAME} ${RUN_TYPE_STUB} ${tmpfilename} ${RESULTS_DIR} >& ${RESULTS_DIR}/nohup.out &
-  fi  
+  fi
 else
   echo "Could not identify type of instance file given by $line"
 fi
