@@ -83,7 +83,7 @@ tmpleninst="$((${#line}-10))"
 if [ "${line:$tmpleninst:10}" == ".instances" ] || [ "${line:$tmplenlp:3}" == ".lp" ] || [ "${line:$tmplenmps:4}" == ".mps" ] || [ "${line:$tmplenlpgz:6}" == ".lp.gz" ] || [ "${line:$tmplenmpsgz:7}" == ".mps.gz" ] || [ "${line:$tmplenlpbz:7}" == ".lp.bz2" ] || [ "${line:$tmplenmpsbz:8}" == ".mps.bz2" ]
 then
   echo "Using sequential mode."
-  nohup python ${SCRIPT_DIR}/${SCRIPTNAME} ${RUN_TYPE_STUB} ${INSTANCE_LIST} ${RESULTS_DIR} >& ${RESULTS_DIR}/nohup.out &
+  nohup python -u ${SCRIPT_DIR}/${SCRIPTNAME} ${RUN_TYPE_STUB} ${INSTANCE_LIST} ${RESULTS_DIR} >> ${RESULTS_DIR}/nohup.out 2 >& 1 &
 elif [ "${line:$tmplenbatch:6}" == ".batch" ]
 then
   echo "Using batch mode."
@@ -113,7 +113,7 @@ then
       if [ ! -z "${tmpfilename}" ]
       then
         echo "Starting batch ${tmpfilename}"
-        nohup python ${SCRIPT_DIR}/${SCRIPTNAME} ${RUN_TYPE_STUB} ${tmpfilename} ${RESULTS_DIR} >& ${RESULTS_DIR}/nohup.out &
+        nohup python -u ${SCRIPT_DIR}/${SCRIPTNAME} ${RUN_TYPE_STUB} ${tmpfilename} ${RESULTS_DIR} >> ${RESULTS_DIR}/nohup.out 2 >& 1 &
       fi
 
       # Now we create the new batch
@@ -130,7 +130,7 @@ then
   if [ ! -z "${tmpfilename}" ]
   then
     echo "Starting batch ${tmpfilename}"
-    nohup python ${SCRIPT_DIR}/${SCRIPTNAME} ${RUN_TYPE_STUB} ${tmpfilename} ${RESULTS_DIR} >& ${RESULTS_DIR}/nohup.out &
+    nohup python -u ${SCRIPT_DIR}/${SCRIPTNAME} ${RUN_TYPE_STUB} ${tmpfilename} ${RESULTS_DIR} >> ${RESULTS_DIR}/nohup.out 2 >& 1 &
   fi
 else
   echo "Could not identify type of instance file given by $line"
