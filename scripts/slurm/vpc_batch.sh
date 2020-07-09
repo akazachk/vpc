@@ -1,5 +1,4 @@
 #!/bin/bash
-#SBATCH --array=1-14,65-120,151-163,174-463
 #SBATCH --array=1-3,65-120
 #SBATCH --time=30:00:00
 #SBATCH --account=def-alodi
@@ -25,9 +24,9 @@ fi
 if (("$SLURM_ARRAY_TASK_ID" <= 3))
 then
   echo "Running task $SLURM_ARRAY_TASK_ID in batch mode at `date`"
-  FILE=${REPOS_DIR}/vpc/scripts/slurm/${SLURM_ARRAY_TASK_ID}.instances
+  FILE=${REPOS_DIR}/vpc/scripts/slurm/${SLURM_ARRAY_TASK_ID}.batch
   ${REPOS_DIR}/vpc/scripts/run_experiments.sh $FILE ${REPOS_DIR}/vpc/results/${MODE} ${MODE} $SLURM_ARRAY_TASK_ID
-#elif (($SLURM_ARRAY_TASK_ID >= 5)) && (($SLURM_ARRAY_TASK_ID <= 6))
+#elif (($SLURM_ARRAY_TASK_ID >= 3)) && (($SLURM_ARRAY_TASK_ID <= 4))
 #then
 #  echo "Running $SLURM_ARRAY_TASK_ID in batch mode"
 else

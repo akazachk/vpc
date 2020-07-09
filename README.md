@@ -17,9 +17,11 @@ This project contains the code for one implementation of the V-polyhedral disjun
 
 The code relies on [Cbc](https://github.com/coin-or/Cbc). It was extensively tested with version 2.9 (up to revision 2376 in the subversion history), while performance in the trunk and 2.10 versions has been more unstable. I have not yet tracked down the precise reason; see the related open GitHub issue #12. In particular, as of 2020/03/27, we need to compile `Cbc` with `SAVE_NODE_INFO` defined to enable access to the `parentNode` code in the `CbcModel` files.
 
+Some of the scripts use `bash`, but can probably be adapted to other shells.
+
 The user needs to export the shell variable `VPC_DIR`, pointing to the repository location, or define it in `scripts/install_coin.sh`, `test/run_test.sh`, and other scripts.
 
-You may need to use a compatible version of `g++`, and make sure that the same compiler is used when running `install_coin.sh` and the one used to generate `libgurobi_c++.a`, which can be rebuilt in the `Gurobi` directory under `src/build`.
+You may need to use a compatible version of `clang` or `g++`, and make sure that the same compiler is used when running `install_coin.sh` and the one used to generate `libgurobi_c++.a`, which can be rebuilt in the `Gurobi` directory under `src/build`.
 
 You may need to install several dependencies, such as `libbz2-dev`, or comment out from `makefile` any linking to the relevant libraries you are missing.
 
@@ -44,8 +46,7 @@ The script takes three arguments:
 
 If the first argument to `run_experiments.sh` is not an instance, it needs to be a file with extension `.instances` or `.batch`.
 The former is for a set of instances that should be run one-by-one, and the latter is for sets of instances that should be run in parallel.
-The first line of either format must be the folder name in which you wish that output is sent within the `results` directory.
-For `.instances` files, the subsequent lines must be _relative_ paths to instances, relative to the directory `data/instances`, such as `original/miplib2/bm23` (the extension can be left out from each line).
+For `.instances` files, the lines must be _relative_ paths to instances, relative to the directory `data/instances`, such as `original/miplib2/bm23` (the extension can be left out from each line).
 For `.batch` files, a new batch is indicated by a line that ends with a forward slash, e.g., `batchname/`.
 Under each batch, instances should be indicated with relative paths just as in `.instances` files.
 For examples, see `scripts/test.instances` and `scripts/test.batch`.

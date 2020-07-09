@@ -1,6 +1,5 @@
 #!/bin/bash
 # Arguments: results directory, batch mode flag (0 or 1), run type (test, bb, bb0, or preprocess)
-# All arguments are optional
 # Default is ${VPC_DIR}/results/test 0 test
 #
 # The first argument can be the (full) directory containing the results or batch folders containing results
@@ -8,27 +7,10 @@
 # If the first argument is not 1, then the second argument may be a 1 indicating batch mode
 # The argument after the 1 means the results are contained in vpc-test.csv, vpc-bb.csv, etc. 
 
-if [ -z "$VPC_DIR" ]
-then 
-  if [ ! -z "${REPOS_DIR}" ]
-  then
-    echo "Please define VPC_DIR (the root vpc dir, possibly ${REPOS_DIR}/vpc):"
-  else
-    echo "Please define VPC_DIR (the root vpc dir):"
-  fi
-  read VPC_DIR
-  if [ -z "$VPC_DIR" ]
-    then echo "Need to define VPC_DIR. Exiting."
-    exit
-  fi
-  export VPC_DIR=${VPC_DIR}
-fi
-echo "VPC_DIR is set to $VPC_DIR"
-
-MASTER_RESULTS_DIR="${VPC_DIR}/results"
+SCRIPT_DIR="${BASH_SOURCE[0]%/*}"
+MASTER_RESULTS_DIR="${SCRIPT_DIR}/../results"
 RESULTS_DIR="${MASTER_RESULTS_DIR}/test"
 RUN_TYPE_STUB="test"
-SCRIPT_DIR="${VPC_DIR}/scripts"
 export CUT_TYPE="vpc"
 
 # Set the RESULTS_DIR and run in batch mode if so specified
