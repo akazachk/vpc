@@ -4,7 +4,7 @@
 #
 # The first argument is either a list of instances (each instance is assumed to be located in ${INSTANCE_DIR}, defined below as ${VPC_DIR}/data/instances) or the full path to an instance (lp/mps file)
 # The second argument is where results will go, saved into RESULTS_DIR
-# The third argument is 'bb' or another suffix (sets script to be used as python/run_vpc_$1.py) [optional, but if this is not used, then subsequent options cannot be given; default: bb]
+# The third argument is 'bb' or another suffix (sets script to be used as python3/run_vpc_$1.py) [optional, but if this is not used, then subsequent options cannot be given; default: bb]
 #
 # If a list of instances is given, it must either be with extension ".instances" or ".batch"
 # The former indicates that the instances should be run sequentially
@@ -29,8 +29,8 @@ then
     exit 1
   fi
 fi
-export VPC_DIR=${VPC_DIR} # used in python script
-export INSTANCE_DIR="${VPC_DIR}/data/instances" # used in python script
+export VPC_DIR=${VPC_DIR} # used in python3 script
+export INSTANCE_DIR="${VPC_DIR}/data/instances" # used in python3 script
 SCRIPT_DIR="${VPC_DIR}/scripts"
 INSTANCE_LIST="${VPC_DIR}/scripts/test.batch"
 SCRIPTNAME="run_vpc.py"
@@ -67,7 +67,7 @@ fi
 # Disabled: Define the instance directory from which relative paths are given in the instance list
 #export INSTANCE_DIR=${INSTANCE_LIST%/*}
 
-echo "Running experiments from ${SCRIPT_DIR}/${SCRIPTNAME} with instances in list ${INSTANCE_LIST} and instances in ${INSTANCE_DIR}, output sent to ${RESULTS_DIR}."
+echo "Running experiments from ${SCRIPT_DIR}/${SCRIPTNAME} with instance list ${INSTANCE_LIST}, assuming instances are in ${INSTANCE_DIR}, output sent to ${RESULTS_DIR}."
 
 # Proceed depending on whether run is in batches or not
 line=${INSTANCE_LIST}
@@ -82,8 +82,10 @@ tmplenbatch="$((${#line}-6))"
 tmpleninst="$((${#line}-10))"
 if [ "${line:$tmpleninst:10}" == ".instances" ] || [ "${line:$tmplenlp:3}" == ".lp" ] || [ "${line:$tmplenmps:4}" == ".mps" ] || [ "${line:$tmplenlpgz:6}" == ".lp.gz" ] || [ "${line:$tmplenmpsgz:7}" == ".mps.gz" ] || [ "${line:$tmplenlpbz:7}" == ".lp.bz2" ] || [ "${line:$tmplenmpsbz:8}" == ".mps.bz2" ]
 then
-  echo "Using sequential mode."
-  nohup python -u ${SCRIPT_DIR}/${SCRIPTNAME} ${RUN_TYPE_STUB} ${INSTANCE_LIST} ${RESULTS_DIR} >> ${RESULTS_DIR}/nohup.out 2 >& 1 &
+  echo "Using sequential mode"
+  #echo "nohup python3 -u ${SCRIPT_DIR}/${SCRIPTNAME} ${INSTANCE_LIST} ${RESULTS_DIR} ${RUN_TYPE_STUB} >> ${RESULTS_DIR}/nohup.out 2 >& 1 &"
+  #nohup python3 -u ${SCRIPT_DIR}/${SCRIPTNAME} ${INSTANCE_LIST} ${RESULTS_DIR} ${RUN_TYPE_STUB} >> ${RESULTS_DIR}/nohup.out 2 >& 1 &
+  python3 -u ${SCRIPT_DIR}/${SCRIPTNAME} ${INSTANCE_LIST} ${RESULTS_DIR} ${RUN_TYPE_STUB}
 elif [ "${line:$tmplenbatch:6}" == ".batch" ]
 then
   echo "Using batch mode."
@@ -113,7 +115,8 @@ then
       if [ ! -z "${tmpfilename}" ]
       then
         echo "Starting batch ${tmpfilename}"
-        nohup python -u ${SCRIPT_DIR}/${SCRIPTNAME} ${RUN_TYPE_STUB} ${tmpfilename} ${RESULTS_DIR} >> ${RESULTS_DIR}/nohup.out 2 >& 1 &
+        echo "nohup python3 -u ${SCRIPT_DIR}/${SCRIPTNAME} ${tmpfilename} ${RESULTS_DIR} ${RUN_TYPE_STUB} >> ${RESULTS_DIR}/nohup.out 2 >& 1 &"
+        nohup python3 -u ${SCRIPT_DIR}/${SCRIPTNAME} ${tmpfilename} ${RESULTS_DIR} ${RUN_TYPE_STUB} >> ${RESULTS_DIR}/nohup.out 2 >& 1 &
       fi
 
       # Now we create the new batch
@@ -130,7 +133,8 @@ then
   if [ ! -z "${tmpfilename}" ]
   then
     echo "Starting batch ${tmpfilename}"
-    nohup python -u ${SCRIPT_DIR}/${SCRIPTNAME} ${RUN_TYPE_STUB} ${tmpfilename} ${RESULTS_DIR} >> ${RESULTS_DIR}/nohup.out 2 >& 1 &
+    echo "nohup python3 -u ${SCRIPT_DIR}/${SCRIPTNAME} ${tmpfilename} ${RESULTS_DIR} ${RUN_TYPE_STUB} >> ${RESULTS_DIR}/nohup.out 2 >& 1 &"
+    nohup python3 -u ${SCRIPT_DIR}/${SCRIPTNAME} ${tmpfilename} ${RESULTS_DIR} ${RUN_TYPE_STUB} >> ${RESULTS_DIR}/nohup.out 2 >& 1 &
   fi
 else
   echo "Could not identify type of instance file given by $line"

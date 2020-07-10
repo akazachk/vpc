@@ -1,8 +1,8 @@
 ####
 ## Three arguments, all necessary
-## First argument: running mode (bb, bb0, or preprocess)
-## Second argument: the path to an mps/lp file or to an instances/batch file ([file].batch or [file].instances)
-## Third argument: full path to output directory
+## First argument: the path to an mps/lp file or to an instances/batch file ([file].batch or [file].instances)
+## Second argument: full path to output directory
+## Third argument: running mode (bb, bb0, or preprocess)
 ##
 ## The first line of a .batch or .instances file will be the directory ``stub'',
 ## and output will be sent to ${PROJ_DIR}/results/stub if batch mode is off,
@@ -28,9 +28,9 @@ option = OPTION_BB
 
 ## Where are the instances?
 from sys import argv
-ARG_OPTION = 1
-ARG_INST = 2
-ARG_RESULT = 3
+ARG_INST = 1
+ARG_RESULT = 2
+ARG_OPTION = 3
 assert (len(argv) > 2)
 try:
     option = argv[ARG_OPTION]
@@ -59,10 +59,11 @@ except:
 
 ## Solver options
 depthList = [0]
+outinfo_stub = CUT_TYPE + "-null"
+extraparams = ' --optfile=' + PROJ_DIR + '/data/ip_obj.csv'
 if option == OPTION_BB:
     depthList = [2,4,8,16,32,64]
     outinfo_stub = CUT_TYPE + '-bb'
-    extraparams = ' --optfile=' + PROJ_DIR + '/data/ip_obj.csv'
     extraparams = extraparams + ' --rounds=1'
     extraparams = extraparams + ' -t 3600'
     extraparams = extraparams + ' --bb_runs=1'
@@ -76,7 +77,6 @@ if option == OPTION_BB:
     extraparams = extraparams + ' --gomory=-1'
 elif option == OPTION_BB0:
     outinfo_stub = CUT_TYPE + '-bb0'
-    extraparams = ' --optfile=' + PROJ_DIR + '/data/ip_obj.csv'
     extraparams = extraparams + ' --rounds=1'
     extraparams = extraparams + ' -t 3600'
     extraparams = extraparams + ' --bb_runs=7'
@@ -89,7 +89,6 @@ elif option == OPTION_BB0:
     extraparams = extraparams + ' --use_unit_vectors=0'
 elif option == OPTION_PREPROCESS:
     outinfo_stub = 'cleaning_log'
-    extraparams = ' --optfile=' + PROJ_DIR + '/data/ip_obj.csv'
     extraparams = extraparams + ' --preprocess=1'
     extraparams = extraparams + ' -t 7200'
     extraparams = extraparams + ' --bb_runs=1'
@@ -138,5 +137,5 @@ for depth in depthList:
 
     ## Arguments
     cmd = EXECUTABLE + ' -f ' + infile + ' --logfile=' + outinfo + extraparams + ' -d ' + str(depth)
-    print(cmd)
+    print(cmd, flush=True) # flush=True requires python 3.3+
     os.system(cmd + " > /dev/null 2>&1")
