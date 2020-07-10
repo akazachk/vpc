@@ -143,6 +143,7 @@ class GurobiUserCutCallback : public GRBCallback {
       this->info.root_passes = 0;
       this->info.first_cut_pass = -1 * params.get(doubleConst::INF);
       this->info.last_cut_pass = -1 * params.get(doubleConst::INF);
+      this->info.root_iters = 0;
       this->info.root_time = 0.;
       this->info.last_sol_time = 0.;
 //      this->numTimesApplied = 0;
@@ -178,7 +179,15 @@ class GurobiUserCutCallback : public GRBCallback {
             this->info.last_sol_time = GRBCallback::getDoubleInfo(GRB_CB_RUNTIME);
             this->info.obj = obj;
           }
-        } else if (where == GRB_CB_MIPNODE) {
+        }
+        else if (where == GRB_CB_MIP) {
+          const int num_nodes = GRBCallback::getDoubleInfo(GRB_CB_MIP_NODCNT);
+          if (num_nodes > 0) {
+            return;
+          }
+          this->info.root_iters = GRBCallback::getDoubleInfo(GRB_CB_MIP_ITRCNT);
+        }
+        else if (where == GRB_CB_MIPNODE) {
           const int num_nodes = GRBCallback::getDoubleInfo(GRB_CB_MIPNODE_NODCNT);
           if (num_nodes > 0) {
             return;
@@ -461,13 +470,25 @@ void doBranchAndBoundWithUserCutsGurobi(const VPCParameters& params,
     if (info.root_passes > 0) {
       info.first_cut_pass = cb.info.first_cut_pass; // second because first is lp opt val
       info.last_cut_pass = cb.info.last_cut_pass;
+      info.root_iters = cb.info.root_iters;
       info.root_time = cb.info.root_time;
       info.last_sol_time = cb.info.last_sol_time;
     } else {
-      info.first_cut_pass = info.obj;
-      info.last_cut_pass = info.obj;
-      info.root_time = info.time; // all time was spent at the root
-      info.last_sol_time = cb.info.last_sol_time; // roughly the same as total time in this case
+      // I guess this can happen if we solve during presolve,
+      // or if we do no root passes of cuts
+      if (info.nodes == 0) {
+        info.first_cut_pass = info.obj;
+        info.last_cut_pass = info.obj;
+        info.root_iters = info.iters; // all iters were at the root
+        info.root_time = info.time; // all time was spent at the root
+        info.last_sol_time = cb.info.last_sol_time; // roughly the same as total time in this case
+      } else {
+        info.first_cut_pass = cb.first_lp_opt;
+        info.last_cut_pass = cb.first_lp_opt;
+        info.root_iters = cb.info.root_iters;
+        info.root_time = cb.info.root_time; // all time was spent at the root
+        info.last_sol_time = cb.info.last_sol_time; // roughly the same as total time in this case
+      }
     }
 //#ifdef TRACE
 //    printf("Gurobi: Times cuts applied: %d.\n", cb.numTimesApplied);

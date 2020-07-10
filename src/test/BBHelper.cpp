@@ -316,6 +316,7 @@ void updateBestBBInfo(BBInfo& best_info, const BBInfo& curr_info, const bool fir
   best_info.root_passes = first ? curr_info.root_passes : CoinMin(best_info.root_passes, curr_info.root_passes);
   best_info.first_cut_pass = first ? curr_info.first_cut_pass : CoinMax(best_info.first_cut_pass, curr_info.first_cut_pass);
   best_info.last_cut_pass = first ? curr_info.last_cut_pass : CoinMax(best_info.last_cut_pass, curr_info.last_cut_pass);
+  best_info.root_iters = first ? curr_info.root_iters : CoinMin(best_info.root_iters, curr_info.root_iters);
   best_info.root_time = first ? curr_info.root_time : CoinMin(best_info.root_time, curr_info.root_time);
   best_info.last_sol_time = first ? curr_info.last_sol_time : CoinMin(best_info.last_sol_time, curr_info.last_sol_time);
   best_info.time = first ? curr_info.time : CoinMin(best_info.time, curr_info.time);
@@ -330,6 +331,7 @@ void averageBBInfo(BBInfo& avg_info, const std::vector<BBInfo>& info) {
     avg_info.root_passes += curr_info.root_passes;
     avg_info.first_cut_pass += curr_info.first_cut_pass;
     avg_info.last_cut_pass += curr_info.last_cut_pass;
+    avg_info.root_iters += curr_info.root_iters;
     avg_info.root_time += curr_info.root_time;
     avg_info.last_sol_time += curr_info.last_sol_time;
     avg_info.time += curr_info.time;
@@ -342,6 +344,7 @@ void averageBBInfo(BBInfo& avg_info, const std::vector<BBInfo>& info) {
   avg_info.root_passes /= num_bb_runs;
   avg_info.first_cut_pass /= num_bb_runs;
   avg_info.last_cut_pass /= num_bb_runs;
+  avg_info.root_iters /= num_bb_runs;
   avg_info.root_time /= num_bb_runs;
   avg_info.last_sol_time /= num_bb_runs;
   avg_info.time /= num_bb_runs;
@@ -358,6 +361,7 @@ void createStringFromBBInfoVec(const std::vector<BBInfo>& vec_info,
     vec_str[ROOT_PASSES_BB_INFO_IND] += (!vec_str[ROOT_PASSES_BB_INFO_IND].empty() ? ";" : "") + std::to_string(info.root_passes);
     vec_str[FIRST_CUT_PASS_BB_INFO_IND] += (!vec_str[FIRST_CUT_PASS_BB_INFO_IND].empty() ? ";" : "") + std::to_string(info.first_cut_pass);
     vec_str[LAST_CUT_PASS_BB_INFO_IND] += (!vec_str[LAST_CUT_PASS_BB_INFO_IND].empty() ? ";" : "") + std::to_string(info.last_cut_pass);
+    vec_str[ROOT_ITERS_BB_INFO_IND] += (!vec_str[ROOT_ITERS_BB_INFO_IND].empty() ? ";" : "") + std::to_string(info.root_iters);
     vec_str[ROOT_TIME_BB_INFO_IND] += (!vec_str[ROOT_TIME_BB_INFO_IND].empty() ? ";" : "") + std::to_string(info.root_time);
     vec_str[LAST_SOL_TIME_BB_INFO_IND] += (!vec_str[LAST_SOL_TIME_BB_INFO_IND].empty() ? ";" : "") + std::to_string(info.last_sol_time);
     vec_str[TIME_BB_INFO_IND] += (!vec_str[TIME_BB_INFO_IND].empty() ? ";" : "") + std::to_string(info.time);

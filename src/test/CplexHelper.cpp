@@ -350,6 +350,14 @@ int CPXPUBLIC usercutcallback(CPXCENVptr env, void *cbdata, int wherefrom,
     }
     CPXXgettime(env, &end_time);
     info->root_time = end_time - start_time;
+
+    cb = CPX_CALLBACK_INFO_MIP_ITERATIONS;
+    status = CPXXgetcallbackinfo(env, cbdata, wherefrom, cb, &info->root_iters);
+    if (status) {
+      error_msg(errorstring,
+          "CPLEX (C): Error %d while querying callback %d.\n", status, cb);
+      return status;
+    }
   }
 
   return status;

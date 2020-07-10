@@ -58,6 +58,7 @@ struct BBInfo {
   long root_passes = 0; // # passes of cuts at the root node
   double first_cut_pass = 0.; // bound after one round of cuts at the root
   double last_cut_pass = 0.; // bound after last round of cuts at the root
+  long root_iters = 0; // # iters spent at root node
   double root_time = 0.; // time spent at the root node
   double last_sol_time = 0.; // time that best IP-feasible solution was found
   double time = 0.; // total time to solve the instance
@@ -70,13 +71,14 @@ enum BBInfoEnum {
   ROOT_PASSES_BB_INFO_IND,
   FIRST_CUT_PASS_BB_INFO_IND,
   LAST_CUT_PASS_BB_INFO_IND,
+  ROOT_ITERS_BB_INFO_IND,
   ROOT_TIME_BB_INFO_IND,
   LAST_SOL_TIME_BB_INFO_IND,
   TIME_BB_INFO_IND,
   NUM_BB_INFO
 };
 const std::vector<std::string> BB_INFO_CONTENTS = {
-    "OBJ", "BOUND", "ITERS", "NODES", "ROOT_PASSES", "FIRST_CUT_PASS", "LAST_CUT_PASS", "ROOT_TIME", "LAST_SOL_TIME", "TIME"
+    "OBJ", "BOUND", "ITERS", "NODES", "ROOT_PASSES", "FIRST_CUT_PASS", "LAST_CUT_PASS", "ROOT_ITERS", "ROOT_TIME", "LAST_SOL_TIME", "TIME"
 };
 
 struct SummaryBBInfo {
@@ -98,6 +100,7 @@ inline void initializeBBInfo(BBInfo& info, double obj = 0.) {
   info.root_passes = 0;
   info.first_cut_pass = 0.;
   info.last_cut_pass = 0.;
+  info.root_iters = 0;
   info.root_time = 0.;
   info.last_sol_time = 0.;
   info.time = 0.;
