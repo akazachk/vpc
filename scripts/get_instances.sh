@@ -26,6 +26,8 @@ echo "Downloading MIPLIB2017"
 wget http://miplib2017.zib.de/downloads/collection.zip
 mkdir -p ${DATA_DIR}/miplib2017
 unzip collection.zip -d ${DATA_DIR}/miplib2017
+mv ${DATA_DIR}/miplib2017/mas74.mps.gz ${DATA_DIR}/miplib2017/mas074.mps.gz
+mv ${DATA_DIR}/miplib2017/mas76.mps.gz ${DATA_DIR}/miplib2017/mas076.mps.gz
 
 echo "Downloading MIPLIB2010"
 wget http://miplib2010.zib.de/download/miplib2010-complete.zip

@@ -3,7 +3,7 @@
 #SBATCH --array=1-12
 #SBATCH --time=03:00:00
 #SBATCH --account=def-alodi
-#SBATCH --mem-per-cpu=1G
+#SBATCH --mem-per-cpu=100M
 #SBATCH --cpus-per-task=1
 #SBATCH --mail-user=aleksandr.kazachkov@polymtl.ca
 #SBATCH --mail-type=BEGIN
