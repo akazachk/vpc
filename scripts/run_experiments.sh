@@ -83,9 +83,9 @@ tmpleninst="$((${#line}-10))"
 if [ "${line:$tmpleninst:10}" == ".instances" ] || [ "${line:$tmplenlp:3}" == ".lp" ] || [ "${line:$tmplenmps:4}" == ".mps" ] || [ "${line:$tmplenlpgz:6}" == ".lp.gz" ] || [ "${line:$tmplenmpsgz:7}" == ".mps.gz" ] || [ "${line:$tmplenlpbz:7}" == ".lp.bz2" ] || [ "${line:$tmplenmpsbz:8}" == ".mps.bz2" ]
 then
   echo "Using sequential mode"
-  #echo "nohup python3 -u ${SCRIPT_DIR}/${SCRIPTNAME} ${INSTANCE_LIST} ${RESULTS_DIR} ${RUN_TYPE_STUB} >> ${RESULTS_DIR}/nohup.out 2 >& 1 &"
-  #nohup python3 -u ${SCRIPT_DIR}/${SCRIPTNAME} ${INSTANCE_LIST} ${RESULTS_DIR} ${RUN_TYPE_STUB} >> ${RESULTS_DIR}/nohup.out 2 >& 1 &
-  python3 -u ${SCRIPT_DIR}/${SCRIPTNAME} ${INSTANCE_LIST} ${RESULTS_DIR} ${RUN_TYPE_STUB}
+  #echo "nohup python3 -u ${SCRIPT_DIR}/${SCRIPTNAME} ${INSTANCE_LIST} ${RESULTS_DIR} ${RUN_TYPE_STUB} >> ${RESULTS_DIR}/log.out 2 >& 1 &"
+  #nohup python3 -u ${SCRIPT_DIR}/${SCRIPTNAME} ${INSTANCE_LIST} ${RESULTS_DIR} ${RUN_TYPE_STUB} >> ${RESULTS_DIR}/log.out 2 >& 1 &
+  python3 -u ${SCRIPT_DIR}/${SCRIPTNAME} ${INSTANCE_LIST} ${RESULTS_DIR} ${RUN_TYPE_STUB} >> ${RESULTS_DIR}/log.out 2 >& 1
 elif [ "${line:$tmplenbatch:6}" == ".batch" ]
 then
   echo "Using batch mode."
@@ -115,8 +115,8 @@ then
       if [ ! -z "${tmpfilename}" ]
       then
         echo "Starting batch ${tmpfilename}"
-        echo "nohup python3 -u ${SCRIPT_DIR}/${SCRIPTNAME} ${tmpfilename} ${RESULTS_DIR} ${RUN_TYPE_STUB} >> ${RESULTS_DIR}/nohup.out 2 >& 1 &"
-        nohup python3 -u ${SCRIPT_DIR}/${SCRIPTNAME} ${tmpfilename} ${RESULTS_DIR} ${RUN_TYPE_STUB} >> ${RESULTS_DIR}/nohup.out 2 >& 1 &
+        echo "nohup python3 -u ${SCRIPT_DIR}/${SCRIPTNAME} ${tmpfilename} ${RESULTS_DIR} ${RUN_TYPE_STUB} >> ${RESULTS_DIR}/log.out 2 >& 1 &"
+        nohup python3 -u ${SCRIPT_DIR}/${SCRIPTNAME} ${tmpfilename} ${RESULTS_DIR} ${RUN_TYPE_STUB} >> ${RESULTS_DIR}/log.out 2 >& 1 &
       fi
 
       # Now we create the new batch
@@ -133,8 +133,8 @@ then
   if [ ! -z "${tmpfilename}" ]
   then
     echo "Starting batch ${tmpfilename}"
-    echo "nohup python3 -u ${SCRIPT_DIR}/${SCRIPTNAME} ${tmpfilename} ${RESULTS_DIR} ${RUN_TYPE_STUB} >> ${RESULTS_DIR}/nohup.out 2 >& 1 &"
-    nohup python3 -u ${SCRIPT_DIR}/${SCRIPTNAME} ${tmpfilename} ${RESULTS_DIR} ${RUN_TYPE_STUB} >> ${RESULTS_DIR}/nohup.out 2 >& 1 &
+    echo "nohup python3 -u ${SCRIPT_DIR}/${SCRIPTNAME} ${tmpfilename} ${RESULTS_DIR} ${RUN_TYPE_STUB} >> ${RESULTS_DIR}/log.out 2 >& 1 &"
+    nohup python3 -u ${SCRIPT_DIR}/${SCRIPTNAME} ${tmpfilename} ${RESULTS_DIR} ${RUN_TYPE_STUB} >> ${RESULTS_DIR}/log.out 2 >& 1 &
   fi
 else
   echo "Could not identify type of instance file given by $line"
