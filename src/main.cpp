@@ -806,11 +806,11 @@ void processArgs(int argc, char** argv) {
                   params.set(intParam::BB_RUNS, 1);
                   params.set(intParam::BB_MODE, 001);
 #ifdef USE_GUROBI
-                  params.set(intParam::BB_STRATEGY, 24); // previously 10776
+                  params.set(intParam::BB_STRATEGY, 536); // previously 10776
 #elif USE_CPLEX
-                  params.set(intParam::BB_STRATEGY, 20); // previously 10772
+                  params.set(intParam::BB_STRATEGY, 532); // previously 10772
 #else
-                  params.set(intParam::BB_STRATEGY, 16); // previously 10768
+                  params.set(intParam::BB_STRATEGY, 528); // previously 10768
 #endif
                   params.set(doubleParam::TIMELIMIT, 7200);
                   break;
@@ -972,7 +972,7 @@ void processArgs(int argc, char** argv) {
                 helpstring += "--use_unit_vectors=0/1\n\tUse unit vectors in nonbasic space.\n";
                 helpstring += "\n# Branch-and-bound options #\n";
                 helpstring += "-b 0+ --bb_runs=0+\n\tNumber of branch-and-bound repeats.\n";
-                helpstring += "-B strategy --bb_strategy=strategy\n\tBranch-and-bound strategy (see VPCParameters.hpp; default = 24, corresponding to gurobi: 8 + user_cuts: 16; another common setting is 10776, which in addition enables presolve_off: 512, heuristics_off: 2048, use_best_bound: 8192).\n";
+                helpstring += "-B strategy --bb_strategy=strategy\n\tBranch-and-bound strategy (see VPCParameters.hpp; default = 536, corresponding to gurobi: 8 + user_cuts: 16 + presolve_off: 512; another common setting is 10776, which in addition enables heuristics_off: 2048, use_best_bound: 8192).\n";
                 helpstring += "--bb_mode={0,1,10,11,100,...,111}\n\tWhich branch-and-bound experiments to run (ones = no cuts, tens = vpcs, hundreds = gmics).\n";
                 helpstring += "## END OF HELP ##\n";
                 std::cout << helpstring << std::endl;

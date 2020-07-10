@@ -74,7 +74,7 @@ enum intParam {
   //  heuristics_on = 4096,
   //  use_best_bound = 8192,
   //  strong_branching_on = 16384
-  BB_STRATEGY, // bit vector; sum of above bits, default: 24 = gurobi (8) + user_cuts (16)
+  BB_STRATEGY, // bit vector; sum of above bits, default: 536 = gurobi (8) + user_cuts (16) + presolve_off (512)
   BB_MODE, // 111: each bit represents whether to branch with gmics, vpcs, and no cuts (from largest to smallest bit)
   NUM_INT_PARAMS
 }; /* intParam */
@@ -375,11 +375,11 @@ struct VPCParameters {
     {intParam::BB_MODE,
         IntParameter(intParam::BB_MODE, "BB_MODE",
             10, 0, 111)},
-    // BB_STRATEGY: see BBHelper.hpp; 24 =  000000000011000 => gurobi: 8, user_cuts: 16
+    // BB_STRATEGY: see BBHelper.hpp; 536 = 000001000011000 => gurobi: 8, user_cuts: 16, presolve_off: 512
     //previously default was 10776 = 010101000011000 => gurobi: 8, user_cuts: 16, presolve_off: 512, heuristics_off: 2048, use_best_bound: 8192
     {intParam::BB_STRATEGY,
         IntParameter(intParam::BB_STRATEGY, "BB_STRATEGY",
-            24, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+            536, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
     {intParam::BB_RUNS,
         IntParameter(intParam::BB_RUNS, "BB_RUNS",
             0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
