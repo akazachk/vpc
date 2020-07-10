@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --array=1-12,229-489
+#SBATCH --array=1-12,229-487
 #SBATCH --array=1-12
 #SBATCH --time=03:00:00
 #SBATCH --account=def-alodi
