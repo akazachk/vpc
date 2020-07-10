@@ -447,6 +447,18 @@ void printFullBBInfo(const std::vector<SummaryBBInfo>& info_vec, FILE* logfile,
       count++;
     }
     for (auto info : info_vec) {
+      fprintf(logfile, "%ld%c", info.first_bb_info.root_iters, SEP);
+      count++;
+    }
+    for (auto info : info_vec) {
+      fprintf(logfile, "%ld%c", info.best_bb_info.root_iters, SEP);
+      count++;
+    }
+    for (auto info : info_vec) {
+      fprintf(logfile, "%ld%c", info.avg_bb_info.root_iters, SEP);
+      count++;
+    }
+    for (auto info : info_vec) {
       fprintf(logfile, "%2.3f%c", info.first_bb_info.root_time, SEP);
       count++;
     }
