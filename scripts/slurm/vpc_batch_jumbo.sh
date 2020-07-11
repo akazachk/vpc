@@ -1,10 +1,8 @@
 #!/bin/bash
-#SBATCH --array=1-8,220-329
-#SBATCH --array=1-8
-#SBATCH --array=220-329
+#SBATCH --array=1-24
 #SBATCH --time=03:00:00
 #SBATCH --account=def-alodi
-#SBATCH --mem-per-cpu=100M
+#SBATCH --mem-per-cpu=10G
 #SBATCH --cpus-per-task=1
 #SBATCH --mail-user=aleksandr.kazachkov@polymtl.ca
 #SBATCH --mail-type=BEGIN
@@ -13,7 +11,7 @@
 
 MODE="bb"
 CASE_NUM=`printf %03d $SLURM_ARRAY_TASK_ID`
-INSTANCE_FILE=original.instances
+INSTANCE_FILE=original_large.instances
 export VPC_DIR="${REPOS_DIR}/vpc"
 
 # Set mode if given
@@ -29,7 +27,7 @@ then
 fi
 
 echo "Starting ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
-if (("$SLURM_ARRAY_TASK_ID" <= 12))
+if (("$SLURM_ARRAY_TASK_ID" <= -1))
 then
   echo "Running task ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID} in batch mode at `date`"
   FILE="${VPC_DIR}/scripts/slurm/${SLURM_ARRAY_TASK_ID}.instances"
