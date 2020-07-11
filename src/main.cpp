@@ -419,7 +419,7 @@ int wrapUp(int retCode /*= 0*/) {
     }
 
     fprintf(logfile, "%s,", end_time_string);
-    fprintf(logfile, "%.f,", difftime(end_time_t, start_time_t));
+    fprintf(logfile, "%.2f,", difftime(end_time_t, start_time_t));
 #ifdef VPC_VERSION
     fprintf(logfile, "%s,", VERSION.substr(0,8).c_str());
 #endif
