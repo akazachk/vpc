@@ -463,6 +463,8 @@ int wrapUp(int retCode /*= 0*/) {
   printf("Instance: %s\n", instname.c_str());
   if (!params.get(stringParam::LOGFILE).empty()) {
     printf("Log: %s\n", params.get(stringParam::LOGFILE).c_str());
+  } else {
+    printf("Log: stdout\n");
   }
   printf("Start time: %s\n", start_time_string);
   printf("End time: %s\n", end_time_string);
