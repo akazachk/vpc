@@ -11,7 +11,3 @@ tail -n +206 $SRC | head -n 5 > 5.${EXT}
 tail -n +211 $SRC | head -n 3 > 6.${EXT}
 tail -n +214 $SRC | head -n 3 > 7.${EXT}
 tail -n +217 $SRC | head -n 3 > 8.${EXT}
-tail -n +220 $SRC | head -n 3 > 9.${EXT}
-tail -n +223 $SRC | head -n 2 > 10.${EXT}
-tail -n +225 $SRC | head -n 2 > 11.${EXT}
-tail -n +227 $SRC | head -n 2 > 12.${EXT}
