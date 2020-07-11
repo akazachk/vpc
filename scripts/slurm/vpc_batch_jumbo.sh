@@ -11,7 +11,7 @@
 
 MODE="bb"
 CASE_NUM=`printf %03d $SLURM_ARRAY_TASK_ID`
-INSTANCE_FILE=original_large.instances
+INSTANCE_FILE=original_jumbo.instances
 export VPC_DIR="${REPOS_DIR}/vpc"
 
 # Set mode if given
