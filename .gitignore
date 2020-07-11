@@ -27,3 +27,4 @@ lib/
 bin/
 results/
 doxygen/
+slurm*.out
