@@ -498,6 +498,9 @@ void printPreprocessingHeader(const VPCParametersNamespace::VPCParameters& param
 
   fprintf(logfile, "%s%c", "end_time_string", SEP);
   fprintf(logfile, "%s%c", "time elapsed", SEP);
+#ifdef VPC_VERSION
+  fprintf(logfile, "%s%c", "version", SEP);
+#endif
   fprintf(logfile, "\n");
   fflush(logfile);
 } /** printPreprocessingHeader */
