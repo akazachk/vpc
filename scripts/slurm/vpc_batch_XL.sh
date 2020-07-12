@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --array=1-132
+#SBATCH --array=1-24
 #SBATCH --time=03:00:00
 #SBATCH --account=def-alodi
-#SBATCH --mem-per-cpu=1G
+#SBATCH --mem-per-cpu=10G
 #SBATCH --cpus-per-task=1
 #SBATCH --mail-user=aleksandr.kazachkov@polymtl.ca
 #SBATCH --mail-type=BEGIN
@@ -11,7 +11,7 @@
 
 MODE="bb"
 CASE_NUM=`printf %03d $SLURM_ARRAY_TASK_ID`
-INSTANCE_FILE=original_large.instances
+INSTANCE_FILE=original_jumbo.instances
 export VPC_DIR="${REPOS_DIR}/vpc"
 
 # Set mode if given
@@ -42,5 +42,5 @@ fi
 
 ${VPC_DIR}/scripts/run_experiments.sh $FILE ${VPC_DIR}/results/${MODE}/$CASE_NUM ${MODE} $CASE_NUM
 
-echo "Statistics from seff ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
-seff ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}
+#echo "Statistics from seff ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
+#seff ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}

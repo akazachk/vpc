@@ -44,5 +44,5 @@ fi
 
 ${VPC_DIR}/scripts/run_experiments.sh $FILE ${VPC_DIR}/results/${MODE}/$CASE_NUM ${MODE} $CASE_NUM
 
-echo "Statistics from seff ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
-seff ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}
+#echo "Statistics from seff ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
+#seff ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}
