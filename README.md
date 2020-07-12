@@ -51,6 +51,12 @@ For `.batch` files, a new batch is indicated by a line that ends with a forward 
 Under each batch, instances should be indicated with relative paths just as in `.instances` files.
 For examples, see `scripts/test.instances` and `scripts/test.batch`.
 
+If you run experiments in batch mode, or generally save results in `/path/to/results/*/vpc-{type}.csv`, where `*` is a set of folders, then you can call
+```
+scripts/merge.sh /path/to/results type
+```
+to merge (and sort) the results to `/path/to/results/vpc-{type}.csv`. Note that `preprocess` is a special type, for which the script will merge results in `cleaning_log.csv` instead of `vpc-{type}.csv`.
+
 ## Details
 
 There are many parameters that can be set from the command line. Run with `-h` or `--help` option to see these parameters. There are several more that are not currently able to be set from the command line, as they are assumed to generally be "constants"; a description of these can be found in `VPCParameters.hpp`.
