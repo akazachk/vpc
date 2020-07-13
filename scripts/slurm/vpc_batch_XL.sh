@@ -1,8 +1,17 @@
 #!/bin/bash
-#SBATCH --array=1-24
+TYPE="presolved"
+if [ $TYPE = "original" ]; then
+#SBATCH --array=489-512
 #SBATCH --time=03:00:00
-#SBATCH --account=def-alodi
 #SBATCH --mem-per-cpu=10G
+elif [ $TYPE = "presolved" ]; then
+  echo "No XL defined now"
+  exit
+else
+  echo "Unrecognized type $TYPE"
+  exit 1
+fi
+#SBATCH --account=def-alodi
 #SBATCH --cpus-per-task=1
 #SBATCH --mail-user=aleksandr.kazachkov@polymtl.ca
 #SBATCH --mail-type=BEGIN
@@ -11,7 +20,7 @@
 
 MODE="bb"
 CASE_NUM=`printf %03d $SLURM_ARRAY_TASK_ID`
-INSTANCE_FILE=original_XL.instances
+INSTANCE_FILE=${TYPE}.instances
 export VPC_DIR="${REPOS_DIR}/vpc"
 
 # Set mode if given
