@@ -84,14 +84,12 @@ original/miplib2017/cvs16r70-62
 original/miplib2017/cvs16r89-60
 original/miplib2017/dfn-bwin-DBE
 original/miplib2017/breastcancer-regularized
-original/miplib2017/ej
 original/miplib2017/fhnw-sq2
 original/miplib2017/gen-ip021
 original/miplib2017/gen-ip036
 original/miplib2017/ger50-17-ptp-pop-3t
 original/miplib2017/ger50-17-ptp-pop-6t
 original/miplib2017/gsvm2rl11
-original/miplib2017/control30-3-2-3
 original/miplib2017/gsvm2rl12
 original/miplib2017/gsvm2rl5
 original/miplib2017/gsvm2rl9
@@ -130,3 +128,6 @@ original/miplib2017/ramos3
 original/coral/ran14x18_1
 original/coral/ran14x18.disj-8
 original/miplib2017/supportcase20
+original/miplib2010/bnatt350
+original/miplib2010/neos-916792
+original/miplib2017/peg-solitaire-a3

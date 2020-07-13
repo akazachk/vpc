@@ -218,6 +218,17 @@ original/miplib2017/rococoC10-001000
 original/miplib2017/neos5
 original/miplib2010/n4-3
 original/miplib2010/dfn-gwin-UUM
+original/miplib2017/flugpl
+original/miplib2010/m100n500k4r1
+original/miplib2017/neos-1171737
+original/coral/neos-555298
+original/miplib2017/neos-555424
+original/miplib2/cracpb1
+original/miplib2017/dsbmip
+original/miplib3/enigma
+original/miplib2017/enlight_hard
+original/miplib2010/enlight13
+original/miplib2010/enlight15
 original/miplib2010/k16x240
 original/coral/neos-1595230
 original/miplib2017/csched007
@@ -327,3 +338,6 @@ original/miplib2017/supportcase14
 original/miplib2017/supportcase16
 original/miplib2017/supportcase17
 original/miplib2017/timtab1CUTS
+original/miplib2017/acc-tight4
+original/miplib2017/acc-tight5
+original/miplib2010/acc-tight6

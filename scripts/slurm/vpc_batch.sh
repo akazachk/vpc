@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --array=1-8,220-329
+#SBATCH --array=1-8,220-343
 #SBATCH --array=1-8
-#SBATCH --array=220-329
+#SBATCH --array=220-343
 #SBATCH --time=03:00:00
 #SBATCH --account=def-alodi
 #SBATCH --mem-per-cpu=100M
