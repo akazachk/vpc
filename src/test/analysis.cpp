@@ -986,7 +986,7 @@ double getNumGomoryRounds(const VPCParameters& params,
     num_sic_rounds++;
     total_num_sics += curr_num_cuts;
     numCutsByRoundSIC.push_back(curr_num_cuts);
-    curr_sic_opt = applyCutsCustom(copySolver, GMICs);
+    curr_sic_opt = applyCutsCustom(copySolver, GMICs, params.logfile);
     boundByRoundSIC.push_back(curr_sic_opt);
 
     // Other stopping conditions:

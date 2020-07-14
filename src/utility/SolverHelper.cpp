@@ -294,7 +294,7 @@ bool enableFactorization(OsiSolverInterface* const solver, const double EPS, con
  * @return Solver value after adding the cuts, if they were added successfully
  */
 double applyCutsCustom(OsiSolverInterface* const solver, const OsiCuts& cs,
-    const int startCutIndex, const int numCutsOverload, double compare_obj) {
+    FILE* logfile, const int startCutIndex, const int numCutsOverload, double compare_obj) {
   const int numCuts = (numCutsOverload >= 0) ? numCutsOverload : cs.sizeCuts();
   if (solver && !solver->isProvenOptimal()) {
     solver->resolve();
@@ -363,9 +363,11 @@ double applyCutsCustom(OsiSolverInterface* const solver, const OsiCuts& cs,
       error_msg(errstr,
           "Not in subspace and solver not optimal after adding cuts, so we may have an integer infeasible problem. Exit status: %d.\n",
           dynamic_cast<OsiClpSolverInterface*>(solver)->getModelPtr()->status());
+      writeErrorToLog(errstr, logfile);
     } catch (std::exception& e) {
       error_msg(errstr,
           "Not in subspace and solver not optimal after adding cuts, so we may have an integer infeasible problem.\n");
+      writeErrorToLog(errstr, logfile);
     }
 #ifdef SAVE_INFEASIBLE_LP
     std::string infeas_f_name = "infeasible_lp";
@@ -392,9 +394,9 @@ double applyCutsCustom(OsiSolverInterface* const solver, const OsiCuts& cs,
  * @return Solver value after adding the cuts, if they were added successfully
  */
 double applyCutsCustom(OsiSolverInterface* const solver, const OsiCuts& cs,
-    const int numCutsOverload, double compare_obj) {
+    FILE* logfile, const int numCutsOverload, double compare_obj) {
   const int numCuts = (numCutsOverload >= 0) ? numCutsOverload : cs.sizeCuts();
-  return applyCutsCustom(solver, cs, 0, numCuts, compare_obj);
+  return applyCutsCustom(solver, cs, logfile, 0, numCuts, compare_obj);
 } /* applyCutsCustom */
 
 /**

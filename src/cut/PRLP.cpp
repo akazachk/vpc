@@ -930,7 +930,7 @@ int PRLP::findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
   // Add a debug solver in order to track the bound after adding the cuts we have generated
   OsiSolverInterface* tmpSolver = origSolver->clone();
   OsiCuts tmpCuts = cuts;
-  applyCutsCustom(tmpSolver, tmpCuts);
+  applyCutsCustom(tmpSolver, tmpCuts, owner->params.logfile);
 #endif
 
   const CoinPackedMatrix* mat = this->getMatrixByRow();
@@ -948,7 +948,8 @@ int PRLP::findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
     for (int add_ind = 0; add_ind < tmp_return_code; add_ind++) {
       tmpCuts.insert(tmpCuts.rowCut(tmpCuts.sizeCuts() + add_ind));
     }
-    applyCutsCustom(tmpSolver, tmpCuts, tmpCuts.sizeCuts() - tmp_return_code,
+    applyCutsCustom(tmpSolver, tmpCuts, owner->params.logfile,
+        tmpCuts.sizeCuts() - tmp_return_code,
         tmp_return_code, tmpSolver->getObjValue());
 #endif
   }
@@ -1170,8 +1171,9 @@ int PRLP::findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
       for (int add_ind = 0; add_ind < tmp_return_code; add_ind++) {
         tmpCuts.insert(tmpCuts.rowCut(tmpCuts.sizeCuts() + add_ind));
       }
-      applyCutsCustom(tmpSolver, tmpCuts, tmpCuts.sizeCuts() - tmp_return_code,
-          tmp_return_code, tmpSolver->getObjValue());
+      applyCutsCustom(tmpSolver, tmpCuts, owner->params.logfile,
+          tmpCuts.sizeCuts() - tmp_return_code,
+          tmp_return_code, tmpSolver->getObjValue(), owner->params.logfile);
 #endif
     }
     if (try_ind + 1 < MAX_NUM_OBJ_PER_POINT) { //&& this->isProvenOptimal()) {
@@ -1697,7 +1699,7 @@ int PRLP::iterateDeepestCutPostGomory(OsiCuts & cuts,
   } else {
     GMICs = *structSICs;
   }
-  applyCutsCustom(PostGomorySolver, GMICs);
+  applyCutsCustom(PostGomorySolver, GMICs, owner->params.logfile);
   if (hitTimeLimit(PostGomorySolver) || PostGomorySolver->isIterationLimitReached()) {
     return exitFromIterateDeepestCutPostGomory(num_cuts_gen, PostGomorySolver);
   }

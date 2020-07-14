@@ -545,7 +545,7 @@ void doBranchAndBoundYesCuts(const VPCParametersNamespace::VPCParameters& params
 //  if (doCutSelection) {
 //    applyCutsInRounds(BBSolver, structCuts, numCutsToAddPerRound, maxRounds);
 //  } else {
-    applyCutsCustom(BBSolver, structCuts);
+    applyCutsCustom(BBSolver, structCuts, params.logfile);
 //  }
 
   // Set up model

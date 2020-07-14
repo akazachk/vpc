@@ -83,8 +83,9 @@ bool enableFactorization(OsiSolverInterface* const solver, const double EPS, con
  * @return Solver value after adding the cuts, if they were added successfully
  */
 double applyCutsCustom(OsiSolverInterface* const solver, const OsiCuts& cs,
-    const int startCutIndex, const int numCutsOverload, double compare_obj);
+    FILE* logfile, const int startCutIndex, const int numCutsOverload, double compare_obj);
 double applyCutsCustom(OsiSolverInterface* const solver, const OsiCuts& cs,
+    FILE* logfile = NULL,
     const int numCutsOverload = -1,
     double compare_obj = std::numeric_limits<double>::lowest());
 

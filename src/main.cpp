@@ -189,13 +189,13 @@ int main(int argc, char** argv) {
       GMIGen.generateCuts(*solver, currGMICs);
       gmics.insert(currGMICs);
       boundInfo.num_gmic += currGMICs.sizeCuts();
-      applyCutsCustom(GMICSolver, currGMICs);
+      applyCutsCustom(GMICSolver, currGMICs, params.logfile);
       boundInfo.gmic_obj = GMICSolver->getObjValue();
       if (params.get(GOMORY) > 0) {
-        applyCutsCustom(solver, currGMICs);
+        applyCutsCustom(solver, currGMICs, params.logfile);
       }
       if (params.get(GOMORY) < 0) {
-        applyCutsCustom(VPCSolver, currGMICs);
+        applyCutsCustom(VPCSolver, currGMICs, params.logfile);
       }
     }
 
@@ -227,16 +227,16 @@ int main(int argc, char** argv) {
     timer.end_timer(OverallTimeStats::VPC_GEN_TIME);
 
     timer.start_timer(OverallTimeStats::VPC_APPLY_TIME);
-    applyCutsCustom(solver, vpcs_by_round[round_ind]);
+    applyCutsCustom(solver, vpcs_by_round[round_ind], params.logfile);
     if (params.get(GOMORY) > 0) { // GMICs added to solver, so VPCSolver tracks values without GMICs
       boundInfo.gmic_vpc_obj = solver->getObjValue();
-      applyCutsCustom(VPCSolver, vpcs_by_round[round_ind]);
+      applyCutsCustom(VPCSolver, vpcs_by_round[round_ind], params.logfile);
       boundInfo.vpc_obj = VPCSolver->getObjValue();
       boundInfo.all_cuts_obj = boundInfo.gmic_vpc_obj;
     }
     else if (params.get(GOMORY) < 0) {
       boundInfo.vpc_obj = solver->getObjValue();
-      applyCutsCustom(VPCSolver, vpcs_by_round[round_ind]);
+      applyCutsCustom(VPCSolver, vpcs_by_round[round_ind], params.logfile);
       boundInfo.gmic_vpc_obj = VPCSolver->getObjValue();
       boundInfo.all_cuts_obj = boundInfo.gmic_vpc_obj;
     } else {
