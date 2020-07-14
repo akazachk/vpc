@@ -344,7 +344,9 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
         }
       }
       objCut.setRow(indices.size(), indices.data(), vals.data(), false);
-      objCut.setLb(disjunction->integer_obj);
+      double offset = 0.;
+      solver->getDblParam(OsiDblParam::OsiObjOffset, offset);
+      objCut.setLb(disjunction->integer_obj + offset);
       addCut(objCut, cuts, CutType::OPTIMALITY_CUT,
           ObjectiveType::OBJ_CUT);
     } // exit out early if integer-optimal solution found
