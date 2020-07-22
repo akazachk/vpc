@@ -83,7 +83,7 @@ There are many things left to be implemented in the future:
 4. Strengthening cuts.
 
 ## To install `Cbc`
-You may need `gfortran`, `pkg-conf`, `LAPACK`, `BLAS`.
+You may need `gfortran`, `pkg-conf`, `LAPACK`, `BLAS`. On some instances, it may also be necessary to use `--with-cplex=false` as an option in the `coinbrew` commands.
 
 ## Contact Information
 Aleksandr M. Kazachkov,
