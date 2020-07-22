@@ -19,6 +19,7 @@
 #include <CbcFeasibilityBase.hpp>
 #include <CbcSimpleInteger.hpp>
 #include <CbcBranchDynamic.hpp> // CbcDynamicPseudoCostBranchingObject
+#include <OsiChooseVariable.hpp>
 #endif // USE_CBC
 
 #include "CglVPC.hpp"
@@ -330,11 +331,32 @@ CbcEventHandler* VPCEventHandler::clone() const {
 } /* clone */
 
 /*
- * Returns CbcAction based on one of the following CbcEvents
+ * @brief Custom event handler that keeps history of the tree
+ *
+ * We need to track:
+ *   (1) the dual bound at each node
+ *   (2) branching variable and direction at each node
+ *   (3) which nodes are pruned (by bound, infeasibility, or integrality)
+ *   (4) the best integer-feasible solution found and its objective value
+ *       -- only the best, because all others are effectively pruned by bound then
+ *
+ * We will stop when either the limit on leaf nodes (disjunctive terms) or time is reached
+ *
+ * Questions / Challenges / Comments:
+ *  * Is it necessary to track beforeSolution2? Maybe solution is enough...
+ *  * If at any point (newNode->objectiveValue() >= getCutoff()), then that node will be pruned
+ *    We have access to newNode in only a few places...
+ *  * anyAction = chooseBranch
+
+  Returns CbcAction based on one of the following CbcEvents
     enum CbcEvent {
-      *! Processing of the current node is complete.
+      *! Processing of the current node is complete. amk: Called within CbcModel::doOneNode.
       node = 200,
       *! A tree status interval has arrived.
+      *! amk: Called within CbcModel::branchAndBound.
+      *! amk: At this point, we know the next step will be picking the next leaf node to branch on using tree_->bestNode(cutoff);
+      *! amk: We may not reach a treeStatus interval if stoppingCriterionReached() is true after doOneNode is called (below the treeStatus event).
+      *! amk: If stoppingCriterionReached(), the tree is destroyed in tree_->cleanTree().
       treeStatus,
       *! A solution has been found.
       solution,
@@ -362,10 +384,13 @@ CbcEventHandler::CbcAction
 VPCEventHandler::event(CbcEvent whichEvent) {
 //  printf("\n####################### WHERE FROM: %d #######\n", (int) whichEvent);
   if (reachedEnd_ || numLeafNodes_ >= maxNumLeafNodes_) {
-    return stop;
+    return CbcEventHandler::CbcAction::stop;
   }
 
   if (whichEvent == treeStatus) {
+    // Here we will update statistics for the first node and save the current leaf nodes as currentNodes_
+    // Exceptionally, we also catch a case that we incorrectly labeled a node as pruned
+
     // Update statistics _only_ for the first node
     if (model_->getNodeCount2() == 1) {
       CbcNode* node = model_->tree()->nodePointer(0);
@@ -396,7 +421,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
 #endif
 
     currentNodes_.clear();
-    pruneNode_ = 0;
+    pruneNode_ = PruneNodeOption::NO;
     foundSolution_ = false;
 
     // Check if we are done
@@ -411,7 +436,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
           model_->getCurrentSeconds(), maxTime_);
 #endif
         reachedEnd_ = true;
-        return stop;
+        return CbcEventHandler::CbcAction::stop;
       }
     }
     
@@ -485,12 +510,13 @@ VPCEventHandler::event(CbcEvent whichEvent) {
         } else {
           stats_.push_back(stats);
         }
-      }
-      }
+      } // if (model_->getNodeCount2() != stats_[stats_.size() - 1].id + 1) {
+    } // if (!model_->branchingMethod() || !model_->branchingMethod()->chooseMethod()) {
   } /* (whichEvent == treeStatus) */
   else if (whichEvent == node) {
     // Update statistics after a node has been branched on
     // Deal with child
+    // 2020-07-15: child_ is set to newNode in CbcModel, which *may* be NULL, when anyAction == -2 after chooseBranch is called within CbcModel::doOneNode
     child_ = model_->currentNode(); // currently broken in Cbc-2.10, because currentNode_ is set to NULL within chooseNode
     // 2017-07-09: Changed from isProvenOptimal because in some cases,
     // we hit an iteration limit during hot starting in OsiChooseVariable.cpp:399
@@ -507,10 +533,10 @@ VPCEventHandler::event(CbcEvent whichEvent) {
 #endif
     // When a solution is found, newNode is not null, but it has no branching object
     bool solution_found =
-        (solver_feasible && (pruneNode_ == 0) &&
+        (solver_feasible && (pruneNode_ == PruneNodeOption::NO) &&
         (child_ && child_->numberUnsatisfied() == 0));
     // The node will be pruned if it exists but pruneNode_ > 0 or a solution is found
-    const bool prune_node = (pruneNode_ > 0 || solution_found);
+    const bool prune_node = (pruneNode_ != PruneNodeOption::NO || solution_found);
     // The node may also simply not exist... (when solver is infeasible)
     // I think that everything after !prune_node should be unnecessary... but let us leave it in
     bool will_create_child = solver_feasible && !prune_node && child_ &&
@@ -531,7 +557,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
       NodeStatistics currNodeStats;
       setNodeStatistics(currNodeStats, child_, model_, stats_, originalLB_, originalUB_, true, foundSolution_);
       stats_.push_back(currNodeStats);
-      parentInfo_ = child_->nodeInfo()->parent();
+      parentInfo_ = child_->nodeInfo()->parent(); // 2020-07-21: same as model_->parentNode()->nodeInfo() in trunk code
       if (currNodeStats.number >= numNodes_) {
         numNodes_ = currNodeStats.number + 1;
       }
@@ -554,6 +580,9 @@ VPCEventHandler::event(CbcEvent whichEvent) {
         if (j == tmpNumNodesOnTree) {
           // We found the parent
           parentInfo_ = currentNodes_[i]->nodeInfo();
+#ifdef CBC_VERSION_210PLUS
+          assert(parentInfo_ == model_->parentNode()->nodeInfo());
+#endif
           break;
         }
       } /* find the parent */
@@ -569,7 +598,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
       // I am not sure we are capturing the situation when newNode is active but branch_ is null
       // This should correspond to the node being integer feasible
       // Perhaps this happens when we do not use strong branching...
-      if (solver_feasible && !solution_found && (pruneNode_ == 0) && child_ && child_->active() && child_->branchingObject()) {
+      if (solver_feasible && !solution_found && (pruneNode_ == PruneNodeOption::NO) && child_ && child_->active() && child_->branchingObject()) {
         error_msg(errorstring, "We should not get here, I think. Is it an integer-feasible solution? If so, it should be saved.\n");
         writeErrorToLog(errorstring, owner->params.logfile);
         exit(1);
@@ -584,7 +613,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
       // E.g., bm23 -2 _after_ cuts
       // 2017-08-23: Might happen that it is truly infeasible, but the integer part is not only integer-feasible,
       // but also actually feasible, as with neos-880324_cleaned -32, so need to check all cols, not just integer objects
-      if (pruneNode_ != 3 && !solution_found && !solver_feasible) {
+      if (pruneNode_ != PruneNodeOption::PRUNE_BY_INTEGRALITY && !solution_found && !solver_feasible) {
         solution_found = true;
         for (int col = 0; col < model_->getNumCols(); col++) {
           const double val = model_->solver()->getColSolution()[col];
@@ -607,9 +636,9 @@ VPCEventHandler::event(CbcEvent whichEvent) {
 
       // Ensure the solution is really integer-feasible and not cut off
       double objectiveValue = model_->solver()->getObjValue(); // sometimes this does not have the right value stored
-      if (pruneNode_ == 3 || (solution_found &&
+      if (pruneNode_ == PruneNodeOption::PRUNE_BY_INTEGRALITY || (solution_found &&
           !greaterThanVal(objectiveValue, model_->getCutoff() + model_->getCutoffIncrement()))) {
-        const double* sol_ptr = (pruneNode_ == 3) ? savedSolution_.data() : model_->solver()->getColSolution();
+        const double* sol_ptr = (pruneNode_ == PruneNodeOption::PRUNE_BY_INTEGRALITY) ? savedSolution_.data() : model_->solver()->getColSolution();
         std::vector<double> sol;
         sol.reserve(model_->getNumCols() + model_->getNumRows());
         sol.insert(sol.end(), sol_ptr, sol_ptr + model_->getNumCols());
@@ -706,21 +735,35 @@ VPCEventHandler::event(CbcEvent whichEvent) {
         double objOffset = 0.;
         model_->solver()->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
         objectiveValue = dotProduct(sol.data(), model_->getObjCoefficients(), model_->getNumCols()) - objOffset;
-        if (pruneNode_ == 3 && !isVal(objectiveValue, model_->getObjValue())) {
+        if (pruneNode_ == PruneNodeOption::PRUNE_BY_INTEGRALITY && !isVal(objectiveValue, model_->getObjValue())) {
           error_msg(errorstring, "We are assuming that if pruning by integrality, the objective we calculated should be the same as the objective of the solver.\n");
           writeErrorToLog(errorstring, owner->params.logfile);
           exit(1);
         }
-        if (pruneNode_ == 3 || (!greaterThanVal(objectiveValue, model_->getCutoff() + model_->getCutoffIncrement()))) {
-          savedSolution_ = sol;
-        }
+        // Code below is wrong, I think (2020-07-21)
+        //if (pruneNode_ == PruneNodeOption::PRUNE_BY_INTEGRALITY || (!greaterThanVal(objectiveValue, model_->getCutoff() + model_->getCutoffIncrement()))) {
+        //  savedSolution_ = sol;
+        //  this->obj_ = objectiveValue;
+        //}
       } /* is an integer-feasible solution found? */
 
       // Also update the infeasible nodes stats
       NodeStatistics prunedNodeStats;
-      setPrunedNodeStatistics(prunedNodeStats, parentInfo_->owner(), model_,
-      /*stats_,*/solution_found || pruneNode_ == 3, originalLB_, originalUB_,
-          objectiveValue, foundSolution_);
+#ifdef CBC_VERSION_210PLUS
+      const CbcNode* parent_node = model_->parentNode();
+#else
+      const CbcNode* parent_node = parentInfo_->owner();
+#endif
+      if (!parent_node) {
+        // 2020-07-21: We will get here, for example, with rlp2_presolved -d 4
+        // The owner is the first node in this case, but I am not sure how to get to it
+        error_msg(errorstring, "Owner CbcNode of parentInfo_ not found!\n");
+        writeErrorToLog(errorstring, owner->params.logfile);
+        exit(1);
+      }
+      setPrunedNodeStatistics(prunedNodeStats, parent_node, model_,
+          solution_found || pruneNode_ == PruneNodeOption::PRUNE_BY_INTEGRALITY,
+          originalLB_, originalUB_, objectiveValue, foundSolution_);
       pruned_stats_.push_back(prunedNodeStats);
       if (prunedNodeStats.number >= numNodes_) {
         numNodes_ = prunedNodeStats.number + 1;
@@ -741,8 +784,14 @@ VPCEventHandler::event(CbcEvent whichEvent) {
     }
   }  /* (whichEvent == node) */
   else if (whichEvent == beforeSolution2) {
-    // This event may cause newNode to be deleted, so we remember not to access deleted memory
-    // This action is happening in CbcModel.cpp::chooseBranch (lines 14845+ in Cbc-2.9.9)
+    // This event is called from CbcModel::setBestSolution
+    //
+    // This event may cause newNode to be deleted, so we should remember not to access deleted memory
+    // This action (of deleting) is happening in CbcModel.cpp::chooseBranch
+    // in the latest Cbc, anyAction is set at ~line 15357:
+    //     anyAction = newNode->chooseOsiBranch(this, oldNode, &usefulInfo, branchingState)
+    // after which currentNode_ is set to NULL (hence we need the custom parentNode_ code enabled by SAVE_NODE_INFO)
+    // and anyAction is set to -2 if feasible != true
     // If the return code is -2, the node will be deleted, so that is what we are trying to catch
 
     // If the obj value of the new solution (stored at bestSolution()) is < cutoff,
@@ -753,9 +802,18 @@ VPCEventHandler::event(CbcEvent whichEvent) {
     foundSolution_ = true;
     child_ = model_->currentNode();
 
+    if (!child_) {
+      // child should exist...
+      error_msg(errorstring,
+          "child_ reference should not be NULL within beforeSolution2. model_->getNodeCount2() = %d.\n",
+          model_->getNodeCount2());
+      writeErrorToLog(errorstring, owner->params.logfile);
+      exit(1);
+    }
+
     double objectiveValue = model_->savedSolutionObjective(0); // eventHandler replaces bestObjective_ temporarily, so we are accessing the solution's objective here
     double cutoff = model_->getCutoff(); // this is the same as the previous bestObjective_
-    double cutoffIncrement= model_->getCutoffIncrement();
+    double cutoffIncrement = model_->getCutoffIncrement();
     double newCutoff = objectiveValue - cutoffIncrement;
     /*
     // Should really be more careful with rounding and such
@@ -770,21 +828,43 @@ VPCEventHandler::event(CbcEvent whichEvent) {
 
     if (!model_->solverCharacteristics()->mipFeasible()
         || (model_->problemFeasibility()->feasible(model_, 0) < 0)) {
-      pruneNode_ = 1;
+      pruneNode_ = PruneNodeOption::PRUNE_BY_INFEASIBILITY;
     } /* mip infeasible */
     else if (child_->objectiveValue() >= model_->getCutoff()) {
       // CbcModel.cpp:15283
-      pruneNode_ = 2;
+      // if (newNode->objectiveValue() >= getCutoff()) { anyAction = -2; }
+      pruneNode_ = PruneNodeOption::PRUNE_BY_BOUND;
     } /* pruned by objective */
-    else if (objectiveValue < cutoff &&
-        child_->objectiveValue() >= newCutoff) {
+    else if (objectiveValue < cutoff && child_->objectiveValue() >= newCutoff) {
       // Check whether the new solution gives a strictly better bound on the objective
       // and whether this new value implies that the new node will be cut off
       // It is when CbcModel.cpp:13115 is true, so that cutoff is updated, then -2 returned at CbcModel.cpp:15283; e.g., bm23 -70
       // 2017-08-11: Can reach here from CbcModel.cpp:16844, e.g., with bm23 -8 after cuts, from CbcNode::chooseOsiBranch finding a feasible solution during strong branching, so solver never gets the good solution (it is only in choose)
-      pruneNode_ = 3;
+      pruneNode_ = PruneNodeOption::PRUNE_BY_INTEGRALITY;
       savedSolution_.assign(model_->bestSolution(), model_->bestSolution() + model_->getNumCols());
+      this->obj_ = objectiveValue;
     } /* mip feasible */
+    else if (!child_->branchingObject() && model_->branchingMethod() && model_->branchingMethod()->chooseMethod() && model_->branchingMethod()->chooseMethod()->goodSolution()) {
+      // 2020-07-15 #c630ed3: We want to catch when an integer solution is found through strong branching, causing pruning by integrality
+      // and also a split is found in which both sides have dual bound worse than the integer-feasible solution (so we have solved the problem)
+      // This occurs in rlp2_presolved -4 for example, with a tree that is
+      //       node 0
+      //       obj val 14
+      //       var 13
+      //      /     \
+      // node 1    node 2 (will be branched on)
+      // obj 19    obj 17
+      //           var 9
+      //          /    \
+      //        both nodes pruned by integrality with value 19 (node 1 is NOT integral)
+      pruneNode_ = PruneNodeOption::PRUNE_BY_INTEGRALITY;
+      const double* sol = model_->branchingMethod()->chooseMethod()->goodSolution();
+      const double objval = model_->branchingMethod()->chooseMethod()->goodObjectiveValue();
+      if (objval < cutoff) {
+        savedSolution_.assign(sol, sol + model_->getNumCols());
+        this->obj_ = objval;
+      }
+    } /* no branching object; feasible solution found */
   } /* (whichEvent == beforeSolution2) */
 #ifdef CBC_VERSION_210PLUS
   else if (whichEvent == generatedCuts) {
@@ -848,7 +928,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
   } /* (whichEvent == endSearch) */
 
 //  printNodeStatistics(stats_);
-  return noAction;
+  return CbcEventHandler::CbcAction::noAction;
 } /* VPCEventHandler::event  */
 
 SolverInterface* VPCEventHandler::setOriginalSolver(
@@ -892,6 +972,7 @@ void VPCEventHandler::initialize(const VPCEventHandler* const source) {
     this->numNodesOnTree_ = source->numNodesOnTree_;
     this->numLeafNodes_ = source->numLeafNodes_;
     this->numNodes_ = source->numNodes_;
+    this->obj_ = source->obj_;
     this->originalSolver_ = dynamic_cast<SolverInterface*>(source->originalSolver_->clone());
     this->originalLB_ = source->originalLB_;
     this->originalUB_ = source->originalUB_;
@@ -915,6 +996,7 @@ void VPCEventHandler::initialize(const VPCEventHandler* const source) {
     this->numNodesOnTree_ = 0;
     this->numLeafNodes_ = 0;
     this->numNodes_ = 0;
+    this->obj_ = std::numeric_limits<double>::max();
     this->originalSolver_ = NULL;
     this->originalLB_.resize(0);
     this->originalUB_.resize(0);
@@ -927,7 +1009,7 @@ void VPCEventHandler::initialize(const VPCEventHandler* const source) {
     this->currentNodes_.resize(0);
     this->parentInfo_ = NULL;
     this->child_ = NULL;
-    this->pruneNode_ = 0;
+    this->pruneNode_ = PruneNodeOption::NO;
     this->reachedEnd_ = false;
     this->foundSolution_ = false;
   }

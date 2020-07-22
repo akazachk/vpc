@@ -166,6 +166,7 @@ protected:
   // Things that will be saved at the end
   int numNodesOnTree_, numLeafNodes_;
   int numNodes_;
+  double obj_; // integer-feasible solution value
   SolverInterface* originalSolver_;
   std::vector<double> originalLB_, originalUB_;
 //    std::vector<CoinWarmStartBasis*> bases_; // bases of node
@@ -180,7 +181,10 @@ protected:
   CbcNode* parent_;
   CbcNodeInfo* parentInfo_;
   CbcNode* child_;
-  int pruneNode_ = 0; // 0: no, 1: prune by infeasibility, 2: prune by bound, 3: prune by integrality
+  enum class PruneNodeOption {
+    NO = 0, PRUNE_BY_INFEASIBILITY, PRUNE_BY_BOUND, PRUNE_BY_INTEGRALITY
+  };
+  PruneNodeOption pruneNode_ = PruneNodeOption::NO;
   bool reachedEnd_ = false;
   bool foundSolution_ = false;
 

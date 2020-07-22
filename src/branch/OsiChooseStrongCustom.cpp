@@ -144,7 +144,7 @@ int OsiChooseStrongCustom::doStrongBranching(OsiSolverInterface * solver,
      */
     numResults_++;
     if (status0 == 1 && status1 == 1) {
-      // infeasible
+      // infeasible or both sides have objective value above cutoff
       returnCode = -1;
       break; // exit loop
     } else if (status0 == 1 || status1 == 1) {
@@ -563,7 +563,7 @@ int OsiChooseStrongCustom::processObject(const int chosen_method,
 
 /* Choose a variable
  Returns -
- -1 Node is infeasible
+ -1 Node is infeasible, or pruned for other reasons (e.g., rlp2_presolved: both sides are integer-feasible for some variable)
  0  Normal termination - we have a candidate
  1  All looks satisfied - no candidate
  2  We can change the bound on a variable - but we also have a strong branching candidate
