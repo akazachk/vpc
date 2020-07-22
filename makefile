@@ -26,12 +26,11 @@ BUILD_CONFIG = release
 BUILD_CONFIG = debug
 
 ### Variables user should set ###
-PROJ_DIR=${PWD}
 #COIN_VERSION = 2.9
 #COIN_VERSION = 2.9r2376
 #COIN_VERSION = 2.10
 COIN_VERSION = trunk
-COIN_OR = $(PROJ_DIR)/lib/Cbc-$(COIN_VERSION)
+COIN_OR = $(PWD)/lib/Cbc-$(COIN_VERSION)
 ifeq ($(USER),otherperson)
   #COIN_OR = enter/dir/here
 
@@ -268,9 +267,10 @@ LIB_DIR=lib
 archive_%:
 	@$(MAKE) archive "BUILD_CONFIG=$*"
 
-archive: $(LIB_DIR)/lib$(EXECUTABLE_STUB).a 
+archive: $(OUT_DIR)/lib$(EXECUTABLE_STUB).a 
+	  @cp ${OUT_DIR}/lib${EXECUTABLE_STUB}.a ${LIB_DIR}/lib${EXECUTABLE_STUB}.a
 
-$(LIB_DIR)/lib$(EXECUTABLE_STUB).a: $(OUT_OBJECTS)
+$(OUT_DIR)/lib$(EXECUTABLE_STUB).a: $(OUT_OBJECTS)
 		@echo ' '
 		@echo 'Making archive file: $@'
 		@echo 'Invoking archiver'
@@ -325,7 +325,7 @@ distclean_%: FORCE
 	@$(MAKE) distclean "BUILD_CONFIG=$*"
 
 clean: FORCE
-	@$(RM) $(OUT_OBJECTS) $(EXECUTABLE)
+	@$(RM) $(OUT_OBJECTS) $(EXECUTABLE) $(OUT_DIR)/lib$(EXECUTABLE_STUB).a
 
 distclean: FORCE
 	@$(RM) $(OUT_OBJECTS) $(EXECUTABLE) $(DEPENDENCIES) $(LIB_DIR)/lib$(EXECUTABLE_STUB).a
