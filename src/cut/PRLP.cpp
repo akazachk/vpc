@@ -469,6 +469,10 @@ int PRLP::tryOneObjective(std::vector<int>& numTimesTightRow,
     OsiCuts& cuts, const OsiSolverInterface* const origSolver,
     const double beta, const OsiCuts* const structSICs, const bool inNBSpace,
     const CglVPC::ObjectiveType cutHeur, const bool tryExtraHard) {
+#ifndef TRACE
+  fprintf(stdout,".");
+  fflush(stdout);
+#endif
   int return_code = genCut(cuts, origSolver, beta, structSICs,
       inNBSpace, cutHeur, tryExtraHard);
   if (this->isProvenOptimal()) {
@@ -939,6 +943,9 @@ int PRLP::findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
   addToObjectiveFromPackedVector(this, &orig_point, false);
 
   // Try orig_point as an objective
+#ifdef TRACE
+  printf("  Trying tight objective on p^t (point %d).\n", point_row_ind);
+#endif
   int tmp_return_code = tryOneObjective(numTimesTightRow, numTimesTightColLB,
       numTimesTightColUB, cuts, origSolver, beta, structSICs,
       inNBSpace, cutHeur, true);
@@ -1162,6 +1169,9 @@ int PRLP::findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
     if (mode_ones > 0 && check_ind >= numToCheck - 1) {
       break;
     }
+#ifdef TRACE
+    printf("  Trying tight objective %d with index %d.\n", check_ind, indexToCheck[sortIndex[check_ind]]);
+#endif
     tmp_return_code = tryOneObjective(numTimesTightRow, numTimesTightColLB,
         numTimesTightColUB, cuts, origSolver, beta, structSICs, inNBSpace,
         cutHeur);
