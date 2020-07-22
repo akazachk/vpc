@@ -205,18 +205,21 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
       this->integer_obj = cbc_model->getObjValue();
       const double* sol = cbc_model->getColSolution();
       this->integer_sol.assign(sol, sol + si->getNumCols());
+      if (cbc_model) { delete cbc_model; }
       return DisjExitReason::OPTIMAL_SOLUTION_FOUND_EXIT;
     }
     else if (this->num_terms <= 1) {
       warning_msg(warnstr,
           "Giving up on getting cuts from the partial branch-and-bound tree (too few terms). Model status is %d.\n",
           cbc_model->status());
+      if (cbc_model) { delete cbc_model; }
       return DisjExitReason::TOO_FEW_TERMS_EXIT;
     }
     else {
       warning_msg(warnstr,
           "Giving up on getting cuts from the partial branch-and-bound tree (bad status). Model status is %d.\n",
           cbc_model->status());
+      if (cbc_model) { delete cbc_model; }
       return DisjExitReason::UNKNOWN;
     }
   } // exit out early if cbc_model status is 0 or insufficiently many disjunctive terms
