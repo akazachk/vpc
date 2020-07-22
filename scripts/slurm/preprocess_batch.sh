@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --time=24:00:00
-#SBATCH --array=1-10,181-300
+#SBATCH --time=03:00:00
+#SBATCH --array=1-10,329-503
 #SBATCH --mem-per-cpu=1G
 #SBATCH --account=def-alodi
 #SBATCH --cpus-per-task=1
@@ -9,8 +9,8 @@
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
 
-TYPE="presolved"
-MODE="bb"
+TYPE="original"
+MODE="preprocess"
 CASE_NUM=`printf %03d $SLURM_ARRAY_TASK_ID`
 INSTANCE_FILE=${TYPE}.instances
 export VPC_DIR="${REPOS_DIR}/vpc"

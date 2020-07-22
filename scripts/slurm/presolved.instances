@@ -61,7 +61,6 @@ presolved_gurobi/miplib2017/neos-3611447-jijia_presolved
 presolved_gurobi/miplib2/misc04_presolved
 presolved_gurobi/miplib2/misc05_presolved
 presolved_gurobi/miplib2017/bppc8-02_presolved
-presolved_gurobi/coral/neos-555771_presolved
 presolved_gurobi/coral/neos-522351_presolved
 presolved_gurobi/miplib2017/p0201_presolved
 presolved_gurobi/miplib2003/gesa2_presolved
@@ -87,7 +86,6 @@ presolved_gurobi/miplib2/bell4_presolved
 presolved_gurobi/miplib2017/mtest4ma_presolved
 presolved_gurobi/miplib2017/qnet1_o_presolved
 presolved_gurobi/miplib2017/blend2_presolved
-presolved_gurobi/coral/neos-555694_presolved
 presolved_gurobi/miplib2003/fixnet6_presolved
 presolved_gurobi/miplib2017/beasleyC1_presolved
 presolved_gurobi/miplib2017/22433_presolved
@@ -119,7 +117,6 @@ presolved_gurobi/miplib2017/mik-250-20-75-3_presolved
 presolved_gurobi/miplib2017/railway_8_1_0_presolved
 presolved_gurobi/miplib2017/23588_presolved
 presolved_gurobi/coral/neos7_presolved
-presolved_gurobi/miplib2017/neos-691058_presolved
 presolved_gurobi/miplib2017/neos2_presolved
 presolved_gurobi/miplib2017/mik-250-20-75-4_presolved
 presolved_gurobi/coral/neos-555927_presolved
@@ -251,6 +248,9 @@ presolved_gurobi/miplib2017/breastcancer-regularized_presolved
 presolved_gurobi/miplib2017/neos-4333596-skien_presolved
 presolved_gurobi/miplib2010/reblock67_presolved
 presolved_gurobi/miplib2010/ns2081729_presolved
+presolved_gurobi/coral/neos-555694_presolved
+presolved_gurobi/coral/neos-555771_presolved
+presolved_gurobi/miplib2017/neos-691058_presolved
 presolved_gurobi/miplib2017/tr12-30_presolved
 presolved_gurobi/miplib2017/neos-5182409-nasivi_presolved
 presolved_gurobi/miplib2017/umts_presolved
