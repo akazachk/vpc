@@ -852,11 +852,11 @@ VPCEventHandler::event(CbcEvent whichEvent) {
       //       node 0
       //       obj val 14
       //       var 13
-      //      /     \
+      // ---   /     \
       // node 1    node 2 (will be branched on)
       // obj 19    obj 17
       //           var 9
-      //          /    \
+      // ---      /    \
       //        both nodes pruned by integrality with value 19 (node 1 is NOT integral)
       pruneNode_ = PruneNodeOption::PRUNE_BY_INTEGRALITY;
       const double* sol = model_->branchingMethod()->chooseMethod()->goodSolution();

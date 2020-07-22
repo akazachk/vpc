@@ -704,8 +704,8 @@ void doBranchAndBoundWithCplexCallable(const VPCParameters& params, int strategy
   info.time = end_time - start_time;
 
 #ifdef TRACE
-  printf("CPLEX (C): Solution value: %1.6f.\n", info.obj);
-  printf("CPLEX (C): Best bound: %1.6f.\n", info.bound);
+  printf("CPLEX (C): Solution value: %s.\n", stringValue(info.obj, "%1.6f").c_str());
+  printf("CPLEX (C): Best bound: %s.\n", stringValue(info.bound, "%1.6f").c_str());
   printf("CPLEX (C): Number iterations: %ld.\n", info.iters);
   printf("CPLEX (C): Number nodes: %ld.\n", info.nodes);
   printf("CPLEX (C): Time: %f.\n", info.time);
