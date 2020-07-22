@@ -46,9 +46,10 @@ ifeq ($(USER),"queen")
 endif
 
 ifeq ($(USER),kazaalek)
-  GUROBI_LINK = gurobi81
+  GUROBI_LINK = gurobi90
 	GUROBI_DIR = ${HOME}/gurobi/9.0.0/linux64
-  CPLEX_DIR = /home/ibm/cplex-studio/12.10.0.0/cplex
+  CPLEX_DIR = /home/ibm/cplex-12.10.0.0/cplex
+	CPLEX_DIR = ${HOME}/cplex/12.10.0/cplex
 	COIN_OR = /local_workspace/$(USER)/coin-or/Cbc-$(COIN_VERSION)
 endif
 
