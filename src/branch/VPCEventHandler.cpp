@@ -417,7 +417,8 @@ VPCEventHandler::event(CbcEvent whichEvent) {
       numLeafNodes_ += model_->tree()->nodePointer(i)->nodeInfo()->numberBranchesLeft();
     }
 #ifdef TRACE
-    printf("\n## Number nodes on tree: %d. Number leaf nodes: %d. Depth: %d. ##\n", numNodesOnTree_, numLeafNodes_, model_->currentDepth());
+    printf("\n## Number nodes on tree: %d. Number leaf nodes: %d. Depth: %d. Node count: %d. ##\n",
+        numNodesOnTree_, numLeafNodes_, model_->currentDepth(), model_->getNodeCount2());
 #endif
 
     currentNodes_.clear();
@@ -800,7 +801,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
     // used to cut any nodes with a worse objective value than this cutoff,
     // or integer solutions with worse value)
     foundSolution_ = true;
-    child_ = model_->currentNode();
+    child_ = model_->currentNode(); // this can be NULL if we are in a strong branching loop
 
     if (!child_) {
       // child should exist...
