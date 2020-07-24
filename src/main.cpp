@@ -643,8 +643,19 @@ void processArgs(int argc, char** argv) {
   const struct option long_opts[] =
   {
       {"bb_runs",               required_argument, 0, 'b'},
-      {"bb_mode",               required_argument, 0, 'b'*'2'},
+      {"bb_mode",               required_argument, 0, 'b'*'1'},
       {"bb_strategy",           required_argument, 0, 'B'},
+      {"bb_timelimit",          required_argument, 0, 'B'*'0'},
+      {"cbc",                   no_argument,       0, 'B'*'1'*'1'},
+      {"cplex",                 no_argument,       0, 'B'*'1'*'2'},
+      {"gurobi",                no_argument,       0, 'B'*'1'*'3'},
+      {"user_cuts",             no_argument,       0, 'B'*'2'},
+      {"use_best_bound",        no_argument,       0, 'B'*'3'},
+      {"bb_all_cuts",           required_argument, 0, 'B'*'4'},
+      {"bb_gmics",              required_argument, 0, 'B'*'5'},
+      {"bb_heuristics",         required_argument, 0, 'B'*'6'},
+      {"bb_presolve",           required_argument, 0, 'B'*'7'},
+      {"bb_strong_branching",   required_argument, 0, 'B'*'8'},
       {"cutlimit",              required_argument, 0, 'c'},
       {"disj_terms",            required_argument, 0, 'd'},
       {"file",                  required_argument, 0, 'f'},
@@ -685,7 +696,7 @@ void processArgs(int argc, char** argv) {
                   params.set(param, val);
                   break;
                 }
-      case 'b'*'2': {
+      case 'b'*'1': {
                   int val;
                   intParam param = intParam::BB_MODE;
                   if (!parseInt(optarg, val)) {
@@ -701,6 +712,134 @@ void processArgs(int argc, char** argv) {
                   if (!parseInt(optarg, val)) {
                     error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
                     exit(1);
+                  }
+                  params.set(param, val);
+                  break;
+                }
+      case 'B'*'0': {
+                  double val;
+                  doubleParam param = doubleParam::BB_TIMELIMIT;
+                  if (!parseDouble(optarg, val)) {
+                    error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                    exit(1);
+                  }
+                  params.set(param, val);
+                  break;
+                }
+      case 'B'*'1'*'1': {
+                  intParam param = intParam::BB_STRATEGY;
+                  int val = params.get(param);
+                  val = enable_bb_option(val, BB_Strategy_Options::cbc);
+                  params.set(param, val);
+                  break;
+                }
+      case 'B'*'1'*'2': {
+                  intParam param = intParam::BB_STRATEGY;
+                  int val = params.get(param);
+                  val = enable_bb_option(val, BB_Strategy_Options::cplex);
+                  params.set(param, val);
+                  break;
+                }
+      case 'B'*'1'*'3': {
+                  intParam param = intParam::BB_STRATEGY;
+                  int val = params.get(param);
+                  val = enable_bb_option(val, BB_Strategy_Options::gurobi);
+                  params.set(param, val);
+                  break;
+                }
+      case 'B'*'2': {
+                  intParam param = intParam::BB_STRATEGY;
+                  int val = params.get(param);
+                  val = enable_bb_option(val, BB_Strategy_Options::user_cuts);
+                  params.set(param, val);
+                  break;
+                }
+      case 'B'*'3': {
+                  intParam param = intParam::BB_STRATEGY;
+                  int val = params.get(param);
+                  val = enable_bb_option(val, BB_Strategy_Options::use_best_bound);
+                  params.set(param, val);
+                  break;
+                }
+      case 'B'*'4': {
+                  int val;
+                  intParam param = intParam::BB_STRATEGY;
+                  if (!parseInt(optarg, val) || (val != 0 && val != 1)) {
+                    error_msg(errorstring, "Error reading binary parameter bb_all_cuts. Given value: %s.\n", optarg);
+                    exit(1);
+                  }
+                  if (val == 0) {
+                    val = enable_bb_option(params.get(param), BB_Strategy_Options::all_cuts_off);
+                    val = disable_bb_option(params.get(param), BB_Strategy_Options::all_cuts_on);
+                  } else if (val == 1) {
+                    val = enable_bb_option(params.get(param), BB_Strategy_Options::all_cuts_on);
+                    val = disable_bb_option(params.get(param), BB_Strategy_Options::all_cuts_off);
+                  }
+                  params.set(param, val);
+                  break;
+                }
+      case 'B'*'5': {
+                  int val;
+                  intParam param = intParam::BB_STRATEGY;
+                  if (!parseInt(optarg, val) || (val != 0 && val != 1)) {
+                    error_msg(errorstring, "Error reading binary parameter bb_gmics. Given value: %s.\n", optarg);
+                    exit(1);
+                  }
+                  if (val == 0) {
+                    val = enable_bb_option(params.get(param), BB_Strategy_Options::gmics_off);
+                    val = disable_bb_option(params.get(param), BB_Strategy_Options::gmics_on);
+                  } else if (val == 1) {
+                    val = enable_bb_option(params.get(param), BB_Strategy_Options::gmics_on);
+                    val = disable_bb_option(params.get(param), BB_Strategy_Options::gmics_off);
+                  }
+                  params.set(param, val);
+                  break;
+                }
+      case 'B'*'6': {
+                  int val;
+                  intParam param = intParam::BB_STRATEGY;
+                  if (!parseInt(optarg, val) || (val != 0 && val != 1)) {
+                    error_msg(errorstring, "Error reading binary parameter bb_heuristics. Given value: %s.\n", optarg);
+                    exit(1);
+                  }
+                  if (val == 0) {
+                    val = enable_bb_option(params.get(param), BB_Strategy_Options::presolve_off);
+                    val = disable_bb_option(params.get(param), BB_Strategy_Options::presolve_on);
+                  } else if (val == 1) {
+                    val = enable_bb_option(params.get(param), BB_Strategy_Options::presolve_on);
+                    val = disable_bb_option(params.get(param), BB_Strategy_Options::presolve_off);
+                  }
+                  params.set(param, val);
+                  break;
+                }
+      case 'B'*'7': {
+                  int val;
+                  intParam param = intParam::BB_STRATEGY;
+                  if (!parseInt(optarg, val) || (val != 0 && val != 1)) {
+                    error_msg(errorstring, "Error reading binary parameter bb_presolve. Given value: %s.\n", optarg);
+                    exit(1);
+                  }
+                  if (val == 0) {
+                    val = enable_bb_option(params.get(param), BB_Strategy_Options::heuristics_off);
+                    val = disable_bb_option(params.get(param), BB_Strategy_Options::heuristics_on);
+                  } else if (val == 1) {
+                    val = enable_bb_option(params.get(param), BB_Strategy_Options::heuristics_on);
+                    val = disable_bb_option(params.get(param), BB_Strategy_Options::heuristics_off);
+                  }
+                  params.set(param, val);
+                  break;
+                }
+      case 'B'*'8': {
+                  int val;
+                  intParam param = intParam::BB_STRATEGY;
+                  if (!parseInt(optarg, val) || (val != 0 && val != 1)) {
+                    error_msg(errorstring, "Error reading binary parameter bb_strong_branching. Given value: %s.\n", optarg);
+                    exit(1);
+                  }
+                  if (val == 0) {
+                    val = disable_bb_option(params.get(param), BB_Strategy_Options::strong_branching_on);
+                  } else if (val == 1) {
+                    val = enable_bb_option(params.get(param), BB_Strategy_Options::strong_branching_on);
                   }
                   params.set(param, val);
                   break;
@@ -974,8 +1113,19 @@ void processArgs(int argc, char** argv) {
                 helpstring += "--use_unit_vectors=0/1\n\tUse unit vectors in nonbasic space.\n";
                 helpstring += "\n# Branch-and-bound options #\n";
                 helpstring += "-b 0+ --bb_runs=0+\n\tNumber of branch-and-bound repeats.\n";
-                helpstring += "-B strategy --bb_strategy=strategy\n\tBranch-and-bound strategy (see VPCParameters.hpp; default = 536, corresponding to gurobi: 8 + user_cuts: 16 + presolve_off: 512; another common setting is 10776, which in addition enables heuristics_off: 2048, use_best_bound: 8192).\n";
+                helpstring += "-B strategy --bb_strategy=strategy\n\tBranch-and-bound strategy (see VPCParameters.hpp; default = 536, corresponding to gurobi: 8 + user_cuts: 16 + presolve_off: 512; another common setting is 10776, which in addition enables heuristics_off: 2048, use_best_bound: 8192). Can be set individually.\n";
+                helpstring += "--cbc\n";
+                helpstring += "--cplex\n";
+                helpstring += "--gurobi\n";
+                helpstring += "--use_best_bound\n";
+                helpstring += "--user_cuts\n";
+                helpstring += "--bb_all_cuts=0/1\n";
+                helpstring += "--bb_gmics=0/1\n";
+                helpstring += "--bb_heuristics=0/1\n";
+                helpstring += "--bb_presolve=0/1\n";
+                helpstring += "--bb_strong_branching=0/1\n";
                 helpstring += "--bb_mode={0,1,10,11,100,...,111}\n\tWhich branch-and-bound experiments to run (ones = no cuts, tens = vpcs, hundreds = gmics).\n";
+                helpstring += "--bb_timelimit=num seconds\n\tNumber of seconds allotted to the solver to run branch-and-bound tests.\n";
                 helpstring += "## END OF HELP ##\n";
                 std::cout << helpstring << std::endl;
                 exit(1);

@@ -79,12 +79,13 @@ enum intParam {
   NUM_INT_PARAMS
 }; /* intParam */
 enum doubleParam {
+  BB_TIMELIMIT, // time limit for doing branch-and-bound
   EPS,
   IP_OBJ, // way to give just the objective for this instance rather than reading it from a file
   MIN_ORTHOGONALITY, // minimum orthogonality between cuts added to the collection
   PARTIAL_BB_TIMELIMIT,
   PRLP_TIMELIMIT, // -1 = unlimited time for initial solve, and then half that time subsequently; -2 = unlimited time always
-  TIMELIMIT,
+  TIMELIMIT, // time limit used for overall cut generation process
   NUM_DOUBLE_PARAMS
 }; /* doubleParam */
 enum stringParam {
@@ -125,7 +126,6 @@ enum class doubleConst {
   INF, // infinity (INFINITY is taken as a macro from math header)
   RAYEPS, // value for which a ray coefficient will be treated as zero
   // Time limits
-  BB_TIMELIMIT, // time limit for doing branch-and-bound
   MIN_PRLP_TIMELIMIT, // minimum amount of time allotted for solving/resolving PRLP
   // Safety related constants:
   EPS_COEFF, // any cut coefficient smaller than this will be replaced by zero
@@ -467,6 +467,9 @@ struct VPCParameters {
     {doubleParam::EPS,
         DoubleParameter(doubleParam::EPS, "EPS",
             1e-7, 0., 1.)},
+    {doubleParam::BB_TIMELIMIT,
+        DoubleParameter(doubleParam::BB_TIMELIMIT, "BB_TIMELIMIT",
+            3600., 0., std::numeric_limits<double>::max())},
   }; /* doubleParamValues */
   std::unordered_map<stringParam, StringParameter, EnumClassHash> stringParamValues {
 //    {stringParam::OUTDIR, StringParameter("OUTDIR", "")},
@@ -497,7 +500,6 @@ struct VPCParameters {
     {doubleConst::EPS_COEFF_LUB, DoubleParameter("EPS_COEFF_LUB", 1e-13, 1e-13, 1e-13)},
     {doubleConst::EPS_COEFF, DoubleParameter("EPS_COEFF", 1e-5, 1e-5, 1e-5)},
     {doubleConst::MIN_PRLP_TIMELIMIT, DoubleParameter("MIN_PRLP_TIMELIMIT", 5., 5., 5.)},
-    {doubleConst::BB_TIMELIMIT, DoubleParameter("BB_TIMELIMIT", 3600., 3600., 3600.)},
     {doubleConst::RAYEPS, DoubleParameter("RAYEPS", 1e-7, 1e-7, 1e-7)},
     {doubleConst::INF, DoubleParameter("INF", std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max())},
     {doubleConst::DIFFEPS, DoubleParameter("DIFFEPS", 1e-3, 1e-3, 1e-3)}, // to check whether something is different enough to throw an error

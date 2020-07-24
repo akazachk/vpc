@@ -55,7 +55,7 @@ void setStrategyForBBTestCplexCallable(const VPCParameters& params, const int st
   int status = 0;
 
   // Parameters that should always be set
-  status += CPXXsetdblparam(env, CPXPARAM_TimeLimit, params.get(doubleConst::BB_TIMELIMIT)); // time limit
+  status += CPXXsetdblparam(env, CPXPARAM_TimeLimit, params.get(doubleParam::BB_TIMELIMIT)); // time limit
   status += CPXXsetlongparam(env, CPXPARAM_Threads, 1); // single-threaded
 
   if (seed >= 0) {
@@ -664,16 +664,18 @@ void doBranchAndBoundWithCplexCallable(const VPCParameters& params, int strategy
   switch (optimstatus) {
     case CPXMIP_DETTIME_LIM_FEAS: {
     }
-    case CPXMIP_DETTIME_LIM_INFEAS: {
-    }
     case CPXMIP_NODE_LIM_FEAS: {
+    }
+    case CPXMIP_TIME_LIM_FEAS: {
+      status += CPXXgetobjval (env, lp, &info.obj);
+      status += CPXXgetbestobjval (env, lp, &info.bound);
+      break;
+    }
+    case CPXMIP_DETTIME_LIM_INFEAS: {
     }
     case CPXMIP_NODE_LIM_INFEAS: {
     }
-    case CPXMIP_TIME_LIM_FEAS: {
-    }
     case CPXMIP_TIME_LIM_INFEAS: {
-      status += CPXXgetobjval (env, lp, &info.obj);
       status += CPXXgetbestobjval (env, lp, &info.bound);
       break;
     }

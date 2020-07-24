@@ -394,7 +394,7 @@ void setStrategyForBBTestCbc(const VPCParametersNamespace::VPCParameters& params
     int seed = -1) {
   if (seed < 0) seed = params.get(intParam::RANDOM_SEED);
   // Parameters that should always be set
-  cbc_model->setMaximumSeconds(params.get(doubleConst::BB_TIMELIMIT)); // time limit
+  cbc_model->setMaximumSeconds(params.get(doubleParam::BB_TIMELIMIT)); // time limit
   cbc_model->setRandomSeed(seed); // random seed
 
   int strategy = params.get(intParam::BB_STRATEGY);

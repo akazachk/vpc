@@ -48,7 +48,7 @@ void setStrategyForBBTestGurobi(const VPCParameters& params, const int strategy,
     GRBModel& model, const double best_bound, int seed = -1) {
   if (seed < 0) seed = params.get(intParam::RANDOM_SEED);
   // Parameters that should always be set
-  model.set(GRB_DoubleParam_TimeLimit, params.get(doubleConst::BB_TIMELIMIT)); // time limit
+  model.set(GRB_DoubleParam_TimeLimit, params.get(doubleParam::BB_TIMELIMIT)); // time limit
   model.set(GRB_IntParam_Threads, 1); // single-threaded
   if (seed >= 0) {
     model.set(GRB_IntParam_Seed, seed); // random seed
