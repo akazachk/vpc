@@ -1,17 +1,12 @@
 #!/bin/bash
-TYPE="presolved"
-if [ $TYPE = "original" ]; then
 #SBATCH --array=354-488
 #SBATCH --time=03:00:00
 #SBATCH --mem-per-cpu=1G
-elif [ $TYPE = "presolved" ]; then
-#SBATCH --array=301-303
-#SBATCH --time=03:00:00
-#SBATCH --mem-per-cpu=10G
-else
-  echo "Unrecognized type $TYPE"
-  exit 1
-fi
+
+#SBATCH --array=296-303
+#SBATCH --time=24:00:00
+#SBATCH --mem-per-cpu=4G
+
 #SBATCH --account=def-alodi
 #SBATCH --cpus-per-task=1
 #SBATCH --mail-user=aleksandr.kazachkov@polymtl.ca
@@ -19,6 +14,7 @@ fi
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
 
+TYPE="presolved"
 MODE="bb"
 CASE_NUM=`printf %03d $SLURM_ARRAY_TASK_ID`
 INSTANCE_FILE=${TYPE}.instances

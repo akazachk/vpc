@@ -1,7 +1,13 @@
 #!/bin/bash
+#SBATCH --array=TODO
+#SBATCH --time=03:00:00
+#SBATCH --mem-per-cpu=100M
+
 #SBATCH --time=24:00:00
-#SBATCH --array=1-10,181-300
+#SBATCH --array=1-10,181-295
+#SBATCH --array=2-10,181-295
 #SBATCH --mem-per-cpu=1G
+
 #SBATCH --account=def-alodi
 #SBATCH --cpus-per-task=1
 #SBATCH --mail-user=aleksandr.kazachkov@polymtl.ca

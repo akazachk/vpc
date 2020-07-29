@@ -151,7 +151,6 @@ original/coral/neos20
 original/miplib2017/neos2
 original/miplib2017/neos17
 original/coral/neos-785899
-original/coral/neos-555927
 original/coral/neos-593853
 original/miplib2017/n13-3
 original/miplib2017/23588
@@ -248,7 +247,6 @@ original/miplib2017/qap10
 original/miplib2017/neos-585192
 original/miplib2017/neos-860300
 original/coral/neos-631694
-original/miplib2017/neos-3381206-awhea
 original/miplib2017/neos-480878
 original/coral/neos-1228986
 original/coral/neos-860244
@@ -257,7 +255,6 @@ original/coral/neos-1208069
 original/coral/neos-892255
 original/miplib2010/harp2
 original/miplib2017/pk1
-original/miplib2017/roll3000
 original/miplib2017/neos-1605061
 original/miplib2017/graphdraw-gemcutter
 original/miplib2017/neos-5051588-culgoa
@@ -300,7 +297,6 @@ original/miplib2010/enlight13
 original/coral/neos14
 original/miplib2017/gen-ip021
 original/miplib2017/neos-4333596-skien
-original/miplib2017/glass4
 original/miplib2010/enlight15
 original/miplib2017/neos-3421095-cinca
 original/miplib2017/noswot
@@ -320,7 +316,6 @@ original/miplib2017/k16x240b
 original/miplib2010/reblock67
 original/miplib2010/k16x240
 original/miplib2017/prod2
-original/miplib2017/gmu-35-50
 original/miplib2017/neos-503737
 original/miplib2010/neos-916792
 original/miplib2010/dfn-gwin-UUM
@@ -331,11 +326,16 @@ original/miplib2010/bnatt350
 original/miplib2017/gen-ip002
 original/coral/neos-1620807
 original/miplib2010/neos15
-original/miplib2017/csched007
-original/miplib2017/neos-3660371-kurow
-original/miplib2017/neos-3592146-hawea
-original/miplib2017/icir97_tension
 original/coral/neos-1595230
+original/miplib2017/neos-3592146-hawea
+original/miplib2017/neos-3660371-kurow
+original/coral/neos-555927
+original/miplib2017/neos-3381206-awhea
+original/miplib2017/roll3000
+original/miplib2017/glass4
+original/miplib2017/gmu-35-50
+original/miplib2017/csched007
+original/miplib2017/icir97_tension
 original/miplib2017/gen-ip054
 original/miplib2010/iis-100-0-cov
 original/miplib2017/neos-5140963-mincio
