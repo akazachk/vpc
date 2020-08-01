@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH --array=354-488
+#SBATCH --array=1
 #SBATCH --time=03:00:00
-#SBATCH --mem-per-cpu=1G
+#SBATCH --mem-per-cpu=100M
 
-#SBATCH --array=296-303
 #SBATCH --time=24:00:00
+#SBATCH --array=1-16
 #SBATCH --mem-per-cpu=4G
 
 #SBATCH --account=def-alodi
@@ -14,10 +14,18 @@
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
 
+split_on_commas() {
+  local IFS=,
+  local WORD_LIST=($1)
+  for word in "${WORD_LIST[@]}"; do
+    echo "$word"
+  done
+}
+
 TYPE="presolved"
 MODE="bb"
 CASE_NUM=`printf %03d $SLURM_ARRAY_TASK_ID`
-INSTANCE_FILE=${TYPE}.instances
+INSTANCE_FILE=${TYPE}_redo.instances
 export VPC_DIR="${REPOS_DIR}/vpc"
 
 # Set mode if given
@@ -36,17 +44,35 @@ echo "Starting ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
 if (("$SLURM_ARRAY_TASK_ID" <= -1))
 then
   echo "Running task ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID} in batch mode at `date`"
-  FILE="${VPC_DIR}/scripts/slurm/${SLURM_ARRAY_TASK_ID}.instances"
+  FILE="${VPC_DIR}/scripts/slurm/${TYPE}${CASE_NUM}.instances"
 #elif (($SLURM_ARRAY_TASK_ID >= 3)) && (($SLURM_ARRAY_TASK_ID <= 4))
 #then
 #  echo "Running $SLURM_ARRAY_TASK_ID in batch mode"
 else
   echo "Running task ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID} in sequential mode at `date`"
-  FILE=$(sed -n "${SLURM_ARRAY_TASK_ID}p" ${VPC_DIR}/scripts/slurm/${INSTANCE_FILE}).mps
-  FILE="${VPC_DIR}/data/instances/${FILE}"
+  line=$(sed -n "${SLURM_ARRAY_TASK_ID}p" ${VPC_DIR}/scripts/slurm/${INSTANCE_FILE})
+
+  # If the line has a comma, the second half will be extra params the user defined for that instance
+  inst=""
+  userparams=""
+  i=0
+  split_lines=`split_on_commas "$line"`
+  while read item; do
+    if [ "$i" -eq "0" ]; then
+      inst=$item
+    fi
+    if [ $i == 1 ]; then
+      userparams=$item
+    fi
+    #if [ $i > 1 ]; then
+    #  userparams="$userparams $item"
+    #fi
+    i=$((i+1))
+  done <<< "$split_lines"
+  FILE="${VPC_DIR}/data/instances/${inst}.mps"
 fi
 
-${VPC_DIR}/scripts/run_experiments.sh $FILE ${VPC_DIR}/results/${MODE}/$CASE_NUM ${MODE}
+${VPC_DIR}/scripts/run_experiments.sh $FILE ${VPC_DIR}/results/${MODE}_redo/$CASE_NUM ${MODE} $userparams
 
 #echo "Statistics from seff ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
 #seff ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}

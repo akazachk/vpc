@@ -14,6 +14,7 @@
 
 ## Set up proper path variables
 import os
+from datetime import datetime
 PROJ_DIR = os.path.abspath(os.environ['VPC_DIR'])
 EXECUTABLE = PROJ_DIR + "/Release/vpc"
 CUT_TYPE = 'vpc'
@@ -146,5 +147,6 @@ for depth in depthList:
 
     ## Arguments
     cmd = EXECUTABLE + ' -f ' + infile + ' --logfile=' + outinfo + extraparams + ' -d ' + str(depth) + userparams
-    print(cmd, flush=True) # flush=True requires python 3.3+
+    now = datetime.now()
+    print(now.strftime("%Y-%m-%d %H:%M:%S") + ": " + cmd, flush=True) # flush=True requires python 3.3+
     os.system(cmd + " > /dev/null 2>&1")

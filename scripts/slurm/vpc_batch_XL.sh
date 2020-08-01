@@ -1,16 +1,12 @@
 #!/bin/bash
-TYPE="presolved"
-if [ $TYPE = "original" ]; then
-#SBATCH --array=489-512
+#SBATCH --array=354-488
 #SBATCH --time=03:00:00
-#SBATCH --mem-per-cpu=10G
-elif [ $TYPE = "presolved" ]; then
-  echo "No XL defined now"
-  exit
-else
-  echo "Unrecognized type $TYPE"
-  exit 1
-fi
+#SBATCH --mem-per-cpu=1G
+
+#SBATCH --array=299-300
+#SBATCH --time=24:00:00
+#SBATCH --mem-per-cpu=4G
+
 #SBATCH --account=def-alodi
 #SBATCH --cpus-per-task=1
 #SBATCH --mail-user=aleksandr.kazachkov@polymtl.ca
@@ -18,6 +14,7 @@ fi
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
 
+TYPE="presolved"
 MODE="bb"
 CASE_NUM=`printf %03d $SLURM_ARRAY_TASK_ID`
 INSTANCE_FILE=${TYPE}.instances
@@ -49,7 +46,7 @@ else
   FILE="${VPC_DIR}/data/instances/${FILE}"
 fi
 
-${VPC_DIR}/scripts/run_experiments.sh $FILE ${VPC_DIR}/results/${MODE}/$CASE_NUM ${MODE} $CASE_NUM
+${VPC_DIR}/scripts/run_experiments.sh $FILE ${VPC_DIR}/results/${MODE}/$CASE_NUM ${MODE}
 
 #echo "Statistics from seff ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
 #seff ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}
