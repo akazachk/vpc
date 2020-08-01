@@ -15,7 +15,7 @@ This project contains the code for one implementation of the V-polyhedral disjun
 
 ## Dependencies
 
-The code relies on [Cbc](https://github.com/coin-or/Cbc). It was extensively tested with version 2.9 (up to revision 2376 in the subversion history), while performance in the trunk and 2.10 versions has been more unstable. I have not yet tracked down the precise reason; see the related open GitHub issue #12. In particular, as of 2020/03/27, we need to compile `Cbc` with `SAVE_NODE_INFO` defined to enable access to the `parentNode` code in the `CbcModel` files.
+The code relies on [Cbc](https://github.com/coin-or/Cbc). It was extensively tested with version 2.9 (up to revision 2376 in the subversion history), while performance in the trunk and 2.10 versions has been more unstable. I have not yet tracked down the precise reason; see the related open GitHub issue #12. In particular, as of 2020/03/27, we need to compile `Cbc` with `SAVE_NODE_INFO` defined to enable access to the `parentNode` code in the `CbcModel` files. In addition, we need to comment out the line `currentNode_ = NULL` in `CbcModel.cpp` around line 15392.
 
 Some of the scripts use `bash`, but can probably be adapted to other shells.
 
@@ -37,16 +37,19 @@ The flag `-f` is used to specify the filename. Then `-d` takes an integer (the n
 
 ## Advanced Execution
 
-To run experiments with a set of instances, use `scripts/run_experiments.sh`, which will put output in the `results` folder.
+To run experiments with a set of instances, use `scripts/run_experiments.sh`, which will by default put output in the `results` folder.
 You will either need to export the shell variable `VPC_DIR`, pointing to the root directory of the repository, or enter it when prompted by the script.
-The script takes three arguments:
+The script takes four arguments:
 1. the full path to an instance (in .mps or .lp format, possibly compressed with `gzip` or `bz2`) or a set of instances given in a file with extension `.instances` or `.batch`, with a specific format detailed below
 2. the path to a directory where you wish to save results
 3. the type of experiments to run; options are: "preprocess" (presolve instances), "bb0" (run each instance 7 times without cuts to gather baseline statistics), or "bb" (run each instance with VPCs from 2, 4, 8, 16, 32, and 64 term disjunctions)
+4. [optional] extra arguments you wish to pass, in quotation marks, which will overwrite any defaults, and specifically it will not loop over various b&b tree depths, so the `-d` option needs to be set manually in this case
+
+For example, you can call `scripts/run_experiments.sh data/instances/original/miplib2/bm23.mps.gz results bb "-d 32 -t 120"` to run instance `bm23.mps`, send output to `results`, use up to a 32-term disjunction, and enforce a timelimit of 120 seconds (as opposed to the default of an hour).
 
 If the first argument to `run_experiments.sh` is not an instance, it needs to be a file with extension `.instances` or `.batch`.
 The former is for a set of instances that should be run one-by-one, and the latter is for sets of instances that should be run in parallel.
-For `.instances` files, the lines must be _relative_ paths to instances, relative to the directory `data/instances`, such as `original/miplib2/bm23` (the extension can be left out from each line).
+For `.instances` files, the lines must either be full paths and end with .mps/.lp, such as `${VPC_DIR}/data/instances/original/miplib2/bm23.mps`, or be _relative_ paths to instances *without* the extension, relative to the directory `data/instances`, such as `original/miplib2/bm23` (the extension *must* be left out from each line in this case).
 For `.batch` files, a new batch is indicated by a line that ends with a forward slash, e.g., `batchname/`.
 Under each batch, instances should be indicated with relative paths just as in `.instances` files.
 For examples, see `scripts/test.instances` and `scripts/test.batch`.
@@ -55,7 +58,9 @@ If you run experiments in batch mode, or generally save results in `/path/to/res
 ```
 scripts/merge.sh /path/to/results type
 ```
-to merge (and sort) the results to `/path/to/results/vpc-{type}.csv`. Note that `preprocess` is a special type, for which the script will merge results in `cleaning_log.csv` instead of `vpc-{type}.csv`.
+to merge (and sort) the results to `/path/to/results/vpc-{type}.csv`.
+Note that `preprocess` is a special type, for which the script will merge results in `cleaning_log.csv` instead of `vpc-{type}.csv`.
+The `merge.sh` script also takes a third optional argument for where to save the output.
 
 ## Details
 

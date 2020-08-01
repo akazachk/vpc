@@ -1,10 +1,11 @@
 ####
-## Three arguments, all necessary
+## Four arguments, first three are necessary
 ## First argument: the path to an mps/lp file or to an instances/batch file ([file].batch or [file].instances)
 ## Second argument: full path to output directory
 ## Third argument: running mode (bb, bb0, or preprocess)
+## Fourth argument: optional extra args to pass to the solver
 ##
-## The first line of a .batch or .instances file will be the directory ``stub'',
+## The first line of a .batch file will be the directory "stub"
 ## and output will be sent to ${PROJ_DIR}/results/stub if batch mode is off,
 ## and to ${PROJ_DIR}/results/stub/batchname if it is on.
 ## Each line contains either a relative input path to an instance (without the extension) or a batch name.
@@ -31,6 +32,7 @@ from sys import argv
 ARG_INST = 1
 ARG_RESULT = 2
 ARG_OPTION = 3
+ARG_EXTRA_OPTS = 4
 assert (len(argv) > 2)
 try:
     option = argv[ARG_OPTION]
@@ -101,7 +103,12 @@ elif option == OPTION_TEST:
 else:
     raise "Option not recognized"
 
-## Where to put results
+userparams = ''
+if (len(argv) >= 4):
+    depthList = [0]
+    userparams = ' ' + argv[ARG_EXTRA_OPTS]
+
+## Where to get instances
 if is_instance:
     list_to_use = [inst]
 else:
@@ -138,6 +145,6 @@ for depth in depthList:
     os.system("mkdir -p " + curr_out_dir)
 
     ## Arguments
-    cmd = EXECUTABLE + ' -f ' + infile + ' --logfile=' + outinfo + extraparams + ' -d ' + str(depth)
+    cmd = EXECUTABLE + ' -f ' + infile + ' --logfile=' + outinfo + extraparams + ' -d ' + str(depth) + userparams
     print(cmd, flush=True) # flush=True requires python 3.3+
     os.system(cmd + " > /dev/null 2>&1")
