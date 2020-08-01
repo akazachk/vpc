@@ -106,8 +106,10 @@ else:
 
 userparams = ''
 if (len(argv) >= 4):
-    depthList = [0]
-    userparams = ' ' + argv[ARG_EXTRA_OPTS]
+    tmpuserparams = argv[ARG_EXTRA_OPTS]
+    if len(tmpuserparams) > 0:
+        depthList = [0]
+        userparams = ' ' + tmpuserparams
 
 ## Where to get instances
 if is_instance:
