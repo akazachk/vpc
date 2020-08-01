@@ -107,6 +107,7 @@ else:
 userparams = ''
 if (len(argv) >= 4):
     tmpuserparams = argv[ARG_EXTRA_OPTS]
+    tmpuserparams = tmpuserparams.strip()
     if len(tmpuserparams) > 0:
         depthList = [0]
         userparams = ' ' + tmpuserparams
