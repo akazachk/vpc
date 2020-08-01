@@ -1216,8 +1216,16 @@ int VPCEventHandler::saveInformation() {
       exit(1);
     }
     // Sometimes we run into a few issues getting the ``right'' value
-    if (!isVal(tmpSolverBase->getObjValue(), stats_[node_id].obj, owner->params.get(doubleConst::DIFFEPS))) {
+    double ratio = tmpSolverBase->getObjValue() / stats_[node_id].obj;
+    if (ratio < 1.) {
+      ratio = 1. / ratio;
+    }
+    if (greaterThanVal(ratio, 1.03)) {
       tmpSolverBase->resolve();
+      ratio = tmpSolverBase->getObjValue() / stats_[node_id].obj;
+      if (ratio < 1.) {
+        ratio = 1. / ratio;
+      }
     }
 
 #ifdef TRACE
@@ -1234,10 +1242,6 @@ int VPCEventHandler::saveInformation() {
           commonTermCoeff, commonTermRHS, false);
       printf("Bounds changed: %s.\n", commonName.c_str());
 #endif
-      double ratio = tmpSolverBase->getObjValue() / stats_[node_id].obj;
-      if (ratio < 1.) {
-        ratio = 1. / ratio;
-      }
       // Allow it to be up to 3% off without causing an error
       if (greaterThanVal(ratio, 1.03)) {
         error_msg(errorstring,
