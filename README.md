@@ -7,23 +7,25 @@ This project contains the code for one implementation of the V-polyhedral disjun
 ## Installation
 
 1. Clone the code using `git clone git@github.com:akazachk/vpc.git`.
-2. Install `Cbc` by running [`scripts/install_coin.sh`](scripts/install_coin.sh). If there are any problems, please start an issue (in this project, [coinbrew](https://github.com/coin-or/coinbrew), or [Cbc](https://github.com/coin-or/Cbc)).
+2. Install [Cbc](https://github.com/coin-or/Cbc) by running [`scripts/install_coin.sh`](scripts/install_coin.sh). If there are any problems, please start an issue (in this project, [coinbrew](https://github.com/coin-or/coinbrew), or [Cbc](https://github.com/coin-or/Cbc)). This step can be customized (e.g., if Cbc is already installed), but it is crucial that the latest Cbc version is compiled with the macro `SAVE_NODE_INFO` defined.
 3. [Optional] Install Gurobi or CPLEX.
 4. Choose the appropriate options in the [`makefile`](makefile) under `Variables user should set`: `PROJ_DIR`, for the location of the repository, and `COIN_OR`, for where Cbc is installed. If you wish to use Gurobi, set `USE_GUROBI=1` under `Options for solvers`, and set `GUROBI_DIR` appropriately. Similarly, set `USE_CPLEX=1` and `CPLEX_DIR` if you wish to use CPLEX.
-5. There are two compilation modes: `debug` and `release`. These can be compiled with `make [debug or release]`, which create the executable `vpc` in a new subdirectory `Debug` or `Release` of the main folder.
+5. There are two compilation modes: `debug` and `release`. These can be compiled with `make [debug or release]`, which creates the executable `vpc` in a new subdirectory `Debug` or `Release` of the main folder.
 6. You can test the code with `make test_debug` or `make test_release`, depending on which version you compiled. Alternatively, run [`test/run_test.sh`](test/run_test.sh), which assumes the `Debug` version has been compiled.
 
 ## Dependencies
 
-The code relies on [Cbc](https://github.com/coin-or/Cbc). It was previously extensively tested with version 2.9 (up to revision 2376 in the subversion history), though this backwards compatibility is no longer actively maintained. Performance in the main/trunk and 2.10 versions has been more unstable. Specifically, Cbc-2.10 will *not* work. See the related GitHub issue [#12](https://github.com/akazachk/vpc/issues/12). In particular, as of 2020/03/27, we need to compile the development branch of `Cbc` with `SAVE_NODE_INFO` defined (using `ADD_CXXFLAGS="-DSAVE_NODE_INFO"`) to enable access to the `parentNode` code in `CbcModel`. In addition, if the `Cbc` commit is before [0f6ffed](https://github.com/coin-or/Cbc/commit/0f6ffed4c26daaf75edac2f87b70f3cc40cb12fd), we need to comment out the line `currentNode_ = NULL` in `CbcModel.cpp` around [line CbcModel.cpp:15392](https://github.com/coin-or/Cbc/blob/53f34cfea21360091608b02a041a962b2be7d6bc/src/CbcModel.cpp#L15390-L15391).
+The VPC code relies on [Cbc](https://github.com/coin-or/Cbc). It was previously extensively tested with Cbc version 2.9 (up to revision 2376 in the subversion history), though this backwards compatibility is no longer actively maintained. Performance in the main/trunk and 2.10 versions has been more unstable. Specifically, Cbc version 2.10 will probably *not* work. See the related GitHub issue [#12](https://github.com/akazachk/vpc/issues/12). In particular, as of 2020/03/27, we need to compile the development branch of Cbc with `SAVE_NODE_INFO` defined (using `ADD_CXXFLAGS="-DSAVE_NODE_INFO"`) to enable access to the `parentNode` code in `CbcModel`. In addition, if the Cbc commit is before [0f6ffed](https://github.com/coin-or/Cbc/commit/0f6ffed4c26daaf75edac2f87b70f3cc40cb12fd), we need to comment out the line `currentNode_ = NULL` in `CbcModel.cpp` around [line CbcModel.cpp:15392](https://github.com/coin-or/Cbc/blob/53f34cfea21360091608b02a041a962b2be7d6bc/src/CbcModel.cpp#L15390-L15391).
+
+For Cbc, you may need `gfortran`, `pkg-conf`, `LAPACK`, and `BLAS`. It may also be necessary to use `--with-cplex=false` as an option in the `coinbrew` commands, if [Osi](https://github.com/coin-or/Osi)'s configure script detects the CPLEX library through `CPXgetstat` but the CPLEX include directory is not found (see https://github.com/coin-or/coinbrew/issues/49).
 
 Some of the scripts use `bash`, but can probably be adapted to other shells.
 
-The user needs to export the shell variable `VPC_DIR`, pointing to the repository location, or define it in [`scripts/install_coin.sh`](scripts/install_coin.sh), [`test/run_test.sh`](test/run_test.sh), and other scripts.
+There shoud be an environment variable `VPC_DIR` pointing to the local repository location, or this variable can be defined in each of the scripts: [`scripts/install_coin.sh`](scripts/install_coin.sh), [`test/run_test.sh`](test/run_test.sh), and others.
 
-You may need to use a compatible version of `clang` or `g++`, and make sure that the same compiler is used when running [`install_coin.sh`](scripts/install_coin.sh) and the one used to generate `libgurobi_c++.a`, which can be rebuilt in the `Gurobi` directory (located at, say, `${GUROBI_HOME}`), under `${GUROBI_HOME}/src/build`.
+You may need to use a compatible version of `clang` or `g++`, and make sure that the same compiler is used when running [`install_coin.sh`](scripts/install_coin.sh) and the one used to generate `libgurobi_c++.a`, which can be rebuilt in the Gurobi directory (located at, say, `${GUROBI_HOME}`), under `${GUROBI_HOME}/src/build`.
 
-You may need to install several dependencies, such as `libbz2-dev`, or comment out from [`makefile`](makefile) any linking to the relevant libraries you are missing.
+There are some optional libraries, such as `libbz2-dev`, that are linked to in [`makefile`](makefile). If these are missing, remove the corresponding linking in the makefile.
 
 ## Execution
 
@@ -45,7 +47,11 @@ The script takes four arguments:
 3. the type of experiments to run; options are: "preprocess" (presolve instances), "bb0" (run each instance 7 times without cuts to gather baseline statistics), or "bb" (run each instance with VPCs from 2, 4, 8, 16, 32, and 64 term disjunctions)
 4. [optional] extra arguments you wish to pass, in quotation marks, which will overwrite any defaults, and specifically it will not loop over various b&b tree depths, so the `-d` option needs to be set manually in this case
 
-For example, you can call `scripts/run_experiments.sh data/instances/original/miplib2/bm23.mps.gz results bb "-d 32 -t 120"` to run instance `bm23.mps`, send output to `results`, use up to a 32-term disjunction, and enforce a timelimit of 120 seconds (as opposed to the default of an hour).
+For example, you can call 
+```
+scripts/run_experiments.sh data/instances/original/miplib2/bm23.mps.gz results bb "-d 32 -t 120"
+```
+to run instance `bm23.mps`, send output to `results`, use up to a 32-term disjunction, and enforce a timelimit of 120 seconds (as opposed to the default of an hour).
 
 If the first argument to [`run_experiments.sh`](scripts/run_experiments.sh) is not an instance, it needs to be a file with extension `.instances` or `.batch`.
 The former is for a set of instances that should be run one-by-one, and the latter is for sets of instances that should be run in parallel.
@@ -86,9 +92,6 @@ There are many things left to be implemented in the future:
 2. Objective functions based on intermediate nodes of the partial branch-and-bound tree, to cut off points other than the LP optimum.
 3. Dynamic disjunctions, in which cutting and branching are alternated.
 4. Strengthening cuts.
-
-## To install `Cbc`
-You may need `gfortran`, `pkg-conf`, `LAPACK`, `BLAS`. It may also be necessary to use `--with-cplex=false` as an option in the `coinbrew` commands, if [Osi](https://github.com/coin-or/Osi)'s configure script detects the CPLEX library through `CPXgetstat` but the CPLEX include directory is not found (see https://github.com/coin-or/coinbrew/issues/49).
 
 ## Contact Information
 [Aleksandr M. Kazachkov](https://akazachk.github.io),
