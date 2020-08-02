@@ -1,5 +1,5 @@
 # V-Polyhedral Disjunctive Cuts
-#### Aleksandr M. Kazachkov
+#### [Aleksandr M. Kazachkov](https://akazachk.github.io)
 #### Based on joint work with Egon Balas
 
 This project contains the code for one implementation of the V-polyhedral disjunctive cut paradigm.
@@ -15,7 +15,7 @@ This project contains the code for one implementation of the V-polyhedral disjun
 
 ## Dependencies
 
-The code relies on [Cbc](https://github.com/coin-or/Cbc). It was extensively tested with version 2.9 (up to revision 2376 in the subversion history), while performance in the trunk and 2.10 versions has been more unstable. I have not yet tracked down the precise reason; see the related open GitHub issue #12. In particular, as of 2020/03/27, we need to compile `Cbc` with `SAVE_NODE_INFO` defined to enable access to the `parentNode` code in the `CbcModel` files. In addition, if the Cbc commit is before [0f6ffed](https://github.com/coin-or/Cbc/commit/0f6ffed4c26daaf75edac2f87b70f3cc40cb12fd), we need to comment out the line `currentNode_ = NULL` in `CbcModel.cpp` around [line CbcModel.cpp:15392](https://github.com/coin-or/Cbc/blob/53f34cfea21360091608b02a041a962b2be7d6bc/src/CbcModel.cpp#L15390-L15391).
+The code relies on [Cbc](https://github.com/coin-or/Cbc). It was extensively tested with version 2.9 (up to revision 2376 in the subversion history), while performance in the trunk and 2.10 versions has been more unstable. I have not yet tracked down the precise reason; see the related open GitHub issue [#12](https://github.com/akazachk/vpc/issues/12). In particular, as of 2020/03/27, we need to compile `Cbc` with `SAVE_NODE_INFO` defined to enable access to the `parentNode` code in the `CbcModel` files. In addition, if the Cbc commit is before [0f6ffed](https://github.com/coin-or/Cbc/commit/0f6ffed4c26daaf75edac2f87b70f3cc40cb12fd), we need to comment out the line `currentNode_ = NULL` in `CbcModel.cpp` around [line CbcModel.cpp:15392](https://github.com/coin-or/Cbc/blob/53f34cfea21360091608b02a041a962b2be7d6bc/src/CbcModel.cpp#L15390-L15391).
 
 Some of the scripts use `bash`, but can probably be adapted to other shells.
 
@@ -27,7 +27,7 @@ You may need to install several dependencies, such as `libbz2-dev`, or comment o
 
 ## Execution
 
-In more detail, you run the code with:
+In more detail, to run the code, a basic call will look like:
 
 ```
 [Debug or Release]/vpc -f filename -d num_disj_terms
@@ -64,9 +64,9 @@ The `merge.sh` script also takes a third optional argument for where to save the
 
 ## Details
 
-There are many parameters that can be set from the command line. Run with `-h` or `--help` option to see these parameters. There are several more that are not currently able to be set from the command line, as they are assumed to generally be "constants"; a description of these can be found in `VPCParameters.hpp`.
+There are many parameters that can be set from the command line. Run with `-h` or `--help` option to see these parameters. There are several more that are not currently able to be set from the command line, as they are assumed to generally be "constants"; a description of these can be found in [`VPCParameters.hpp`](include/VPCParameters.hpp).
 
-The key parts of the code are the classes `Disjunction` (an abstract class), `CglVPC`, and `PRLP`. The user must specify a disjunction to `CglVPC` and a set of parameters (given as the struct `VPCParameters`). The disjunction should inherit from `Disjunction` and provide a set of disjunctive terms (the vector `terms`) and their number (`num_terms`). Each term is a `DisjunctiveTerm` defined in `Disjunction.hpp` and contains the following members: 
+The key parts of the code are the classes `Disjunction` (an abstract class), `CglVPC`, and `PRLP`. The user must specify a disjunction to `CglVPC` and a set of parameters (given as the struct `VPCParameters`). The disjunction should inherit from `Disjunction` and provide a set of disjunctive terms (the vector `terms`) and their number (`num_terms`). Each term is a `DisjunctiveTerm` defined in [`Disjunction.hpp`](include/Disjunction.hpp) and contains the following members: 
 1. `CoinWarmStart* basis`, the optimal basis for that term
 2. `obj`, the objective for that term (used in `CglVPC` for ensuring the term is correctly reconstructed)
 3. `changed_var`, `changed_bound`, `changed_value`, `ineqs` vectors, which state which bounds need to be changed or inequalities to be added to define the disjunction.
@@ -88,8 +88,8 @@ There are many things left to be implemented in the future:
 4. Strengthening cuts.
 
 ## To install `Cbc`
-You may need `gfortran`, `pkg-conf`, `LAPACK`, `BLAS`. On some instances, it may also be necessary to use `--with-cplex=false` as an option in the `coinbrew` commands.
+You may need `gfortran`, `pkg-conf`, `LAPACK`, `BLAS`. It may also be necessary to use `--with-cplex=false` as an option in the `coinbrew` commands, if [Osi](https://github.com/coin-or/Osi)'s configure script detects the CPLEX library through `CPXgetstat` but the CPLEX include directory is not found (see https://github.com/coin-or/coinbrew/issues/49).
 
 ## Contact Information
-Aleksandr M. Kazachkov,
-akazachk AT discreteopt DOT com
+[Aleksandr M. Kazachkov](https://akazachk.github.io),
+[akazachk AT discreteopt DOT com](https://akazachk.github.io/email)
