@@ -7,23 +7,23 @@ This project contains the code for one implementation of the V-polyhedral disjun
 ## Installation
 
 1. Clone the code using `git clone git@github.com:akazachk/vpc.git`.
-2. Install `Cbc` by running `scripts/install_coin.sh`. If there are any problems, please start an issue (in this project, [coinbrew](https://github.com/coin-or/coinbrew), or [Cbc](https://github.com/coin-or/Cbc)).
+2. Install `Cbc` by running [`scripts/install_coin.sh`](scripts/install_coin.sh). If there are any problems, please start an issue (in this project, [coinbrew](https://github.com/coin-or/coinbrew), or [Cbc](https://github.com/coin-or/Cbc)).
 3. [Optional] Install Gurobi or CPLEX.
-4. Choose the appropriate options in the makefile under `Variables user should set`: `PROJ_DIR`, for the location of the repository, and `COIN_OR`, for where Cbc is installed. If you wish to use Gurobi, set `USE_GUROBI=1` under `Options for solvers`, and set `GUROBI_DIR` appropriately. Similarly, set `USE_CPLEX=1` and `CPLEX_DIR` if you wish to use CPLEX.
+4. Choose the appropriate options in the [`makefile`](makefile) under `Variables user should set`: `PROJ_DIR`, for the location of the repository, and `COIN_OR`, for where Cbc is installed. If you wish to use Gurobi, set `USE_GUROBI=1` under `Options for solvers`, and set `GUROBI_DIR` appropriately. Similarly, set `USE_CPLEX=1` and `CPLEX_DIR` if you wish to use CPLEX.
 5. There are two compilation modes: `debug` and `release`. These can be compiled with `make [debug or release]`, which create the executable `vpc` in a new subdirectory `Debug` or `Release` of the main folder.
-6. You can test the code with `make test_debug` or `make test_release`, depending on which version you compiled. Alternatively, run `test/run_test.sh`, which assumes the `Debug` version has been compiled.
+6. You can test the code with `make test_debug` or `make test_release`, depending on which version you compiled. Alternatively, run [`test/run_test.sh`](test/run_test.sh), which assumes the `Debug` version has been compiled.
 
 ## Dependencies
 
-The code relies on [Cbc](https://github.com/coin-or/Cbc). It was extensively tested with version 2.9 (up to revision 2376 in the subversion history), while performance in the trunk and 2.10 versions has been more unstable. I have not yet tracked down the precise reason; see the related open GitHub issue [#12](https://github.com/akazachk/vpc/issues/12). In particular, as of 2020/03/27, we need to compile `Cbc` with `SAVE_NODE_INFO` defined to enable access to the `parentNode` code in the `CbcModel` files. In addition, if the Cbc commit is before [0f6ffed](https://github.com/coin-or/Cbc/commit/0f6ffed4c26daaf75edac2f87b70f3cc40cb12fd), we need to comment out the line `currentNode_ = NULL` in `CbcModel.cpp` around [line CbcModel.cpp:15392](https://github.com/coin-or/Cbc/blob/53f34cfea21360091608b02a041a962b2be7d6bc/src/CbcModel.cpp#L15390-L15391).
+The code relies on [Cbc](https://github.com/coin-or/Cbc). It was previously extensively tested with version 2.9 (up to revision 2376 in the subversion history), though this backwards compatibility is no longer actively maintained. Performance in the main/trunk and 2.10 versions has been more unstable. Specifically, Cbc-2.10 will *not* work. See the related GitHub issue [#12](https://github.com/akazachk/vpc/issues/12). In particular, as of 2020/03/27, we need to compile the development branch of `Cbc` with `SAVE_NODE_INFO` defined (using `ADD_CXXFLAGS="-DSAVE_NODE_INFO"`) to enable access to the `parentNode` code in `CbcModel`. In addition, if the `Cbc` commit is before [0f6ffed](https://github.com/coin-or/Cbc/commit/0f6ffed4c26daaf75edac2f87b70f3cc40cb12fd), we need to comment out the line `currentNode_ = NULL` in `CbcModel.cpp` around [line CbcModel.cpp:15392](https://github.com/coin-or/Cbc/blob/53f34cfea21360091608b02a041a962b2be7d6bc/src/CbcModel.cpp#L15390-L15391).
 
 Some of the scripts use `bash`, but can probably be adapted to other shells.
 
-The user needs to export the shell variable `VPC_DIR`, pointing to the repository location, or define it in `scripts/install_coin.sh`, `test/run_test.sh`, and other scripts.
+The user needs to export the shell variable `VPC_DIR`, pointing to the repository location, or define it in [`scripts/install_coin.sh`](scripts/install_coin.sh), [`test/run_test.sh`](test/run_test.sh), and other scripts.
 
-You may need to use a compatible version of `clang` or `g++`, and make sure that the same compiler is used when running `install_coin.sh` and the one used to generate `libgurobi_c++.a`, which can be rebuilt in the `Gurobi` directory under `src/build`.
+You may need to use a compatible version of `clang` or `g++`, and make sure that the same compiler is used when running [`install_coin.sh`](scripts/install_coin.sh) and the one used to generate `libgurobi_c++.a`, which can be rebuilt in the `Gurobi` directory (located at, say, `${GUROBI_HOME}`), under `${GUROBI_HOME}/src/build`.
 
-You may need to install several dependencies, such as `libbz2-dev`, or comment out from `makefile` any linking to the relevant libraries you are missing.
+You may need to install several dependencies, such as `libbz2-dev`, or comment out from [`makefile`](makefile) any linking to the relevant libraries you are missing.
 
 ## Execution
 
@@ -37,7 +37,7 @@ The flag `-f` is used to specify the filename. Then `-d` takes an integer (the n
 
 ## Advanced Execution
 
-To run experiments with a set of instances, use `scripts/run_experiments.sh`, which will by default put output in the `results` folder.
+To run experiments with a set of instances, use [`scripts/run_experiments.sh`](scripts/run_experiments.sh), which will by default put output in the `results` folder.
 You will either need to export the shell variable `VPC_DIR`, pointing to the root directory of the repository, or enter it when prompted by the script.
 The script takes four arguments:
 1. the full path to an instance (in .mps or .lp format, possibly compressed with `gzip` or `bz2`) or a set of instances given in a file with extension `.instances` or `.batch`, with a specific format detailed below
@@ -47,12 +47,12 @@ The script takes four arguments:
 
 For example, you can call `scripts/run_experiments.sh data/instances/original/miplib2/bm23.mps.gz results bb "-d 32 -t 120"` to run instance `bm23.mps`, send output to `results`, use up to a 32-term disjunction, and enforce a timelimit of 120 seconds (as opposed to the default of an hour).
 
-If the first argument to `run_experiments.sh` is not an instance, it needs to be a file with extension `.instances` or `.batch`.
+If the first argument to [`run_experiments.sh`](scripts/run_experiments.sh) is not an instance, it needs to be a file with extension `.instances` or `.batch`.
 The former is for a set of instances that should be run one-by-one, and the latter is for sets of instances that should be run in parallel.
 For `.instances` files, the lines must either be full paths and end with .mps/.lp, such as `${VPC_DIR}/data/instances/original/miplib2/bm23.mps`, or be _relative_ paths to instances *without* the extension, relative to the directory `data/instances`, such as `original/miplib2/bm23` (the extension *must* be left out from each line in this case).
 For `.batch` files, a new batch is indicated by a line that ends with a forward slash, e.g., `batchname/`.
 Under each batch, instances should be indicated with relative paths just as in `.instances` files.
-For examples, see `scripts/test.instances` and `scripts/test.batch`.
+For examples, see [`scripts/test.instances`](scripts/test.instances) and [`scripts/test.batch`](scripts/test.batch).
 
 If you run experiments in batch mode, or generally save results in `/path/to/results/*/vpc-{type}.csv`, where `*` is a set of folders, then you can call
 ```
@@ -60,18 +60,18 @@ scripts/merge.sh /path/to/results type
 ```
 to merge (and sort) the results to `/path/to/results/vpc-{type}.csv`.
 Note that `preprocess` is a special type, for which the script will merge results in `cleaning_log.csv` instead of `vpc-{type}.csv`.
-The `merge.sh` script also takes a third optional argument for where to save the output.
+The [`merge.sh`](scripts/merge.sh) script also takes a third optional argument for where to save the output.
 
 ## Details
 
 There are many parameters that can be set from the command line. Run with `-h` or `--help` option to see these parameters. There are several more that are not currently able to be set from the command line, as they are assumed to generally be "constants"; a description of these can be found in [`VPCParameters.hpp`](include/VPCParameters.hpp).
 
-The key parts of the code are the classes `Disjunction` (an abstract class), `CglVPC`, and `PRLP`. The user must specify a disjunction to `CglVPC` and a set of parameters (given as the struct `VPCParameters`). The disjunction should inherit from `Disjunction` and provide a set of disjunctive terms (the vector `terms`) and their number (`num_terms`). Each term is a `DisjunctiveTerm` defined in [`Disjunction.hpp`](include/Disjunction.hpp) and contains the following members: 
+The key parts of the code are the classes [`Disjunction`](include/Disjunction.hpp) (an abstract class), [`CglVPC`](include/CglVPC.hpp), and [`PRLP`](include/PRLP.hpp). The user must specify a disjunction to `CglVPC` and a set of parameters (given as the struct `VPCParameters`). The disjunction should inherit from `Disjunction` and provide a set of disjunctive terms (the vector `terms`) and their number (`num_terms`); see for example the [`SplitDisjunction`](include/SplitDisjunction.hpp) class. Each term is a `DisjunctiveTerm` defined in [`Disjunction.hpp`](include/Disjunction.hpp) and contains the following members: 
 1. `CoinWarmStart* basis`, the optimal basis for that term
 2. `obj`, the objective for that term (used in `CglVPC` for ensuring the term is correctly reconstructed)
 3. `changed_var`, `changed_bound`, `changed_value`, `ineqs` vectors, which state which bounds need to be changed or inequalities to be added to define the disjunction.
 
-In addition, a `Disjunction` has a few optional members: 
+In addition, a `Disjunction` has a few optional members:
 1. `name`, a name for the disjunction
 2. the set of bounds changed or inequalities added at the root node that apply to all disjunctive terms
 3. `integer_sol` and `integer_obj`, an integer-feasible solution and its objective value
