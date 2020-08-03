@@ -54,6 +54,13 @@ void setupClpForStrongBranching(OsiClpSolverInterface* const solver,
  * (in which we want to run full strong branching and enable the fixing of variables)
  */
 void setupClpForCbc(OsiSolverInterface* const solver,
+    const int verbosity =
+#ifdef TRACE
+        1,
+#else
+        0,
+#endif
+    const double max_time = std::numeric_limits<double>::max(),
     const int hot_start_iter_limit = std::numeric_limits<int>::max());
 
 /** Overload solve from hot start because of issues */

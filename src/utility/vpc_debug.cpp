@@ -53,8 +53,15 @@ void printTree(PartialBBDisjunction* const orig_owner,
     for (int num_before_trusted : test_num_trust) {
       for (int test_param : test_paramset) {
         tmp_params.set(PARTIAL_BB_STRATEGY, test_param);
-        SolverInterface* newBBSolver =
-            dynamic_cast<SolverInterface*>(solver->clone());
+        SolverInterface* newBBSolver;
+        try {
+            newBBSolver = dynamic_cast<SolverInterface*>(solver->clone());
+        } catch (std::exception& e) {
+          error_msg(errorstring,
+              "Unable to clone solver into desired SolverInterface.\n");
+          writeErrorToLog(errorstring, orig_owner->params.logfile);
+          exit(1);
+        }
         newBBSolver->disableFactorization();
         if (shouldApplyVPCs) {
           newBBSolver->applyCuts(*vpcs);
@@ -68,7 +75,7 @@ void printTree(PartialBBDisjunction* const orig_owner,
             shouldApplyVPCs, shouldApplySICs,
             newBBSolver->getNumRows() - solver->getNumRows(),
             newBBSolver->getObjValue());
-        setupClpForCbc(newBBSolver);
+        setupClpForCbc(newBBSolver, orig_owner->params.get(VERBOSITY), std::numeric_limits<double>::max());
         CbcModel* new_cbc_model = new CbcModel;
         new_cbc_model->swapSolver(newBBSolver);
         new_cbc_model->setModelOwnsSolver(true); // solver will be deleted with cbc object
@@ -103,6 +110,8 @@ void printTree(PartialBBDisjunction* const orig_owner,
           std::string response;
           std::getline(std::cin, response);
           if (response.compare("y") == 0 || response.compare("yes") == 0) {
+            if (new_cbc_model) { delete new_cbc_model; }
+            if (owner) { delete owner; }
             exit(1);
           }
         }

@@ -488,7 +488,7 @@ int wrapUp(int retCode /*= 0*/) {
 void initializeSolver(OsiSolverInterface* &solver) {
   // Generate cuts
   solver = new SolverInterface;
-  setLPSolverParameters(solver, params.get(VERBOSITY));
+  setLPSolverParameters(solver, params.get(VERBOSITY), params.get(TIMELIMIT));
 
   int status = 0;
   if (in_file_ext.compare("lp") == 0) {

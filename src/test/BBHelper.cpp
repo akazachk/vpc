@@ -170,7 +170,7 @@ void runBBTests(const VPCParametersNamespace::VPCParameters& base_params, Summar
       }
 
       runSolver = new SolverInterface;
-      setLPSolverParameters(runSolver, params.get(intParam::VERBOSITY));
+      setLPSolverParameters(runSolver, params.get(intParam::VERBOSITY), params.get(doubleParam::TIMELIMIT));
       runSolver->setObjSense(solver->getObjSense());
       double objOffset = 0.;
       solver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
@@ -454,7 +454,7 @@ void doBranchAndBoundNoCuts(const VPCParametersNamespace::VPCParameters& params,
   // Set up solver
   SolverInterface* BBSolver;
   BBSolver = dynamic_cast<SolverInterface*>(solver->clone());
-  setLPSolverParameters(BBSolver);
+  setLPSolverParameters(BBSolver, params.get(intParam::VERBOSITY), params.get(doubleParam::TIMELIMIT));
 
   // Set up model
   CbcModel* cbc_model = new CbcModel;
@@ -539,7 +539,7 @@ void doBranchAndBoundYesCuts(const VPCParametersNamespace::VPCParameters& params
   // Set up solver
   SolverInterface* BBSolver;
   BBSolver = dynamic_cast<SolverInterface*>(solver->clone());
-  setLPSolverParameters(BBSolver, params.get(VERBOSITY));
+  setLPSolverParameters(BBSolver, params.get(intParam::VERBOSITY), params.get(doubleParam::TIMELIMIT));
 
   // Apply cuts
 //  if (doCutSelection) {

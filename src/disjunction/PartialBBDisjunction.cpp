@@ -122,10 +122,9 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }
-//  setupClpForCbc(BBSolver);
 
   // Setup LP for use in partial tree generation
-  setLPSolverParameters(BBSolver);
+  setLPSolverParameters(BBSolver, params.get(VERBOSITY), std::numeric_limits<double>::max());
   BBSolver->setHintParam(OsiDoPresolveInInitial, false);
   BBSolver->setHintParam(OsiDoPresolveInResolve, false);
   BBSolver->setIntParam(OsiMaxNumIterationHotStart, std::numeric_limits<int>::max());

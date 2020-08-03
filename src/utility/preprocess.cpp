@@ -66,7 +66,7 @@ void performCleaning(const VPCParametersNamespace::VPCParameters& params,
 
   /********** Now we do the cleaning **********/
   SolverInterface* cleanedSolver = new SolverInterface;
-  setLPSolverParameters(cleanedSolver, params.get(VERBOSITY));
+  setLPSolverParameters(cleanedSolver, params.get(VERBOSITY), params.get(TIMELIMIT));
   std::string presolved_name_stub =
       (CLEANING_MODE <= 1) ? filename_stub + "_presolved" : "";
   const std::string cleaned_name_stub =

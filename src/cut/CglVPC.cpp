@@ -1161,7 +1161,7 @@ CglVPC::ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
 
   if (!LP_OPT_IS_NOT_CUT || !DLB_EQUALS_DUB) {
     prlp = new PRLP(this);
-    setLPSolverParameters(prlp, params.get(VERBOSITY));
+    setLPSolverParameters(prlp, params.get(intParam::VERBOSITY), params.get(doubleParam::PRLP_TIMELIMIT));
     const CglVPC::ExitReason prlp_status = prlp->setup(scale);
   //  printf("# rows: %d\t # cols: %d\n", prlp->getNumRows(), prlp->getNumCols());
   //  printf("# points: %d\t # rays: %d\n", prlp->numPoints, prlp->numRays);

@@ -76,8 +76,9 @@ void setupClpForStrongBranching(OsiClpSolverInterface* const solver, const int h
  * (in which we want to run full strong branching and enable the fixing of variables)
  */
 void setupClpForCbc(OsiSolverInterface* const solver,
+    const int verbosity, const double max_time,
     const int hot_start_iter_limit) {
-  setLPSolverParameters(solver);
+  setLPSolverParameters(solver, verbosity, max_time);
   solver->setHintParam(OsiDoPresolveInInitial, false);
   solver->setHintParam(OsiDoPresolveInResolve, false);
   try {

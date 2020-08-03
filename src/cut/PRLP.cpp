@@ -348,8 +348,8 @@ CglVPC::ExitReason PRLP::setup(const double scale) {
     (double) this->getMatrixByCol()->getNumElements()
     / (this->getNumRows() * this->getNumCols());
 
-  const double max_time = CoinMax(60., 10 * owner->params.get(PRLP_TIMELIMIT));
-  setLPSolverParameters(this, owner->params.get(VERBOSITY), max_time);
+  const double max_time = CoinMin(owner->params.get(doubleParam::TIMELIMIT), CoinMax(60., 10 * owner->params.get(doubleParam::PRLP_TIMELIMIT)));
+  setLPSolverParameters(this, owner->params.get(intParam::VERBOSITY), max_time);
 #ifdef USE_CLP
   this->getModelPtr()->setMaximumIterations(static_cast<int>(std::numeric_limits<int>::max()));
   this->getModelPtr()->setNumberIterations(0);
@@ -365,10 +365,10 @@ CglVPC::ExitReason PRLP::setup(const double scale) {
   const double end = CoinCpuTime();
 
   // Set PRLP time limit based on this initial solve, if the time is not yet set and it is not permanently set to infinity
-  if (isVal(owner->params.get(PRLP_TIMELIMIT), -1.)) {
-    owner->params.set(PRLP_TIMELIMIT,
+  if (isVal(owner->params.get(doubleParam::PRLP_TIMELIMIT), -1.)) {
+    owner->params.set(doubleParam::PRLP_TIMELIMIT,
         CoinMax(owner->params.get(doubleConst::MIN_PRLP_TIMELIMIT), (end - start)));
-    setTimeLimit(this, owner->params.get(PRLP_TIMELIMIT));
+    setTimeLimit(this, owner->params.get(doubleParam::PRLP_TIMELIMIT));
   }
 
   owner->timer.end_timer(CglVPC::ObjectiveTypeName[static_cast<int>(CglVPC::ObjectiveType::DUMMY_OBJ)] + "_TIME");
@@ -484,7 +484,7 @@ int PRLP::tryOneObjective(std::vector<int>& numTimesTightRow,
 
 int PRLP::resolvePRLP(const bool tryExtraHard) {
   this->getModelPtr()->setNumberIterations(0);
-  const double timeLimit = (tryExtraHard) ?  -1. : owner->params.get(PRLP_TIMELIMIT); // maybe go unlimited time this round
+  const double timeLimit = tryExtraHard ? owner->params.get(doubleParam::TIMELIMIT) : owner->params.get(doubleParam::PRLP_TIMELIMIT); // maybe go unlimited time this round
   setTimeLimit(this, timeLimit);
   this->resolve();
 
@@ -785,7 +785,7 @@ int PRLP::exitGenCut(const int num_cuts_generated, const CglVPC::ObjectiveType c
 
   // Reset timer and number iterations
   this->getModelPtr()->setNumberIterations(0);
-  setTimeLimit(this, owner->params.get(PRLP_TIMELIMIT));
+  setTimeLimit(this, owner->params.get(doubleParam::PRLP_TIMELIMIT));
   return return_status;
 } /* exitGenCutsFromCutSolver */
 
@@ -1396,7 +1396,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
 #endif
   owner->timer.start_timer(PRLP_SOLVE_TIME);
   this->getModelPtr()->setNumberIterations(0);
-  setTimeLimit(this, -1.);
+  setTimeLimit(this, owner->params.get(doubleParam::TIMELIMIT));
   this->initialSolve();
   setSolverSolution(this, 0);
   owner->timer.end_timer(PRLP_SOLVE_TIME);
@@ -1695,7 +1695,7 @@ int PRLP::iterateDeepestCutPostGomory(OsiCuts & cuts,
   const double initSolveTime =
       owner->timer.get_time(
           CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::INIT_SOLVE_TIME)]);
-  const double timeLimit = owner->params.get(PRLP_TIMELIMIT);
+  const double timeLimit = owner->params.get(doubleParam::PRLP_TIMELIMIT);
 
   SolverInterface* PostGomorySolver = dynamic_cast<SolverInterface*>(origSolver->clone());
   setLPSolverParameters(PostGomorySolver, owner->params.get(VERBOSITY), 2 * initSolveTime);
@@ -1957,7 +1957,7 @@ int PRLP::exitFromIterateDeepestCutPostGomory(const int num_cuts_gen,
   }
 
   this->getModelPtr()->setNumberIterations(0);
-  this->getModelPtr()->setMaximumSeconds(owner->params.get(PRLP_TIMELIMIT));
+  this->getModelPtr()->setMaximumSeconds(owner->params.get(doubleParam::PRLP_TIMELIMIT));
 
   this->setHintParam(OsiDoPresolveInInitial, owner->params.get(intConst::PRLP_PRESOLVE) >= 1);
   this->setHintParam(OsiDoPresolveInResolve, owner->params.get(intConst::PRLP_PRESOLVE) >= 2);
