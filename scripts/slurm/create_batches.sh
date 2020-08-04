@@ -33,8 +33,8 @@ elif [ $TYPE = "presolved" ]; then
   echo "presolved!"
   SRC=${TYPE}.instances
   EXT="instances"
-  head -n 99 $SRC > ${TYPE}001.${EXT}
-  tail -n +100 $SRC | head -n 25 > ${TYPE}011.${EXT}
+  head -n 89 $SRC > ${TYPE}001.${EXT}
+  tail -n +90 $SRC | head -n 35 > ${TYPE}011.${EXT}
   tail -n +126 $SRC | head -n 15 > ${TYPE}002.${EXT}
   tail -n +141 $SRC | head -n 10 > ${TYPE}003.${EXT}
   tail -n +151 $SRC | head -n 6 > ${TYPE}004.${EXT}

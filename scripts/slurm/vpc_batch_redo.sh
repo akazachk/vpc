@@ -9,9 +9,10 @@
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
 
+TYPE="original"
 MODE="bb"
 CASE_NUM=`printf %03d $SLURM_ARRAY_TASK_ID`
-INSTANCE_FILE=original_redo.instances
+INSTANCE_FILE=${TYPE}_redo.instances
 export VPC_DIR="${REPOS_DIR}/vpc"
 
 # Set mode if given
@@ -40,7 +41,7 @@ else
   FILE="${VPC_DIR}/data/instances/${FILE}"
 fi
 
-${VPC_DIR}/scripts/run_experiments.sh $FILE ${VPC_DIR}/results/${MODE}/$CASE_NUM ${MODE} $CASE_NUM
+${VPC_DIR}/scripts/run_experiments.sh $FILE ${VPC_DIR}/results/${MODE}_redo/$CASE_NUM ${MODE} $CASE_NUM
 
 #echo "Statistics from seff ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
 #seff ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}

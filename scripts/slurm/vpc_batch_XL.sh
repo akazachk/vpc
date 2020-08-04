@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --array=354-488
-#SBATCH --time=03:00:00
-#SBATCH --mem-per-cpu=1G
-
-#SBATCH --array=299-300
+#SBATCH --array=300-303
 #SBATCH --time=24:00:00
-#SBATCH --mem-per-cpu=4G
+
+#SBATCH --array=334,337,340,343,346,348,351-354,357-359,365-367,370-372,378-381,383,389-395,397,398,400-409,413,415,418,420-423,425,427-433,436,439,446,447,451,453,454,456,458,459,461-463,466,470-475,477,479-483,485,486,488,492-494,497,500,502,503
+#SBATCH --time=03:00:00
+
+#SBATCH --mem-per-cpu=10G
 
 #SBATCH --account=def-alodi
 #SBATCH --cpus-per-task=1
@@ -14,7 +14,7 @@
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
 
-TYPE="presolved"
+TYPE="original"
 MODE="bb"
 CASE_NUM=`printf %03d $SLURM_ARRAY_TASK_ID`
 INSTANCE_FILE=${TYPE}.instances

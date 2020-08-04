@@ -940,7 +940,7 @@ int PRLP::findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
   const CoinPackedMatrix* mat = this->getMatrixByRow();
   const CoinShallowPackedVector orig_point = mat->getVector(point_row_ind);
   CoinPackedVector* vec = NULL; // ray that will be added/subtracted
-  addToObjectiveFromPackedVector(this, &orig_point, false);
+  addToObjectiveFromPackedVector(this, &orig_point, false, 1., NULL, false);
 
   // Try orig_point as an objective
 #ifdef TRACE
@@ -1135,7 +1135,7 @@ int PRLP::findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
       const double value[1] = { -1. };
       vec = new CoinPackedVector(1, index, value);
     }
-    addToObjectiveFromPackedVector(this, vec, false, 1.);
+    addToObjectiveFromPackedVector(this, vec, false, 1., NULL, false);
     if (mode_ones > 0) {
       break;
     } else {
@@ -1186,9 +1186,10 @@ int PRLP::findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
           tmp_return_code, tmpSolver->getObjValue(), owner->params.logfile);
 #endif
     }
-    if (try_ind + 1 < MAX_NUM_OBJ_PER_POINT) { //&& this->isProvenOptimal()) {
+    if (try_ind + 1 < MAX_NUM_OBJ_PER_POINT) {
       if (mode_ones > 0) {
-        addToObjectiveFromPackedVector(this, vec, false, -1.);
+        //addToObjectiveFromPackedVector(this, vec, false, -1., NULL, false);
+        setConstantObjectiveFromPackedVector(this, 0., vec->getNumElements(), vec->getIndices());
         while (check_ind < numToCheck - 1) {
           check_ind++;
           const int curr_index = indexToCheck[sortIndex[check_ind]];
@@ -1224,10 +1225,10 @@ int PRLP::findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
             const double value[1] = { -1. };
             vec = new CoinPackedVector(1, index, value);
           }
-          addToObjectiveFromPackedVector(this, vec, false, 1.);
+          addToObjectiveFromPackedVector(this, vec, false, 1., NULL, false);
           break;
         }
-      } // mode = 0
+      } // mode_ones > 0
       else {
         // Remove all rows that are tight but were not before
         int num_removed = 0, num_to_remove = 0;
@@ -1274,13 +1275,13 @@ int PRLP::findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
               const double value[1] = { -1. };
               vec = new CoinPackedVector(1, index, value);
             }
-            addToObjectiveFromPackedVector(this, vec, false, -1.);
+            addToObjectiveFromPackedVector(this, vec, false, -1., NULL, true);
           }
         }
         if (num_removed * num_to_remove == 0 || (num_to_remove - num_removed == 0)) {
           break;
         }
-      } // mode = 1
+      } // mode_ones == 0
     } // try_ind = 1 ... MAX_NUM_TRIES
   } // try max_depth times
   setConstantObjectiveFromPackedVector(this, 0.);
@@ -1297,7 +1298,7 @@ int PRLP::findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
 } /* findCutsTightOnPoint */
 
 /**
- * @brief Try the (1,...,1) obj, all points, then select among rays ``intelligently''
+ * @brief Try the (1,...,1) obj, all points, then select among rays "intelligently"
  * @return Number generated cuts
  */
 int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
@@ -1458,9 +1459,10 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
       }
       num_points_tried++;
       pointIndex[ind].row = -1 * (row_ind + 1);
-      goodReturn = findCutsTightOnPoint(numTimesTightRow, numTimesTightColLB,
-          numTimesTightColUB, disj_lb_row_ind, cutHeur, beta, cuts, origSolver,
-          structSICs, timeName, inNBSpace, MAX_NUM_OBJ_PER_POINT);
+      goodReturn = findCutsTightOnPoint(numTimesTightRow, 
+          numTimesTightColLB, numTimesTightColUB, row_ind, cutHeur, beta, 
+          cuts, origSolver, structSICs, timeName, inNBSpace, 
+          MAX_NUM_OBJ_PER_POINT);
     } // tight on points
     owner->timer.end_timer(currTimeName);
   } // MAX_NUM_POINTS_TO_TRY > 0
@@ -1559,7 +1561,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
       }
       rayIndex[curr_index].row = -1 * (row_ind + 1);
       const CoinShallowPackedVector vec = mat->getVector(row_ind);
-      addToObjectiveFromPackedVector(this, &vec, false);
+      addToObjectiveFromPackedVector(this, &vec, false, 1., NULL, false);
       num_rays_tried++;
       return_code = tryOneObjective(numTimesTightRow, numTimesTightColLB,
           numTimesTightColUB, cuts, origSolver, beta, structSICs, inNBSpace,
@@ -1568,8 +1570,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
         numTimesTightRow[row_ind]++;
         numTimesTightRow[row_ind] *= -1;
       }
-      setConstantObjectiveFromPackedVector(this, 0., vec.getNumElements(),
-          vec.getIndices());
+      setConstantObjectiveFromPackedVector(this, 0., vec.getNumElements(), vec.getIndices());
     } // tight on rays
     owner->timer.end_timer(currTimeName);
   } // MAX_NUM_RAYS_TO_TRY > 0
@@ -1617,7 +1618,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
       }
       num_points_tried++;
       goodReturn = findCutsTightOnPoint(numTimesTightRow, numTimesTightColLB,
-          numTimesTightColUB, disj_lb_row_ind, cutHeur, beta, cuts, origSolver,
+          numTimesTightColUB, row_ind, cutHeur, beta, cuts, origSolver,
           structSICs, timeName, inNBSpace, MAX_NUM_OBJ_PER_POINT);
     } // tight on points
     owner->timer.end_timer(currTimeName);
@@ -1658,7 +1659,7 @@ int PRLP::targetStrongAndDifferentCuts(const double beta, OsiCuts& cuts,
         continue;
       }
       const CoinShallowPackedVector vec = mat->getVector(row_ind);
-      addToObjectiveFromPackedVector(this, &vec, false);
+      addToObjectiveFromPackedVector(this, &vec, false, 1., NULL, false);
       num_rays_tried++;
       return_code = tryOneObjective(numTimesTightRow, numTimesTightColLB,
           numTimesTightColUB, cuts, origSolver, beta, structSICs, inNBSpace,

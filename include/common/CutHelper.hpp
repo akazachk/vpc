@@ -17,13 +17,6 @@ void setOsiRowCut(OsiRowCut* const cut, const std::vector<int>& nonZeroColIndex,
     const int num_coeff, const double* coeff, const double rhs,
     const double EPS);
 
-void addToObjectiveFromPackedVector(OsiSolverInterface* const solver,
-    const CoinPackedVectorBase* vec, const bool zeroOut = false,
-    const double mult = 1., const std::vector<int>* const nonZeroColIndices = 0);
-void setConstantObjectiveFromPackedVector(OsiSolverInterface* const solver,
-    const double val = 0., const int numIndices = 0, const int* indices = 0);
-void setSolverSolution(OsiSolverInterface* const solver, const double* const sol = NULL);
-
 int cleanCut(OsiRowCut* const cut, const OsiSolverInterface* const solver,
     const double EPS_COEFF,
     const double MAX_DYN,

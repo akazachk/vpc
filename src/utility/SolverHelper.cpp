@@ -94,6 +94,81 @@ void setupClpForCbc(OsiSolverInterface* const solver,
 } /* setupClpForCbc */
 #endif // USE_CLP
 
+/**
+ * Set the cut solver objective coefficients based on a packed vector
+ * We do not zero out the other coefficients unless requested
+ */
+void addToObjectiveFromPackedVector(OsiSolverInterface* const solver,
+    const CoinPackedVectorBase* vec, const bool zeroOut, const double mult,
+    const std::vector<int>* const nonZeroColIndices,
+    const bool SHOULD_SCALE) {
+  if (zeroOut) {
+    for (int i = 0; i < solver->getNumCols(); i++) {
+      solver->setObjCoeff(i, 0.);
+    }
+  }
+
+  if (vec) {
+    double twoNorm = 1.;
+    if (!isZero(mult) && SHOULD_SCALE) {
+      const double realTwoNorm = vec->twoNorm() / solver->getNumCols();
+      if (greaterThanVal(realTwoNorm, 0.)) {
+        twoNorm = realTwoNorm;
+      }
+    }
+    if (nonZeroColIndices) {
+      int ind = 0; // assuming nonZeroColIndices are sorted in increasing order
+      const int numNZ = (*nonZeroColIndices).size();
+      for (int i = 0; i < (*vec).getNumElements(); i++) {
+        const int col = (*vec).getIndices()[i];
+
+        while ((ind < numNZ) && (col > (*nonZeroColIndices)[ind])) {
+          ind++;
+        }
+        if (ind >= numNZ)
+          break;
+        if (col < (*nonZeroColIndices)[ind])
+          continue;
+
+        const double elem = (*vec).getElements()[i];
+        const double coeff = solver->getObjCoefficients()[ind];
+        solver->setObjCoeff(ind, isZero(mult) ? 0. : coeff + elem * mult / twoNorm);
+      }
+    } else {
+      for (int i = 0; i < (*vec).getNumElements(); i++) {
+        const int col = (*vec).getIndices()[i];
+        const double elem = (*vec).getElements()[i];
+        const double coeff = solver->getObjCoefficients()[col];
+        solver->setObjCoeff(col, isZero(mult) ? 0. : coeff + elem * mult / twoNorm);
+      }
+    }
+  }
+} /* addToObjectiveFromPackedVector */
+
+void setConstantObjectiveFromPackedVector(
+    OsiSolverInterface* const solver, const double val,
+    const int numIndices, const int* indices) {
+  if (numIndices > 0 && indices) {
+    for (int i = 0; i < numIndices; i++) {
+      solver->setObjCoeff(indices[i], val);
+    }
+  } else {
+    for (int i = 0; i < solver->getNumCols(); i++) {
+      solver->setObjCoeff(i, val);
+    }
+  }
+} /* setConstantObjectiveFromPackedVector */
+
+/** Set solution (set to zero if the second argument is NULL) */
+void setSolverSolution(OsiSolverInterface* const solver, const double* const sol) {
+  if (sol) {
+    solver->setColSolution(sol);
+  } else {
+    std::vector<double> zerosol(solver->getNumCols(), 0.);
+    solver->setColSolution(zerosol.data());
+  }
+} /* setSolverSolution */
+
 /** Overload solve from hot start because of issues */
 bool solveFromHotStart(OsiSolverInterface* const solver, const int col,
     const bool isChangedUB, const double origBound, const double newBound) {

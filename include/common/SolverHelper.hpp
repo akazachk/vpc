@@ -63,6 +63,14 @@ void setupClpForCbc(OsiSolverInterface* const solver,
     const double max_time = std::numeric_limits<double>::max(),
     const int hot_start_iter_limit = std::numeric_limits<int>::max());
 
+void addToObjectiveFromPackedVector(OsiSolverInterface* const solver,
+    const CoinPackedVectorBase* vec, const bool zeroOut = false,
+    const double mult = 1., const std::vector<int>* const nonZeroColIndices = 0,
+    const bool SHOULD_SCALE = true);
+void setConstantObjectiveFromPackedVector(OsiSolverInterface* const solver,
+    const double val = 0., const int numIndices = 0, const int* indices = 0);
+void setSolverSolution(OsiSolverInterface* const solver, const double* const sol = NULL);
+
 /** Overload solve from hot start because of issues */
 bool solveFromHotStart(OsiSolverInterface* const solver, const int col,
     const bool isChangedUB, const double origBound, const double newBound);

@@ -14,3 +14,14 @@ presolved_gurobi/miplib2017/neos-1605061_presolved,-d64
 presolved_gurobi/miplib2010/neos-1605075_presolved,-d32
 presolved_gurobi/miplib2010/neos-1605075_presolved,-d64
 presolved_gurobi/miplib2017/bc1_presolved,-d64
+
+
+
+
+presolved_gurobi/miplib2017/seymour1_presolved
+presolved_gurobi/miplib2017/neos-831188_presolved
+presolved_gurobi/miplib2017/neos-691058_presolved
+presolved_gurobi/miplib2017/neos-5182409-nasivi_presolved
+presolved_gurobi/coral/neos-1211578_presolved
+presolved_gurobi/coral/neos-1413153_presolved
+presolved_gurobi/miplib2017/neos-4393408-tinui_presolved

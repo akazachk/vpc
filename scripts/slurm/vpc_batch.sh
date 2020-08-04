@@ -1,12 +1,11 @@
 #!/bin/bash
-#SBATCH --array=TODO
+#SBATCH --array=1
 #SBATCH --time=03:00:00
 #SBATCH --mem-per-cpu=100M
 
 #SBATCH --time=24:00:00
-#SBATCH --array=1-10,181-295
-#SBATCH --array=2-10,181-295
-#SBATCH --mem-per-cpu=1G
+#SBATCH --array=1-11,181-295
+#SBATCH --mem-per-cpu=4G
 
 #SBATCH --account=def-alodi
 #SBATCH --cpus-per-task=1
