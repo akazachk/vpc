@@ -78,19 +78,17 @@ if option == OPTION_BB:
     extraparams = extraparams + ' --use_tight_rays=0'
     extraparams = extraparams + ' --use_unit_vectors=0'
     extraparams = extraparams + ' --gomory=-1'
+    extraparams = extraparams + ' --bb_timelimit=3600'
 elif option == OPTION_BB0:
+    depthList = [0]
     outinfo_stub = CUT_TYPE + '-bb0'
     extraparams = extraparams + ' --rounds=1'
     extraparams = extraparams + ' -t 3600'
     extraparams = extraparams + ' --bb_runs=7'
     extraparams = extraparams + ' --bb_mode=001'
-    extraparams = extraparams + ' --use_all_ones=1'
-    extraparams = extraparams + ' --use_iter_bilinear=1'
-    extraparams = extraparams + ' --use_disj_lb=1'
-    extraparams = extraparams + ' --use_tight_points=0'
-    extraparams = extraparams + ' --use_tight_rays=0'
-    extraparams = extraparams + ' --use_unit_vectors=0'
+    extraparams = extraparams + ' --bb_timelimit=3600'
 elif option == OPTION_PREPROCESS:
+    depthList = [0]
     outinfo_stub = 'cleaning_log'
     extraparams = extraparams + ' --preprocess=1'
     extraparams = extraparams + ' -t 7200'
@@ -98,6 +96,7 @@ elif option == OPTION_PREPROCESS:
     extraparams = extraparams + ' --bb_mode=001'
     # Set strategy (536 uses Gurobi, 532 uses CPLEX)
     extraparams = extraparams + ' --bb_strategy=532'
+    extraparams = extraparams + ' --bb_timelimit=7200'
 elif option == OPTION_TEST:
     depthList = [2]
     outinfo_stub = CUT_TYPE + '-test'
