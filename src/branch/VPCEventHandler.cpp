@@ -1215,7 +1215,7 @@ int VPCEventHandler::saveInformation() {
       writeErrorToLog(errorstring, owner->params.logfile);
       exit(1);
     }
-    // Sometimes we run into a few issues getting the ``right'' value
+    // Sometimes we run into a few issues getting the "right" value
     double ratio = tmpSolverBase->getObjValue() / stats_[node_id].obj;
     if (ratio < 1.) {
       ratio = 1. / ratio;
@@ -1230,7 +1230,7 @@ int VPCEventHandler::saveInformation() {
 
 #ifdef TRACE
     double curr_nb_obj_val = tmpSolverBase->getObjValue() - originalSolver_->getObjValue();
-    printf("DEBUG: Node: %d .......... Obj val:%.3f .......... NB obj val: %.3f\n", node_id,
+    printf("DEBUG: Node: %d .......... Obj val: %.3f .......... NB obj val: %.3f\n", node_id,
         tmpSolverBase->getObjValue(), curr_nb_obj_val);
     printNodeStatistics(stats_[node_id], true);
 #endif
