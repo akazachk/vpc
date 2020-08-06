@@ -33,6 +33,8 @@ const int countObjInfoEntries = 1 + 4 * static_cast<int>(CglVPC::ObjectiveType::
 const int countFailInfoEntries = 1 + static_cast<int>(CglVPC::FailureType::NUM_FAILURE_TYPES);
 const int countParamInfoEntries = intParam::NUM_INT_PARAMS + doubleParam::NUM_DOUBLE_PARAMS;
 int countTimeInfoEntries = 0; // set in printHeader
+const int countVersionInfoEntries = 4;
+const int countExtraInfoEntries = 4;
 
 void printHeader(const VPCParameters& params,
     const std::vector<std::string>& time_name,
@@ -81,6 +83,12 @@ void printHeader(const VPCParameters& params,
   fprintf(logfile, "%s", tmpstring.c_str());
   fprintf(logfile, "%s", "TIME INFO");
   tmpstring.assign(countTimeInfoEntries, SEP);
+  fprintf(logfile, "%s", tmpstring.c_str());
+  fprintf(logfile, "%s", "VERSION INFO");
+  tmpstring.assign(countVersionInfoEntries, SEP);
+  fprintf(logfile, "%s", tmpstring.c_str());
+  fprintf(logfile, "%s", "WRAP UP INFO");
+  tmpstring.assign(countExtraInfoEntries, SEP);
   fprintf(logfile, "%s", tmpstring.c_str());
   fprintf(logfile, "%s", "END");
   fprintf(logfile, "\n");
@@ -237,13 +245,18 @@ void printHeader(const VPCParameters& params,
     }
     assert(count == countTimeInfoEntries);
   } // TIME INFO
-
-  fprintf(logfile, "%s%c", "ExitReason", SEP);
-  fprintf(logfile, "%s%c", "end_time_string", SEP);
-  fprintf(logfile, "%s%c", "time elapsed", SEP);
-#ifdef VPC_VERSION
-  fprintf(logfile, "%s%c", "version", SEP);
-#endif
+  { // VERSION INFO
+    fprintf(logfile, "%s%c", "vpc_version", SEP);
+    fprintf(logfile, "%s%c", "cbc_version", SEP);
+    fprintf(logfile, "%s%c", "clp_version", SEP);
+    fprintf(logfile, "%s%c", "gurobi_version", SEP);
+  } // VERSION INFO
+  { // WRAP UP INFO
+    fprintf(logfile, "%s%c", "ExitReason", SEP);
+    fprintf(logfile, "%s%c", "end_time_string", SEP);
+    fprintf(logfile, "%s%c", "time elapsed", SEP);
+    fprintf(logfile, "%s%c", "instname", SEP);
+  } // WRAP UP INFO
   fprintf(logfile, "\n");
   fflush(logfile);
 } /* printHeader */

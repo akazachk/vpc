@@ -71,8 +71,18 @@ SummaryCutInfo cutInfo, cutInfoGMICs;
 std::string cut_output = "", bb_output = "";
 
 #ifdef VPC_VERSION
-const std::string VERSION = x_macro_to_string(VPC_VERSION);
+const std::string VPC_VERSION_STRING = x_macro_to_string(VPC_VERSION);
 #endif
+#ifdef VPC_CBC_VERSION
+const std::string CBC_VERSION_STRING = x_macro_to_string(VPC_CBC_VERSION);
+#endif
+#ifdef VPC_CLP_VERSION
+const std::string CLP_VERSION_STRING = x_macro_to_string(VPC_CLP_VERSION);
+#endif
+#ifdef USE_GUROBI
+#include <gurobi_c++.h>
+const std::string GUROBI_VERSION_STRING = std::to_string(GRB_VERSION_MAJOR) + "." + std::to_string(GRB_VERSION_MINOR) + std::to_string(GRB_VERSION_TECHNICAL);
+#endif // USE_GUROBI
 
 // Catch abort signal if it ever gets sent
 /**
@@ -310,7 +320,16 @@ void startUp(int argc, char** argv) {
   // Input handling
   printf("## V-Polyhedral Disjunctive Cuts ##\n");
 #ifdef VPC_VERSION
-  printf("## Version %s ##\n", VERSION.substr(0,8).c_str());
+  printf("## VPC Version %s ##\n", VPC_VERSION_STRING.substr(0,8).c_str());
+#endif
+#ifdef VPC_CBC_VERSION
+  printf("## Cbc Version %s ##\n", CBC_VERSION_STRING.substr(0,8).c_str());
+#endif
+#ifdef VPC_CLP_VERSION
+  printf("## Clp Version %s ##\n", CLP_VERSION_STRING.substr(0,8).c_str());
+#endif
+#ifdef USE_GUROBI
+  printf("## Gurobi Version %s ##\n", GUROBI_VERSION_STRING.c_str());
 #endif
   printf("# Aleksandr M. Kazachkov\n");
   printf("# Based on joint work with Egon Balas\n");
@@ -413,16 +432,33 @@ int wrapUp(int retCode /*= 0*/) {
       printFullBBInfo({info_nocuts, info_mycuts}, params.logfile);
       // Print time info
       timer.print(params.logfile, 2); // only values
-      // Print exit reason and finish
-      fprintf(logfile, "%s,", CglVPC::ExitReasonName[exitReasonInt].c_str());
     } else {
     }
 
-    fprintf(logfile, "%s,", end_time_string);
-    fprintf(logfile, "%.2f,", difftime(end_time_t, start_time_t));
 #ifdef VPC_VERSION
-    fprintf(logfile, "%s,", VERSION.substr(0,8).c_str());
+    fprintf(logfile, "%s,", VPC_VERSION_STRING.substr(0,8).c_str());
+#else
+    fprintf(logfile, ",");
 #endif
+#ifdef VPC_CBC_VERSION
+    fprintf(logfile, "%s,", CBC_VERSION_STRING.substr(0,8).c_str());
+#else
+    fprintf(logfile, ",");
+#endif
+#ifdef VPC_CLP_VERSION
+    fprintf(logfile, "%s,", CLP_VERSION_STRING.substr(0,8).c_str());
+#else
+    fprintf(logfile, ",");
+#endif
+#ifdef USE_GUROBI
+    fprintf(logfile, "%s,", GUROBI_VERSION_STRING.c_str());
+#else
+    fprintf(logfile, ",");
+#endif
+
+    fprintf(logfile, "%s,", CglVPC::ExitReasonName[exitReasonInt].c_str());
+    fprintf(logfile, "%s,", end_time_string);
+    fprintf(logfile, "%.f,", difftime(end_time_t, start_time_t));
     fprintf(logfile, "%s,", instname.c_str());
     fprintf(logfile, "DONE\n");
     fclose(logfile); // closes params.logfile
@@ -458,7 +494,16 @@ int wrapUp(int retCode /*= 0*/) {
 
   printf("\n## Exiting VPC generation with reason %s. ##\n", CglVPC::ExitReasonName[exitReasonInt].c_str());
 #ifdef VPC_VERSION
-  printf("VPC Version: %s\n", VERSION.substr(0,8).c_str());
+  printf("VPC Version: %s\n", VPC_VERSION_STRING.substr(0,8).c_str());
+#endif
+#ifdef VPC_CBC_VERSION
+  printf("Cbc Version: %s\n", CBC_VERSION_STRING.substr(0,8).c_str());
+#endif
+#ifdef VPC_CLP_VERSION
+  printf("Clp Version: %s\n", CLP_VERSION_STRING.substr(0,8).c_str());
+#endif
+#ifdef USE_GUROBI
+  printf("Gurobi Version: %s\n", GUROBI_VERSION_STRING.c_str());
 #endif
   printf("Instance: %s\n", instname.c_str());
   if (!params.get(stringParam::LOGFILE).empty()) {

@@ -79,6 +79,8 @@ USE_CPLEX_SOLVER = 0
 # Concerning executable
 EXECUTABLE_STUB = vpc
 VPC_VERSION = $(shell git log -1 --pretty=format:"%H")
+VPC_CBC_VERSION = $(shell git -C ${COIN_OR}/Cbc log -1 --pretty=format:"%H")
+VPC_CLP_VERSION = $(shell git -C ${COIN_OR}/Clp log -1 --pretty=format:"%H")
 SRC_DIR = src
 SOURCES = main.cpp
 DIR_LIST = $(SRC_DIR) $(SRC_DIR)/branch $(SRC_DIR)/cut $(SRC_DIR)/disjunction $(SRC_DIR)/utility
@@ -141,6 +143,8 @@ ifeq ($(USE_CLP_SOLVER),1)
 endif
 ifeq ($(USE_CBC),1)
   DEFS += -DUSE_CBC
+  DEFS += -DVPC_CBC_VERSION="\#${VPC_CBC_VERSION}"
+  DEFS += -DVPC_CLP_VERSION="\#${VPC_CLP_VERSION}"
 endif
 ifeq ($(USE_GUROBI),1)
   DEFS += -DUSE_GUROBI
@@ -370,6 +374,9 @@ print: FORCE
 	$(info LIB_DIR: ${LIB_DIR})
 	$(info SOURCES: ${SOURCES})
 	$(info OUT_OBJECTS: ${OUT_OBJECTS})
+	$(info VPC_VERSION: ${VPC_VERSION})
+	$(info VPC_CBC_VERSION: ${VPC_CBC_VERSION})
+	$(info VPC_CLP_VERSION: ${VPC_CLP_VERSION})
 
 print_dep: FORCE
 	$(info DEPENDENCIES: ${DEPENDENCIES})

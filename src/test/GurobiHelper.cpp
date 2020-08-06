@@ -20,7 +20,7 @@ using namespace VPCParametersNamespace;
 
 // Gurobi
 #ifdef USE_GUROBI
-#include "gurobi_c++.h"
+#include <gurobi_c++.h>
 
 /**
  * Creates temporary file (in /tmp) so that it can be read by a different solver

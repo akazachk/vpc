@@ -32,6 +32,8 @@ const int countSummaryBBInfoEntries = 4 * 2;
 const int countOrigProbEntries = 13;
 const int countCleanedProbEntries = 15;
 const int countFullBBInfoEntries = static_cast<int>(BB_INFO_CONTENTS.size()) * 4 * 2;
+const int countVersionInfoEntries = 4;
+const int countExtraInfoEntries = 4;
 
 /**
  * Perform preprocessing and get statistics
@@ -419,6 +421,12 @@ void printPreprocessingHeader(const VPCParametersNamespace::VPCParameters& param
   fprintf(logfile, "%s", "FULL BB INFO");
   tmpstring.assign(countFullBBInfoEntries, SEP);
   fprintf(logfile, "%s", tmpstring.c_str());
+  fprintf(logfile, "%s", "VERSION INFO");
+  tmpstring.assign(countVersionInfoEntries, SEP);
+  fprintf(logfile, "%s", tmpstring.c_str());
+  fprintf(logfile, "%s", "WRAP UP INFO");
+  tmpstring.assign(countExtraInfoEntries, SEP);
+  fprintf(logfile, "%s", tmpstring.c_str());
   fprintf(logfile, "%s", "END");
   fprintf(logfile, "\n");
 
@@ -495,12 +503,18 @@ void printPreprocessingHeader(const VPCParametersNamespace::VPCParameters& param
     }
     assert(count == countFullBBInfoEntries);
   } // FULL BB INFO
-
-  fprintf(logfile, "%s%c", "end_time_string", SEP);
-  fprintf(logfile, "%s%c", "time elapsed", SEP);
-#ifdef VPC_VERSION
-  fprintf(logfile, "%s%c", "version", SEP);
-#endif
+  { // VERSION INFO
+    fprintf(logfile, "%s%c", "vpc_version", SEP);
+    fprintf(logfile, "%s%c", "cbc_version", SEP);
+    fprintf(logfile, "%s%c", "clp_version", SEP);
+    fprintf(logfile, "%s%c", "gurobi_version", SEP);
+  } // VERSION INFO
+  { // WRAP UP INFO
+    fprintf(logfile, "%s%c", "ExitReason", SEP);
+    fprintf(logfile, "%s%c", "end_time_string", SEP);
+    fprintf(logfile, "%s%c", "time elapsed", SEP);
+    fprintf(logfile, "%s%c", "instname", SEP);
+  } // WRAP UP INFO
   fprintf(logfile, "\n");
   fflush(logfile);
 } /** printPreprocessingHeader */
