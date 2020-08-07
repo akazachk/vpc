@@ -24,6 +24,7 @@ Some of the scripts use `bash`, but can probably be adapted to other shells.
 There shoud be an environment variable `VPC_DIR` pointing to the local repository location, or this variable can be defined in each of the scripts: [`scripts/install_coin.sh`](scripts/install_coin.sh), [`test/run_test.sh`](test/run_test.sh), and others.
 
 You may need to use a compatible version of `clang` or `g++`, and make sure that the same compiler is used when running [`install_coin.sh`](scripts/install_coin.sh) and the one used to generate `libgurobi_c++.a`, which can be rebuilt in the Gurobi directory (located at, say, `${GUROBI_HOME}`), under `${GUROBI_HOME}/src/build`.
+The `makefile` also assumes that `git` is at least version 2, to use the `-C` option to get the version of `Cbc` and `Clp`.
 
 There are some optional libraries, such as `libbz2-dev`, that are linked to in [`makefile`](makefile). If these are missing, remove the corresponding linking in the makefile.
 
