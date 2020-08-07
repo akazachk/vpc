@@ -78,9 +78,7 @@ void runBBTests(const VPCParametersNamespace::VPCParameters& base_params, Summar
       && !use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::gurobi)
       && !use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::cplex);
 
-#ifdef TRACE
   printf("\n## Performing branch-and-bound tests. ##\n");
-#endif
 
   if (branch_with_no_cuts) {
     assert(info_nocuts != NULL);

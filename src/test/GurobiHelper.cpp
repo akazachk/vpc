@@ -335,7 +335,7 @@ void doBranchAndBoundWithGurobi(const VPCParameters& params, int strategy,
     GRBModel& model, BBInfo& info, const double best_bound, 
     std::vector<double>* const solution = NULL) {
 //#ifdef TRACE
-  printf("\n## Running B&B with Gurobi. Strategy: %d. Random seed: %d. ##\n",
+  printf("\tRunning B&B with Gurobi. Strategy: %d. Random seed: %d.\n",
       strategy, params.get(intParam::RANDOM_SEED));
 //#endif
   try {

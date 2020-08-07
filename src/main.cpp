@@ -275,6 +275,13 @@ int main(int argc, char** argv) {
   if (round_ind < num_rounds)
     num_rounds = round_ind+1;
 
+  printf(
+      "\n## Finished VPC generation with %d cuts. Initial obj value: %s. Final obj value: %s. Disj lb: %s. ##\n",
+      boundInfo.num_vpc,
+      stringValue(boundInfo.lp_obj, "%1.6f").c_str(),
+      stringValue(boundInfo.vpc_obj, "%1.6f").c_str(),
+      stringValue(boundInfo.best_disj_obj, "%1.6f").c_str());
+
   // Do branch-and-bound experiments (if requested)
   if (params.get(BB_RUNS) != 0) {
     // Collect cuts from all rounds
@@ -284,12 +291,6 @@ int main(int argc, char** argv) {
     timer.end_timer(BB_TIME);
   }
 
-  printf(
-      "\n## Finished VPC generation with %d cuts. Initial obj value: %s. Final obj value: %s. Disj lb: %s. ##\n",
-      boundInfo.num_vpc,
-      stringValue(boundInfo.lp_obj, "%1.6f").c_str(),
-      stringValue(boundInfo.vpc_obj, "%1.6f").c_str(),
-      stringValue(boundInfo.best_disj_obj, "%1.6f").c_str());
   timer.end_timer(OverallTimeStats::TOTAL_TIME);
 
 #ifdef PRINT_LP_WITH_CUTS

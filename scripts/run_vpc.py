@@ -151,4 +151,5 @@ for depth in depthList:
     cmd = EXECUTABLE + ' -f ' + infile + ' --logfile=' + outinfo + extraparams + ' -d ' + str(depth) + userparams
     now = datetime.now()
     print(now.strftime("%Y-%m-%d %H:%M:%S") + ": " + cmd, flush=True) # flush=True requires python 3.3+
-    os.system(cmd + " > /dev/null 2>&1")
+    #os.system(cmd + " > /dev/null 2>&1")
+    os.system(cmd)
