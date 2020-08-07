@@ -1028,6 +1028,8 @@ void updateDisjInfo(SummaryDisjunctionInfo& disjInfo, const int num_disj, const 
     return;
   const Disjunction* const disj = gen.getDisjunction();
   const PRLP* const prlp = gen.getPRLP();
+  if (!prlp)
+    return;
   disjInfo.avg_num_terms = (disjInfo.avg_num_terms * (num_disj - 1) + disj->num_terms) / num_disj;
   disjInfo.avg_density_prlp = (disjInfo.avg_density_prlp * (num_disj - 1) + prlp->density) / num_disj;
   disjInfo.avg_num_rows_prlp += (disjInfo.avg_num_rows_prlp * (num_disj - 1) + prlp->getNumRows()) / num_disj;
