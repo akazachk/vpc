@@ -98,8 +98,8 @@ void signal_handler_with_error_msg(int signal_number) {
   exit(1);
 } /* signal_handler_with_error_msg */
 
-void startUp(int argc, char** argv);
-void processArgs(int argc, char** argv);
+int startUp(int argc, char** argv);
+int processArgs(int argc, char** argv);
 void initializeSolver(OsiSolverInterface* &solver);
 void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_disj);
 int wrapUp(int retCode);
@@ -117,7 +117,8 @@ int main(int argc, char** argv) {
 
   // Print welcome message, set up logfile
   timer.start_timer(OverallTimeStats::TOTAL_TIME);
-  startUp(argc, argv);
+  int status = startUp(argc, argv);
+  if (status) { return status; }
 
   // Set up solver and get initial solution
   initializeSolver(solver);
@@ -269,7 +270,8 @@ int main(int argc, char** argv) {
 
     // Exit early from rounds of cuts if no cuts generated or solver is not optimal
     if (gen.num_cuts == 0 || !solver->isProvenOptimal()
-        || isInfinity(std::abs(solver->getObjValue())))
+        || isInfinity(std::abs(solver->getObjValue()))
+        || exitReason == CglVPC::ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT)
       break;
   } // loop over rounds of cuts
   if (round_ind < num_rounds)
@@ -317,7 +319,9 @@ int main(int argc, char** argv) {
 /**
  * Call this early to print welcome message, etc.
  */
-void startUp(int argc, char** argv) {
+int startUp(int argc, char** argv) {
+  int status = 0;
+
   // Input handling
   printf("## V-Polyhedral Disjunctive Cuts ##\n");
 #ifdef VPC_VERSION
@@ -344,7 +348,8 @@ void startUp(int argc, char** argv) {
   snprintf(start_time_string, sizeof(start_time_string) / sizeof(char), "%s", asctime(start_timeinfo));
   printf("Start time: %s\n", start_time_string);
 
-  processArgs(argc, argv);
+  status = processArgs(argc, argv);
+  if (status) { return status; }
 
   // Get instance file
   printf("Instance file: %s\n", params.get(stringParam::FILENAME).c_str());
@@ -401,6 +406,8 @@ void startUp(int argc, char** argv) {
     }
     fflush(params.logfile);
   }
+
+  return status;
 } /* startUp */
 
 /**
@@ -678,7 +685,7 @@ void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_dis
 /**
  * See params.hpp for descriptions of the parameters
  */
-void processArgs(int argc, char** argv) {
+int processArgs(int argc, char** argv) {
   // Handle inputs
   // struct option declared in getopt.h
   // name: name of the long option
@@ -730,6 +737,7 @@ void processArgs(int argc, char** argv) {
   };
 
   int inp;
+  int status = 0;
   while ((inp = getopt_long(argc, argv, short_opts, long_opts, nullptr)) != -1) {
     switch (inp) {
       case 'b': {
@@ -1174,7 +1182,7 @@ void processArgs(int argc, char** argv) {
                 helpstring += "--bb_timelimit=num seconds\n\tNumber of seconds allotted to the solver to run branch-and-bound tests.\n";
                 helpstring += "## END OF HELP ##\n";
                 std::cout << helpstring << std::endl;
-                exit(1);
+                status = 1;
                }
     } // switch statement for input
   } // process args
@@ -1182,4 +1190,5 @@ void processArgs(int argc, char** argv) {
   //  std::cout << argv[i] << " ";
   //}
   //std::cout << std::endl;
+  return status;
 } /* processArgs */
