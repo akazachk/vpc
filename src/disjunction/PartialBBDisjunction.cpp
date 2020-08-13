@@ -183,11 +183,13 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
     generateTikzTreeString(eventHandler, params, params.get(intParam::PARTIAL_BB_STRATEGY), si->getObjValue(), true);
     if (use_temp_option(TEMP_VAL, TempOptions::GEN_TIKZ_STRING_AND_RETURN)) {
       // Free
+      if (BBSolver && !cbc_model->modelOwnsSolver()) { delete BBSolver; }
       if (cbc_model) { delete cbc_model; }
       return DisjExitReason::SUCCESS_EXIT;
     }
     if (use_temp_option(TEMP_VAL, TempOptions::GEN_TIKZ_STRING_AND_EXIT)) {
       // Free
+      if (BBSolver && !cbc_model->modelOwnsSolver()) { delete BBSolver; }
       if (cbc_model) { delete cbc_model; }
       exit(1); // this should only be used during debug and will have memory leaks
     }
@@ -204,6 +206,7 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
       this->integer_obj = cbc_model->getObjValue();
       const double* sol = cbc_model->getColSolution();
       this->integer_sol.assign(sol, sol + si->getNumCols());
+      if (BBSolver && !cbc_model->modelOwnsSolver()) { delete BBSolver; }
       if (cbc_model) { delete cbc_model; }
       return DisjExitReason::OPTIMAL_SOLUTION_FOUND_EXIT;
     }
@@ -211,6 +214,7 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
       warning_msg(warnstr,
           "Giving up on getting cuts from the partial branch-and-bound tree (too few terms). Model status is %d.\n",
           cbc_model->status());
+      if (BBSolver && !cbc_model->modelOwnsSolver()) { delete BBSolver; }
       if (cbc_model) { delete cbc_model; }
       return DisjExitReason::TOO_FEW_TERMS_EXIT;
     }
@@ -218,6 +222,7 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
       warning_msg(warnstr,
           "Giving up on getting cuts from the partial branch-and-bound tree (bad status). Model status is %d.\n",
           cbc_model->status());
+      if (BBSolver && !cbc_model->modelOwnsSolver()) { delete BBSolver; }
       if (cbc_model) { delete cbc_model; }
       return DisjExitReason::UNKNOWN;
     }
@@ -243,6 +248,7 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
   }
 #endif
 
+  if (BBSolver && !cbc_model->modelOwnsSolver()) { delete BBSolver; }
   if (cbc_model) { delete cbc_model; }
   return DisjExitReason::SUCCESS_EXIT;
 } /* prepareDisjunction */
@@ -349,7 +355,7 @@ void setCbcParametersForPartialBB(const VPCParametersNamespace::VPCParameters& p
       branch->setChooseMethod(choose);
     }
     cbc_model->setBranchingMethod(*branch);
-  } /* check that branch is not NULL */
+  } // check that branch is not NULL
 
   if (eventHandler) {
     cbc_model->passInEventHandler(eventHandler);
