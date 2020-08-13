@@ -279,7 +279,7 @@ void PartialBBDisjunction::initialize(const PartialBBDisjunction* const source,
 void setCbcParametersForPartialBB(const VPCParametersNamespace::VPCParameters& params,
     CbcModel* const cbc_model, CbcEventHandler* eventHandler,
     const int numStrong, const int numBeforeTrusted, const double max_time) {
-  setIPSolverParameters(cbc_model);
+  setIPSolverParameters(cbc_model, params.get(VERBOSITY));
 #ifdef CBC_VERSION_210PLUS
   cbc_model->setSecsPrintFrequency(-1); // to reach tree status correctly
 #endif
