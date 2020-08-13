@@ -387,7 +387,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
     return CbcEventHandler::CbcAction::stop;
   }
 
-  if (whichEvent == treeStatus) {
+  if (whichEvent == CbcEventHandler::treeStatus) {
     // Here we will update statistics for the first node and save the current leaf nodes as currentNodes_
     // Exceptionally, we also catch a case that we incorrectly labeled a node as pruned
 
@@ -511,10 +511,10 @@ VPCEventHandler::event(CbcEvent whichEvent) {
         } else {
           stats_.push_back(stats);
         }
-      } // if (model_->getNodeCount2() != stats_[stats_.size() - 1].id + 1) {
-    } // if (!model_->branchingMethod() || !model_->branchingMethod()->chooseMethod()) {
-  } /* (whichEvent == treeStatus) */
-  else if (whichEvent == node) {
+      } // if (model_->getNodeCount2() != stats_[stats_.size() - 1].id + 1)
+    } // if (!model_->branchingMethod() || !model_->branchingMethod()->chooseMethod())
+  } // (whichEvent == treeStatus)
+  else if (whichEvent == CbcEventHandler::node) {
     // Update statistics after a node has been branched on
     // Deal with child
     // 2020-07-15: child_ is set to newNode in CbcModel, which *may* be NULL, when anyAction == -2 after chooseBranch is called within CbcModel::doOneNode
@@ -562,7 +562,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
       if (currNodeStats.number >= numNodes_) {
         numNodes_ = currNodeStats.number + 1;
       }
-    } /* node is added to the tree */
+    } // node is added to the tree
     else {
       // Child will not be created, and parent is not available
       // Though not created, the node number does go up
@@ -769,7 +769,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
       if (prunedNodeStats.number >= numNodes_) {
         numNodes_ = prunedNodeStats.number + 1;
       }
-    } /* node is pruned */
+    } // node is pruned
 
     // Update parent if it has branches left
     if (parentInfo_->numberBranchesLeft() > 0) {
@@ -783,8 +783,8 @@ VPCEventHandler::event(CbcEvent whichEvent) {
           originalLB_, originalUB_, will_create_child);
       stats_.push_back(currNodeStats);
     }
-  }  /* (whichEvent == node) */
-  else if (whichEvent == beforeSolution2) {
+  } // (whichEvent == node)
+  else if (whichEvent == CbcEventHandler::beforeSolution2) {
     // This event is called from CbcModel::setBestSolution
     //
     // This event may cause newNode to be deleted, so we should remember not to access deleted memory
@@ -830,12 +830,12 @@ VPCEventHandler::event(CbcEvent whichEvent) {
     if (!model_->solverCharacteristics()->mipFeasible()
         || (model_->problemFeasibility()->feasible(model_, 0) < 0)) {
       pruneNode_ = PruneNodeOption::PRUNE_BY_INFEASIBILITY;
-    } /* mip infeasible */
+    } // mip infeasible
     else if (child_->objectiveValue() >= model_->getCutoff()) {
       // CbcModel.cpp:15283
       // if (newNode->objectiveValue() >= getCutoff()) { anyAction = -2; }
       pruneNode_ = PruneNodeOption::PRUNE_BY_BOUND;
-    } /* pruned by objective */
+    } // pruned by objective
     else if (objectiveValue < cutoff && child_->objectiveValue() >= newCutoff) {
       // Check whether the new solution gives a strictly better bound on the objective
       // and whether this new value implies that the new node will be cut off
@@ -844,7 +844,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
       pruneNode_ = PruneNodeOption::PRUNE_BY_INTEGRALITY;
       savedSolution_.assign(model_->bestSolution(), model_->bestSolution() + model_->getNumCols());
       this->obj_ = objectiveValue;
-    } /* mip feasible */
+    } // mip feasible
     else if (!child_->branchingObject() && model_->branchingMethod() && model_->branchingMethod()->chooseMethod() && model_->branchingMethod()->chooseMethod()->goodSolution()) {
       // 2020-07-15 #c630ed3: We want to catch when an integer solution is found through strong branching, causing pruning by integrality
       // and also a split is found in which both sides have dual bound worse than the integer-feasible solution (so we have solved the problem)
@@ -865,10 +865,10 @@ VPCEventHandler::event(CbcEvent whichEvent) {
         savedSolution_.assign(sol, sol + model_->getNumCols());
         this->obj_ = objval;
       }
-    } /* no branching object; feasible solution found */
-  } /* (whichEvent == beforeSolution2) */
+    } // no branching object; feasible solution found
+  } // (whichEvent == beforeSolution2)
 #ifdef CBC_VERSION_210PLUS
-  else if (whichEvent == generatedCuts) {
+  else if (whichEvent == CbcEventHandler::generatedCuts) {
     // Maybe we want to generate cuts without exiting branching
     const bool GEN_CUTS_WHILE_BRANCHING = false;
     if (GEN_CUTS_WHILE_BRANCHING) {
@@ -899,7 +899,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
     }
   } // (whichEvent == generatedCuts)
 #endif
-  else if (whichEvent == endSearch) {
+  else if (whichEvent == CbcEventHandler::endSearch) {
     // If we get here,
     // this means that a solution has been found prior to the maximum number of leaf nodes,
     // or perhaps a (time, node, solution) limit has been reached?
@@ -926,11 +926,11 @@ VPCEventHandler::event(CbcEvent whichEvent) {
       numLeafNodes_ = 0;
     }
     reachedEnd_ = true;
-  } /* (whichEvent == endSearch) */
+  } // (whichEvent == endSearch)
 
 //  printNodeStatistics(stats_);
   return CbcEventHandler::CbcAction::noAction;
-} /* VPCEventHandler::event  */
+} /* VPCEventHandler::event */
 
 SolverInterface* VPCEventHandler::setOriginalSolver(
     const OsiSolverInterface* const copySolver, const bool return_old) {
