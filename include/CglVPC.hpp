@@ -90,6 +90,7 @@ public:
     TIGHT_RAYS,
     TIGHT_POINTS2,
     TIGHT_RAYS2,
+    USER,
     OBJ_CUT,
     ONE_SIDED,
     NUM_OBJECTIVE_TYPES
@@ -221,6 +222,9 @@ public:
   inline const PRLPData& getPRLPData() const { return this->prlpData; }
   inline const PRLP* const getPRLP() const { return this->prlp; }
 
+  inline std::vector<std::vector<double> > getUserObjectives() const { return this->user_objectives; }
+  void setUserObjectives(const std::vector<std::vector<double> >& obj);
+
   /** generateCuts */
   virtual void generateCuts(const OsiSolverInterface&, OsiCuts&, const CglTreeInfo = CglTreeInfo());
 
@@ -270,6 +274,7 @@ public:
   } /* printFailures */
 
 protected:
+  std::vector<std::vector<double> > user_objectives;
   Disjunction* disjunction = NULL;
   PRLPData prlpData;
   struct ProblemData {

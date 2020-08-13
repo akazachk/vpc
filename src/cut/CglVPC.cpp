@@ -88,6 +88,7 @@ const std::vector<std::string> CglVPC::ObjectiveTypeName {
   "TIGHT_RAYS",
   "TIGHT_POINTS2",
   "TIGHT_RAYS2",
+  "USER",
   "OBJ_CUT",
   "ONE_SIDED"
 }; /* ObjectiveTypeName */
@@ -192,6 +193,16 @@ void CglVPC::setDisjunction(Disjunction* const sourceDisj, int ownIt) {
   else
     this->disjunction = sourceDisj;
 } /* setDisjunction */
+
+/**
+ * @brief User can provide objectives for PRLP to try
+ */
+void CglVPC::setUserObjectives(const std::vector<std::vector<double> >& obj) {
+  this->user_objectives.reserve(obj.size());
+  for (const auto& v : obj) {
+    this->user_objectives.push_back(v);
+  }
+} /* setUserObjectives */
 
 /**
  * @brief Generate VPCs from a disjunction (e.g., arising from a partial branch-and-bound tree)
@@ -413,6 +424,7 @@ void CglVPC::setupAsNew() {
     this->cutType.resize(0);
     this->objType.resize(0);
   }
+  this->user_objectives.resize(0);
 } /* setupAsNew */
 
 void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const param) {
@@ -441,6 +453,7 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     this->num_failures = source->num_failures;
     this->probData = source->probData;
     this->prlpData = source->prlpData;
+    this->user_objectives = source->user_objectives;
   }
   else {
     this->mode = VPCMode::PARTIAL_BB;
@@ -1159,14 +1172,37 @@ CglVPC::ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
   const int init_num_cuts = this->num_cuts;
   const int init_num_failures = this->num_failures;
 
+  // Check conditions for using PRLP: 
+  // - the lp optimum is cut away
+  // - the disjunctive lower and upper bounds do not coincide
   if (!LP_OPT_IS_NOT_CUT || !DLB_EQUALS_DUB) {
     prlp = new PRLP(this);
     setLPSolverParameters(prlp, params.get(intParam::VERBOSITY), params.get(doubleParam::PRLP_TIMELIMIT));
-    const CglVPC::ExitReason prlp_status = prlp->setup(scale);
+    status = prlp->setup(scale);
   //  printf("# rows: %d\t # cols: %d\n", prlp->getNumRows(), prlp->getNumCols());
   //  printf("# points: %d\t # rays: %d\n", prlp->numPoints, prlp->numRays);
 
-    if (prlp_status == CglVPC::ExitReason::SUCCESS_EXIT) {
+    // Try user objectives
+    if (status == CglVPC::ExitReason::SUCCESS_EXIT) {
+      for (const auto& v : this->user_objectives) {
+        prlp->solve(cuts, v, origSolver, beta, structSICs);
+        if (reachedTimeLimit(VPCTimeStats::TOTAL_TIME, params.get(TIMELIMIT))) {
+          status = CglVPC::ExitReason::TIME_LIMIT_EXIT;
+          break;
+        } else if (reachedCutLimit()) {
+          status = CglVPC::ExitReason::CUT_LIMIT_EXIT;
+          break;
+        } else if (reachedFailureLimit(num_cuts - init_num_cuts, num_failures - init_num_failures)) {
+          status = CglVPC::ExitReason::FAIL_LIMIT_EXIT;
+          break;
+        } else {
+          status = CglVPC::ExitReason::SUCCESS_EXIT;
+        }
+      }
+    } // try user objectives
+
+    // Try cut generation targeting points and rays
+    if (status == CglVPC::ExitReason::SUCCESS_EXIT) {
       prlp->targetStrongAndDifferentCuts(beta, cuts, origSolver, structSICs,
           VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
       if (reachedTimeLimit(VPCTimeStats::TOTAL_TIME, params.get(TIMELIMIT))) {
@@ -1178,10 +1214,8 @@ CglVPC::ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
       } else {
         status = CglVPC::ExitReason::SUCCESS_EXIT;
       }
-    } else {
-      status = prlp_status;
     }
-  }
+  } // check conditions for using PRLP
 
   if (flipBeta) {
     error_msg(errorstring,

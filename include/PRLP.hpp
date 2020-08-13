@@ -55,6 +55,14 @@ public:
       const OsiSolverInterface* const origSolver,
       const OsiCuts* const structSICs, const std::string& timeName);
 
+  /**
+   * @brief Solve with a structural-space objective
+   * @return \# cuts generated
+   */
+  int solve(OsiCuts& cuts, const std::vector<double>& obj,
+      const OsiSolverInterface* const origSolver, const double beta,
+      const OsiCuts* const structSICs);
+
 protected:
   struct rowAndActivity {
     int row;

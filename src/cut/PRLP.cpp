@@ -416,6 +416,24 @@ CglVPC::ExitReason PRLP::setup(const double scale) {
   return retval;
 } /* setup */
 
+int PRLP::solve(OsiCuts& cuts,
+    const std::vector<double>& obj,
+    const OsiSolverInterface* const origSolver,
+    const double beta,
+    const OsiCuts* const structSICs) {
+  const std::string timeName = owner->VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::TOTAL_TIME)];
+  if (owner->reachedCutLimit()
+      || owner->reachedTimeLimit(timeName, owner->params.get(TIMELIMIT))
+      || owner->reachedFailureLimit(num_cuts, this->num_failures)) {
+    return 0;
+  }
+  const bool inNBSpace = owner->params.get(intConst::NB_SPACE);
+  setObjectiveFromStructuralPoint(obj.data(), NULL, origSolver, inNBSpace);
+  const CglVPC::ObjectiveType cutHeur = CglVPC::ObjectiveType::USER;
+  const int num_cuts_gen = genCut(cuts, origSolver, beta, structSICs, inNBSpace, cutHeur);
+  return num_cuts_gen;
+} /* solve */
+
 /****************** PROTECTED **********************/
 
 void PRLP::initialize(const PRLP* const source) {
