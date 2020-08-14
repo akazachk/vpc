@@ -82,7 +82,33 @@ void VPCSolverInterface::setParams(const VPCParametersNamespace::VPCParameters* 
   if (params)
     delete params;
   this->params = new VPCParametersNamespace::VPCParameters(*param);
-}
+} /* setParams */
+
+/** Flip objective */
+void VPCSolverInterface::flipObj(const int sense) {
+  // Make sure we are doing a minimization problem; this is just to make later
+  // comparisons simpler (i.e., a higher LP obj after adding the cut is better).
+  if (!isVal(solver->getObjSense(), sense)) {
+    if (sense == 1) {
+      printf(
+          "\n## Detected maximization problem. Negating objective function to make it minimization. ##\n");
+    } else {
+      printf(
+          "\n## Detected minimization problem. Negating objective function to make it maximization. ##\n");
+    }
+
+    solver->setObjSense((double) sense);
+    const double *obj = solver->getObjCoefficients();
+    for (int col = 0; col < solver->getNumCols(); col++) {
+      solver->setObjCoeff(col, -1. * obj[col]);
+    }
+    double objOffset = 0.;
+    solver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
+    if (objOffset != 0.) {
+      solver->setDblParam(OsiDblParam::OsiObjOffset, -1. * objOffset);
+    }
+  }
+} /* setObjSense */
 
 void VPCSolverInterface::setDisjunction(const Disjunction *const disj) {
   if (disj)
@@ -128,20 +154,7 @@ void VPCSolverInterface::load(std::string filename) {
 
   // Make sure we are doing a minimization problem; this is just to make later
   // comparisons simpler (i.e., a higher LP obj after adding the cut is better).
-  if (solver->getObjSense() < 1e-3) {
-    printf(
-        "\n## Detected maximization problem. Negating objective function to make it minimization. ##\n");
-    solver->setObjSense(1.0);
-    const double *obj = solver->getObjCoefficients();
-    for (int col = 0; col < solver->getNumCols(); col++) {
-      solver->setObjCoeff(col, -1. * obj[col]);
-    }
-    double objOffset = 0.;
-    solver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
-    if (objOffset != 0.) {
-      solver->setDblParam(OsiDblParam::OsiObjOffset, -1. * objOffset);
-    }
-  }
+  this->flipObj();
 } /* load (filename) */
 
 #ifdef USE_COIN
@@ -149,6 +162,10 @@ void VPCSolverInterface::load(const OsiSolverInterface* const si) {
   if (solver)
     delete solver;
   solver = si->clone();
+
+  // Make sure we are doing a minimization problem; this is just to make later
+  // comparisons simpler (i.e., a higher LP obj after adding the cut is better).
+  this->flipObj();
 } /* load (OsiSolverInterface) */
 #endif // USE_COIN
 
@@ -162,6 +179,7 @@ void VPCSolverInterface::load(OsiProblemData *data) {
   solver->loadProblem(data->numcols, data->numrows, data->start, data->index,
       data->value, data->collb, data->colub, data->obj, data->rowlb,
       data->rowub);
+  solver->setObjSense(data->objsense);
   for (int i = 0; i < data->numcols; i++) {
     // setColumnType is not implemented in earlier versions of OsiSolverInterface, so we revert to older methods
 //      solver->setColumnType(i, data->vartype[i]);
@@ -176,6 +194,10 @@ void VPCSolverInterface::load(OsiProblemData *data) {
       solver->setInteger(i);
     }
   }
+
+  // Make sure we are doing a minimization problem; this is just to make later
+  // comparisons simpler (i.e., a higher LP obj after adding the cut is better).
+  this->flipObj();
 } /* load (OsiProblemData) */
 
 void VPCSolverInterface::solve() {

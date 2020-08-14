@@ -65,6 +65,9 @@ public:
   /** Set params based on VPCParameters */
   void setParams(const VPCParametersNamespace::VPCParameters* const param);
 
+  /** Flip objective */
+  void flipObj(const int sense = 1);
+
   /** Set disjunction */
   virtual void setDisjunction(const Disjunction* const disj);
 

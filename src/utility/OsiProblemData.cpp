@@ -21,9 +21,13 @@ int ConvertCPX2Data(CPXENVptr env, CPXLPptr lp, OsiProblemData* pdata)
    int cmatspace = 0;
    int surplus = 0;
    int ncols, nrows;
+   int objsense;
+   double objoffset = 0.;
 
    ncols = CPXgetnumcols( env, lp );
    nrows = CPXgetnumrows( env, lp );
+   objsense = CPXgetobjsen( env, lp );
+   CPXgetobjoffset( env, lp, &objoffset );
 
    cmatbeg = (int*) malloc( sizeof(int) * ncols );
    obj = (double*) malloc( sizeof(double) * ncols );
@@ -59,7 +63,7 @@ int ConvertCPX2Data(CPXENVptr env, CPXLPptr lp, OsiProblemData* pdata)
        }
        else 
        {
-         MemSetProbData( pdata, ncols, nrows, nzcnt );
+         MemSetProbData( pdata, ncols, nrows, nzcnt, objsense, objoffset );
 
          // Now put all cols in the corresponding data structures
          int currOSIidx = 0;
@@ -148,10 +152,12 @@ int ConvertCPX2Data(CPXENVptr env, CPXLPptr lp, OsiProblemData* pdata)
 } /* ConvertCPX2Data */
 #endif /* USE_CPLEX */
 
-void MemSetProbData( OsiProblemData* pdata, int ncols, int nrows, int nz )
+void MemSetProbData( OsiProblemData* pdata, int ncols, int nrows, int nz, int objsense, double objoffset )
 {
   pdata->numcols = ncols;
   pdata->numrows = nrows;
+  pdata->objsense = objsense;
+  pdata->objoffset = objoffset;
   pdata->start = (int*) malloc( sizeof(int) * (ncols+1) );
   pdata->index = (int*) malloc( sizeof(int) * nz );
   pdata->value = (double*) malloc( sizeof(double) * nz );
