@@ -34,5 +34,5 @@ struct OsiProblemData
 #include <ilcplex/cplex.h>
 int ConvertCPX2Data(CPXENVptr env, CPXLPptr lp, OsiProblemData* pdata);
 #endif
-void MemSetProbData( OsiProblemData* pdata, int ncols, int nrows, int nz, int objsense, double objoffset );
+void MemSetProbData( OsiProblemData* pdata, int ncols, int nrows, int nz );
 void FreeProbData( OsiProblemData* pdata );
