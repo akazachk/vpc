@@ -18,6 +18,9 @@ class OsiCuts;
 #include <CbcEventHandler.hpp>
 #include <CbcNode.hpp>
 
+class VPCEventHandler;
+enum class PruneNodeOption;
+
 /**
  * Useful data structure for COIN-OR tracking
  */
@@ -40,6 +43,7 @@ struct NodeStatistics {
   std::vector<int> changed_var; ///< vector of variable indices changed to get to this node
   std::vector<int> changed_bound; ///< vector with which bound (0: lower, 1: upper) changed for the changed variables
   std::vector<double> changed_value; ///< vector of new lower/upper bound for each variable that has been changed
+  std::string status; ///< status of the node (normal or pruned by integrality / bound / infeasibility)
 }; /* Node Statistics */
 
 /** Define the statistics for a particular node */
@@ -54,7 +58,8 @@ void setPrunedNodeStatistics(NodeStatistics& stats,
     /*const std::vector<NodeStatistics>& stats_vec,*/const bool prune_by_integrality,
     const std::vector<double>& originalLB,
     const std::vector<double>& originalUB, const double obj,
-    const bool solution_is_found);
+    const bool solution_is_found,
+    const PruneNodeOption& pruneReason);
 void printNodeStatistics(const std::vector<NodeStatistics>& stats);
 void printNodeStatistics(const std::vector<NodeStatistics>& stats,
     const bool print_bounds, FILE* myfile = stdout);
@@ -75,6 +80,10 @@ void changedBounds(NodeStatistics& stats,
 class VPCEventHandler: public CbcEventHandler {
 public:
   PartialBBDisjunction* owner;
+  /// @brief Reason a node is pruned
+  enum class PruneNodeOption {
+    NO = 0, PRUNE_BY_INFEASIBILITY, PRUNE_BY_BOUND, PRUNE_BY_INTEGRALITY
+  }; /* PruneNodeOption */
 
   /**@name Overrides */
   //@{
@@ -181,9 +190,6 @@ protected:
   CbcNode* parent_;
   CbcNodeInfo* parentInfo_;
   CbcNode* child_;
-  enum class PruneNodeOption {
-    NO = 0, PRUNE_BY_INFEASIBILITY, PRUNE_BY_BOUND, PRUNE_BY_INTEGRALITY
-  };
   PruneNodeOption pruneNode_ = PruneNodeOption::NO;
   bool reachedEnd_ = false;
   bool foundSolution_ = false;

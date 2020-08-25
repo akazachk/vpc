@@ -145,6 +145,8 @@ int OsiChooseStrongCustom::doStrongBranching(OsiSolverInterface * solver,
     numResults_++;
     if (status0 == 1 && status1 == 1) {
       // infeasible or both sides have objective value above cutoff
+      this->bestObjectIndex_ = result->whichObject(); // 2020-08-22 amk: added to track how strong branching prunes
+      this->bestWhichWay_ = -1; // 2020-08-22 amk: added to track how strong branching prunes; set way to "off"
       returnCode = -1;
       break; // exit loop
     } else if (status0 == 1 || status1 == 1) {
@@ -153,6 +155,8 @@ int OsiChooseStrongCustom::doStrongBranching(OsiSolverInterface * solver,
         returnCode = 1;
       } else {
         returnCode = 2;
+        this->bestObjectIndex_ = result->whichObject(); // 2020-08-22 amk: added to track how strong branching prunes
+        this->bestWhichWay_ = (status0 == 1) ? 0 : 1; // 2020-08-22 amk: added to track how strong branching prunes; set way to "off"
         break;
       }
     }
@@ -692,6 +696,7 @@ int OsiChooseStrongCustom::chooseVariable(OsiSolverInterface * solver,
             / upNumber[iObject];
         double downEstimate = (downTotalChange[iObject] * obj->downEstimate())
             / downNumber[iObject];
+        // AMK changed here 2018-08-14
         processObject(method_, solver, iObject, downEstimate, upEstimate,
             bestTrusted, bestTrustedSecondCriterion, secondBestTrusted,
             secondBestTrustedSecondCriterion, 0);

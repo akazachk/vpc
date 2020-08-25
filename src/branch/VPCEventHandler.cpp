@@ -45,6 +45,11 @@ void setNodeStatistics(NodeStatistics& stats, const CbcNode* const node,
 
   // Cbc is not consistent with way; "down" could be a 0 or a -1
   const OsiBranchingObject* branch = node->branchingObject();
+  if (!branch) {
+    error_msg(errorstring, "Expected branch to not be NULL in setNodeStatistics.\n");
+    //writeErrorToLog(errorstring, owner->params.logfile);
+    exit(1);
+  }
   stats.branch_index = branch->branchIndex();
   const OsiTwoWayBranchingObject* osi_branch = dynamic_cast<const OsiTwoWayBranchingObject*>(branch);
   const CbcBranchingObject* cbc_branch = dynamic_cast<const CbcBranchingObject*>(branch);
@@ -125,18 +130,23 @@ void setNodeStatistics(NodeStatistics& stats, const CbcNode* const node,
   if (!stats_vec.empty()) {
     assert(stats.id == stats_vec[stats_vec.size()-1].id + 1);
   }
+
+  stats.status = "normal";
 } /* setNodeStatistics */
 
 /**
  * Set statistics when a child will not be counted (but the node number does go up)
- * Since this node is pruned, we only set id, parent_id, number
- * For the integer-feasible nodes, we record a bit more
+ * Since this node is pruned, we only set id, orig_id, parent_id, number, depth, obj
+ * For the integer-feasible nodes, we record the integer_obj
+ * We store the changed bounds but this may be inaccurate
  */
 void setPrunedNodeStatistics(NodeStatistics& stats,
     const CbcNode* const parent_node, const CbcModel* const model,
     //const std::vector<NodeStatistics>& stats_vec,
     const bool prune_by_integrality, const std::vector<double>& originalLB,
-    const std::vector<double>& originalUB, const double obj, const bool solution_is_found) {
+    const std::vector<double>& originalUB, const double obj,
+    const bool solution_is_found,
+    const VPCEventHandler::PruneNodeOption& pruneReason) {
   CbcNodeInfo* parentNodeInfo = parent_node->nodeInfo();
   if (!parentNodeInfo) { // say infeasible
     return;
@@ -147,6 +157,7 @@ void setPrunedNodeStatistics(NodeStatistics& stats,
   stats.number = model->getNodeCount();
   stats.parent_id = parentNodeInfo->nodeNumber();
   stats.depth = parent_node->depth() + 1;
+  stats.branch_index = 0;
   if (prune_by_integrality) {
     stats.integer_obj = obj; // when a sol is found during sb, model has not yet been updated to reflect the value
   } else if (model->getObjValue() < 1e30) {
@@ -157,6 +168,17 @@ void setPrunedNodeStatistics(NodeStatistics& stats,
   stats.obj = obj;
   if (prune_by_integrality) {
     changedBounds(stats, model->solver(), originalLB, originalUB);
+  }
+
+  stats.status = "unknown";
+  if (pruneReason == VPCEventHandler::PruneNodeOption::PRUNE_BY_INFEASIBILITY) {
+    stats.status = "infeas";
+  }
+  else if (pruneReason == VPCEventHandler::PruneNodeOption::PRUNE_BY_BOUND) {
+    stats.status = "bound";
+  }
+  else if (pruneReason == VPCEventHandler::PruneNodeOption::PRUNE_BY_INTEGRALITY) {
+    stats.status = "integ";
   }
 } /* setPrunedNodeStatistics */
 
@@ -182,7 +204,7 @@ void printNodeStatistics(const std::vector<NodeStatistics>& stats,
   const std::string ub = stringValue(stats[0].ub, "%.0f");
   const int UB_WIDTH = ub.length() + 2;
 
-  fprintf(myfile, "%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s",
+  fprintf(myfile, "%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s",
           WIDTH, WIDTH, "id",
           WIDTH, WIDTH, "parent",
           WIDTH, WIDTH, "depth",
@@ -196,7 +218,8 @@ void printNodeStatistics(const std::vector<NodeStatistics>& stats,
           WIDTH, WIDTH, "orig_id",
           WIDTH, WIDTH, "number",
           INT_OBJ_WIDTH, INT_OBJ_WIDTH, "int_obj",
-          WIDTH, WIDTH, "int_found");
+          WIDTH, WIDTH, "int_found",
+          WIDTH, WIDTH, "status");
   if (print_bounds) {
     fprintf(myfile, "%-*.*s", WIDTH, WIDTH, "bounds");
   }
@@ -223,7 +246,7 @@ void printNodeStatistics(const NodeStatistics& stats, const bool print_bounds,
   const std::string ub = stringValue(stats.ub, "%.0f");
   const int UB_WIDTH = ub.length() + 2;
 
-  fprintf(myfile, "% -*d% -*d% -*d% -*d% -*d%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s% -*d% -*d%-*.*s% -*d",
+  fprintf(myfile, "% -*d% -*d% -*d% -*d% -*d%-*.*s%-*.*s%-*.*s%-*.*s%-*.*s% -*d% -*d%-*.*s% -*d%-*.*s",
           WIDTH, stats.id,
           WIDTH, stats.parent_id,
           WIDTH, stats.depth,
@@ -237,7 +260,8 @@ void printNodeStatistics(const NodeStatistics& stats, const bool print_bounds,
           WIDTH, stats.orig_id,
           WIDTH, stats.number,
           INT_OBJ_WIDTH, INT_OBJ_WIDTH, int_obj.c_str(),
-          WIDTH, (int) stats.found_integer_solution);
+          WIDTH, (int) stats.found_integer_solution,
+          WIDTH, WIDTH, stats.status.c_str());
   if (print_bounds) {
     fprintf(myfile, "%-*s", WIDTH, stats.changed_bounds.c_str());
   }
@@ -524,6 +548,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
     // Might be good to check dual infeasibility too, but these subproblems
     // should not be unbounded...
     // 2017-07-23: NB: solver_feasible = false may be if child is integer-feasible
+    // 2020-08-25: and maybe when child is pruned by bound?
     const bool solver_feasible = !(model_->solver()->isProvenPrimalInfeasible());
 #ifdef TRACE
     if (model_->solver()->isProvenDualInfeasible()) {
@@ -586,7 +611,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
 #endif
           break;
         }
-      } /* find the parent */
+      } // find the parent
 
 #ifdef TRACE
       if (!parentInfo_) {
@@ -633,7 +658,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
             }
           }
         }
-      } /* check if a solution found after all, when solver is "infeasible" */
+      } // check if a solution found after all, when solver is "infeasible"
 
       // Ensure the solution is really integer-feasible and not cut off
       double objectiveValue = model_->solver()->getObjValue(); // sometimes this does not have the right value stored
@@ -674,7 +699,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
               sol[col_ind] -= violation;
             }
           }
-        } /* check col bounds */
+        } // check col bounds
 
         // Check row bounds are satisfied
         // And save slack solution
@@ -723,7 +748,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
               break;
             }
           }
-        } /* check row bounds */
+        } // check row bounds
 
         if (error >= 0) {
           error_msg(errorstring, "An integer-feasible solution was supposedly found, but it is infeasible somehow. Variable: %d. Violation: %f.\n", error, violation);
@@ -762,9 +787,19 @@ VPCEventHandler::event(CbcEvent whichEvent) {
         writeErrorToLog(errorstring, owner->params.logfile);
         exit(1);
       }
+
+      // If no solution was found, then we are pruning by bound or by infeasibility
+      // The issue is that isProvenPrimalInfeasible is not reliable
+      // TODO decide by bound or infeasibility
+
       setPrunedNodeStatistics(prunedNodeStats, parent_node, model_,
           solution_found || pruneNode_ == PruneNodeOption::PRUNE_BY_INTEGRALITY,
-          originalLB_, originalUB_, objectiveValue, foundSolution_);
+          originalLB_, originalUB_, objectiveValue, foundSolution_, pruneNode_);
+      if (pruneNode_ != PruneNodeOption::NO && model_->branchingMethod() && model_->branchingMethod()->chooseMethod()) {
+        // I think this means something happened during strong branching, usually an integer-feasible solution found
+        prunedNodeStats.variable = model_->branchingMethod()->chooseMethod()->bestObjectIndex();
+        prunedNodeStats.way = model_->branchingMethod()->chooseMethod()->bestWhichWay();
+      }
       pruned_stats_.push_back(prunedNodeStats);
       if (prunedNodeStats.number >= numNodes_) {
         numNodes_ = prunedNodeStats.number + 1;
@@ -846,14 +881,17 @@ VPCEventHandler::event(CbcEvent whichEvent) {
       this->obj_ = objectiveValue;
     } // mip feasible
     else if (!child_->branchingObject() && model_->branchingMethod() && model_->branchingMethod()->chooseMethod() && model_->branchingMethod()->chooseMethod()->goodSolution()) {
-      // 2020-07-15 #c630ed3: We want to catch when an integer solution is found through strong branching, causing pruning by integrality
-      // and also a split is found in which both sides have dual bound worse than the integer-feasible solution (so we have solved the problem)
+      // 2020-07-15 #c630ed3:
+      // Catch when an integer solution is found through strong branching (goodSolution() exists),
+      // causing pruning by integrality (CbcNode::branch_ is not created inside of chooseOsiBranch())
+      // but also a split is found in which both sides have dual bound worse than the integer-feasible solution
+      // (so we have solved the problem)
       // This occurs in rlp2_presolved -4 for example, with a tree that is
       //       node 0
       //       obj val 14
       //       var 13
       //       /    |
-      // node 1    node 2 (will be branched on)
+      // node 2    node 1 (will be branched on)
       // obj 19    obj 17
       //           var 9
       //          /    |
@@ -865,6 +903,29 @@ VPCEventHandler::event(CbcEvent whichEvent) {
         savedSolution_.assign(sol, sol + model_->getNumCols());
         this->obj_ = objval;
       }
+      /*{
+        // 2020-08-23 amk:
+        //  If no more nodes will be explored, then we will never encounter another treeStatus event
+        //  Keep this node in pruned_stats_
+        //  but be sure that this is not going to be added twice
+        //  TODO: not sure how to capture the fixed variables here
+        NodeStatistics prunedNodeStats;
+        const CbcNode* parent_node = NULL;
+#ifdef CBC_VERSION_210PLUS
+        parent_node = model_->parentNode();
+#endif
+        if (!parent_node) {
+          error_msg(errorstring, "Owner CbcNode of child_ not found!\n");
+          writeErrorToLog(errorstring, owner->params.logfile);
+          exit(1);
+        }
+        setPrunedNodeStatistics(prunedNodeStats, parent_node, model_,
+            true, originalLB_, originalUB_, objectiveValue, foundSolution_);
+        prunedNodeStats.variable = model_->branchingMethod()->chooseMethod()->bestObjectIndex();
+        prunedNodeStats.way = model_->branchingMethod()->chooseMethod()->bestWhichWay();
+        prunedNodeStats.branch_index = 0;
+        pruned_stats_.push_back(prunedNodeStats);
+      }*/
     } // no branching object; feasible solution found
   } // (whichEvent == beforeSolution2)
 #ifdef CBC_VERSION_210PLUS
@@ -1318,8 +1379,9 @@ int VPCEventHandler::saveInformation() {
   if (status == 0 && !hitTimeLimit && !hitHardNodeLimit && this->owner->num_terms <= 0.5 * maxNumLeafNodes_) {
     status = 1;
 #ifdef TRACE
-      printf("\n## Save information exiting with status %d because number of feasible terms is calulated to be %d "
-          "(whereas requested was %d). ##\n",
+      warning_msg(warnstring,
+          "Save information exiting with status %d because number of feasible terms is calulated to be %d "
+          "(whereas requested was %d).#\n",
           status, this->owner->num_terms, maxNumLeafNodes_);
   #endif
   }
