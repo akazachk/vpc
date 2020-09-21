@@ -49,22 +49,18 @@ std::vector<DenseCut> convertCutsToDenseCuts(const OsiCuts* const cuts, const in
 } /* convertCutsToDenseCuts */
 #endif // USE_COIN
 
-/** Default constructor */
 VPCSolverInterface::VPCSolverInterface() {
   initialize();
 } /* default constructor */
 
-/** Copy constructor */
 VPCSolverInterface::VPCSolverInterface(const VPCSolverInterface &source) {
   initialize(&source);
 } /* copy constructor */
 
-/** Destructor */
 VPCSolverInterface::~VPCSolverInterface() {
 	free();
 } /* destructor */
 
-/** Assignment operator */
 VPCSolverInterface &VPCSolverInterface::operator=(const VPCSolverInterface &source) {
   if (this != &source) {
     initialize(&source);
@@ -72,19 +68,16 @@ VPCSolverInterface &VPCSolverInterface::operator=(const VPCSolverInterface &sour
 	return *this;
 } /* assignment operator */
 
-/** Clone */
 VPCSolverInterface* VPCSolverInterface::clone() const {
 	return new VPCSolverInterface(*this);
 } /* clone */
 
-/** Set params based on VPCParameters */
 void VPCSolverInterface::setParams(const VPCParametersNamespace::VPCParameters* const param) {
   if (params)
     delete params;
   this->params = new VPCParametersNamespace::VPCParameters(*param);
 } /* setParams */
 
-/** Flip objective */
 void VPCSolverInterface::flipObj(const int sense) {
   // Make sure we are doing a minimization problem; this is just to make later
   // comparisons simpler (i.e., a higher LP obj after adding the cut is better).
@@ -170,7 +163,7 @@ void VPCSolverInterface::load(const OsiSolverInterface* const si) {
 #endif // USE_COIN
 
 /**
- * If we wish to replace Osi solver with something else,
+ * @details If we wish to replace Osi solver with something else,
  * we need to implement loadProblem, setInteger, setColLower, setColUpper, setInteger
  */
 void VPCSolverInterface::load(OsiProblemData *data) {
@@ -216,7 +209,6 @@ void VPCSolverInterface::resolve() {
 #endif
 } /* resolve */
 
-/** generateCuts */
 void VPCSolverInterface::generateCuts() {
   if (!solver->isProvenOptimal()) {
     error_msg(errorstring, "VPCSolverInterface::generateCuts: Solver not proven optimal.\n");
@@ -230,7 +222,6 @@ void VPCSolverInterface::generateCuts() {
   }
 } /* generateCuts */
 
-/** applyCuts */
 int VPCSolverInterface::applyCuts(
   bool* cutsToAdd,
   bool clear_cuts

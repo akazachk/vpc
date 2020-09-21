@@ -36,11 +36,22 @@ const int countVersionInfoEntries = 4;
 const int countExtraInfoEntries = 4;
 
 /**
- * Perform preprocessing and get statistics
+ * @details Do preprocessing (by CPLEX or Gurobi, as chosen), 
+ * as well as possibly using cleanProblem() if \p CLEANING_MODE > 1,
+ * and print information at end
  */
-void performCleaning(const VPCParametersNamespace::VPCParameters& params,
-    const OsiSolverInterface* const solver, const std::string& filename_stub,
-    const double ip_obj, const int CLEANING_MODE, const char SEP) {
+void performCleaning(
+    const VPCParametersNamespace::VPCParameters& params,
+    const OsiSolverInterface* const solver, 
+    /// cleaned instance will be saved to filename_stub + "_presolved"/"_cleaned"
+    /// (depending on if \p CLEANING_MODE = 1 or 2)
+    const std::string& filename_stub,
+    /// IP optimal value
+    const double ip_obj,
+    /// 0: no cleaning, 1: clean using preprocessing of CPLEX/Gurobi, 2: also clean with cleanProblem()
+    const int CLEANING_MODE,
+    /// when printing to log, what is the separation character to use (default is comma-separated)
+    const char SEP) {
   FILE* logfile = params.logfile;
   if (logfile == NULL) {
     error_msg(errorstring,
@@ -66,7 +77,7 @@ void performCleaning(const VPCParametersNamespace::VPCParameters& params,
       params.get(stringParam::FILENAME),
       solver, ip_obj, NULL, NULL);
 
-  /********** Now we do the cleaning **********/
+  //********* Now we do the cleaning **********
   SolverInterface* cleanedSolver = new SolverInterface;
   setLPSolverParameters(cleanedSolver, params.get(VERBOSITY), params.get(TIMELIMIT));
   std::string presolved_name_stub =
@@ -198,12 +209,12 @@ void performCleaning(const VPCParametersNamespace::VPCParameters& params,
     runBBTests(cleaned_params, &cleaned_info, NULL, NULL,
         cleaned_name_stub + ".mps",
         cleanedSolver, ip_obj, NULL, NULL);
-  } /* check if any cleaning was performed */
+  } // check if any cleaning was performed
   else if (cleanedNumNonZero == 0) {
     warning_msg(warnstring, "Presolve left an empty problem.\n");
     presolvedLPOpt = ip_obj;
 //    initializeBBInfo(cleanedBBInfo, ip_obj);
-  } /* check if cleaning yielded an empty problem */
+  } // check if cleaning yielded an empty problem
   else {
     printf("Presolve did not change instance.\n");
     cleaned_info = orig_info;
@@ -227,7 +238,7 @@ void performCleaning(const VPCParametersNamespace::VPCParameters& params,
 //        std::copy_file(optfile.c_str(), optfile_cleaned.c_str()); // needs C++17
       }
     }
-  } /* strong branching did nothing so do not repeat the experiments */
+  } // strong branching did nothing so do not repeat the experiments
 
   // Now save everything to the logfile; instance name is already saved
   fprintf(logfile, "%d%c", strategy, SEP);
@@ -248,11 +259,18 @@ void performCleaning(const VPCParametersNamespace::VPCParameters& params,
 } /* performCleaning */
 
 /**
- * Makes sure no variable bounds can be tightened,
- * including via strong branching
+ * @details Do strong branching to check if any variable bounds can be fixed
+ *
+ * @return true if no cleaning was done
  */
-bool cleanProblem(const VPCParametersNamespace::VPCParameters& params, OsiSolverInterface* solver,
-    int& numBoundsChanged, int& numSBFixed) {
+bool cleanProblem(
+    const VPCParametersNamespace::VPCParameters& params, 
+    /// [in,out] instance to be "cleaned"; outputted solver may have some bounds that are changed
+    OsiSolverInterface* solver,
+    /// [out] number of variable bounds that are changed (including those that are fixed)
+    int& numBoundsChanged, 
+    /// [out] number of variable bounds that are fixed after strong branching
+    int& numSBFixed) {
   bool is_clean = true;
 
   const int numCols = solver->getNumCols();
@@ -335,7 +353,7 @@ bool cleanProblem(const VPCParametersNamespace::VPCParameters& params, OsiSolver
             boundSolver->setColUpper(col, std::floor(origColSolution[col]));
           }
         }
-      } /* end strong branching */
+      } // end strong branching
 
       // Check integrality of LB
       if (!isVal(solver->getColLower()[col],
@@ -352,7 +370,7 @@ bool cleanProblem(const VPCParametersNamespace::VPCParameters& params, OsiSolver
         is_clean = false;
         boundSolver->setColUpper(col, std::floor(solver->getColUpper()[col]));
       }
-    } /* check if integer */
+    } // check if integer
 
     // Check if LB can be tightened
     boundSolver->setObjCoeff(col, 1.);
@@ -380,7 +398,7 @@ bool cleanProblem(const VPCParametersNamespace::VPCParameters& params, OsiSolver
 
     // Reset
     boundSolver->setObjCoeff(col, 0.);
-  } /* end iterating over columns */
+  } // end iterating over columns
   solver->unmarkHotStart();
   solver->disableFactorization();
 
@@ -388,7 +406,7 @@ bool cleanProblem(const VPCParametersNamespace::VPCParameters& params, OsiSolver
   for (int col = 0; col < solver->getNumCols(); col++) {
     solver->setColLower(col, boundSolver->getColLower()[col]);
     solver->setColUpper(col, boundSolver->getColUpper()[col]);
-  } /* end iterating over columns to update solver */
+  } // end iterating over columns to update solver
 
   if (boundSolver) {
     delete boundSolver;
@@ -517,4 +535,4 @@ void printPreprocessingHeader(const VPCParametersNamespace::VPCParameters& param
   } // WRAP UP INFO
   fprintf(logfile, "\n");
   fflush(logfile);
-} /** printPreprocessingHeader */
+} /* printPreprocessingHeader */

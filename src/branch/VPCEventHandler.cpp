@@ -27,8 +27,8 @@
 using namespace VPCParametersNamespace;
 
 /**
- * Set statistics when a child will be counted
- * The ids and node numbers matching correctly with Cbc's statistics strongly depends on where we call this from
+ * @details Set statistics when a child will be counted.
+ * The ids and node numbers matching correctly with Cbc's statistics strongly depends on where we call this from.
  */
 void setNodeStatistics(NodeStatistics& stats, const CbcNode* const node,
     const CbcModel* const model, const std::vector<NodeStatistics>& stats_vec,
@@ -135,10 +135,11 @@ void setNodeStatistics(NodeStatistics& stats, const CbcNode* const node,
 } /* setNodeStatistics */
 
 /**
- * Set statistics when a child will not be counted (but the node number does go up)
- * Since this node is pruned, we only set id, orig_id, parent_id, number, depth, obj
- * For the integer-feasible nodes, we record the integer_obj
- * We store the changed bounds but this may be inaccurate
+ * @details Set statistics when a child will not be counted (but the node number does go up).
+ * 
+ * Since this node is pruned, we only set id, orig_id, parent_id, number, depth, obj.
+ * For the integer-feasible nodes, we record the integer_obj.
+ * We store the changed bounds but this may be inaccurate.
  */
 void setPrunedNodeStatistics(NodeStatistics& stats,
     const CbcNode* const parent_node, const CbcModel* const model,
@@ -186,6 +187,8 @@ void printNodeStatistics(const std::vector<NodeStatistics>& stats) {
   printNodeStatistics(stats, true, stdout);
 } /* printNodeStatistics (useful to have for debug purposes) */
 
+/// @details Prints header for table of node statistics,
+/// then calls printNodeStatistics(const NodeStatistics&, const bool, FILE*).
 void printNodeStatistics(const std::vector<NodeStatistics>& stats,
     const bool print_bounds, FILE* myfile) {
   if (stats.size() == 0 || myfile == NULL) {
@@ -229,7 +232,13 @@ void printNodeStatistics(const std::vector<NodeStatistics>& stats,
   }
 } /* printNodeStatistics (vector) */
 
-void printNodeStatistics(const NodeStatistics& stats, const bool print_bounds,
+/// @details Must have width of each statistic printed line up with the header (assumed to be) printed earlier
+void printNodeStatistics(
+    /// [in] node that we print statistics for
+    const NodeStatistics& stats, 
+    /// [in] should the string NodeStatistics::changed_bounds be printed?
+    const bool print_bounds,
+    /// [in] output file
     FILE* myfile) {
   if (myfile == NULL) {
     return;
@@ -269,8 +278,8 @@ void printNodeStatistics(const NodeStatistics& stats, const bool print_bounds,
 } /* printNodeStatistics (single) */
 
 /**
- * We are assuming here that none of the original columns have been deleted or anything,
- * and that we are only tracking the bound changes for the original columns
+ * @details We are assuming here that none of the original columns have been deleted or anything,
+ * and that we are only tracking the bound changes for the original columns.
  */
 void changedBounds(NodeStatistics& stats, const OsiSolverInterface* const solver,
     const std::vector<double>& originalLB, const std::vector<double>& originalUB) {
@@ -298,7 +307,7 @@ void changedBounds(NodeStatistics& stats, const OsiSolverInterface* const solver
 } /* changedBounds (solver version) */
 
 /************************************************************/
-/* Implement the methods for VPCEventHandler which we use to exit early and save information */
+// <!---------- Implement the methods for VPCEventHandler which we use to exit early and save information ---------->
 VPCEventHandler::VPCEventHandler () : CbcEventHandler() {
   initialize(NULL);
 } /* default constructor */
@@ -354,17 +363,15 @@ CbcEventHandler* VPCEventHandler::clone() const {
   return new VPCEventHandler(*this);
 } /* clone */
 
-/*
- * @brief Custom event handler that keeps history of the tree
- *
- * We need to track:
- *   (1) the dual bound at each node
- *   (2) branching variable and direction at each node
- *   (3) which nodes are pruned (by bound, infeasibility, or integrality)
- *   (4) the best integer-feasible solution found and its objective value
+/**
+ * @details We need to track:
+ *   1. the dual bound at each node
+ *   2. branching variable and direction at each node
+ *   3. which nodes are pruned (by bound, infeasibility, or integrality)
+ *   4. the best integer-feasible solution found and its objective value
  *       -- only the best, because all others are effectively pruned by bound then
  *
- * We will stop when either the limit on leaf nodes (disjunctive terms) or time is reached
+ * We will stop when either the limit on leaf nodes (disjunctive terms) or time is reached.
  *
  * Questions / Challenges / Comments:
  *  * Is it necessary to track beforeSolution2? Maybe solution is enough...

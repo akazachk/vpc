@@ -1,9 +1,14 @@
+/**
+ * @file VPCSolverInterface.hpp
+ * @author A. M. Kazachkov
+ * @brief Wrapper for VPC-related solver calls
+ */
 #pragma once
 
 #include <string>
 #include <vector>
 
-/** For passing out cuts, we have dense and sparse versions */
+/// For passing sparse cuts out from VPC code
 struct SparseCut
 {
   int num_elem;
@@ -12,6 +17,7 @@ struct SparseCut
   double rhs;
 };
 
+/// For passing dense cuts out from VPC code
 struct DenseCut
 {
   std::vector<double> coeff;
@@ -34,8 +40,7 @@ std::vector<DenseCut> convertCutsToDenseCuts(const OsiCuts* const cuts, const in
 #endif
 
 /**
- * Class VPCSolverInterface
- * Provides way of generating rounds of cuts 
+ * @brief Provides way of generating rounds of cuts 
  * that can easily be interacted with by external code
  */
 class VPCSolverInterface {
@@ -47,60 +52,65 @@ public:
   Disjunction *disj;
   VPCParametersNamespace::VPCParameters *params;
 
-	/** Default constructor */
+  /// Default constructor
 	VPCSolverInterface();
 
-	/** Copy constructor */
+	/// Copy constructor
 	VPCSolverInterface(const VPCSolverInterface& source);
 
-	/** Destructor */
+	/// Destructor
 	virtual ~VPCSolverInterface();
 
-	/** Assignment operator */
+	/// Assignment operator
 	VPCSolverInterface& operator=(const VPCSolverInterface& source);
 
-	/** Clone */
+	/// Clone
 	virtual VPCSolverInterface *clone() const;
 
-  /** Set params based on VPCParameters */
+  /// Set params based on VPCParameters
   void setParams(const VPCParametersNamespace::VPCParameters* const param);
 
-  /** Flip objective */
+  /// Flip objective
   void flipObj(const int sense = 1);
 
-  /** Set disjunction */
+  /// Set disjunction
   virtual void setDisjunction(const Disjunction* const disj);
 
-  /** Load problem methods */
+  ///@{
+  /// @name Load problem methods
 	virtual void load(std::string fullfilename);
 #ifdef USE_COIN
   virtual void load(const OsiSolverInterface* const si);
 #endif
   virtual void load(OsiProblemData* data);
+  ///@}
 
-  /** Solve LP relaxation */
+  /// Solve LP relaxation
   virtual void solve();
-  /** Resolve LP relaxation */
+  /// Resolve LP relaxation
   virtual void resolve();
 
-  /** Generate cuts and put them in `OsiCuts* cuts` */
+  /// Generate cuts and put them in #cuts
   virtual void generateCuts();
 
-  /** Add the (previously generated) cuts to the solver */
+  /// Add the (previously generated) cuts to the solver
   virtual int applyCuts(bool* cutsToAdd = NULL, bool clear_cuts = false);
 
-  /** Write LP with cuts */
+  ///  Write LP with cuts
   virtual void save(std::string filename);
 
-  /** Return cuts in non-OSI format */
+  /// Return cuts in non-Osi format
   virtual int numCuts();
 #ifdef USE_COIN
+  /// Return cuts in Osi format
   virtual const OsiCuts* const getCuts();
 #endif
+  /// Get vector of sparse cuts
   virtual std::vector<SparseCut> getCutsSparse();
+  /// Get vector of dense cuts
   virtual std::vector<DenseCut> getCutsDense();
 
-  /** Query solver */
+  /// Query solver
   virtual double getObjValue();
 
 protected:

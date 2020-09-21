@@ -21,9 +21,7 @@ class OsiCuts;
 class VPCEventHandler;
 enum class PruneNodeOption;
 
-/**
- * Useful data structure for COIN-OR tracking
- */
+/// @brief Useful data structure for COIN-OR tracking
 struct NodeStatistics {
   int id = -1; ///< in stats vector
   int parent_id = -1; ///< in stats vector
@@ -46,13 +44,13 @@ struct NodeStatistics {
   std::string status; ///< status of the node (normal or pruned by integrality / bound / infeasibility)
 }; /* Node Statistics */
 
-/** Define the statistics for a particular node */
+/// @brief Define the statistics for a particular node
 void setNodeStatistics(NodeStatistics& stats, const CbcNode* const node,
     const CbcModel* const model, const std::vector<NodeStatistics>& stats_vec,
     const std::vector<double>& originalLB,
     const std::vector<double>& originalUB, const bool will_create_child,
     const bool solution_is_found = false);
-/** Define the statistics to be saved for a pruned node */
+/// @brief Define the statistics to be saved for a pruned node
 void setPrunedNodeStatistics(NodeStatistics& stats,
     const CbcNode* const parent_node, const CbcModel* const model,
     /*const std::vector<NodeStatistics>& stats_vec,*/const bool prune_by_integrality,
@@ -60,23 +58,24 @@ void setPrunedNodeStatistics(NodeStatistics& stats,
     const std::vector<double>& originalUB, const double obj,
     const bool solution_is_found,
     const PruneNodeOption& pruneReason);
+
+/// @brief Call printNodeStatistics(const std::vector<NodeStatistics>&, const bool, FILE*)
 void printNodeStatistics(const std::vector<NodeStatistics>& stats);
+/// @brief Print node statistics for a vector of NodeStatistics
 void printNodeStatistics(const std::vector<NodeStatistics>& stats,
     const bool print_bounds, FILE* myfile = stdout);
+/// @brief Print a given node's statistics
 void printNodeStatistics(const NodeStatistics& stats, const bool print_bounds,
     FILE* myfile = stdout);
 
-/** Save which bounds have been changed with respect to the original solver */
+/// @brief Save which bounds have been changed with respect to the original solver
 void changedBounds(NodeStatistics& stats,
     const OsiSolverInterface* const solver,
     const std::vector<double>& originalLB,
     const std::vector<double>& originalUB);
 
-/************************************************************/
-/**
- *  This is so user can trap events and do useful stuff.
- *  CbcModel model_ is available as well as anything else you care to pass in.
- */
+/// @brief This is so user can trap events and do useful stuff.
+/// CbcModel model_ is available as well as anything else you care to pass in.
 class VPCEventHandler: public CbcEventHandler {
 public:
   PartialBBDisjunction* owner;
@@ -87,38 +86,39 @@ public:
 
   /**@name Overrides */
   //@{
+  /// @brief Custom event handler that keeps history of the tree
   virtual CbcAction event(CbcEvent whichEvent);
   //@}
 
   /**@name Constructors, destructor, etc. */
   //@{
-  /** Default constructor */
+  /** @brief Default constructor */
   VPCEventHandler();
-  /** VPC special constructors */
+  /** @brief VPC special constructors */
   VPCEventHandler(PartialBBDisjunction* const disj, const int maxNumLeafNodes,
       const double maxTime);
-  /// Constructor with pointer to model (redundant as setEventHandler does)
+  /// @brief Constructor with pointer to model (redundant as setEventHandler does)
   VPCEventHandler(CbcModel* model);
   /** Destructor */
   virtual ~VPCEventHandler();
-  /** The copy constructor. */
+  /** @brief The copy constructor. */
   VPCEventHandler(const VPCEventHandler& rhs);
-  /// Assignment
+  /// @brief Assignment
   VPCEventHandler& operator=(const VPCEventHandler& rhs);
-  /// Clone
+  /// @brief Clone
   virtual CbcEventHandler* clone() const;
   //@}
 
   /**@name Access methods */
   //@{
-  // Number of nodes on the tree at the end
+  // @brief Number of nodes on the tree at the end
   inline int getNumNodesOnTree() const {
     return numNodesOnTree_;
   }
   inline int getNumNodes() const {
     return numNodes_;
   }
-  // For the nodes on the tree at the end, where do we find the information in stats_
+  /// @brief For the nodes on the tree at the end, where do we find the information in #stats_
   inline int getNodeIndex(const int i) const {
     return finalNodeIndices_[i];
   }
@@ -172,7 +172,8 @@ protected:
   int numCuts_;
   double maxTime_;
 
-  // Things that will be saved at the end
+  ///@{
+  /// @name Things that will be saved at the end
   int numNodesOnTree_, numLeafNodes_;
   int numNodes_;
   double obj_; // integer-feasible solution value
@@ -184,8 +185,10 @@ protected:
   std::vector<int> finalNodeIndices_; // node numbers for the nodes on the final tree
   std::vector<double> savedSolution_; // when pruneNode_ = 3, the saved solution might have been deleted somehow
   std::unique_ptr<OsiCuts> cuts_;
+  ///@}
 
-  // Temporary information we want to keep during the B&B process
+  ///@{
+  /// @name Temporary information we want to keep during the B&B process
   std::vector<CbcNode*> currentNodes_;
   CbcNode* parent_;
   CbcNodeInfo* parentInfo_;
@@ -193,10 +196,12 @@ protected:
   PruneNodeOption pruneNode_ = PruneNodeOption::NO;
   bool reachedEnd_ = false;
   bool foundSolution_ = false;
+  ///@}
 
-  /**@name Helper methods */
-  //@{
-  /// Copy our stuff
+  ///@{
+  /// @name Helper methods
+
+  /// @brief Copy our stuff
   void initialize(const VPCEventHandler* const rhs);
   bool setupDisjunctiveTerm(const int node_id, const int branching_variable,
       const int branching_way, const double branching_value,

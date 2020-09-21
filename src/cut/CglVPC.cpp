@@ -117,15 +117,14 @@ const std::string CglVPC::time_T1 = "TIME_TYPE1_";
 const std::string CglVPC::time_T2 = "TIME_TYPE2_";
 
 /**
- * @brief Universal way to check whether we reached the limit for the number of cuts for each split
- * This allows us to change between restricting number of cuts per split and total number of cuts easily
+ * @details This allows us to change between restricting number of cuts per split and total number of cuts easily
+ * The cut limit is either across all cut-generating sets
+ * or it is divided among the cut-generating sets (either as the limit / numFracVars, or as a fixed number per cgs)
+ * If CUTLIMIT = 0 => no cuts
+ * If CUTLIMIT > 0 => absolute cut limit
+ * If CUTLIMIT < 0 => cut limit per cgs
  */
 int CglVPC::getCutLimit(const int CUTLIMIT, const int numFracVar) {
-  // The cut limit is either across all cut-generating sets
-  // or it is divided among the cut-generating sets (either as the limit / numFracVars, or as a fixed number per cgs)
-  // If CUTLIMIT = 0 => no cuts
-  // If CUTLIMIT > 0 => absolute cut limit
-  // If CUTLIMIT < 0 => cut limit per cgs
   if (CUTLIMIT == 0) {
     return 0;
     //return std::numeric_limits<int>::max();
@@ -136,33 +135,32 @@ int CglVPC::getCutLimit(const int CUTLIMIT, const int numFracVar) {
   }
 } /* getCutLimit */
 
-/** getCutLimit */
 int CglVPC::getCutLimit() const {
   return params.get(CUTLIMIT);
 } /* getCutLimit */
 
-/** Default constructor */
+/// Calls initialize()
 CglVPC::CglVPC() {
   initialize();
 } /* default constructor */
 
-/** Param constructor */
+/// Calls \link initialize() initialize(NULL, &param) \endlink
 CglVPC::CglVPC(const VPCParameters& param) {
   initialize(NULL, &param);
 } /* param constructor */
 
-/** Copy constructor */
+/// Calls CglCutGenerator(source) and \link initialize() initialize(&source) \endlink
 CglVPC::CglVPC(const CglVPC& source) : CglCutGenerator(source) {
   initialize(&source);
 } /* copy constructor */
 
-/** Destructor */
+/// Deletes #disjunction and #prlp
 CglVPC::~CglVPC() {
   if (disjunction && ownsDisjunction) { delete disjunction; }
   if (prlp) delete prlp;
 } /* destructor */
 
-/** Assignment operator */
+/// Calls \link initialize() initialize(&source) \endlink
 CglVPC& CglVPC::operator=(const CglVPC& source) {
   if (this != &source) {
     initialize(&source);
@@ -170,18 +168,23 @@ CglVPC& CglVPC::operator=(const CglVPC& source) {
   return *this;
 } /* assignment operator */
 
-/** Clone */
+/// Creates new CglVPC instance via copy constructor \link CglVPC(const CglVPC&) CglVPC(*this) \endlink
 CglCutGenerator* CglVPC::clone() const {
   return new CglVPC(*this);
 } /* clone */
 
-/** setParams */
 void CglVPC::setParams(const VPCParameters& param) {
   this->params = param;
 } /* setParams */
 
-/** setDisjunction (ownIt = 0 or 1; -1 means use ownsDisjunction value from class) */
-void CglVPC::setDisjunction(Disjunction* const sourceDisj, int ownIt) {
+/**
+ * @details #disjunction will be deleted if it is currently not NULL and #ownsDisjunction is true
+ */
+void CglVPC::setDisjunction(
+    /// [in] Disjunction to be used; will be cloned via Disjunction::clone() if \p ownIt is true
+    Disjunction* const sourceDisj,
+    /// [in] -1, 0, or 1; -1 means use #ownsDisjunction value from class
+    int ownIt) {
   if (ownIt < 0) {
     ownIt = this->ownsDisjunction;
   }
@@ -194,9 +197,6 @@ void CglVPC::setDisjunction(Disjunction* const sourceDisj, int ownIt) {
     this->disjunction = sourceDisj;
 } /* setDisjunction */
 
-/**
- * @brief User can provide objectives for PRLP to try
- */
 void CglVPC::setUserObjectives(const std::vector<std::vector<double> >& obj) {
   this->user_objectives.reserve(obj.size());
   for (const auto& v : obj) {
@@ -204,9 +204,6 @@ void CglVPC::setUserObjectives(const std::vector<std::vector<double> >& obj) {
   }
 } /* setUserObjectives */
 
-/**
- * @brief Generate VPCs from a disjunction (e.g., arising from a partial branch-and-bound tree)
- */
 void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const CglTreeInfo info) {
   CglVPC::ExitReason status = CglVPC::ExitReason::UNKNOWN;
   if (params.get(intParam::DISJ_TERMS) == 0) {
@@ -414,7 +411,7 @@ void CglVPC::addCut(const OsiRowCut& cut, OsiCuts& cuts, const CutType& type,
 /****************** PROTECTED **********************/
 
 /**
- * Reset _some_ things (those corresponding to a previous run of this generator)
+ * @details Reset _some_ things (those corresponding to a previous run of this generator)
  * E.g., we do not reset timing, the cutType vector, or the cutHeurVec
  * The latter two should not be changed and need to correspond to the cuts passed into generateCuts
  * (in order to enable replacing the cuts in PRLP)
@@ -444,6 +441,9 @@ void CglVPC::setupAsNew() {
   this->user_objectives.resize(0);
 } /* setupAsNew */
 
+/**
+ * @details Calls setParams(const VPCParametersNamespace::VPCParameters&) if \p param != NULL, copies over information from \p source if provided
+ */
 void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const param) {
   if (param != NULL)
     setParams(*param);
@@ -494,7 +494,7 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
  * nonbasic variables, row in which each variable is basic, etc.
  */
 void CglVPC::getProblemData(
-    /// [in/out] Solver being used to determine the nonbasic space; note that the basis and/or solution may change due to enableFactorization
+    /// [in,out] Solver being used to determine the nonbasic space; note that the basis and/or solution may change due to enableFactorization
     OsiSolverInterface* const solver,
     /// [out] Where to save the data
     ProblemData& probData, 
@@ -1260,9 +1260,7 @@ CglVPC::ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
 } /* tryObjectives */
 
 /**
- * @brief Checks whether too many unsuccessful objective attempts have been made
- *
- * There are four types of checks. The first three have non-decreasing success requirements.
+ * @details There are four types of checks. The first three have non-decreasing success requirements.
  * 1. Few cuts have been generated:
  *      default is FEW_CUTS = 1 cut, and the success threshold is at least 1 cut every 20 obj (fail ratio = .95).
  * 2. Many cuts have been generated:

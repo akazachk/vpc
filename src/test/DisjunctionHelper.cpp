@@ -1,7 +1,8 @@
-// Name:     DisjunctionHelper.cpp
-// Author:   A. M. Kazachkov
-// Date:     2018-02-25
-//-----------------------------------------------------------------------------
+/**
+ * @file DisjunctionHelper.cpp
+ * @author A. M. Kazachkov
+ * @date 2018-02-25
+ */
 #include "DisjunctionHelper.hpp"
 
 // Project files
@@ -16,11 +17,10 @@ using namespace VPCParametersNamespace;
 #include "PartialBBDisjunction.hpp"
 #include "SplitDisjunction.hpp"
 
-/**
- * Set disjunctions; if integer-optimal solution is found, delete all but one disjunction, which will have that solution
- */
-CglVPC::ExitReason setDisjunctions(std::vector<Disjunction*>& disjVec,
-    const OsiSolverInterface* const si, const VPCParametersNamespace::VPCParameters& params,
+CglVPC::ExitReason setDisjunctions(
+    std::vector<Disjunction*>& disjVec,
+    const OsiSolverInterface* const si, 
+    const VPCParametersNamespace::VPCParameters& params,
     CglVPC::VPCMode mode) {
 //  CglVPC::VPCMode mode = static_cast<CglVPC::VPCMode>(params.get(MODE));
   if (mode == CglVPC::VPCMode::PARTIAL_BB) {
@@ -48,9 +48,7 @@ CglVPC::ExitReason setDisjunctions(std::vector<Disjunction*>& disjVec,
   return CglVPC::ExitReason::UNKNOWN;
 } /* setDisjunctions */
 
-/**
- * Return number of split disjunctions generated
- */
+/// @return number of split disjunctions generated
 int generateSplitDisjunctions(std::vector<Disjunction*>& disjVec, const OsiSolverInterface* const si, const VPCParametersNamespace::VPCParameters& params) {
   std::vector<int> fracCore = si->getFractionalIndices(params.get(doubleConst::AWAY));
   if (fracCore.size() == 0)

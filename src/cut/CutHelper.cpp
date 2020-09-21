@@ -82,10 +82,7 @@ void removeSmallCoefficients(OsiRowCut* const cut, const OsiSolverInterface* con
 } /* removeSmallCoefficients */
 
 bool badSupport(const int cutNz, const int numCols, const double max_sup_abs, const double max_sup_rel) {
-  if (cutNz > max_sup_abs + max_sup_rel * numCols) {
-    return true;
-  }
-  return false;
+  return (cutNz > max_sup_abs + max_sup_rel * numCols);
 } /* badSupport */
 
 bool badViolation(const OsiRowCut* const cut, const OsiSolverInterface* const solver, const double min_viol_abs, const double min_viol_rel) {
@@ -102,10 +99,7 @@ bool badViolation(const OsiRowCut* const cut, const OsiSolverInterface* const so
       greaterThanVal(violation, 0.0, min_viol_abs);
   const bool cuttingSolutionFlagRel = //(inNBSpace) ||
       greaterThanVal(violation, 0.0, currCutNorm * min_viol_rel);
-  if (!cuttingSolutionFlagAbs || !cuttingSolutionFlagRel) {
-    return true;
-  }
-  return false;
+  return (!cuttingSolutionFlagAbs || !cuttingSolutionFlagRel);
 } /* badViolation */
 
 bool badDynamism(const OsiRowCut* const cut, const double minAbsCoeff, const double maxAbsCoeff, const double SENSIBLE_MAX, const double EPS) {
@@ -131,15 +125,12 @@ bool badDynamism(const OsiRowCut* const cut, const double minAbsCoeff, const dou
   if (absCurr > maxAbsElem) {
     maxAbsElem = absCurr;
   }
-  if (isZero(maxAbsElem, EPS)
+  return isZero(maxAbsElem, EPS)
       // || isZero(minAbsElem / maxAbsElem)
       || greaterThanVal(maxAbsElem / minAbsElem, SENSIBLE_MAX, EPS)
       || (!isZero(minAbsCoeff, EPS)
           && greaterThanVal(std::abs(maxAbsElem / minAbsCoeff),
-              std::abs(SENSIBLE_MAX * maxAbsCoeff / minAbsCoeff), EPS))) {
-    return true;
-  }
-  return false;
+              std::abs(SENSIBLE_MAX * maxAbsCoeff / minAbsCoeff), EPS));
 } /* badDynamism */
 
 /**
