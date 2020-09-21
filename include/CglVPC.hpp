@@ -240,8 +240,8 @@ public:
   /// Return #prlp
   inline const PRLP* const getPRLP() const { return this->prlp; }
 
-  /// Return #user_objectives _by reference_
-  inline std::vector<std::vector<double> >& getUserObjectives() const { return this->user_objectives; }
+  /// Return #user_objectives
+  inline std::vector<std::vector<double> > getUserObjectives() const { return this->user_objectives; }
   /// @brief User can provide objectives for PRLP to try
   void setUserObjectives(const std::vector<std::vector<double> >& obj);
   ///@} // get/set methods
