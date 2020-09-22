@@ -165,7 +165,7 @@ ifeq ($(COIN_VERSION),2.10)
   DEFS += -DCBC_VERSION_210PLUS -DSAVE_NODE_INFO
 endif
 ifeq ($(COIN_VERSION),trunk)
-  DEFS += -DCBC_VERSION_210PLUS -DSAVE_NODE_INFO
+  DEFS += -DCBC_VERSION_210PLUS -DCBC_TRUNK -DSAVE_NODE_INFO
 endif
 
 EXECUTABLE = $(OUT_DIR)/$(EXECUTABLE_STUB)
@@ -216,8 +216,11 @@ ifeq ($(USE_COIN),1)
 	endif
 	CBClib = $(CBC)/lib
 	# When switching from svn to coinbrew, the new include directory is coin-or not coin
-	#CBCinc = $(CBC)/include/coin
-	CBCinc = $(CBC)/include/coin-or
+	ifeq ($(COIN_VERSION),trunk)
+		CBCinc = $(CBC)/include/coin-or
+  else
+		CBCinc = $(CBC)/include/coin
+	endif
 	APPLINCLS += -isystem $(CBCinc)
 	APPLLIB += -L$(CBClib)
   CXXLINKFLAGS += -Wl,-rpath $(CBClib)
