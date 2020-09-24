@@ -17,6 +17,7 @@ class OsiSolverInterface;
 class OsiCuts;
 
 #ifdef USE_CBC
+/// @brief Save tikz tree from \p orig_owner
 void printTree(PartialBBDisjunction* const orig_owner,
     OsiSolverInterface* solver, OsiCuts* vpcs, OsiCuts* gmics);
 #endif

@@ -1,3 +1,12 @@
+/**
+ * @file CbcCompareBFS.hpp
+ *
+ * @brief Breadth-first search through the tree
+ *
+ * @author Edwin (edited by A. M. Kazachkov)
+ * @date 2009-11-24 (amk edited 2017-04-14)
+ */
+
 // The original license for this code is as follows:
 // $Id: CbcCompareBFS.hpp 1899 2013-04-09 18:12:08Z stefan $
 // Copyright (C) 2002, International Business Machines
@@ -5,8 +14,6 @@
 // This code is licensed under the terms of the Eclipse Public License (EPL).
 
 //Edwin 11/24/09 carved out of CbcCompareActual
-//
-// Aleksandr M. Kazachkov adapted the code on 04/14/17
 
 #ifndef CbcCompareBFS_H
 #define CbcCompareBFS_H

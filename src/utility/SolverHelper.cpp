@@ -104,7 +104,7 @@ void addToObjectiveFromPackedVector(
     const CoinPackedVectorBase* vec,
     /// [in] set all obj coeff to 0 before proceeding
     const bool zeroOut,
-    /// [in] a constant multiple to scale the coefficients by (for example, we can set \p SHOULD_SCALE to false and pass the inverse of the 2-norm of \vec for \p mult)
+    /// [in] a constant multiple to scale the coefficients by (for example, we can set \p SHOULD_SCALE to false and pass the inverse of the 2-norm of \p vec for \p mult)
     const double mult,
     /// [in] assumed sorted in increasing order, in case we want to change a specific set of indices
     const std::vector<int>* const nonZeroColIndices,

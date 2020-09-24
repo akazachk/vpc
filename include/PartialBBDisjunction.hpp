@@ -60,10 +60,9 @@ struct RootTerm {
   } /* initialize */
 }; /* RootTerm */
 
-/***********************************************************************/
-/*  @brief Disjunction generated from a partial branch-and-bound tree  */
-/*  @details Currently requires the use of Cbc                         */
-/***********************************************************************/
+//<!----------------------------------------------------------------------->
+///  @brief Disjunction generated from a partial branch-and-bound tree
+///  @details Currently requires the use of Cbc
 class PartialBBDisjunction : public VPCDisjunction {
 public:
   RootTerm root; ///< Keeps split information at root and best bound on each side
@@ -89,7 +88,7 @@ public:
       max_node_depth = 0;
       num_fixed_vars = 0;
     } /* initialize */
-  } data;
+  } data; ///< Current tree data
 
   /// @brief Param constructor
   PartialBBDisjunction(const VPCParametersNamespace::VPCParameters& params);

@@ -66,7 +66,7 @@ void addToObjectiveFromPackedVector(OsiSolverInterface* const solver,
     const double mult = 1., const std::vector<int>* const nonZeroColIndices = 0,
     const bool SHOULD_SCALE = true);
 
-/// @brief Set all objective coefficients to \val
+/// @brief Set all objective coefficients to \p val
 void setConstantObjectiveFromPackedVector(OsiSolverInterface* const solver,
     const double val = 0., const int numIndices = 0, const int* indices = 0);
 
@@ -118,20 +118,22 @@ inline bool isBasicVar(const ClpSimplex::Status stat) {
   return (stat == ClpSimplex::Status::basic);
 }
 
+/// Check if \p stat is ClpSimplex::Status::isFree
 inline bool isNonBasicFreeVar(const ClpSimplex::Status stat) {
   return (stat == ClpSimplex::Status::isFree);
 }
 
-// This may be wrong for fixed variables that end up being counted as at ub
+/// This may be wrong for fixed variables that end up being counted as at ub
 inline bool isNonBasicUBVar(const ClpSimplex::Status stat) {
   return (stat == ClpSimplex::Status::atUpperBound);
 }
 
-// This may be wrong for fixed variables that end up being counted as at lb
+/// This may be wrong for fixed variables that end up being counted as at lb
 inline bool isNonBasicLBVar(const ClpSimplex::Status stat) {
   return (stat == ClpSimplex::Status::atLowerBound);
 }
 
+/// Check if \p stat is ClpSimplex::Status::isFixed
 inline bool isNonBasicFixedVar(const ClpSimplex::Status stat) {
   return (stat == ClpSimplex::Status::isFixed);
 }

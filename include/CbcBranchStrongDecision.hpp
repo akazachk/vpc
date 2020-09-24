@@ -1,16 +1,25 @@
+/**
+ * @file CbcBranchStrongDecision.hpp
+ *
+ * @brief Branching decisions
+ *
+ * amk: Set method to 1 (use betterBranch)
+ *
+ * @author Edwin (edited by A. M. Kazachkov)
+ * @date 2009-11-10 (amk edited 2017-03-21)
+ */
+
 // Original license is:
 // $Id: CbcBranchStrongDecision.hpp Last modified: 2017-03-21 by Aleksandr M. Kazachkov $
 // The original code is licensed under the terms of the Eclipse Public License (EPL).
 
 // Edwin 11/10/2009-- carved out of CbcBranchActual
-//
-// Aleksandr M. Kazachkov 03/21/2017 Set method to 1
 
 #ifndef CbcBranchStrongDecision_H
 #define CbcBranchStrongDecision_H
 
 #include "CbcBranchDecision.hpp"
-/** Branching decision default class (modified by Aleksandr M. Kazachkov)
+/** @brief Branching decision default class (modified by Aleksandr M. Kazachkov)
 
   This class implements a simple default algorithm
   (betterBranch()) for choosing a branching variable.

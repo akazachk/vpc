@@ -1,10 +1,12 @@
 /**
  * @file utility.hpp
+ * @brief Utility functions
+ *
+ * The header is going to be included in many places,
+ * so ideally it will not have too much included that is unnecessary
+ *
  * @author A. M. Kazachkov
  * @date 2018-Dec-24
- * @brief Utility functions
- * @details The header is going to be included in many places,
- * so ideally it will not have too much included that is unnecessary
  */
 #pragma once
 

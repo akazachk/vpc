@@ -408,7 +408,7 @@ void CglVPC::addCut(const OsiRowCut& cut, OsiCuts& cuts, const CutType& type,
   num_cuts++;
 } /* addCut */
 
-/****************** PROTECTED **********************/
+//<!------------------ PROTECTED ---------------------->/
 
 /**
  * @details Reset _some_ things (those corresponding to a previous run of this generator)
@@ -942,59 +942,59 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
     }
   } // end loop over nodes on tree
 
-  /* TODO {
-    // We already checked that the objective cut is valid 
-    // Now we can check that the tilted objective cut is valid
-    // We need the variable branched at the root node, the value of the variable at the root, and a bound for each side
-    // Let boundD be the "down" bound, and boundU be the "up" bound
-    // Suppose boundD <= boundU (recall this is a minimization problem)
-    // Suppose also that x_k \in [\ell_k, u_k]
-    // To ensure validity, the tilted objective cut is:
-    //   c \dot x >= boundD + (boundU - boundD) * (x_k - \floor{\bar{x}_k}) / (u_k - \floor{\bar{x}_k})
-    // A similar cut can be formulated when boundU < boundD:
-    //   c \dot x >= boundU + (boundD - boundU) * (\ceil{\bar{x}_k} - \ell_k) / (\ceil{\bar{x}_k} - \ell_k)
-    // Both cuts can be formulated as
-    //   c \dot x >= smallerBound + (biggerBound - smallerBound) * (x_k - roundedVal) / (globalBound - roundedVal)
-    int var = -1;
-    double val = 0.;
-    double boundD = std::numeric_limits<double>::lowest();
-    double boundU = std::numeric_limits<double>::lowest();
-    try {
-      RootTerm root = dynamic_cast<PartialBBDisjunction*>(this->disjunction)->root;
-      var = root.var;
-      val = root.val;
-      boundD = root.boundD;
-      boundU = root.boundU;
-    } catch (std::exception& e) {
-    }
-    if (var >= 0) {
-      if (!isInfinity(std::abs(boundD)) && !isInfinity(std::abs(boundU))) {
-        // We get x_k = \bar{x}_k - \sum_{j \in \NB} \bar{a}_{kj} x_j, 
-        // where \bar{a}_{kj} is coefficient (k,j) after multiplying A by the basis inverse
-        // The original objective (c \dot x) in the nonbasic space is read from probData.NBReducedCost
-        std::vector<double> basisRow(vpcsolver->getNumCols());
-        enableFactorization(vpcsolver, probData.EPS);
-        vpcsolver->getBInvARow(var, &(basisRow[0]));
-        // Set up things based on which bound is smaller
-        const double smallerBound = (boundD <= boundU) ? boundD : boundU;
-        const double higherBound = (boundD <= boundU) ? boundU : boundD;
-        const double globalBound = (boundD <= boundU) ? vpcsolver->getColUpper()[var] : vpcsolver->getColLower()[var];
-        const double roundedVal = (boundD <= boundU) ? std::floor(val) : std::ceil(val);
-        const double Delta = higherBound - smallerBound;
-        const double coeff = Delta / (globalBound - roundedVal);
-        const double rhs = smallerBound - Delta * roundedVal / (globalBound - roundedVal) - probData.lp_opt + coeff * val;
-
-
-      } else if (isInfinity(std::abs(boundD))) {
-      } else if (isInfinity(std::abs(boundU))) {
-      } else {
-        // Both sides infeasible, which means the problem is infeasible; error
-        error_msg(errorstring, "Both sides of root split variable (index %d, value %g) are infeasible, which would imply the instance is infeasible.\n", var, val);
-        writeErrorToLog(errorstring, params.logfile);
-        exit(1);
-      }
-    }
-  } // check tilted objective cut validity */
+//  {
+//    // We already checked that the objective cut is valid 
+//    // Now we can check that the tilted objective cut is valid
+//    // We need the variable branched at the root node, the value of the variable at the root, and a bound for each side
+//    // Let boundD be the "down" bound, and boundU be the "up" bound
+//    // Suppose boundD <= boundU (recall this is a minimization problem)
+//    // Suppose also that x_k \in [\ell_k, u_k]
+//    // To ensure validity, the tilted objective cut is:
+//    //   c \dot x >= boundD + (boundU - boundD) * (x_k - \floor{\bar{x}_k}) / (u_k - \floor{\bar{x}_k})
+//    // A similar cut can be formulated when boundU < boundD:
+//    //   c \dot x >= boundU + (boundD - boundU) * (\ceil{\bar{x}_k} - \ell_k) / (\ceil{\bar{x}_k} - \ell_k)
+//    // Both cuts can be formulated as
+//    //   c \dot x >= smallerBound + (biggerBound - smallerBound) * (x_k - roundedVal) / (globalBound - roundedVal)
+//    int var = -1;
+//    double val = 0.;
+//    double boundD = std::numeric_limits<double>::lowest();
+//    double boundU = std::numeric_limits<double>::lowest();
+//    try {
+//      RootTerm root = dynamic_cast<PartialBBDisjunction*>(this->disjunction)->root;
+//      var = root.var;
+//      val = root.val;
+//      boundD = root.boundD;
+//      boundU = root.boundU;
+//    } catch (std::exception& e) {
+//    }
+//    if (var >= 0) {
+//      if (!isInfinity(std::abs(boundD)) && !isInfinity(std::abs(boundU))) {
+//        // We get x_k = \bar{x}_k - \sum_{j \in \NB} \bar{a}_{kj} x_j, 
+//        // where \bar{a}_{kj} is coefficient (k,j) after multiplying A by the basis inverse
+//        // The original objective (c \dot x) in the nonbasic space is read from probData.NBReducedCost
+//        std::vector<double> basisRow(vpcsolver->getNumCols());
+//        enableFactorization(vpcsolver, probData.EPS);
+//        vpcsolver->getBInvARow(var, &(basisRow[0]));
+//        // Set up things based on which bound is smaller
+//        const double smallerBound = (boundD <= boundU) ? boundD : boundU;
+//        const double higherBound = (boundD <= boundU) ? boundU : boundD;
+//        const double globalBound = (boundD <= boundU) ? vpcsolver->getColUpper()[var] : vpcsolver->getColLower()[var];
+//        const double roundedVal = (boundD <= boundU) ? std::floor(val) : std::ceil(val);
+//        const double Delta = higherBound - smallerBound;
+//        const double coeff = Delta / (globalBound - roundedVal);
+//        const double rhs = smallerBound - Delta * roundedVal / (globalBound - roundedVal) - probData.lp_opt + coeff * val;
+//
+//
+//      } else if (isInfinity(std::abs(boundD))) {
+//      } else if (isInfinity(std::abs(boundU))) {
+//      } else {
+//        // Both sides infeasible, which means the problem is infeasible; error
+//        error_msg(errorstring, "Both sides of root split variable (index %d, value %g) are infeasible, which would imply the instance is infeasible.\n", var, val);
+//        writeErrorToLog(errorstring, params.logfile);
+//        exit(1);
+//      }
+//    }
+//  } // check tilted objective cut validity
 
 #ifdef TRACE
   printf(

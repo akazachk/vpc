@@ -1,6 +1,7 @@
 /**
  * @file VPCEventHandler.hpp
  * @brief Custom event handler for Cbc for partial b&b tree generation (requires use of USE_CBC)
+ *
  * @author A. M. Kazachkov
  * @date 2018-12-25
  */
@@ -168,34 +169,36 @@ public:
   //@}
 
 protected:
-  int maxNumLeafNodes_;
-  int numCuts_;
-  double maxTime_;
+  int maxNumLeafNodes_; ///< stop when we reach this many leaf nodes
+  int numCuts_; ///< number of cuts generated
+  double maxTime_; ///< maximum allowable time
 
   ///@{
   /// @name Things that will be saved at the end
-  int numNodesOnTree_, numLeafNodes_;
-  int numNodes_;
-  double obj_; // integer-feasible solution value
-  SolverInterface* originalSolver_;
-  std::vector<double> originalLB_, originalUB_;
-//    std::vector<CoinWarmStartBasis*> bases_; // bases of node
-  std::vector<NodeStatistics> stats_; // all stats that we need to recreate tree
-  std::vector<NodeStatistics> pruned_stats_; // info for all children that were pruned
-  std::vector<int> finalNodeIndices_; // node numbers for the nodes on the final tree
-  std::vector<double> savedSolution_; // when pruneNode_ = 3, the saved solution might have been deleted somehow
-  std::unique_ptr<OsiCuts> cuts_;
+  int numNodesOnTree_; ///< number of active nodes on the tree
+  int numLeafNodes_; ///< number of leaf nodes
+  int numNodes_; ///< total number of nodes explored
+  double obj_; ///< integer-feasible solution value
+  SolverInterface* originalSolver_; ///< pointer to original solver to compare bounds
+  std::vector<double> originalLB_; ///< vector of original lower bounds
+  std::vector<double> originalUB_; ///< vector of original upper bounds
+//    std::vector<CoinWarmStartBasis*> bases_; ///< bases of nodes
+  std::vector<NodeStatistics> stats_; ///< all stats that we need to recreate tree
+  std::vector<NodeStatistics> pruned_stats_; ///< info for all children that were pruned
+  std::vector<int> finalNodeIndices_; ///< node numbers for the nodes on the final tree
+  std::vector<double> savedSolution_; ///< when pruneNode_ = 3, the saved solution might have been deleted somehow
+  std::unique_ptr<OsiCuts> cuts_; ///< cuts we generate
   ///@}
 
   ///@{
   /// @name Temporary information we want to keep during the B&B process
-  std::vector<CbcNode*> currentNodes_;
-  CbcNode* parent_;
-  CbcNodeInfo* parentInfo_;
-  CbcNode* child_;
-  PruneNodeOption pruneNode_ = PruneNodeOption::NO;
-  bool reachedEnd_ = false;
-  bool foundSolution_ = false;
+  std::vector<CbcNode*> currentNodes_; ///< current set of nodes on the tree
+  CbcNode* parent_; ///< pointer to parent of current node being explored
+  CbcNodeInfo* parentInfo_; ///< full node info for parent
+  CbcNode* child_; ///< current child being explored
+  PruneNodeOption pruneNode_ = PruneNodeOption::NO; ///< reason a node is pruned
+  bool reachedEnd_ = false; ///< are we done?
+  bool foundSolution_ = false; ///< was an integer-feasible solution found?
   ///@}
 
   ///@{
@@ -203,6 +206,8 @@ protected:
 
   /// @brief Copy our stuff
   void initialize(const VPCEventHandler* const rhs);
+
+  /// @brief Solve for a disjunctive term
   bool setupDisjunctiveTerm(const int node_id, const int branching_variable,
       const int branching_way, const double branching_value,
       const SolverInterface* const tmpSolverBase,
@@ -210,7 +215,11 @@ protected:
       std::vector<std::vector<int> >& commonTermIndices,
       std::vector<std::vector<double> >& commonTermCoeff,
       std::vector<double>& commonTermRHS);
+
+  /// @brief Clear saved information and free memory
   void clearInformation();
+
+  /// @brief Save node information before we reach endSearch_
   int saveInformation();
   //@}
 };

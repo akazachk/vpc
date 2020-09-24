@@ -1,6 +1,7 @@
 /**
  * @file CglVPC.hpp
  * @brief File containing CglVPC class and related methods
+ *
  * @author A. M. Kazachkov
  * @date 2018-12-24
  */
@@ -97,7 +98,7 @@ public:
     USER,
     OBJ_CUT,
     ONE_SIDED,
-    NUM_OBJECTIVE_TYPES
+    NUM_OBJECTIVE_TYPES ///< number of objective types
   }; /* ObjectiveType */
 
   /// @brief Types of failures that occurred during cut generation
@@ -121,7 +122,7 @@ public:
     PRIMAL_INFEASIBLE_NO_OBJ,
     NUMERICAL_ISSUES_NO_OBJ,
     UNKNOWN,
-    NUM_FAILURE_TYPES
+    NUM_FAILURE_TYPES ///< number of failure types
   }; /* FailureType */
 
   /// Data used as input into PRLP construction
@@ -130,6 +131,8 @@ public:
     std::vector<double> rhs; ///< vector of constant sides (always assumed >=)
     std::vector<int> term; ///< which term the point/ray belongs to
     std::vector<double> objViolation; ///< how much the corresponding point/ray improves on the original objective value
+
+    /// Add constraint, rhs, index of disjunctive term, and how much this point violates the objective inequality wrt the LP optimum
     void addConstraint(const CoinPackedVector& vec, const double rhs, const int term, const double viol) {
       this->constraints.push_back(vec);
       this->rhs.push_back(rhs);
@@ -255,7 +258,7 @@ public:
   ///@{
   /// @name Print methods
 
-  /// @brief For each cut type in \link CutType::NUM_CUT_TYPES NUM_CUT_TYPES \endlink, print #CutTypeName, #numCutsOfType
+  /// @brief For each cut type in \link CglVPC::CutType::NUM_CUT_TYPES NUM_CUT_TYPES \endlink, print #CutTypeName, #numCutsOfType
   inline void printCutsOfType(FILE* logfile = stdout) const {
     for (int i = 0; i < static_cast<int>(CutType::NUM_CUT_TYPES); i++) {
       fprintf(logfile, "%s,", CutTypeName[i].c_str());
@@ -265,7 +268,7 @@ public:
     fflush(logfile);
   } /* printCutsOfType */
 
-  /// @brief For each objective in \link ObjectiveType::NUM_OBJECTIVE_TYPES NUM_OBJECTIVE_TYPES \endlink, print #ObjectiveTypeName, #numObjFromHeur
+  /// @brief For each objective in \link CglVPC::ObjectiveType::NUM_OBJECTIVE_TYPES NUM_OBJECTIVE_TYPES \endlink, print #ObjectiveTypeName, #numObjFromHeur
   inline void printObjFromHeur(FILE* logfile = stdout) const {
       for (int i = 0; i < static_cast<int>(ObjectiveType::NUM_OBJECTIVE_TYPES); i++) {
         fprintf(logfile, "OBJ_%s,", ObjectiveTypeName[i].c_str());
@@ -275,7 +278,7 @@ public:
       fflush(logfile);
     } /* printObjFromHeur */
 
-  /// @brief For each objective in \link ObjectiveType::NUM_OBJECTIVE_TYPES NUM_OBJECTIVE_TYPES \endlink, print #ObjectiveTypeName, #numCutsFromHeur
+  /// @brief For each objective in \link CglVPC::ObjectiveType::NUM_OBJECTIVE_TYPES NUM_OBJECTIVE_TYPES \endlink, print #ObjectiveTypeName, #numCutsFromHeur
   inline void printCutsFromHeur(FILE* logfile = stdout) const {
       for (int i = 0; i < static_cast<int>(ObjectiveType::NUM_OBJECTIVE_TYPES); i++) {
         fprintf(logfile, "CUTS_%s,", ObjectiveTypeName[i].c_str());
@@ -285,7 +288,7 @@ public:
       fflush(logfile);
     } /* printCutsFromHeur */
 
-  /// @brief For each objective in \link ObjectiveType::NUM_OBJECTIVE_TYPES NUM_OBJECTIVE_TYPES \endlink, print #ObjectiveTypeName, #numFailsFromHeur
+  /// @brief For each objective in \link CglVPC::ObjectiveType::NUM_OBJECTIVE_TYPES NUM_OBJECTIVE_TYPES \endlink, print #ObjectiveTypeName, #numFailsFromHeur
   inline void printFailsFromHeur(FILE* logfile = stdout) const {
     for (int i = 0; i < static_cast<int>(ObjectiveType::NUM_OBJECTIVE_TYPES); i++) {
       fprintf(logfile, "FAILS_%s,", ObjectiveTypeName[i].c_str());
@@ -295,7 +298,7 @@ public:
     fflush(logfile);
   } /* printFailsFromHeur */
 
-  /// @brief For each objective in \link FailureType::NUM_FAILURE_TYPES NUM_FAILURE_TYPES \endlink, print #FailureTypeName, #numFails
+  /// @brief For each objective in \link CglVPC::FailureType::NUM_FAILURE_TYPES NUM_FAILURE_TYPES \endlink, print #FailureTypeName, #numFails
   inline void printFailures(FILE* logfile = stdout) const {
     for (int i = 0; i < static_cast<int>(FailureType::NUM_FAILURE_TYPES); i++) {
       fprintf(logfile, "%s,", FailureTypeName[i].c_str());
@@ -311,18 +314,19 @@ protected:
   Disjunction* disjunction = NULL; ///< Pointer to Disjunction used for this round of cuts
   PRLPData prlpData; ///< PRLPData for this round of cuts
 
-  /// @brief Quick reference to key information from current instance
+  /// @brief Quick reference to information from current instance
+  /// @details This information is key for converting to / from nonbasic space
   struct ProblemData {
-    int num_cols;
-    double lp_opt;
+    int num_cols; ///< number of variables
+    double lp_opt; ///< value of LP optimal solution
     double minAbsCoeff; ///< useful for dynamism calculation
     double maxAbsCoeff; ///< useful for dynamism calculation
     double EPS; ///< epsilon computed from this particular instance data
-    std::vector<int> NBVarIndex;
-    std::vector<int> varBasicInRow;
+    std::vector<int> NBVarIndex; /// indices of nonbasic vectors at LP optimum
+    std::vector<int> varBasicInRow; /// for the optimal basis, what are the variables basic in each row
     std::vector<int> rowOfVar; ///< row in which var is basic; if var is nonbasic, then it is (-(1 + nonbasic index))
     std::vector<int> rowOfOrigNBVar; ///< row in which "original" nonbasic vars are basic; if var is still nonbasic, then it is (-(1 + new nonbasic index))
-    std::vector<double> NBReducedCost;
+    std::vector<double> NBReducedCost; ///< objective coefficients in the nonbasic space
 
     /// Get index of variable in NBVarIndex, and -1 if it is basic
     int getVarNBIndex(const int var) const {

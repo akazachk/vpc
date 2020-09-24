@@ -137,7 +137,7 @@ enum class doubleConst {
   MIN_VIOL_ABS, ///< minimum amount a cut should remove the LP opt
   MIN_VIOL_REL, ///< minimum amount a cut should remove the LP opt (using ratio)
   MAX_DYN, ///< |alpha_max| / |alpha_min| upper bound; Maximum ratio between largest and smallest non zero coefficients in a cut
-  MAX_DYN_LUB, ///< Same as ::MAX_DYN but when some of the variables involved in the cut have a large upper bound; should be >= ::MAX_DYN logically
+  MAX_DYN_LUB, ///< Same as doubleConst::MAX_DYN but when some of the variables involved in the cut have a large upper bound; should be >= doubleConst::MAX_DYN logically
   MAX_SUPPORT_REL, ///< max relative (to number of variables) number of nonzero coefficients in any cut we generate
   NUM_DOUBLE_CONST ///< number of double constants
 }; /* doubleConst */
@@ -199,6 +199,7 @@ inline int disable_temp_option(const int strategy, const TempOptions option) {
 
 /// EnumClassHash is used in order to hash for unordered_map
 struct EnumClassHash {
+  /// Get size_t of \p t
   template<typename T>
   std::size_t operator()(const T& t) const {
     return static_cast<std::size_t>(t);
@@ -209,24 +210,33 @@ struct EnumClassHash {
 template <class T>
 class Parameter {
 public:
+  /// Set #param_name and #val
   Parameter(std::string name, const T& val) : param_name(name), val(val) {}
+  /// Destructor
   virtual ~Parameter() {}
+  /// Print parameter (depending on \p amountToPrint)
   virtual std::string to_string(const int amountToPrint = 0, const char* fmt = NULL) const = 0;
 
+  /// Return the #val of the parameter
   virtual const T get() const final { return this->val; }
+  /// Return the #name of the parameter
   virtual std::string name() const final { return this->param_name; }
+  /// Set parameter to a value
   virtual bool set(const T& val) final { this->val = val; return check(); }
+  /// Does the parameter take a valid value? Default: true
   virtual bool check() const { return true; }
 
+  /// Check if one parameter has value coming before the other
   bool operator<(const Parameter& other) const {
     return this->param_name.compare(other.param_name) < 0;
   }
+  /// Check if two parameters are equal
   bool operator==(const Parameter& other) const {
     return this->param_name == other.param_name;
   }
 protected:
-  std::string param_name;
-  T val;
+  std::string param_name; ///< name of the parameter
+  T val; ///< value of the parameter
 }; /* Parameter */
 
 /// Generic parameter of any arithmetic type
@@ -235,14 +245,17 @@ template <class T, typename = typename std::enable_if<std::is_arithmetic<T>::val
 class NumericParameter : public Parameter<T> {
 public:
     using Parameter<T>::Parameter;
+    /// Constructor setting #param_name, #val, and allowable range of values
     NumericParameter(const std::string& name, const T& val, const T& min_val, const T& max_val)
     : Parameter<T>(name, val), min_val(min_val), max_val(max_val) { check(); }
+    /// Constructor setting #param_name, #val, and allowable list of values
     NumericParameter(const std::string& name, const T& val, const std::vector<T>& allowed_vals)
     : Parameter<T>(name, val), allowed_vals(allowed_vals) {
       this->min_val = *std::min_element(allowed_vals.begin(), allowed_vals.end());
       this->max_val = *std::max_element(allowed_vals.begin(), allowed_vals.end());
       check();
     }
+    /// Destructor
     virtual ~NumericParameter() {}
 
     /**
@@ -255,6 +268,7 @@ public:
         /// 1 = only names,
         /// 2 = only values
         const int amountToPrint = 2,
+        /// Passed to stringValue()
         const char* fmt = NULL) const {
       std::string retval = "";
       switch (amountToPrint) {
@@ -273,7 +287,9 @@ public:
       return retval;
     } /* to_string */
 
+    /// Return #min_val
     virtual const T get_min() const { return this->min_val; }
+    /// Return #max_val
     virtual const T get_max() const { return this->max_val; }
     /// Check presence of \p test_val in #allowed_vals (if that is set), or compare it to #min_val and #max_val
     virtual bool val_is_allowed(const T test_val) const {
@@ -283,6 +299,7 @@ public:
         return !(lessThanVal(this->val, this->min_val) || greaterThanVal(this->val, this->max_val));
       }
     }
+    /// Return #allowed_vals
     virtual const std::vector<T>& get_allowed_vals() const { return this->allowed_vals; }
     /// Check if val_is_allowed() and otherwise print error
     virtual bool check() const {
@@ -311,10 +328,13 @@ protected:
 class IntParameter : public NumericParameter<int> {
 public:
   using NumericParameter<int>::NumericParameter;
+  /// Constructor setting #param_name, #val, allowable range of values, and #param_id
   IntParameter(intParam num, const std::string& name, const int& val, const int& min_val, const int& max_val)
   : NumericParameter<int>(name, val, min_val, max_val), param_id(num) {}
+  /// Constructor setting #param_name, #val, allowable list of values, and #param_id
   IntParameter(intParam num, const std::string& name, const int& val, const std::vector<int>& allowed_vals)
   : NumericParameter<int>(name, val, allowed_vals), param_id(num) {}
+
   virtual std::string to_string(const int amountToPrint = 2, const char* fmt = NULL) const {
     if (fmt) {
       return NumericParameter<int>::to_string(amountToPrint, fmt);
@@ -322,19 +342,24 @@ public:
       return NumericParameter<int>::to_string(amountToPrint, "%d");
     }
   }
+
+  /// Return #param_id
   virtual const intParam id() const { return this->param_id; }
 protected:
-  intParam param_id;
+  intParam param_id; ///< reference back to the enum intParam
 }; /* IntParameter */
 
 /// Specialization of NumericParameter to #doubleParam values
 class DoubleParameter : public NumericParameter<double> {
 public:
   using NumericParameter<double>::NumericParameter;
+  /// Constructor setting #param_name, #val, allowable range of values, and #param_id
   DoubleParameter(doubleParam num, const std::string& name, const double& val, const double& min_val, const double& max_val)
   : NumericParameter<double>(name, val, min_val, max_val), param_id(num) {}
+  /// Constructor setting #param_name, #val, allowable list of values, and #param_id
   DoubleParameter(doubleParam num, const std::string& name, const double& val, const std::vector<double>& allowed_vals)
   : NumericParameter<double>(name, val, allowed_vals), param_id(num) {}
+
   virtual std::string to_string(const int amountToPrint = 2, const char* fmt = NULL) const {
     if (fmt) {
       return NumericParameter<double>::to_string(amountToPrint, fmt);
@@ -342,15 +367,19 @@ public:
       return NumericParameter<double>::to_string(amountToPrint, "%.3e");
     }
   }
+
+  /// Return #param_id
   virtual const doubleParam id() const { return this->param_id; }
 protected:
-  doubleParam param_id;
+  doubleParam param_id; ///< reference back to the enum doubleParam
 }; /* DoubleParameter */
 
 /// Specialization of NumericParameter to #stringParam values
 class StringParameter : public Parameter<std::string> {
 public:
   using Parameter<std::string>::Parameter;
+
+  /// Constructor setting #param_name, #val, and #param_id
   StringParameter(stringParam num, const std::string& name, const std::string& val)
   : Parameter<std::string>(name, val), param_id(num) {}
 
@@ -378,9 +407,11 @@ public:
     }
     return retval;
   } /* to_string */
+
+  /// Return #param_id
   virtual const stringParam id() const { return this->param_id; }
 protected:
-  stringParam param_id;
+  stringParam param_id; ///< reference back to the enum stringParam
 }; /* StringParameter */
 
 /********** VPC PARAMETERS STRUCT **********/
@@ -388,6 +419,7 @@ protected:
 struct VPCParameters {
   FILE* logfile = NULL; ///< NB: right now this is a shallow copy if this struct gets copied
 
+  /// @brief int parameter values
   /// unordered_map gets printed in reverse order; advantage over map is constant access time on average
   std::unordered_map<intParam, IntParameter, EnumClassHash> intParamValues {
     /// BB_MODE: 010 = branch with vpcs only
@@ -467,6 +499,8 @@ struct VPCParameters {
         IntParameter(intParam::CUTLIMIT, "CUTLIMIT",
             -1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
   }; /* intParamValues */
+
+  /// @brief double parameter values
   std::unordered_map<doubleParam, DoubleParameter, EnumClassHash> doubleParamValues {
     {doubleParam::TIMELIMIT,
       DoubleParameter(doubleParam::TIMELIMIT, "TIMELIMIT",
@@ -490,6 +524,8 @@ struct VPCParameters {
         DoubleParameter(doubleParam::BB_TIMELIMIT, "BB_TIMELIMIT",
             3600., 0., std::numeric_limits<double>::max())},
   }; /* doubleParamValues */
+
+  /// @brief string parameter values
   std::unordered_map<stringParam, StringParameter, EnumClassHash> stringParamValues {
 //    {stringParam::OUTDIR, StringParameter("OUTDIR", "")},
     {stringParam::OPTFILE,
@@ -500,7 +536,7 @@ struct VPCParameters {
         StringParameter(stringParam::FILENAME, "FILENAME", "")},
   }; /* stringParamValues */
 
-  /// Integer constants
+  /// @brief Integer constants
   std::unordered_map<intConst, IntParameter, EnumClassHash> intConstValues {
     {intConst::PRLP_PRESOLVE, IntParameter("PRLP_PRESOLVE", 2, 2, 2)}, // use presolve when solving PRLP (either initial or resolve)
     {intConst::NB_SPACE, IntParameter("NB_SPACE", 1, 1, 1)}, // currently only works with true
@@ -510,7 +546,8 @@ struct VPCParameters {
     {intConst::LUB, IntParameter("LUB", 1e3, 1e3, 1e3)},
     {intConst::CHECK_DUPLICATES, IntParameter("CHECK_DUPLICATES", 1, 1, 1)},
   }; /* intConstValues */
-  /// Double constants
+
+  /// @brief Double constants
   std::unordered_map<doubleConst, DoubleParameter, EnumClassHash> doubleConstValues {
     {doubleConst::MAX_SUPPORT_REL, DoubleParameter("MAX_SUPPORT_REL", 0.9, 0.9, 0.9)},
     {doubleConst::MAX_DYN_LUB, DoubleParameter("MAX_DYN_LUB", 1e13, 1e13, 1e13)},
@@ -528,7 +565,11 @@ struct VPCParameters {
 
   ///@{
   /// @name Constructors
+
+  /// @brief Default constructor
   VPCParameters() { }
+
+  /// @brief Copy constructor
   VPCParameters(const VPCParameters& source) {
     this->logfile = source.logfile;
     this->intParamValues = source.intParamValues;
@@ -541,23 +582,38 @@ struct VPCParameters {
 
   ///@{
   /// @name Name methods
+
+  /// @brief Return name of intParam \p param
   std::string name(intParam param) const { return intParamValues.find(param)->second.name(); }
+  /// @brief Return name of doubleParam \p param
   std::string name(doubleParam param) const { return doubleParamValues.find(param)->second.name(); }
+  /// @brief Return name of stringParam \p param
   std::string name(stringParam param) const { return stringParamValues.find(param)->second.name(); }
+  /// @brief Return name of intConst \p param
   std::string name(intConst param) const { return intConstValues.find(param)->second.name(); }
+  /// @brief Return name of doubleConst \p param
   std::string name(doubleConst param) const { return doubleConstValues.find(param)->second.name(); }
   ///@}
 
   ///@{
   /// @name Get / set methods
+
+  /// @brief Get value of intParam \p param
   int         get(intParam param) const { return intParamValues.find(param)->second.get(); }
+  /// @brief Get value of doubleParam \p param
   double      get(doubleParam param) const { return doubleParamValues.find(param)->second.get(); }
+  /// @brief Get value of stringParam \p param
   std::string get(stringParam param) const { return stringParamValues.find(param)->second.get(); }
+  /// @brief Get value of intConst \p param
   int         get(intConst param) const { return intConstValues.find(param)->second.get(); }
+  /// @brief Get value of doubleConst \p param
   double      get(doubleConst param) const { return doubleConstValues.find(param)->second.get(); }
 
+  /// @brief Set intParam \p param to \p value
   void        set(intParam param, const int value) { intParamValues.find(param)->second.set(value); }
+  /// @brief Set doubleParam \p param to \p value
   void        set(doubleParam param, const double value) { doubleParamValues.find(param)->second.set(value); }
+  /// @brief Set stringParam \p param to \p value
   void        set(stringParam param, std::string value) { stringParamValues.find(param)->second.set(value); }
 
   /// Set parameters by name
@@ -655,7 +711,9 @@ inline void readParams(VPCParameters& params, std::string infilename) {
 
 /// @brief Print parameters and constants
 inline void printParams(
+    /// parameters to print
     const VPCParameters& params, 
+    /// where to print
     FILE* logfile = stdout, 
     /// \li 0 = all param name/values except string params (newline-separated)
     /// \li 1 = only param names (comma-separated)

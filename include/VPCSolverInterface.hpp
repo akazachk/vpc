@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-/// For passing sparse cuts out from VPC code
+/// @brief For passing sparse cuts out from VPC code
 struct SparseCut
 {
   int num_elem;
@@ -17,7 +17,7 @@ struct SparseCut
   double rhs;
 };
 
-/// For passing dense cuts out from VPC code
+/// @brief For passing dense cuts out from VPC code
 struct DenseCut
 {
   std::vector<double> coeff;
@@ -46,75 +46,81 @@ std::vector<DenseCut> convertCutsToDenseCuts(const OsiCuts* const cuts, const in
 class VPCSolverInterface {
 public:
 #ifdef USE_COIN
-	OsiSolverInterface *solver;
-	OsiCuts *cuts;
+	OsiSolverInterface *solver; ///< pointer to underlying OsiSolver
+	OsiCuts *cuts; ///< pointer to any cuts we generate
 #endif
-  Disjunction *disj;
-  VPCParametersNamespace::VPCParameters *params;
+  Disjunction *disj; ///< disjunction used for cut generation
+  VPCParametersNamespace::VPCParameters *params; ///< instance parameters
 
-  /// Default constructor
+  /// @brief Default constructor
 	VPCSolverInterface();
 
-	/// Copy constructor
+	/// @brief Copy constructor
 	VPCSolverInterface(const VPCSolverInterface& source);
 
-	/// Destructor
+	/// @brief Destructor
 	virtual ~VPCSolverInterface();
 
-	/// Assignment operator
+	/// @brief Assignment operator
 	VPCSolverInterface& operator=(const VPCSolverInterface& source);
 
-	/// Clone
+	/// @brief Clone
 	virtual VPCSolverInterface *clone() const;
 
-  /// Set params based on VPCParameters
+  /// @brief Set params based on VPCParameters
   void setParams(const VPCParametersNamespace::VPCParameters* const param);
 
-  /// Flip objective
+  /// @brief Flip objective
   void flipObj(const int sense = 1);
 
-  /// Set disjunction
+  /// @brief Set disjunction
   virtual void setDisjunction(const Disjunction* const disj);
 
   ///@{
   /// @name Load problem methods
+
+  /// @brief Load from string
 	virtual void load(std::string fullfilename);
 #ifdef USE_COIN
+  /// @brief Load from OsiSolverInterface
   virtual void load(const OsiSolverInterface* const si);
 #endif
+  /// @brief Load from OsiProblemData
   virtual void load(OsiProblemData* data);
   ///@}
 
-  /// Solve LP relaxation
+  /// @brief Solve LP relaxation
   virtual void solve();
-  /// Resolve LP relaxation
+  /// @brief Resolve LP relaxation
   virtual void resolve();
 
-  /// Generate cuts and put them in #cuts
+  /// @brief Generate cuts and put them in #cuts
   virtual void generateCuts();
 
-  /// Add the (previously generated) cuts to the solver
+  /// @brief Add the (previously generated) cuts to the solver
   virtual int applyCuts(bool* cutsToAdd = NULL, bool clear_cuts = false);
 
-  ///  Write LP with cuts
+  /// @brief Write LP with cuts
   virtual void save(std::string filename);
 
-  /// Return cuts in non-Osi format
+  /// @brief Return cuts in non-Osi format
   virtual int numCuts();
 #ifdef USE_COIN
-  /// Return cuts in Osi format
+  /// @brief Return cuts in Osi format
   virtual const OsiCuts* const getCuts();
 #endif
-  /// Get vector of sparse cuts
+  /// @brief Get vector of sparse cuts
   virtual std::vector<SparseCut> getCutsSparse();
-  /// Get vector of dense cuts
+  /// @brief Get vector of dense cuts
   virtual std::vector<DenseCut> getCutsDense();
 
-  /// Query solver
+  /// @brief Query solver
   virtual double getObjValue();
 
 protected:
+  /// @brief Initialize class members (copy from source if provided)
   void initialize(const VPCSolverInterface *const source = NULL,
       const VPCParametersNamespace::VPCParameters *const param = NULL);
+  /// @brief Free memory
   void free();
 }; /* VPCSolverInterface */

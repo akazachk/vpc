@@ -1,5 +1,15 @@
-// This code has been adpated (by Aleksandr M. Kazachkov) from OsiChooseVariable.hpp in the Osi project of COIN-OR
-//
+/**
+ * @file OsiChooseStrongCustom.hpp
+ *
+ * @brief This code has been adapted (by Aleksandr M. Kazachkov) from OsiChooseVariable.hpp in the Osi project of COIN-OR.
+ * 
+ * The key details are located in the description of #method_.
+ *
+ * @author A. M. Kazachkov
+ * @date 2019-01-22
+ */
+
+// Old copyright info below:
 // Copyright (C) 2006, International Business Machines
 // Corporation and others.  All Rights Reserved.
 // This code is licensed under the terms of the Eclipse Public License (EPL).
@@ -13,7 +23,10 @@
 #include "OsiBranchingObject.hpp"
 #include "OsiChooseVariable.hpp"
 
-/** This class chooses a variable to branch on
+/** @brief This class chooses a variable to branch on 
+    
+    By default, it will do strong branching, but also can be set to use two candidates, or pick in the reverse order.
+    This can be useful if we wish to test a tree for cut generation that is different from a tree that would be used for branching.
 
     This chooses the variable and direction with reversereliability strong branching.
 
@@ -110,9 +123,11 @@ public:
   inline int numberObjects() const {
     return pseudoCosts_.numberObjects(); }
 
+  /// @brief return #method_
   inline int getMethod() const {
     return method_;
   }
+  /// @brief set #method_
   inline void setMethod(int method) {
     method_ = method;
   }
@@ -137,6 +152,21 @@ protected:
   /** Clear out the results array */
   void resetResults(int num);
 
+  /// @brief Method for choosing the variable
+  ///
+  /// When #method_ != 0, calculate second value (flip weight on maxmin_coeff) for each object to break ties in processObject()
+  /// when firstValue = bestTrusted and secondValue > bestTrustedSecondCriterion.
+  /// When #method_ is 3 or 4, the first criterion is ignored, ando only the second is used
+  ///
+  /// \li <0: when value is x<0, proceed by reverse order of -1*(x+1)
+  /// \li 0/default: what is in OsiChooseStrong (0.85 * min change + 0.15 * max change)
+  /// \li 1: default, but with tie-breaking
+  /// \li 2: choose var that maximizes min change, then select by maximizes max change; maxmin_coeff = 1
+  /// \li 3: choose var that is second-best in terms of default, with tie-breaking
+  /// \li 4: choose var that is second-best in terms of maximizes min change, then select by maximizes max change; maxmin_coeff = 1
+  /// \li 5: maxmin_coeff = 0
+  /// \li 6: reverse order, #bestWhichWay_ always 0
+  /// \li 7: choose first not-fixed integer variable
   int method_;
   int secondBestObjectIndex_;
   int secondBestWhichWay_;
@@ -156,6 +186,6 @@ protected:
   /** The number of OsiHotInfo objetcs that contain information */
   int numResults_;
 
-  static constexpr int DEFAULT_METHOD_ = 0;
-  static constexpr double SAVED_MAXMIN_CRITERION_ = 0.85;
+  static constexpr int DEFAULT_METHOD_ = 0; ///< the default method is what is in the original OsiChooseStrong class
+  static constexpr double SAVED_MAXMIN_CRITERION_ = 0.85; ///< factor for weighing max and min obj of children
 };

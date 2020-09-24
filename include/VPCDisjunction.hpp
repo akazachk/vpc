@@ -13,48 +13,51 @@
 #include "TimeStats.hpp"
 #include "VPCParameters.hpp"
 
-/**********************************************/
-/*  Generic abstract VPCDisjunction class     */
-/*  from which a point-ray collection can be  */
-/*  constructed and VPCs can be generated     */
-/**********************************************/
+/**
+ * @brief Generic abstract VPCDisjunction class
+ * 
+ * Allows a point-ray collection to be constructed,
+ * from which we can generate VPCs
+ */
 class VPCDisjunction : public Disjunction {
 public:
-  friend class CglVPC; // to access protected members
+  friend class CglVPC; ///< to access protected members
 
-  VPCParametersNamespace::VPCParameters params; // parameters for the class
+  VPCParametersNamespace::VPCParameters params; ///< parameters for the class
 
-  // Optional members
-  TimeStats* timer; // not owned by VPCDisjunction
+  /// @name Optional members
+  ///@{
+  TimeStats* timer; ///< not owned by VPCDisjunction
+  ///@}
 
-  /** setParams based on VPCParameters */
+  /// @brief setParams based on VPCParameters
   void setParams(const VPCParametersNamespace::VPCParameters& params);
 
-  /** Param constructor */
+  /// @brief Param constructor
   VPCDisjunction(const VPCParametersNamespace::VPCParameters& params);
 
-  /** Copy and param constructor */
+  /// @brief Copy and param constructor
   VPCDisjunction(const VPCDisjunction& source, const VPCParametersNamespace::VPCParameters& params);
 
-  /** Default constructor */
+  /// @brief Default constructor
   VPCDisjunction();
 
-  /** Copy constructor */
+  /// @brief Copy constructor
   VPCDisjunction(const VPCDisjunction& source);
 
-  /** Destructor */
+  /// @brief Destructor
   virtual ~VPCDisjunction();
 
-  /** Assignment operator */
+  /// @brief Assignment operator
   VPCDisjunction& operator=(const VPCDisjunction& source);
 
-  /** Clone */
+  /// @brief Clone
   virtual VPCDisjunction* clone() const = 0;
 
-  /** For clearing things and setting up the disjunction as new */
+  /// @brief For clearing things and setting up the disjunction as new
   virtual void setupAsNew();
 
-  /** Get disjunction */
+  /// @brief Get disjunction
 #ifdef USE_COIN
   virtual DisjExitReason prepareDisjunction(const OsiSolverInterface* const si) = 0;
 #else
@@ -62,5 +65,6 @@ public:
 #endif
 
 protected:
+  /// @brief Initialize class members (copy from \p source if provided)
   void initialize(const VPCDisjunction* const source = NULL, const VPCParametersNamespace::VPCParameters* const params = NULL);
 }; /* VPCDisjunction */
