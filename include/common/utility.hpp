@@ -2,14 +2,11 @@
  * @file utility.hpp
  * @author A. M. Kazachkov
  * @date 2018-Dec-24
+ * @brief Utility functions
+ * @details The header is going to be included in many places,
+ * so ideally it will not have too much included that is unnecessary
  */
 #pragma once
-
-/*********************************************************************
- * Utility functions
- * The header is going to be included in many places,
- * so ideally it will not have too much included that is unnecessary
- *********************************************************************/
 
 #include <cstdio>
 #include <iostream> // cerr
@@ -46,7 +43,9 @@ inline std::ostream& operator<<(std::ostream& os, const std::vector<double> &inp
 } /* overload << operator for vector of doubles */
 
 /**
- * NOTE: the below sorting functions will only work when the index list given is {0,...,size}
+ * @brief For sorting
+ *
+ * @details NOTE: the below sorting functions will only work when the index list given is {0,...,size}
  * (not necessarily in that order)
  * because the index list is used to access elements of arr
  *
@@ -119,7 +118,6 @@ template<class T> struct index_cmp_asc {
   std::cerr << str
 #endif
 
-/***********************************************************************/
 /**
  * @brief Writes error and closes file myfile.
  */
@@ -130,10 +128,10 @@ inline void writeErrorToLog(std::string text, FILE *myfile) {
   fclose(myfile);
 }
 
-/** Create temporary filename */
+/** @brief Create temporary filename */
 void createTmpFilename(std::string& f_name, const std::string add_ext = "");
 
-/** Separate filename into the directory, instance name, and extension */
+/** @brief Separate filename into the directory, instance name, and extension */
 int parseFilename(std::string& dir, std::string& instname, std::string& in_file_ext, const std::string& fullfilename, FILE* logfile);
 
 double getObjValueFromFile(std::string opt_filename, std::string fullfilename, FILE* logfile);
@@ -247,7 +245,7 @@ inline const std::string stringValue(const double value, const char* format = "%
   }
 } /* stringValue (double) */
 
-/** The below is mostly for ease of use with params; in the future we may way to format strings though */
+/** @brief The below is mostly for ease of use with params; in the future we may way to format strings though */
 inline const std::string stringValue(const std::string value, const char* format = "%s") {
   return value;
 } /* stringValue (string) */
@@ -255,15 +253,15 @@ inline const std::string stringValue(const std::string value, const char* format
 double dotProductNoCompensation(const CoinPackedVector& vec1, const double* vec2);
 double dotProductNoCompensation(const CoinPackedVector& vec1, const CoinPackedVector& vec2);
 
-// Compute dot product using compensated summation to have small
-// numerical error. First version: dense vectors
+/// @brief Compute dot product using compensated summation to have small numerical error.
+/// First version: dense vectors.
 double dotProductNoCompensation(const double* a, const double* b, int dimension);
 
-// Second version: first vector is sparse, second one is dense
+/// @brief Second version: first vector is sparse, second one is dense.
 double dotProductNoCompensation(int sizea, const int* indexa, const double* a,
     const double* b);
 
-// Third version: sparse vectors
+/// @brief Third version: sparse vectors.
 double dotProductNoCompensation(int sizea, const int* indexa, const double* a, int sizeb,
     const int* indexb, const double* b);
 
@@ -280,18 +278,21 @@ double dotProductNoCompensation(int sizea, const int* indexa, const double* a, i
 //-----------------------------------------------------------------------------
 // Copyright (C) 2012, Giacomo Nannicini.  All Rights Reserved.
 
+/// @brief Dot product between sparse and dense vec
 double dotProduct(const CoinPackedVector& vec1, const double* vec2);
+
+/// @brief Dot product between two sparse vectors
 double dotProduct(const CoinPackedVector& vec1, const CoinPackedVector& vec2);
 
-// Compute dot product using compensated summation to have small
-// numerical error. First version: dense vectors
+/// @brief Compute dot product using compensated summation to have small
+/// numerical error. First version: dense vectors
 double dotProduct(const double* a, const double* b, int dimension);
 
-// Second version: first vector is sparse, second one is dense
+/// @brief Second version: first vector is sparse, second one is dense
 double dotProduct(int sizea, const int* indexa, const double* a,
     const double* b);
 
-// Third version: sparse vectors
+/// @brief Third version: sparse vectors
 double dotProduct(int sizea, const int* indexa, const double* a, int sizeb,
     const int* indexb, const double* b);
 

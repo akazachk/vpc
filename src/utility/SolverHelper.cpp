@@ -215,7 +215,12 @@ bool solveFromHotStart(OsiSolverInterface* const solver, const int col,
 } /* solveFromHotStart overload */
 
 /**
- * @details Something that can go wrong (e.g., bc1 -64 sb5 tmp_ind = 14):
+ * @details
+ * Resolve if there are inaccuracies detected
+ * (e.g., the secondary status of the solver is not optimal,
+ * or if the sum of the primal or dual infeasibilities is not zero)
+ *
+ * Something that can go wrong (e.g., bc1 -64 sb5 tmp_ind = 14):
  *  \p solver is declared optimal for the scaled problem but there are primal or dual infeasibilities in the unscaled problem.
  *  In this case, secondary status will be 2 or 3.
  * Sometimes cleanup helps.
