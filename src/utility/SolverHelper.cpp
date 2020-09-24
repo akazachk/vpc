@@ -63,8 +63,9 @@ bool hitTimeLimit(const OsiSolverInterface* const solver) {
 
 #ifdef USE_CLP
 /**
+ * @details Sets OsiMaxNumIterationHotStart to \p hot_start_iter_limit and special options to 16 (use strong branching rather than Clp's).
  * We need to be careful with the strong branching options;
- * sometimes the Clp strong branching fails, such as with arki001, branching down on variable 924
+ * sometimes the Clp strong branching fails, such as with arki001, branching down on variable 924.
  */
 void setupClpForStrongBranching(OsiClpSolverInterface* const solver, const int hot_start_iter_limit) {
   solver->setIntParam(OsiMaxNumIterationHotStart, hot_start_iter_limit);
@@ -72,8 +73,7 @@ void setupClpForStrongBranching(OsiClpSolverInterface* const solver, const int h
 } /* setupClpForStrongBranching */
 
 /**
- * Sets message handler and special options when using solver as part of B&B
- * (in which we want to run full strong branching and enable the fixing of variables)
+ * @details We want to run full strong branching and enable the fixing of variables.
  */
 void setupClpForCbc(OsiSolverInterface* const solver,
     const int verbosity, const double max_time,
@@ -95,12 +95,20 @@ void setupClpForCbc(OsiSolverInterface* const solver,
 #endif // USE_CLP
 
 /**
- * Set the cut solver objective coefficients based on a packed vector
- * We do not zero out the other coefficients unless requested
+ * @details We do not zero out the other coefficients unless requested
  */
-void addToObjectiveFromPackedVector(OsiSolverInterface* const solver,
-    const CoinPackedVectorBase* vec, const bool zeroOut, const double mult,
+void addToObjectiveFromPackedVector(
+    /// [in,out] solver object to be modified
+    OsiSolverInterface* const solver,
+    /// [in] add values in vec to the objective
+    const CoinPackedVectorBase* vec,
+    /// [in] set all obj coeff to 0 before proceeding
+    const bool zeroOut,
+    /// [in] a constant multiple to scale the coefficients by (for example, we can set \p SHOULD_SCALE to false and pass the inverse of the 2-norm of \vec for \p mult)
+    const double mult,
+    /// [in] assumed sorted in increasing order, in case we want to change a specific set of indices
     const std::vector<int>* const nonZeroColIndices,
+    /// [in] add a scaled version of \p vec, by its two norm
     const bool SHOULD_SCALE) {
   if (zeroOut) {
     for (int i = 0; i < solver->getNumCols(); i++) {
@@ -145,9 +153,18 @@ void addToObjectiveFromPackedVector(OsiSolverInterface* const solver,
   }
 } /* addToObjectiveFromPackedVector */
 
+/**
+ * @details Only use specified indices if both \p numIndices > 0 and \p indices != NULL
+ */
 void setConstantObjectiveFromPackedVector(
-    OsiSolverInterface* const solver, const double val,
-    const int numIndices, const int* indices) {
+    /// [in,out] solver to be modified
+    OsiSolverInterface* const solver, 
+    /// [in] value to set the coefficients to (e.g., 0)
+    const double val,
+    /// [in] if specified, only the indices in \p indices will be set
+    const int numIndices,
+    /// [in] if specified, only these indices will be set
+    const int* indices) {
   if (numIndices > 0 && indices) {
     for (int i = 0; i < numIndices; i++) {
       solver->setObjCoeff(indices[i], val);
@@ -159,7 +176,7 @@ void setConstantObjectiveFromPackedVector(
   }
 } /* setConstantObjectiveFromPackedVector */
 
-/** Set solution (set to zero if the second argument is NULL) */
+/// @details Set solver solution to specified value (if \p sol is NULL, set all to to zero)
 void setSolverSolution(OsiSolverInterface* const solver, const double* const sol) {
   if (sol) {
     solver->setColSolution(sol);
@@ -169,7 +186,10 @@ void setSolverSolution(OsiSolverInterface* const solver, const double* const sol
   }
 } /* setSolverSolution */
 
-/** Overload solve from hot start because of issues */
+/// @details Some problems with normal OsiSolverInterface::solverFromHotStart() can happen,
+/// such as with arki001, in which we can have OsiSolverInterface::isIterationLimitReached()
+///
+/// @return OsiSolverInterface::isProvenOptimal()
 bool solveFromHotStart(OsiSolverInterface* const solver, const int col,
     const bool isChangedUB, const double origBound, const double newBound) {
   solver->solveFromHotStart();
@@ -195,13 +215,13 @@ bool solveFromHotStart(OsiSolverInterface* const solver, const int col,
 } /* solveFromHotStart overload */
 
 /**
- * @brief Checks whether a solver is optimal
+ * @details Something that can go wrong (e.g., bc1 -64 sb5 tmp_ind = 14):
+ *  \p solver is declared optimal for the scaled problem but there are primal or dual infeasibilities in the unscaled problem.
+ *  In this case, secondary status will be 2 or 3.
+ * Sometimes cleanup helps.
+ * Sometimes things break after enabling factorization (e.g., secondary status = 0, but sum infeasibilities > 0).
  *
- * Something that can go wrong (e.g., bc1 -64 sb5 tmp_ind = 14):
- *  Solver is declared optimal for the scaled problem but there are primal or dual infeasibilities in the unscaled problem
- *  In this case, secondary status will be 2 or 3
- * Sometimes cleanup helps
- * Sometimes things break after enabling factorization (e.g., secondary status = 0, but sum infeasibilities > 0)
+ * @return OsiSolverInterface::isProvenOptimal()
  */
 bool checkSolverOptimality(OsiSolverInterface* const solver,
     const bool exitOnDualInfeas, const double timeLimit,
@@ -333,7 +353,10 @@ bool checkSolverOptimality(OsiSolverInterface* const solver,
 } /* checkSolverOptimality */
 
 /**
- * @brief Enable factorization, and check whether some cleanup needs to be done
+ * @details If USE_CLP macro is defined and \p resolveFlag > 0, then we sometimes might want to resolve,
+ * because occasionally the act of enabling factorization creates a bad (primal or dual) solution
+ *
+ * @return OsiSolverInterface::isProvenOptimal()
  */
 bool enableFactorization(OsiSolverInterface* const solver, const double EPS, const int resolveFlag) {
   solver->enableFactorization();
@@ -366,7 +389,6 @@ bool enableFactorization(OsiSolverInterface* const solver, const double EPS, con
 } /* enableFactorization */
 
 /**
- * Generic way to apply a set of cuts to a solver
  * @return Solver value after adding the cuts, if they were added successfully
  */
 double applyCutsCustom(OsiSolverInterface* const solver, const OsiCuts& cs,
@@ -497,7 +519,7 @@ double getObjValue(OsiSolverInterface* const solver, const OsiCuts* const cuts) 
   }
 } /* getObjValue */
 
-// Aliases from solver
+// <!---------------- Aliases from solver ---------------->
 bool isBasicCol(const OsiSolverInterface* const solver, const int col) {
 #ifdef USE_CLP
   try {
@@ -510,7 +532,7 @@ bool isBasicCol(const OsiSolverInterface* const solver, const int col) {
   std::vector<int> cstat(solver->getNumCols()), rstat(solver->getNumRows());
   solver->getBasisStatus(&cstat[0], &rstat[0]);
   return isBasicCol(cstat, col);
-}
+} /* isBasicCol */
 
 bool isNonBasicFreeCol(const OsiSolverInterface* const solver, const int col) {
 #ifdef USE_CLP
@@ -524,7 +546,7 @@ bool isNonBasicFreeCol(const OsiSolverInterface* const solver, const int col) {
   std::vector<int> cstat(solver->getNumCols()), rstat(solver->getNumRows());
   solver->getBasisStatus(&cstat[0], &rstat[0]);
   return cstat[col] == 0;
-}
+} /* isNonBasicFreeCol */
 
 bool isNonBasicUBCol(const OsiSolverInterface* const solver, const int col) {
 #ifdef USE_CLP
@@ -541,7 +563,7 @@ bool isNonBasicUBCol(const OsiSolverInterface* const solver, const int col) {
   std::vector<int> cstat(solver->getNumCols()), rstat(solver->getNumRows());
   solver->getBasisStatus(&cstat[0], &rstat[0]);
   return isNonBasicUBCol(cstat, col);
-}
+} /* isNonBasicUBCol */
 
 bool isNonBasicLBCol(const OsiSolverInterface* const solver, const int col) {
 #ifdef USE_CLP
@@ -558,7 +580,7 @@ bool isNonBasicLBCol(const OsiSolverInterface* const solver, const int col) {
   std::vector<int> cstat(solver->getNumCols()), rstat(solver->getNumRows());
   solver->getBasisStatus(&cstat[0], &rstat[0]);
   return isNonBasicLBCol(cstat, col);
-}
+} /* isNonBasicLBCol */
 
 bool isNonBasicFixedCol(const OsiSolverInterface* const solver, const int col) {
 #ifdef USE_CLP
@@ -572,32 +594,8 @@ bool isNonBasicFixedCol(const OsiSolverInterface* const solver, const int col) {
   std::vector<int> cstat(solver->getNumCols()), rstat(solver->getNumRows());
   solver->getBasisStatus(&cstat[0], &rstat[0]);
   return cstat[col] == 5;
-}
+} /* isNonBasicFixedCol */
 
-/**
- * Status of slack variables.
- * The only tricky aspect is that the model pointer row status for slack variables
- * at ub is actually that they are at lb, and vice versa.
- * Basically, when Clp says a row is atLowerBound,
- * then it means it is a >= row, so that rowActivity == rowLower.
- * In Osi, the status of the corresponding slack is at its UPPER bound,
- * because Osi keeps all slacks with a +1 coefficient in the row.
- * When it says a row is atUpperBound,
- * then the row is a <= row and rowActivity == rowUpper.
- * In Osi, the status of the corresponding slack is at its LOWER bound,
- * since this is the regular slack we know and love.
- *
- * One more issue: fixed slack (artificial) variables.
- * The status in Osi is decided by the reduced cost.
- * This is a minimization problem; the solution is optimal when the reduced cost is
- * (as above)
- *   >= 0 for variables at their lower bound,
- *   <= 0 for variables at their upper bound.
- * Thus, if a reduced cost is < 0, the variable will be treated as being at its ub.
- * How do we get the reduced cost for slacks?
- * It is actually just the negative of the dual variable value,
- * which is stored in rowPrice.
- */
 bool isBasicSlack(const OsiSolverInterface* const solver, const int row) {
 #ifdef USE_CLP
   try {
@@ -610,7 +608,7 @@ bool isBasicSlack(const OsiSolverInterface* const solver, const int row) {
   std::vector<int> cstat(solver->getNumCols()), rstat(solver->getNumRows());
   solver->getBasisStatus(&cstat[0], &rstat[0]);
   return isBasicSlack(rstat, row);
-}
+} /* isBasicSlack */
 
 bool isNonBasicFreeSlack(const OsiSolverInterface* const solver, const int row) {
 #ifdef USE_CLP
@@ -624,10 +622,10 @@ bool isNonBasicFreeSlack(const OsiSolverInterface* const solver, const int row) 
   std::vector<int> cstat(solver->getNumCols()), rstat(solver->getNumRows());
   solver->getBasisStatus(&cstat[0], &rstat[0]);
   return rstat[row] == 0;
-}
+} /* isNonBasicFreeSlack */
 
-// NOTE: We do at *lower* bound on purpose because of comment above:
-// the underlying model flips how it holds these with respect to Clp
+/// @details NOTE: We do at *lower* bound on purpose because of comment above:
+/// the underlying model flips how it holds these with respect to Clp
 bool isNonBasicUBSlack(const OsiSolverInterface* const solver, const int row) {
 #ifdef USE_CLP
   try {
@@ -643,10 +641,10 @@ bool isNonBasicUBSlack(const OsiSolverInterface* const solver, const int row) {
   std::vector<int> cstat(solver->getNumCols()), rstat(solver->getNumRows());
   solver->getBasisStatus(&cstat[0], &rstat[0]);
   return isNonBasicUBSlack(rstat, row); // need to check if flipping is done here too
-}
+} /* isNonBasicUBSlack */
 
-// NOTE: We do at *upper* bound on purpose because of comment above:
-// the underlying model flips how it holds these with respect to Clp
+/// @details NOTE: We do at *upper* bound on purpose because of comment above:
+/// the underlying model flips how it holds these with respect to Clp
 bool isNonBasicLBSlack(const OsiSolverInterface* const solver, const int row) {
 #ifdef USE_CLP
   try {
@@ -662,7 +660,7 @@ bool isNonBasicLBSlack(const OsiSolverInterface* const solver, const int row) {
   std::vector<int> cstat(solver->getNumCols()), rstat(solver->getNumRows());
   solver->getBasisStatus(&cstat[0], &rstat[0]);
   return isNonBasicLBSlack(rstat, row); // need to check if flipping is done here too
-}
+} /* isNonBasicLBSlack */
 
 bool isNonBasicFixedSlack(const OsiSolverInterface* const solver, const int row) {
 #ifdef USE_CLP
@@ -676,4 +674,4 @@ bool isNonBasicFixedSlack(const OsiSolverInterface* const solver, const int row)
   std::vector<int> cstat(solver->getNumCols()), rstat(solver->getNumRows());
   solver->getBasisStatus(&cstat[0], &rstat[0]);
   return rstat[row] == 5;
-}
+} /* isNonBasicFixedSlack */

@@ -42,32 +42,27 @@
 
 using namespace VPCParametersNamespace;
 
-/****************** PUBLIC  **********************/
-/** Param constructor */
+//<---***************** PUBLIC  **********************-->
+
 PartialBBDisjunction::PartialBBDisjunction(const VPCParametersNamespace::VPCParameters& param) {
   initialize(NULL, &param);
 } /* param constructor */
 
-/** Copy and param constructor */
 PartialBBDisjunction::PartialBBDisjunction(const PartialBBDisjunction& source, const VPCParametersNamespace::VPCParameters& param) {
   initialize(&source, &param);
 } /* copy & param constructor */
 
-/** Default constructor */
 PartialBBDisjunction::PartialBBDisjunction() {
   initialize(NULL, NULL);
 } /* default constructor */
 
-/** Copy constructor */
 PartialBBDisjunction::PartialBBDisjunction(const PartialBBDisjunction& source) {
   initialize(&source, NULL);
 } /* copy constructor */
 
-/** Destructor */
 PartialBBDisjunction::~PartialBBDisjunction() {
 } /* destructor */
 
-/** Assignment operator */
 PartialBBDisjunction& PartialBBDisjunction::operator=(const PartialBBDisjunction& source) {
   if (this != &source) {
     initialize(&source, NULL);
@@ -75,12 +70,11 @@ PartialBBDisjunction& PartialBBDisjunction::operator=(const PartialBBDisjunction
   return *this;
 } /* assignment operator */
 
-/** Clone */
 PartialBBDisjunction* PartialBBDisjunction::clone() const {
   return new PartialBBDisjunction(*this);
 } /* clone */
 
-/** Set up the disjunction class as new (except the timer pointer, and do not reset params) */
+/** @details Set up the disjunction class as new (except the timer pointer, and do not reset params) */
 void PartialBBDisjunction::setupAsNew() {
   VPCDisjunction::setupAsNew();
   this->root.initialize();
@@ -96,9 +90,9 @@ void PartialBBDisjunction::setupAsNew() {
 } /* setupAsNew */
 
 /**
- * @brief Prepare a new disjunction
- *
- * This will throw away all the information from the old disjunction, except it will not reset the timer
+ * @details This will throw away all the information from the old disjunction, except it will not reset the timer
+ * setupAsNew() is called, then a new Cbc object is created using a clone of \pi si
+ * @returns a DisjExitReason for whether we were suceessful at generating the disjunction
  */
 DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface* const si) {
   // Reset things in case we are reusing the class for some reason
@@ -123,6 +117,35 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
     exit(1);
   }
 
+  { // DEBUG DEBUG DEBUG
+#ifdef BB_NEW_SOLVER
+    try {
+      if (BBSolver) { delete BBSolver; }
+      BBSolver = new SolverInterface;
+      setLPSolverParameters(BBSolver, params.get(VERBOSITY), params.get(TIMELIMIT));
+      BBSolver->readMps(params.get(stringParam::FILENAME).c_str());
+      if (BBSolver->getObjSense() < 1e-3) {
+        BBSolver->setObjSense(1.0);
+        const double* obj = BBSolver->getObjCoefficients();
+        for (int col = 0; col < BBSolver->getNumCols(); col++) {
+          BBSolver->setObjCoeff(col, -1. * obj[col]);
+        }
+        double objOffset = 0.;
+        BBSolver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
+        if (objOffset != 0.) {
+          BBSolver->setDblParam(OsiDblParam::OsiObjOffset, -1. * objOffset);
+        }
+      }
+      BBSolver->initialSolve();
+    } catch (std::exception& e) {
+      error_msg(errorstring,
+          "Unable to create branch-and-bound solver into desired SolverInterface.\n");
+      writeErrorToLog(errorstring, params.logfile);
+      exit(1);
+    }
+#endif
+  } // DEBUG DEBUG DEBUG
+  
   // Setup LP for use in partial tree generation
   setLPSolverParameters(BBSolver, params.get(VERBOSITY), std::numeric_limits<double>::max());
   BBSolver->setHintParam(OsiDoPresolveInInitial, false);
@@ -253,7 +276,12 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
   return DisjExitReason::SUCCESS_EXIT;
 } /* prepareDisjunction */
 
-/****************** PROTECTED **********************/
+//<--***************** PROTECTED **********************-->
+
+/**
+ * @details If \p source != NULL, clear #root then point #root to \p source->root, and similarly for #data
+ * Otherwise, call RootTerm::initialize() and PartialBBDisjunctionData::initialize()
+ */
 void PartialBBDisjunction::initialize(const PartialBBDisjunction* const source,
     const VPCParametersNamespace::VPCParameters* const params) {
   VPCDisjunction::initialize(source, params);
@@ -263,34 +291,59 @@ void PartialBBDisjunction::initialize(const PartialBBDisjunction* const source,
     this->data = source->data;
   } else {
     this->root.initialize();
-    this->data.num_nodes_on_tree = 0;
-    this->data.num_partial_bb_nodes = 0;
-    this->data.num_pruned_nodes = 0;
-    this->data.min_node_depth = std::numeric_limits<int>::max();
-    this->data.max_node_depth = 0;
-    this->data.num_fixed_vars = 0;
+    this->data.initialize();
   }
 } /* initialize */
 
+/// @details \p choose_strategy can be positive or negative
+void getCbcStrategies(
+    /// [in] parameters to read settings from
+    const VPCParametersNamespace::VPCParameters& params,
+    /// [out] ones digit of intParam::PARTIAL_BB_STRATEGY; given a tree, which node to pick next
+    int& compare_strategy,
+    /// [out] tens digit of intParam::PARTIAL_BB_STRATEGY; given a branching variable, which direction to choose
+    int& branch_strategy,
+    /// [out] hundreds digit of intParam::PARTIAL_BB_STRATEGY; which branching variable to pick
+    int& choose_strategy) {
+  // What is the partial strategy?
+  const int strategy = std::abs(params.get(intParam::PARTIAL_BB_STRATEGY));
+  const int sign = (params.get(intParam::PARTIAL_BB_STRATEGY) < 0) ? -1 : 1;
+  compare_strategy = strategy % 10; // ones digit
+  branch_strategy = (strategy % 100 - compare_strategy) / 10; // tens digit
+  choose_strategy = sign * (strategy % 1000 - compare_strategy - 10 * branch_strategy) / 100; // hundreds digit
+} /* getCbcStrategies */
+
 #ifdef USE_CBC
 /**
- * Set parameters for Cbc used for VPCs, as well as the custom branching decision
+ * @details Set maximum number of hot start iterations to 100,
+ * set the CbcBranchDecision, CbcCompareBase, CbcEventHandler, and CbcModel::setChooseMethod().
+ * Also disable presolve and cuts, set maximum time equal to \p max_time,
+ * and set maximum number of strong branching candidates and number of nodes explored before switching to pseudocosts
  */
-void setCbcParametersForPartialBB(const VPCParametersNamespace::VPCParameters& params,
-    CbcModel* const cbc_model, CbcEventHandler* eventHandler,
-    const int numStrong, const int numBeforeTrusted, const double max_time) {
-  setIPSolverParameters(cbc_model, params.get(VERBOSITY));
+void setCbcParametersForPartialBB(
+    /// [in,out] CbcModel we are deciding settings for
+    CbcModel* const cbc_model,
+    /// [in] how much information to print, but (in Cbc 2.10 and on) we need to set CbcModel::setSecsPrintFrequency() to -1 to reach the treeStatus event correctly
+    const int verbosity,
+    /// [in] given a tree, which node to pick next
+    const int compare_strategy,
+    /// [in] given a branching variable, which direction to choose
+    const int branch_strategy,
+    /// [in] which branching variable to pick
+    const int choose_strategy,
+    /// [in] maximum number of strong branching candidates
+    const int numStrong,
+    /// [in] number of explored nodes before switching to pseudocosts; 0 disables dynamic strong branching
+    const int numBeforeTrusted,
+    /// [in] time limit for Cbc to generate a tree
+    const double max_time,
+    /// [in,out] custom event handler (\sa VPCEventHandler); will not be changed here, but not deleted either
+    CbcEventHandler* eventHandler) {
+  setIPSolverParameters(cbc_model, verbosity);
 #ifdef CBC_VERSION_210PLUS
   cbc_model->setSecsPrintFrequency(-1); // to reach tree status correctly
 #endif
   cbc_model->solver()->setIntParam(OsiMaxNumIterationHotStart, 100);
-
-  // What is the partial strategy?
-  const int strategy = std::abs(params.get(intParam::PARTIAL_BB_STRATEGY));
-  const int sign = (params.get(intParam::PARTIAL_BB_STRATEGY) < 0) ? -1 : 1;
-  const int compare_strategy = strategy % 10; // ones digit
-  const int branch_strategy = (strategy % 100 - compare_strategy) / 10; // tens digit
-  const int choose_strategy = sign * (strategy % 1000 - compare_strategy - 10 * branch_strategy) / 100; // hundreds digit
 
   // Branching decision (tens digit)
   // Given a branching variable, which direction to choose?
@@ -371,10 +424,7 @@ void setCbcParametersForPartialBB(const VPCParametersNamespace::VPCParameters& p
   }
 } /* setCbcParametersForPartialBB */
 
-/************************************************************/
-/**
- * Generate a partial branch-and-bound tree with at most max_leaf_nodes leaf nodes
- */
+//<!--***********************************************************-->
 void generatePartialBBTree(PartialBBDisjunction* const owner, CbcModel* cbc_model,
     const OsiSolverInterface* const solver, const int max_leaf_nodes,
     const int num_strong, const int num_before_trusted) {
@@ -387,8 +437,11 @@ void generatePartialBBTree(PartialBBDisjunction* const owner, CbcModel* cbc_mode
   eventHandler->setOriginalSolver(solver);
 
   // This sets branching decision, event handling, etc.
-  setCbcParametersForPartialBB(owner->params, cbc_model, eventHandler, num_strong,
-      num_before_trusted, std::numeric_limits<double>::max());
+  int compare_strategy, branch_strategy, choose_strategy;
+  getCbcStrategies(owner->params, compare_strategy, branch_strategy, choose_strategy);
+  setCbcParametersForPartialBB(cbc_model, owner->params.get(intParam::VERBOSITY),
+      compare_strategy, branch_strategy, choose_strategy, num_strong,
+      num_before_trusted, std::numeric_limits<double>::max(), eventHandler);
 
 #ifdef TRACE
   cbc_model->branchAndBound(3);

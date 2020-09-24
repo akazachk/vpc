@@ -1,7 +1,6 @@
 /** 
  * @file SolverHelper.hpp
  * @brief Various helpful functions for solver-agnostic queries
- *
  * @author A. M. Kazachkov
  */
 #pragma once
@@ -16,6 +15,7 @@
 
 #ifdef USE_CBC
 class CbcModel;
+/// @brief Set log level and print frequency for \p cbc_model
 void setIPSolverParameters(CbcModel* const cbc_model,
     const int verbosity =
 #ifdef TRACE
@@ -28,6 +28,7 @@ void setIPSolverParameters(CbcModel* const cbc_model,
 
 class OsiCuts;
 
+/// @brief Set log level and max time
 void setLPSolverParameters(OsiSolverInterface* const solver,
     const int verbosity =
 #ifdef TRACE
@@ -37,22 +38,18 @@ void setLPSolverParameters(OsiSolverInterface* const solver,
 #endif
     const double max_time = std::numeric_limits<double>::max());
 
+/// @brief Set solver time limit
 void setTimeLimit(OsiSolverInterface* const solver, const double timeLimit);
+/// @brief Check if time limit is hit
 bool hitTimeLimit(const OsiSolverInterface* const solver);
 
 #ifdef USE_CLP
-/**
- * We need to be careful with the strong branching options;
- * sometimes the Clp strong branching fails, such as with arki001, branching down on variable 924
- */
+/// @brief Set options for Clp to use strong branching
 void setupClpForStrongBranching(OsiClpSolverInterface* const solver,
     const int hot_start_iter_limit = std::numeric_limits<int>::max());
 #endif
 
-/**
- * Sets message handler and special options when using solver as part of B&B
- * (in which we want to run full strong branching and enable the fixing of variables)
- */
+/// @brief Sets message handler and special options when using solver as part of B&B
 void setupClpForCbc(OsiSolverInterface* const solver,
     const int verbosity =
 #ifdef TRACE
@@ -63,59 +60,51 @@ void setupClpForCbc(OsiSolverInterface* const solver,
     const double max_time = std::numeric_limits<double>::max(),
     const int hot_start_iter_limit = std::numeric_limits<int>::max());
 
+/// @brief Set the cut solver objective coefficients based on a packed vector
 void addToObjectiveFromPackedVector(OsiSolverInterface* const solver,
     const CoinPackedVectorBase* vec, const bool zeroOut = false,
     const double mult = 1., const std::vector<int>* const nonZeroColIndices = 0,
     const bool SHOULD_SCALE = true);
+
+/// @brief Set all objective coefficients to \val
 void setConstantObjectiveFromPackedVector(OsiSolverInterface* const solver,
     const double val = 0., const int numIndices = 0, const int* indices = 0);
+
+/// @brief Set solution (set to zero if \p sol is NULL)
 void setSolverSolution(OsiSolverInterface* const solver, const double* const sol = NULL);
 
-/** Overload solve from hot start because of issues */
+/// @brief Overload solve from hot start because of issues
 bool solveFromHotStart(OsiSolverInterface* const solver, const int col,
     const bool isChangedUB, const double origBound, const double newBound);
 
-/**
- * Checks whether a solver is optimal
- * Something that can go wrong (e.g., bc1 -64 sb5 tmp_ind = 14):
- *  Solver is declared optimal for the scaled problem but there are primal or dual infeasibilities in the unscaled problem
- *  In this case, secondary status will be 2 or 3
- * Sometimes cleanup helps
- * Sometimes things break after enabling factorization (e.g., secondary status = 0, but sum infeasibilities > 0)
- */
+/// @brief Checks whether a solver is optimal
 bool checkSolverOptimality(OsiSolverInterface* const solver,
     const bool exitOnDualInfeas,
     const double timeLimit = std::numeric_limits<double>::max(),
     const int maxNumResolves = 2);
 
-/**
- * Enable factorization, and check whether some cleanup needs to be done
- */
+/// @brief Enable factorization, and check whether some cleanup needs to be done
 bool enableFactorization(OsiSolverInterface* const solver, const double EPS, const int resolveFlag = 2);
 
-/**
- * Generic way to apply a set of cuts to a solver
- * @return Solver value after adding the cuts, if they were added successfully
- */
+/// @brief Generic way to apply a set of cuts to a solver
 double applyCutsCustom(OsiSolverInterface* const solver, const OsiCuts& cs,
     FILE* logfile, const int startCutIndex, const int numCutsOverload, double compare_obj);
+/// @brief Generic way to apply a set of cuts to a solver
 double applyCutsCustom(OsiSolverInterface* const solver, const OsiCuts& cs,
     FILE* logfile = NULL,
     const int numCutsOverload = -1,
     double compare_obj = std::numeric_limits<double>::lowest());
 
-/**
- * Get objective value from solver with cuts added
- */
+/// @brief Get objective value from solver with cuts added
 double getObjValue(OsiSolverInterface* const solver, const OsiCuts* const cuts);
 
-/*****************************
- * Decide status of variables
- *****************************/
 #ifdef USE_CLP
+///@{ 
+/// @name Decide status of variables using ClpSimplex status
+
 /**
- * Status of structural variables.
- * The only tricky thing is fixed variables.
+ * @brief Status of structural variables.
+ * @details The only tricky thing is fixed variables.
  * This is decided by reduced cost, as for slacks.
  * This is a minimization problem.
  * The reduced cost, at optimality, is
@@ -146,10 +135,15 @@ inline bool isNonBasicLBVar(const ClpSimplex::Status stat) {
 inline bool isNonBasicFixedVar(const ClpSimplex::Status stat) {
   return (stat == ClpSimplex::Status::isFixed);
 }
+///@}
 #endif // USE_CLP
 
-// Aliases from cstat/rstat
-// Flipping we are worried about below has already occurred
+// <!---------------- Aliases from cstat/rstat ---------------->
+///@{
+/// @name Aliases from cstat/rstat
+
+/// @brief Check if column (structural variable) is basic
+/// @details Reverts to isBasicVar(const int) if USE_CLP is defined
 inline bool isBasicCol(const std::vector<int> &cstat, const int col) {
 #ifdef USE_CLP
   return isBasicVar(static_cast<ClpSimplex::Status>(cstat[col]));
@@ -158,6 +152,8 @@ inline bool isBasicCol(const std::vector<int> &cstat, const int col) {
 #endif
 }
 
+/// @brief Check if column (structural variable) is nonbasic at its upper bound
+/// @details Reverts to isNonBasicUBVar(const int) if USE_CLP is defined
 inline bool isNonBasicUBCol(const std::vector<int> &cstat, const int col) {
 #ifdef USE_CLP
   return isNonBasicUBVar(static_cast<ClpSimplex::Status>(cstat[col]));
@@ -166,6 +162,8 @@ inline bool isNonBasicUBCol(const std::vector<int> &cstat, const int col) {
 #endif
 }
 
+/// @brief Check if column (structural variable) is nonbasic at its lower bound
+/// @details Reverts to isNonBasicLBVar(const int) if USE_CLP is defined
 inline bool isNonBasicLBCol(const std::vector<int> &cstat, const int col) {
 #ifdef USE_CLP
   return isNonBasicLBVar(static_cast<ClpSimplex::Status>(cstat[col]));
@@ -174,6 +172,9 @@ inline bool isNonBasicLBCol(const std::vector<int> &cstat, const int col) {
 #endif
 }
 
+/// @brief Check if row (slack variable) is basic
+/// @details Flipping we are worried about in isBasicSlack(const OsiSolverInterface* const, const int) has already occurred
+/// Reverts to isBasicVar(const int) if USE_CLP is defined
 inline bool isBasicSlack(const std::vector<int> &rstat, const int row) {
 #ifdef USE_CLP
   return isBasicVar(static_cast<ClpSimplex::Status>(rstat[row]));
@@ -182,6 +183,8 @@ inline bool isBasicSlack(const std::vector<int> &rstat, const int row) {
 #endif
 }
 
+/// @brief Check if row (slack variable) is nonbasic at its upper bound
+/// @details Reverts to isNonBasicUBVar(const int) if USE_CLP is defined
 inline bool isNonBasicUBSlack(const std::vector<int> &rstat, const int row) {
 #ifdef USE_CLP
   return isNonBasicUBVar(static_cast<ClpSimplex::Status>(rstat[row]));
@@ -190,6 +193,8 @@ inline bool isNonBasicUBSlack(const std::vector<int> &rstat, const int row) {
 #endif
 }
 
+/// @brief Check if row (slack variable) is nonbasic at its lower bound
+/// @details Reverts to isNonBasicLBVar(const int) if USE_CLP is defined
 inline bool isNonBasicLBSlack(const std::vector<int> &rstat, const int row) {
 #ifdef USE_CLP
   return isNonBasicLBVar(static_cast<ClpSimplex::Status>(rstat[row]));
@@ -197,19 +202,10 @@ inline bool isNonBasicLBSlack(const std::vector<int> &rstat, const int row) {
   return rstat[row] == 3;
 #endif
 }
+///@} // aliases using cstat/rstat
 
-bool isBasicCol(const OsiSolverInterface* const solver, const int col);
-
-bool isNonBasicFreeCol(const OsiSolverInterface* const solver, const int col);
-
-bool isNonBasicUBCol(const OsiSolverInterface* const solver, const int col);
-
-bool isNonBasicLBCol(const OsiSolverInterface* const solver, const int col);
-
-bool isNonBasicFixedCol(const OsiSolverInterface* const solver, const int col);
-
-/**
- * Status of slack variables.
+// <!---------------- Aliases from solver ---------------->
+/** @name Check basic/nonbasic status of structural/slack variables given OsiSolverInterface pointer
  * The only tricky aspect is that the model pointer row status for slack variables
  * at ub is actually that they are at lb, and vice versa.
  * Basically, when Clp says a row is atLowerBound,
@@ -232,21 +228,42 @@ bool isNonBasicFixedCol(const OsiSolverInterface* const solver, const int col);
  * It is actually just the negative of the dual variable value,
  * which is stored in rowPrice.
  */
+///@{
+
+/// @brief Check if structural column is basic
+bool isBasicCol(const OsiSolverInterface* const solver, const int col);
+
+/// @brief Check if column (structural variable) is nonbasic and free
+bool isNonBasicFreeCol(const OsiSolverInterface* const solver, const int col);
+
+/// @brief Check if column (structural variable) is nonbasic at its upper bound
+bool isNonBasicUBCol(const OsiSolverInterface* const solver, const int col);
+
+/// @brief Check if column (structural variable) is nonbasic at its lower bound
+bool isNonBasicLBCol(const OsiSolverInterface* const solver, const int col);
+
+/// @brief Check if column (structural variable) is fixed
+bool isNonBasicFixedCol(const OsiSolverInterface* const solver, const int col);
+
+/// @brief Check if slack variable is basic
 bool isBasicSlack(const OsiSolverInterface* const solver, const int row);
 
+/// @brief Check if slack variable is nonbasic and free
 bool isNonBasicFreeSlack(const OsiSolverInterface* const solver, const int row);
 
-// NOTE: We do at *lower* bound on purpose because of comment above:
-// the underlying model flips how it holds these with respect to Clp
+/// @brief Check if slack variable is nonbasic and at its upper bound
 bool isNonBasicUBSlack(const OsiSolverInterface* const solver, const int row);
 
-// NOTE: We do at *upper* bound on purpose because of comment above:
-// the underlying model flips how it holds these with respect to Clp
+/// @brief Check if slack variable is nonbasic and at its lower bound
 bool isNonBasicLBSlack(const OsiSolverInterface* const solver, const int row);
 
+/// @brief Check if slack variable is nonbasic and fixed
 bool isNonBasicFixedSlack(const OsiSolverInterface* const solver, const int row);
+///@} // check basic / nb status given OsiSolverInterface
 
-// Aliases
+///@{
+/// @name Aliases checking if var is structural or slack
+/// @brief Check if variable is nonbasic at its lower bound
 inline bool isBasicVar(const OsiSolverInterface* const solver, const int var) {
 #ifdef USE_CLP
   try {
@@ -264,7 +281,7 @@ inline bool isBasicVar(const OsiSolverInterface* const solver, const int var) {
 /** 
  * @brief Check if variable is nonbasic at its lower bound
  *
- * Implementation is not simply using getStatus because of fixed variables 
+ * @details Implementation is not simply using getStatus because of fixed variables 
  */
 inline bool isNonBasicLBVar(const OsiSolverInterface* const solver, const int var) {
   return
@@ -276,7 +293,7 @@ inline bool isNonBasicLBVar(const OsiSolverInterface* const solver, const int va
 /** 
  * @brief Check if variable is nonbasic at its upper bound
  *
- * Implementation is not simply using getStatus because of fixed variables 
+ * @details Implementation is not simply using getStatus because of fixed variables 
  */
 inline bool isNonBasicUBVar(const OsiSolverInterface* const solver, const int var) {
   return
@@ -288,7 +305,7 @@ inline bool isNonBasicUBVar(const OsiSolverInterface* const solver, const int va
 /** 
  * @brief Check if variable is nonbasic and free
  *
- * Implementation is not simply using getStatus because of fixed variables 
+ * @details Implementation is not simply using getStatus because of fixed variables 
  */
 inline bool isNonBasicFreeVar(const OsiSolverInterface* const solver, const int var) {
   return
@@ -298,7 +315,7 @@ inline bool isNonBasicFreeVar(const OsiSolverInterface* const solver, const int 
 }
 
 /**
- * Check if a variable is nonbasic and fixed
+ * @brief Check if a variable is nonbasic and fixed
  */
 inline bool isNonBasicFixedVar(const OsiSolverInterface* const solver, const int var) {
   return
@@ -308,9 +325,12 @@ inline bool isNonBasicFixedVar(const OsiSolverInterface* const solver, const int
 }
 
 /**
- * The variables that lead to rays are nonbasic structural variables
+ * @brief Check if a variable corresponds to a ray of the basis cone (equivalently, it is not a basic variable)
+ *
+ * @details The variables that lead to rays are nonbasic structural variables
  * and nonbasic slacks not coming from equality constraints.
  */
 inline bool isRayVar(const OsiSolverInterface* const solver, const int var) {
   return !isBasicVar(solver, var);
 }
+///@} // status of variables (checking if it is structural or slack)
