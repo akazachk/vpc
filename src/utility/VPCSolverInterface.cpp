@@ -1,3 +1,8 @@
+/**
+ * @file VPCSolverInterface.cpp
+ * @author A. M. Kazachkov
+ * @brief Wrapper for VPC-related solver calls
+ */
 #include "VPCSolverInterface.hpp"
 #include "utility.hpp"
 #include "CglVPC.hpp"
@@ -209,18 +214,21 @@ void VPCSolverInterface::resolve() {
 #endif
 } /* resolve */
 
-void VPCSolverInterface::generateCuts() {
+void VPCSolverInterface::generateCuts(
+    /// [in] optional: set of user objectives for PRLP (in structural space), to be tried before default objectives
+    const std::vector<std::vector<double> >* const user_objectives) {
   if (!solver->isProvenOptimal()) {
     error_msg(errorstring, "VPCSolverInterface::generateCuts: Solver not proven optimal.\n");
     throw(errorstring);
   }
   CglVPC gen(*params);
+  if (user_objectives) { gen.setUserObjectives(*user_objectives); }
   gen.generateCuts(*solver, *cuts); // solution may change slightly due to enable factorization called in getProblemData...
   if (gen.disj()) {
     if (this->disj) { delete this->disj; }
     this->disj = gen.disj()->clone();
   }
-} /* generateCuts */
+} /* generateCuts(user_objectives) */
 
 int VPCSolverInterface::applyCuts(
   bool* cutsToAdd,

@@ -94,8 +94,8 @@ public:
   /// @brief Resolve LP relaxation
   virtual void resolve();
 
-  /// @brief Generate cuts and put them in #cuts
-  virtual void generateCuts();
+  /// @brief Generate cuts and put them in #cuts, using \p user_objectives (in structural space) for PRLP if provided
+  virtual void generateCuts(const std::vector<std::vector<double> >* const user_objectives = NULL);
 
   /// @brief Add the (previously generated) cuts to the solver
   virtual int applyCuts(bool* cutsToAdd = NULL, bool clear_cuts = false);
