@@ -222,7 +222,7 @@ void VPCSolverInterface::generateCuts(
     throw(errorstring);
   }
   CglVPC gen(*params);
-  if (user_objectives) { gen.setUserObjectives(*user_objectives); }
+  if (user_objectives && (*user_objectives).size() > 0) { gen.setUserObjectives(*user_objectives); }
   gen.generateCuts(*solver, *cuts); // solution may change slightly due to enable factorization called in getProblemData...
   if (gen.disj()) {
     if (this->disj) { delete this->disj; }
