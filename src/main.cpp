@@ -380,12 +380,14 @@ int startUp(int argc, char** argv) {
     std::string csvext = ".csv";
     if (optfile.size() > csvext.size() && optfile.compare(optfile.size()-csvext.size(), csvext.size(), csvext) == 0) {
   #ifdef TRACE
-      std::cout << "Reading objective information from \"" + params.get(stringParam::OPTFILE) + "\"" << std::endl;
+      fprintf(stdout, "Reading objective information from \"%s\".\n", optfile.c_str());
+      //std::cout << "Reading objective information from \"" + params.get(stringParam::OPTFILE) + "\"" << std::endl;
   #endif
       boundInfo.ip_obj = getObjValueFromFile(optfile, params.get(stringParam::FILENAME), params.logfile);
       params.set(doubleParam::IP_OBJ, boundInfo.ip_obj);
   #ifdef TRACE
-      std::cout << "Best known objective value is " << boundInfo.ip_obj << std::endl;
+      fprintf(stdout, "Best known objective value is %s.\n", stringValue(boundInfo.ip_obj, "%f").c_str());
+      //std::cout << "Best known objective value is " << boundInfo.ip_obj << std::endl;
   #endif
       if (isInfinity(boundInfo.ip_obj)) {
         warning_msg(warnstring, "Did not find objective value.\n");

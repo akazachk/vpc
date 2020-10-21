@@ -197,12 +197,23 @@ void CglVPC::setDisjunction(
     this->disjunction = sourceDisj;
 } /* setDisjunction */
 
-void CglVPC::setUserObjectives(const std::vector<std::vector<double> >& obj) {
+void CglVPC::setUserObjectives(
+    /// [in] set of user objectives in structural space, saved in #user_objectives
+    const std::vector<std::vector<double> >& obj) {
   this->user_objectives.reserve(obj.size());
   for (const auto& v : obj) {
     this->user_objectives.push_back(v);
   }
 } /* setUserObjectives */
+
+void CglVPC::setUserTightPoints(
+    /// [in] set of points in structural space, for which the VPCs should be as tight as possible
+    const std::vector<std::vector<double> >& tight_points) {
+  this->user_tight_points.reserve(tight_points.size());
+  for (const auto& v : tight_points) {
+    this->user_tight_points.push_back(v);
+  }
+} /* setUserTightPoints */
 
 void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const CglTreeInfo info) {
   CglVPC::ExitReason status = CglVPC::ExitReason::UNKNOWN;
@@ -439,6 +450,7 @@ void CglVPC::setupAsNew() {
     this->objType.resize(0);
   }
   this->user_objectives.resize(0);
+  this->user_tight_points.resize(0);
 } /* setupAsNew */
 
 /**
@@ -471,6 +483,7 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     this->probData = source->probData;
     this->prlpData = source->prlpData;
     this->user_objectives = source->user_objectives;
+    this->user_tight_points = source->user_tight_points;
   }
   else {
     this->mode = VPCMode::PARTIAL_BB;
@@ -1217,6 +1230,26 @@ CglVPC::ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
         }
       }
     } // try user objectives
+
+    // Try user tight points
+    if (status == CglVPC::ExitReason::SUCCESS_EXIT) {
+      // TODO
+      /*for (const auto& v : this->user_tight_points) {
+        //prlp->solve(cuts, v, origSolver, beta, structSICs);
+        if (reachedTimeLimit(VPCTimeStats::TOTAL_TIME, params.get(TIMELIMIT))) {
+          status = CglVPC::ExitReason::TIME_LIMIT_EXIT;
+          break;
+        } else if (reachedCutLimit()) {
+          status = CglVPC::ExitReason::CUT_LIMIT_EXIT;
+          break;
+        } else if (reachedFailureLimit(num_cuts - init_num_cuts, num_failures - init_num_failures)) {
+          status = CglVPC::ExitReason::FAIL_LIMIT_EXIT;
+          break;
+        } else {
+          status = CglVPC::ExitReason::SUCCESS_EXIT;
+        }
+      }*/
+    } // try user tight points
 
     // Try cut generation targeting points and rays
     if (status == CglVPC::ExitReason::SUCCESS_EXIT) {

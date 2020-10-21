@@ -245,8 +245,13 @@ public:
 
   /// Return #user_objectives
   inline std::vector<std::vector<double> > getUserObjectives() const { return this->user_objectives; }
-  /// @brief User can provide objectives for PRLP to try
+  /// @brief User can provide objectives for PRLP to try, saved in #user_objectives
   void setUserObjectives(const std::vector<std::vector<double> >& obj);
+
+  /// Return #user_tight_points
+  inline std::vector<std::vector<double> > getUserTightPoints() const { return this->user_tight_points; }
+  /// @brief User can provide set of points for PRLP to try and find cuts that are tight on those points, saved in #user_tight_objectives
+  void setUserTightPoints(const std::vector<std::vector<double> >& tight_points);
   ///@} // get/set methods
 
   /// @brief Generate VPCs from a disjunction (e.g., arising from a partial branch-and-bound tree)
@@ -311,6 +316,7 @@ public:
 
 protected:
   std::vector<std::vector<double> > user_objectives; ///< User can provide objectives to try for PRLP, in original (structural) space
+  std::vector<std::vector<double> > user_tight_points; ///< User can provide points that PRLP will attempt to find cuts with small distance to, where the points are in the original (structural) space
   Disjunction* disjunction = NULL; ///< Pointer to Disjunction used for this round of cuts
   PRLPData prlpData; ///< PRLPData for this round of cuts
 

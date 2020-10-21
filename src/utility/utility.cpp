@@ -126,6 +126,60 @@ double getObjValueFromFile(std::string opt_filename, std::string fullfilename, F
   return std::numeric_limits<double>::lowest();
 } /* getObjValueFromFile */
 
+void getSolFromFile(
+    ///> [in] File with lines "varname value" (space-separated) and comments starting with #.
+    const char* filename,
+    ///> [out] Solution is stored here; space is allocated based on how many variables are listed in \p filename. Needs to be N to match the variables in the linearized model.
+    std::vector<double>& sol) {
+  if (!filename) {
+    return;
+  }
+
+  std::ifstream infile(filename);
+  if (infile.is_open()) {
+    // Reset sol
+    sol.clear();
+
+    std::string line;
+    while (std::getline(infile, line)) {
+      std::istringstream iss(line);
+      if (line.empty()) {
+        continue;
+      }
+      std::string var_name;
+      if (!(std::getline(iss, var_name, ' '))) {
+        warning_msg(warnstring,
+            "Could not read variable name. String is %s.\n",
+            line.c_str());
+        continue;
+      }
+      try {
+        std::string token;
+        if (!(std::getline(iss, token, ' '))) {
+          throw;
+        }
+        if (token.empty() || token == " ") {
+          sol.push_back(0);
+        }
+        const double val = std::stod(token);
+        sol.push_back(val);
+      } catch (std::exception& e) {
+        warning_msg(warnstring,
+            "Could not read value. String is %s.\n",
+            line.c_str());
+        continue;
+      }
+    }
+    infile.close();
+  } else {
+    // If we were not able to open the file, throw an error
+    error_msg(errorstring, "Not able to open solution file %s.\n", filename);
+    exit(1);
+  }
+
+  return;
+} /* getSolFromFile */
+
 /**
  * @brief Check if file exists
  */

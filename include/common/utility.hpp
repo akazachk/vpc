@@ -136,7 +136,11 @@ void createTmpFilename(std::string& f_name, const std::string add_ext = "");
 /** @brief Separate filename into the directory, instance name, and extension */
 int parseFilename(std::string& dir, std::string& instname, std::string& in_file_ext, const std::string& fullfilename, FILE* logfile);
 
+/// Get objective value from file \p opt_filename where each line is "instance,value"
 double getObjValueFromFile(std::string opt_filename, std::string fullfilename, FILE* logfile);
+
+/// Retrieve solution from a file \p filename.
+void getSolFromFile(const char* filename, std::vector<double>& sol);
 
 /**
   * @brief Check if a file exists
