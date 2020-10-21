@@ -127,7 +127,7 @@ double getObjValueFromFile(std::string opt_filename, std::string fullfilename, F
 } /* getObjValueFromFile */
 
 void getSolFromFile(
-    ///> [in] File with lines "varname value" (space-separated) and comments starting with #.
+    ///> [in] File with lines "varname value" (space-separated) and comments starting with # or *.
     const char* filename,
     ///> [out] Solution is stored here; space is allocated based on how many variables are listed in \p filename. Needs to be N to match the variables in the linearized model.
     std::vector<double>& sol) {
@@ -143,7 +143,7 @@ void getSolFromFile(
     std::string line;
     while (std::getline(infile, line)) {
       std::istringstream iss(line);
-      if (line.empty()) {
+      if (line.empty() || line[0] == '#' || line[0] = '*') {
         continue;
       }
       std::string var_name;
@@ -156,7 +156,7 @@ void getSolFromFile(
       try {
         std::string token;
         if (!(std::getline(iss, token, ' '))) {
-          throw;
+          continue; // unable to find value on this line
         }
         if (token.empty() || token == " ") {
           sol.push_back(0);
