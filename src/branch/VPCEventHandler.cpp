@@ -1229,6 +1229,7 @@ int VPCEventHandler::saveInformation() {
 
     SolverInterface* tmpSolverBase =
         dynamic_cast<SolverInterface*>(originalSolver_->clone());
+    setLPSolverParameters(tmpSolverBase, owner->params.get(VERBOSITY), owner->params.get(TIMELIMIT));
 //    tmpSolverBase->disableFactorization(); // seg fault
 
     // Change bounds in the solver
