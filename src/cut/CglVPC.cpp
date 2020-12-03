@@ -414,17 +414,17 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
  * \return Whether cut was added
  */
 bool CglVPC::addCut(
-    /// Cut being added
+    /// [in] Cut being added
     const OsiRowCut& cut,
-    /// Current set of cuts
+    /// [in/out] Current set of cuts
     OsiCuts& cuts,
-    /// Track the type of cut, in cases we are taking a multimodal approach, e.g., different types of disjunctions
+    /// [in] Track the type of cut, in cases we are taking a multimodal approach, e.g., different types of disjunctions
     const CutType& type,
-    /// Track the cut heuristic generating this cut
+    /// [in] Track the cut heuristic generating this cut
     const ObjectiveType& cutHeur,
-    /// Solver pointer, the solution to which will be used to check violation of the cut
+    /// [in] Solver pointer, the solution to which will be used to check violation of the cut
     const OsiSolverInterface* const origSolver,
-    /// Whether to check violation (when adding one-sided cuts, we check, whereas the other VPCs have already been vetted)
+    /// [in] Whether to check violation (when adding one-sided cuts, we check, whereas the other VPCs have already been vetted)
     const bool check_violation) {
   if (check_violation) {
     if (badViolation(&cut, origSolver,
