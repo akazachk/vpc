@@ -257,8 +257,10 @@ public:
   /// @brief Generate VPCs from a disjunction (e.g., arising from a partial branch-and-bound tree)
   virtual void generateCuts(const OsiSolverInterface&, OsiCuts&, const CglTreeInfo = CglTreeInfo());
 
-  /// Any time a cut is added, it should go through this method
-  void addCut(const OsiRowCut& cut, OsiCuts& cuts, const CutType& type, const ObjectiveType& cutHeur);
+  /// @brief Any time a cut is added, it should go through this method
+  bool addCut(const OsiRowCut& cut, OsiCuts& cuts, const CutType& type, const ObjectiveType& cutHeur, 
+      const OsiSolverInterface* const origSolver = NULL,
+      const bool check_violation = false);
 
   ///@{
   /// @name Print methods

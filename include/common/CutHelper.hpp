@@ -31,6 +31,9 @@ int cleanCut(OsiRowCut* const cut,
     const double EPS, 
     const bool checkViolation);
 
+/** @brief Check whether the LP solution is cut away by a minimum amount **/
+bool badViolation(const OsiRowCut* const cut, const OsiSolverInterface* const solver, const double min_viol_abs, const double min_viol_rel);
+
 /** @brief Decide if two rows are the same */
 int isRowDifferent(const CoinPackedVector& cut1Vec, const double cut1rhs,
     const CoinPackedVector& cut2Vec, const double cut2rhs, const double EPS);

@@ -14,6 +14,7 @@
 #include <CglGMI.hpp>
 
 // Project files
+#include "CutHelper.hpp" // badViolation
 #include "Disjunction.hpp"
 #include "PRLP.hpp"
 #include "SolverHelper.hpp"
@@ -359,7 +360,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
 
               OsiRowCut currCut;
               currCut.setLb(mult * val);
-              currCut.setRow(1, &col, &el, false);
+              currCut.setRow(1, &cdol, &el, false);
               addCut(currCut, cuts, CutType::OPTIMALITY_CUT,
                   ObjectiveType::ONE_SIDED);
             }
@@ -409,14 +410,36 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   finish(status);
 } /* generateCuts */
 
-void CglVPC::addCut(const OsiRowCut& cut, OsiCuts& cuts, const CutType& type,
-    const ObjectiveType& cutHeur) {
+/**
+ * \return Whether cut was added
+ */
+bool CglVPC::addCut(
+    /// Cut being added
+    const OsiRowCut& cut,
+    /// Current set of cuts
+    OsiCuts& cuts,
+    /// Track the type of cut, in cases we are taking a multimodal approach, e.g., different types of disjunctions
+    const CutType& type,
+    /// Track the cut heuristic generating this cut
+    const ObjectiveType& cutHeur,
+    /// Solver pointer, the solution to which will be used to check violation of the cut
+    const OsiSolverInterface* const origSolver,
+    /// Whether to check violation (when adding one-sided cuts, we check, whereas the other VPCs have already been vetted)
+    const bool check_violation) {
+  if (check_violation) {
+    if (badViolation(&cut, origSolver,
+          params.get(VPCParametersNamespace::doubleConst::MIN_VIOL_ABS),
+          params.get(VPCParametersNamespace::doubleConst::MIN_VIOL_REL))) {
+      return false;
+    }
+  }
   cuts.insert(cut);
   cutType.push_back(type);
   numCutsOfType[static_cast<int>(type)]++;
   objType.push_back(cutHeur);
   numCutsFromHeur[static_cast<int>(cutHeur)]++;
   num_cuts++;
+  return true;
 } /* addCut */
 
 //<!------------------ PROTECTED ---------------------->/
@@ -703,7 +726,8 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
     OsiRowCut currCut;
     currCut.setLb(mult * val);
     currCut.setRow(1, &col, &el, false);
-    addCut(currCut, cuts, CutType::ONE_SIDED_CUT, ObjectiveType::ONE_SIDED);
+    // TODO set effectiveness?
+    addCut(currCut, cuts, CutType::ONE_SIDED_CUT, ObjectiveType::ONE_SIDED, vpcsolver, true);
 
     if (isVal(vpcsolver->getColLower()[col], vpcsolver->getColUpper()[col])) {
       num_fixed++;
@@ -718,7 +742,7 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
     }
     OsiRowCut* currCut = &(this->disjunction->common_ineqs[i]);
     vpcsolver->applyRowCuts(1, currCut); // hopefully this works
-    addCut(*currCut, cuts, CutType::ONE_SIDED_CUT, ObjectiveType::ONE_SIDED);
+    addCut(*currCut, cuts, CutType::ONE_SIDED_CUT, ObjectiveType::ONE_SIDED, vpcsolver, true);
   }
 
 #ifdef TRACE

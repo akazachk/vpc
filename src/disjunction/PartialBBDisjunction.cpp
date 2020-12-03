@@ -182,7 +182,7 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
   const int num_before_trusted = std::numeric_limits<int>::max(); // 10;
   generatePartialBBTree(this, cbc_model, si, params.get(intParam::DISJ_TERMS),
       num_strong, num_before_trusted);
-  printf("Finished generating partial branch-and-bound tree");
+  printf("PartialBBDisjunction::prepareDisjunction: Finished generating partial branch-and-bound tree");
   if (timer) {
     timer->end_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
     printf(" (%.3f seconds)", timer->get_time(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]));
