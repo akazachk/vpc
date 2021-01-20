@@ -1,6 +1,9 @@
 #include "OsiProblemData.hpp"
 #include <cstdlib> // malloc
 
+#include <limits>
+const double OSI_PROBLEM_DATA_INF = std::numeric_limits<double>::max();
+
 // Initializes and allocates pdata. pdata is assumed to not have been initialized yet
 
 #ifdef USE_CPLEX
@@ -106,13 +109,13 @@ int ConvertCPX2Data(CPXENVptr env, CPXLPptr lp, OsiProblemData* pdata)
            {
              if( sense[i] == 'G')
              {
-               pdata->rowub[i] = CPX_INFBOUND;
+               pdata->rowub[i] = OSI_PROBLEM_DATA_INF;
                pdata->rowlb[i] = rhs[i];
              }
              else if( sense[i] == 'L')
              {
                pdata->rowub[i] = rhs[i];
-               pdata->rowlb[i] = -CPX_INFBOUND;
+               pdata->rowlb[i] = -OSI_PROBLEM_DATA_INF;
              }
              else if( sense[i] == 'E')
              {
