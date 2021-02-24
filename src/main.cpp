@@ -770,6 +770,18 @@ int processArgs(int argc, char** argv) {
                     exit(1);
                   }
                   params.set(param, val);
+                  if (use_bb_option(val, BB_Strategy_Options::gurobi)) {
+#ifndef USE_GUROBI
+                    error_msg(errorstring, "Requesting to use Gurobi, but macro USE_GUROBI not set.\n");
+                    exit(1);
+#endif
+                  }
+                  if (use_bb_option(val, BB_Strategy_Options::cplex)) {
+#ifndef USE_CPLEX
+                    error_msg(errorstring, "Requesting to use CPLEX, but macro USE_CPLEX not set.\n");
+                    exit(1);
+#endif
+                  }
                   break;
                 }
       case 'B'*'0': {

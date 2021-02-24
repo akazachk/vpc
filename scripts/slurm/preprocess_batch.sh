@@ -1,20 +1,25 @@
 #!/bin/bash
-#SBATCH --time=03:00:00
-#SBATCH --array=1-10,329-503
-#SBATCH --array=329-503
-#SBATCH --mem-per-cpu=1G
-#SBATCH --account=def-alodi
+#SBATCH --account=akazachkov
+#SBATCH --job-name=preprocess
+#SBATCH --time=03:00:00             # Time limit hrs:min:sec
+#SBATCH --mem-per-cpu=1G # job memory
+#SBATCH --ntasks=1                  # Run a single task
 #SBATCH --cpus-per-task=1
-#SBATCH --mail-user=aleksandr.kazachkov@polymtl.ca
-#SBATCH --mail-type=BEGIN
-#SBATCH --mail-type=END
-#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=akazachkov@ufl.edu
+#SBATCH --mail-type=BEGIN,FAIL,END            # Mail events (NONE, BEGIN, END, FAIL, ALL)
+#SBATCH --output=preprocess_%A-%a.log    # Standard output and error log
+#SBATCH --array=1-10,329-503
+#SBATCH --array=1
+pwd; hostname; date
 
 TYPE="original"
 MODE="preprocess"
 CASE_NUM=`printf %03d $SLURM_ARRAY_TASK_ID`
 INSTANCE_FILE=${TYPE}.instances
+INSTANCE_FILE=small_original.instances
 export VPC_DIR="${REPOS_DIR}/vpc"
+RESULTS_DIR=${VPC_DIR}/results
+RESULTS_DIR="/blue/akazachkov/vpc/2021-02-24"
 
 # Set mode if given
 if [ ! -z $1 ]
@@ -29,7 +34,7 @@ then
 fi
 
 echo "Starting ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
-if (("$SLURM_ARRAY_TASK_ID" <= 12))
+if (("$SLURM_ARRAY_TASK_ID" <= -1))
 then
   echo "Running task ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID} in batch mode at `date`"
   FILE="${VPC_DIR}/scripts/slurm/${TYPE}${CASE_NUM}.instances"
@@ -42,7 +47,9 @@ else
   FILE="${VPC_DIR}/data/instances/${FILE}"
 fi
 
-${VPC_DIR}/scripts/run_experiments.sh $FILE ${VPC_DIR}/results/${MODE}/$CASE_NUM ${MODE} $CASE_NUM
+${VPC_DIR}/scripts/run_experiments.sh $FILE ${RESULTS_DIR}/${MODE}/$CASE_NUM ${MODE} $CASE_NUM
 
 #echo "Statistics from seff ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
 #seff ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}
+
+date

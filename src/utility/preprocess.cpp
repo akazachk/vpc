@@ -89,20 +89,28 @@ void performCleaning(
   // First get presolved opt using commercial solver of choice
   double presolvedLPOpt;
   int numBoundsChanged = 0;
-#ifdef USE_GUROBI
   if (use_bb_option(strategy, BB_Strategy_Options::gurobi)) {
+#ifdef USE_GUROBI
     printf("\n## Presolve model with Gurobi. ##\n");
     presolveModelWithGurobi(params, strategy, params.get(stringParam::FILENAME).c_str(),
         presolvedLPOpt, presolved_name_stub, ip_obj); // returns mps.gz
-  } // gurobi
+#else
+    error_msg(errorstring, "Requesting to use Gurobi, but macro USE_GUROBI not set.\n");
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
 #endif // use_gurobi
-#ifdef USE_CPLEX
+  } // gurobi
   if (use_bb_option(strategy, BB_Strategy_Options::cplex)) {
+#ifdef USE_CPLEX
     printf("\n## Presolve model with CPLEX. ##\n");
     presolveModelWithCplexCallable(params, strategy, params.get(stringParam::FILENAME).c_str(),
         presolvedLPOpt, presolved_name_stub, ip_obj); // returns mps.gz
-  } // cplex
+#else
+    error_msg(errorstring, "Requesting to use CPLEX, but macro USE_CPLEX not set.\n");
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
 #endif // use_cplex
+  } // cplex
 
   cleanedSolver->readMps(presolved_name_stub.c_str());
 
