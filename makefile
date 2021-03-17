@@ -53,6 +53,17 @@ ifeq ($(USER),kazaalek)
 	COIN_OR = /local_workspace/$(USER)/coin-or/Cbc-$(COIN_VERSION)
 endif
 
+# HiPerGator
+ifeq ($(USER),akazachkov)
+  ifeq ($(UNAME),Linux)
+	  COIN_OR = ${HOME}/repos/coin-or/Cbc-$(COIN_VERSION)
+    GUROBI_LINK = gurobi91
+    GUROBI_DIR = ${GUROBI_HOME}
+		CPLEX_DIR = ${CPLEX_HOME}
+		CONDA_LIB = ${HOME}/.conda/envs/vpc/lib
+	endif
+endif
+
 ifeq ($(USER),akazachk)
   ifeq ($(UNAME),Linux)
 	  COIN_OR = ${HOME}/projects/def-alodi/$(USER)/coin-or/Cbc-$(COIN_VERSION)
@@ -183,6 +194,9 @@ OUT_OBJECTS = $(addprefix $(OBJ_DIR)/,$(OBJECTS))
 APPLINCLS = -Iinclude -Iinclude/test -Iinclude/common
 
 APPLLIB = -lm -lz -lbz2 -lreadline
+ifeq ($(USER),akazachkov)
+	APPLLIB += -L${CONDA_LIB}
+endif
 
 # Linker
 CFLAGS = -Wall -MMD -MP
@@ -275,7 +289,7 @@ LIB_DIR=lib
 archive_%:
 	@$(MAKE) archive "BUILD_CONFIG=$*"
 
-archive: $(OUT_DIR)/lib$(EXECUTABLE_STUB).a 
+archive: | lib_directory $(OUT_DIR)/lib$(EXECUTABLE_STUB).a
 	  @cp ${OUT_DIR}/lib${EXECUTABLE_STUB}.a ${LIB_DIR}/lib${EXECUTABLE_STUB}.a
 
 $(OUT_DIR)/lib$(EXECUTABLE_STUB).a: $(OUT_OBJECTS)
@@ -317,6 +331,7 @@ DEPENDENCIES = $(OUT_OBJECTS:.o=.d)
 #		all \
 #		clean clean_debug distclean_debug clean_release distclean_release \
 #		directories dir_debug dir_release dir_lib_debug dir_lib_release \
+#   lib_directory \
 #		print print_dep \
 #		archive_debug archive_release archive
 
@@ -350,6 +365,9 @@ $(OUT_DIR_LIST):
 dir_lib_%: FORCE
 	@$(MAKE) dir_lib "BUILD_CONFIG=$*"
 dir_lib: FORCE
+	$(MKDIR_P) $(LIB_DIR)
+lib_directory: $(LIB_DIR)
+$(LIB_DIR):
 	$(MKDIR_P) $(LIB_DIR)
 
 test_%: FORCE
