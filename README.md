@@ -7,7 +7,7 @@ This project contains the code for one implementation of the V-polyhedral disjun
 ## Installation
 
 1. Clone the code using `git clone git@github.com:akazachk/vpc.git`.
-2. Install [Cbc](https://github.com/coin-or/Cbc) by running [`scripts/install_coin.sh`](scripts/install_coin.sh). If there are any problems, please start an issue (in this project, [coinbrew](https://github.com/coin-or/coinbrew), or [Cbc](https://github.com/coin-or/Cbc)). This step can be customized (e.g., if Cbc is already installed), but it is crucial that the latest Cbc version is compiled with the macro `SAVE_NODE_INFO` defined.
+2. Install [Cbc](https://github.com/coin-or/Cbc) by running [`setup/install_coin.sh`](setup/install_coin.sh). If there are any problems, please start an issue (in this project, [coinbrew](https://github.com/coin-or/coinbrew), or [Cbc](https://github.com/coin-or/Cbc)). This step can be customized (e.g., if Cbc is already installed), but it is crucial that the latest Cbc version is compiled with the macro `SAVE_NODE_INFO` defined.
 3. [Optional] Install Gurobi or CPLEX.
 4. Choose the appropriate options in the [`makefile`](makefile) under `Variables user should set`: `PROJ_DIR`, for the location of the repository, and `COIN_OR`, for where Cbc is installed. If you wish to use Gurobi, set `USE_GUROBI=1` under `Options for solvers`, and set `GUROBI_DIR` appropriately. Similarly, set `USE_CPLEX=1` and `CPLEX_DIR` if you wish to use CPLEX.
 5. There are two compilation modes: `debug` and `release`. These can be compiled with `make [debug or release]`, which creates the executable `vpc` in a new subdirectory `Debug` or `Release` of the main folder.
@@ -21,9 +21,9 @@ For Cbc, you may need `gfortran`, `pkg-conf`, `LAPACK`, and `BLAS`. It may also 
 
 Some of the scripts use `bash`, but can probably be adapted to other shells.
 
-There shoud be an environment variable `VPC_DIR` pointing to the local repository location, or this variable can be defined in each of the scripts: [`scripts/install_coin.sh`](scripts/install_coin.sh), [`test/run_test.sh`](test/run_test.sh), and others.
+There shoud be an environment variable `VPC_DIR` pointing to the local repository location, or this variable can be defined in each of the scripts: [`setup/install_coin.sh`](setup/install_coin.sh), [`test/run_test.sh`](test/run_test.sh), and others.
 
-You may need to use a compatible version of `clang` or `g++`, and make sure that the same compiler is used when running [`install_coin.sh`](scripts/install_coin.sh) and the one used to generate `libgurobi_c++.a`, which can be rebuilt in the Gurobi directory (located at, say, `${GUROBI_HOME}`), under `${GUROBI_HOME}/src/build`.
+You may need to use a compatible version of `clang` or `g++`, and make sure that the same compiler is used when running [`install_coin.sh`](setup/install_coin.sh) and the one used to generate `libgurobi_c++.a`, which can be rebuilt in the Gurobi directory (located at, say, `${GUROBI_HOME}`), under `${GUROBI_HOME}/src/build`.
 The `makefile` also assumes that `git` is at least version 2, to use the `-C` option to get the version of `Cbc` and `Clp`.
 
 There are some optional libraries, such as `libbz2-dev`, that are linked to in [`makefile`](makefile). If these are missing, remove the corresponding linking in the makefile.
