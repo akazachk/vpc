@@ -83,6 +83,10 @@ const std::string CLP_VERSION_STRING = x_macro_to_string(VPC_CLP_VERSION);
 #include <gurobi_c++.h>
 const std::string GUROBI_VERSION_STRING = std::to_string(GRB_VERSION_MAJOR) + "." + std::to_string(GRB_VERSION_MINOR) + std::to_string(GRB_VERSION_TECHNICAL);
 #endif // USE_GUROBI
+#ifdef USE_CPLEX
+#include "ilcplex/cpxconst.h"
+const std::string CPLEX_VERSION_STRING = std::to_string(CPX_VERSION_VERSION) + "." + std::to_string(CPX_VERSION_RELEASE) + "." + std::to_string(CPX_VERSION_MODIFICATION);
+#endif // USE_CPLEX
 
 // Catch abort signal if it ever gets sent
 /**
@@ -336,6 +340,9 @@ int startUp(int argc, char** argv) {
 #ifdef USE_GUROBI
   printf("## Gurobi Version %s ##\n", GUROBI_VERSION_STRING.c_str());
 #endif
+#ifdef USE_CPLEX
+  printf("## CPLEX Version %s ##\n", CPLEX_VERSION_STRING.c_str());
+#endif
   printf("# Aleksandr M. Kazachkov\n");
   printf("# Based on joint work with Egon Balas\n");
   for (int i = 0; i < argc; i++) {
@@ -465,6 +472,11 @@ int wrapUp(int retCode /*= 0*/) {
 #else
     fprintf(logfile, ",");
 #endif
+#ifdef USE_CPLEX
+    fprintf(logfile, "%s,", CPLEX_VERSION_STRING.c_str());
+#else
+    fprintf(logfile, ",");
+#endif
 
     fprintf(logfile, "%s,", CglVPC::ExitReasonName[exitReasonInt].c_str());
     fprintf(logfile, "%s,", end_time_string);
@@ -514,6 +526,9 @@ int wrapUp(int retCode /*= 0*/) {
 #endif
 #ifdef USE_GUROBI
   printf("Gurobi Version: %s\n", GUROBI_VERSION_STRING.c_str());
+#endif
+#ifdef USE_CPLEX
+  printf("CPLEX Version: %s\n", CPLEX_VERSION_STRING.c_str());
 #endif
   printf("Instance: %s\n", instname.c_str());
   if (!params.get(stringParam::LOGFILE).empty()) {

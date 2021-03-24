@@ -22,7 +22,7 @@ TmpRelease/
 nohup.out
 data/instances/*
 *.mps*
-test/
+./test/
 lib/
 bin/
 results/

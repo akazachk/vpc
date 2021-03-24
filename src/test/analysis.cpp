@@ -33,7 +33,7 @@ const int countObjInfoEntries = 1 + 4 * static_cast<int>(CglVPC::ObjectiveType::
 const int countFailInfoEntries = 1 + static_cast<int>(CglVPC::FailureType::NUM_FAILURE_TYPES);
 const int countParamInfoEntries = intParam::NUM_INT_PARAMS + doubleParam::NUM_DOUBLE_PARAMS;
 int countTimeInfoEntries = 0; // set in printHeader
-const int countVersionInfoEntries = 4;
+const int countVersionInfoEntries = 5;
 const int countExtraInfoEntries = 4;
 
 void printHeader(const VPCParameters& params,
@@ -250,6 +250,7 @@ void printHeader(const VPCParameters& params,
     fprintf(logfile, "%s%c", "cbc_version", SEP);
     fprintf(logfile, "%s%c", "clp_version", SEP);
     fprintf(logfile, "%s%c", "gurobi_version", SEP);
+    fprintf(logfile, "%s%c", "cplex_version", SEP);
   } // VERSION INFO
   { // WRAP UP INFO
     fprintf(logfile, "%s%c", "ExitReason", SEP);
