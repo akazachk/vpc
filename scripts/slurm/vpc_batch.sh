@@ -1,23 +1,32 @@
 #!/bin/bash
 #SBATCH --array=1
-#SBATCH --time=03:00:00
-#SBATCH --mem-per-cpu=100M
+#SBATCH --time=03:00:00             # time limit hrs:min:sec
+#SBATCH --mem-per-cpu=100M          # job memory
 
-#SBATCH --time=24:00:00
+#SBATCH --time=24:00:00             # time limit hrs:min:sec
+#SBATCH --mem-per-cpu=4G            # job memory
 #SBATCH --array=1-11,181-295
-#SBATCH --mem-per-cpu=4G
 
-#SBATCH --account=def-alodi
+#SBATCH --output=vpc_%A-%a.log      # standard output and error log
+#SBATCH --ntasks=1                  # run a single task
 #SBATCH --cpus-per-task=1
-#SBATCH --mail-user=aleksandr.kazachkov@polymtl.ca
-#SBATCH --mail-type=BEGIN
+#SBATCH --mail-type=BEGIN,FAIL,END  # mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
+
+#SBATCH --account=def-alodi
+#SBATCH --mail-user=aleksandr.kazachkov@polymtl.ca
+
+#SBATCH --account=akazachkov
+#SBATCH --mail-user=akazachkov@ufl.edu
+
+pwd; hostname; date
 
 TYPE="presolved"
 MODE="bb"
 CASE_NUM=`printf %03d $SLURM_ARRAY_TASK_ID`
-INSTANCE_FILE=${TYPE}.instances
+BATCH_DIR=${VPC_DIR}/data/instances/batches
+INSTANCE_FILE=${BATCH_DIR}/${TYPE}.instances
 export VPC_DIR="${REPOS_DIR}/vpc"
 
 # Set mode if given
@@ -42,7 +51,7 @@ then
 #  echo "Running $SLURM_ARRAY_TASK_ID in batch mode"
 else
   echo "Running task ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID} in sequential mode at `date`"
-  FILE=$(sed -n "${SLURM_ARRAY_TASK_ID}p" ${VPC_DIR}/scripts/slurm/${INSTANCE_FILE}).mps
+  FILE=$(sed -n "${SLURM_ARRAY_TASK_ID}p" ${INSTANCE_FILE}).mps
   FILE="${VPC_DIR}/data/instances/${FILE}"
 fi
 

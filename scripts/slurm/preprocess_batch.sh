@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --account=akazachkov
 #SBATCH --job-name=preprocess
-#SBATCH --time=03:00:00             # Time limit hrs:min:sec
-#SBATCH --mem-per-cpu=1G # job memory
-#SBATCH --ntasks=1                  # Run a single task
+#SBATCH --time=03:00:00             # time limit hrs:min:sec
+#SBATCH --mem-per-cpu=1G            # job memory
+#SBATCH --ntasks=1                  # run a single task
 #SBATCH --cpus-per-task=1
 #SBATCH --mail-user=akazachkov@ufl.edu
 #SBATCH --mail-type=BEGIN,FAIL,END            # Mail events (NONE, BEGIN, END, FAIL, ALL)
