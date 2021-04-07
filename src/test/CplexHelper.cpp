@@ -137,7 +137,8 @@ void setStrategyForBBTestCplexCallable(const VPCParameters& params, const int st
       user_provides_start |= (optfile.size() > ext2.size()) && (optfile.compare(optfile.size() - ext2.size(), ext2.size(), ext2) == 0);
       if (user_provides_start) {
         CPXXsetintparam(env, CPXPARAM_Advance, 1);
-        CPXXreadcopysol(env, lp, optfile.c_str());
+        //CPXXreadcopysol(env, lp, optfile.c_str()); // for older versions
+        CPXXreadcopystartinfo(env, lp, optfile.c_str()); // for CPLEX 20+
       }
       user_provides_start = false;
       user_provides_start |= (optfile.size() > ext3.size()) && (optfile.compare(optfile.size() - ext3.size(), ext3.size(), ext3) == 0);
