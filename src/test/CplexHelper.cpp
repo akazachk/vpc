@@ -137,10 +137,12 @@ void setStrategyForBBTestCplexCallable(const VPCParameters& params, const int st
       user_provides_start |= (optfile.size() > ext2.size()) && (optfile.compare(optfile.size() - ext2.size(), ext2.size(), ext2) == 0);
       if (user_provides_start) {
         CPXXsetintparam(env, CPXPARAM_Advance, 1);
-#ifdef CPX_VERSION_VERSION >= 20
+#ifdef CPX_VERSION_VERSION
+#if CPX_VERSION_VERSION >= 20
         CPXXreadcopystartinfo(env, lp, optfile.c_str()); // for CPLEX 20+
 #else
         CPXXreadcopysol(env, lp, optfile.c_str()); // for older versions
+#endif
 #endif
       }
       user_provides_start = false;

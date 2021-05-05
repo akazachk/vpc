@@ -22,12 +22,12 @@
 
 pwd; hostname; date
 
+export VPC_DIR="${REPOS_DIR}/vpc"
 TYPE="presolved"
 MODE="bb"
 CASE_NUM=`printf %03d $SLURM_ARRAY_TASK_ID`
 BATCH_DIR=${VPC_DIR}/data/instances/batches
 INSTANCE_FILE=${BATCH_DIR}/${TYPE}.instances
-export VPC_DIR="${REPOS_DIR}/vpc"
 
 # Set mode if given
 if [ ! -z $1 ]
