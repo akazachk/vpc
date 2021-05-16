@@ -328,37 +328,46 @@ int startUp(int argc, char** argv) {
 
   // Input handling
   printf("## V-Polyhedral Disjunctive Cuts ##\n");
-#ifdef VPC_VERSION
-  printf("## VPC Version %s ##\n", VPC_VERSION_STRING.substr(0,8).c_str());
-#endif
-#ifdef VPC_CBC_VERSION
-  printf("## Cbc Version %s ##\n", CBC_VERSION_STRING.substr(0,8).c_str());
-#endif
-#ifdef VPC_CLP_VERSION
-  printf("## Clp Version %s ##\n", CLP_VERSION_STRING.substr(0,8).c_str());
-#endif
-#ifdef USE_GUROBI
-  printf("## Gurobi Version %s ##\n", GUROBI_VERSION_STRING.c_str());
-#endif
-#ifdef USE_CPLEX
-  printf("## CPLEX Version %s ##\n", CPLEX_VERSION_STRING.c_str());
-#endif
   printf("# Aleksandr M. Kazachkov\n");
   printf("# Based on joint work with Egon Balas\n");
   for (int i = 0; i < argc; i++) {
     std::cout << argv[i] << " ";
   }
   std::cout << std::endl;
-
   time(&start_time_t);
   struct tm* start_timeinfo = localtime(&start_time_t);
   snprintf(start_time_string, sizeof(start_time_string) / sizeof(char), "%s", asctime(start_timeinfo));
   printf("Start time: %s\n", start_time_string);
 
+  /*
+  printf("\n## Version Information ##\n");
+#ifdef VPC_VERSION
+  printf("# VPC Version %s\n", VPC_VERSION_STRING.substr(0,8).c_str());
+#endif
+#ifdef VPC_CBC_VERSION
+  printf("# Cbc Version %s\n", CBC_VERSION_STRING.substr(0,8).c_str());
+#endif
+#ifdef VPC_CLP_VERSION
+  printf("# Clp Version %s\n", CLP_VERSION_STRING.substr(0,8).c_str());
+#endif
+#ifdef USE_GUROBI
+  printf("# Gurobi Version %s\n", GUROBI_VERSION_STRING.c_str());
+#endif
+#ifdef USE_CPLEX
+  printf("# CPLEX Version %s\n", CPLEX_VERSION_STRING.c_str());
+#endif
+  printf("\n");
+  */
+
   status = processArgs(argc, argv);
   if (status) { return status; }
 
   // Get instance file
+  if (params.get(stringParam::FILENAME).empty()) {
+    error_msg(errorstring,
+        "No instance file provided. Use -f /path/to/instance.mps to specify the instance.\n");
+    exit(1);
+  }
   printf("Instance file: %s\n", params.get(stringParam::FILENAME).c_str());
   
   if (parseFilename(dir, instname, in_file_ext, params.get(stringParam::FILENAME), params.logfile) != 0) {
