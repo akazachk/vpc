@@ -29,9 +29,9 @@ while read line; do
     continue
   fi
 
-  #nohup python3 ${SCRIPT_DIR}/scip_test.py ${INSTANCE_DIR}/$line $PROJ_DIR/results &
   echo "Preparing command to run instance $line (task $TASK_ID) at `date`"
   echo "nohup /usr/bin/time -v ${SCRIPT_DIR}/run_experiments.sh ${INSTANCE_DIR}/$line.mps $RESULTS_DIR/bb/${TASK_ID} bb 2>&1" >> job_list_bb.txt
   echo "nohup /usr/bin/time -v ${SCRIPT_DIR}/run_experiments.sh ${INSTANCE_DIR}/$line.mps $RESULTS_DIR/bb0/${TASK_ID} bb0 2>&1" >> job_list_bb0.txt
+  echo "nohup /usr/bin/time -v ${SCRIPT_DIR}/run_experiments.sh ${INSTANCE_DIR}/$line.mps $RESULTS_DIR/preprocess/${TASK_ID} preprocess 2>&1" >> job_list_preprocess.txt
 done < ${INSTANCE_LIST}
 
