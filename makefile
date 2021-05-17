@@ -26,11 +26,17 @@ BUILD_CONFIG = release
 BUILD_CONFIG = debug
 
 ### Variables user should set ###
+PROJ_DIR=${PWD}
 #COIN_VERSION = 2.9
 #COIN_VERSION = 2.9r2376
 #COIN_VERSION = 2.10
 COIN_VERSION = trunk
-COIN_OR = $(PWD)/lib/Cbc-$(COIN_VERSION)
+ifeq (${COIN_OR_HOME},)
+	COIN_OR = $(PROJ_DIR)/lib/Cbc-$(COIN_VERSION)
+else
+	COIN_OR = ${COIN_OR_HOME}
+endif
+
 ifeq ($(USER),otherperson)
   #COIN_OR = enter/dir/here
 
