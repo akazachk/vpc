@@ -72,9 +72,9 @@ ifeq ($(USER),akazachk)
     CPLEX_DIR = ${CPLEX_HOME}
   endif
   ifeq ($(UNAME),Darwin)
-    GUROBI_LINK = gurobi90
-    GUROBI_DIR = /Library/gurobi902/mac64
-    CPLEX_DIR = /Applications/CPLEX_Studio1210/cplex
+    GUROBI_LINK = gurobi91
+    GUROBI_DIR = ${GUROBI_HOME}
+    CPLEX_DIR = ${CPLEX_HOME}
   endif
 endif
 
