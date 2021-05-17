@@ -62,7 +62,8 @@ else
   COIN_DIR="${1}/${COIN_DIR_NAME}"
 fi
 echo "COIN-OR files will be installed into ${COIN_DIR}"
-exit
+echo ""
+#exit
 mkdir -p $COIN_DIR
 
 if [ ${USE_COINBREW} == "1" ]

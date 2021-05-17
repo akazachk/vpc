@@ -45,6 +45,7 @@ ifeq ($(USER),"queen")
  CPLEX_DIR = /opt/ibm/ILOG/CPLEX_Studio128/cplex
 endif
 
+# rossobianco
 ifeq ($(USER),kazaalek)
   GUROBI_LINK = gurobi91
 	GUROBI_DIR = ${GUROBI_HOME}
@@ -65,9 +66,10 @@ ifeq ($(USER),akazachkov)
 endif
 
 ifeq ($(USER),akazachk)
+	# ComputeCanada
   ifeq ($(UNAME),Linux)
 	  COIN_OR = ${HOME}/projects/def-alodi/$(USER)/coin-or/Cbc-$(COIN_VERSION)
-    GUROBI_LINK = gurobi90
+    GUROBI_LINK = gurobi91
     GUROBI_DIR = ${GUROBI_LOCAL}
     CPLEX_DIR = ${CPLEX_HOME}
   endif
