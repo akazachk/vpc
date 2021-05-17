@@ -17,10 +17,12 @@ fi
 
 export SCRIPT_DIR=${PROJ_DIR}/scripts
 export INSTANCE_DIR=${PROJ_DIR}/data/instances
-export INSTANCE_LIST=${SCRIPT_DIR}/slurm/small_original.instances
+export INSTANCE_LIST=${SCRIPT_DIR}/slurm/small_presolved.instances
 export RESULTS_DIR=${PROJ_DIR}/results
 
 TASK_ID=0
+> job_list_bb.txt
+> job_list_bb0.txt
 while read line; do
   TASK_ID=$((TASK_ID+1))
 
@@ -29,9 +31,10 @@ while read line; do
     continue
   fi
 
+  CASE_NUM=`printf %03d $TASK_ID`
   echo "Preparing command to run instance $line (task $TASK_ID) at `date`"
-  echo "nohup /usr/bin/time -v ${SCRIPT_DIR}/run_experiments.sh ${INSTANCE_DIR}/$line.mps $RESULTS_DIR/bb/${TASK_ID} bb 2>&1" >> job_list_bb.txt
-  echo "nohup /usr/bin/time -v ${SCRIPT_DIR}/run_experiments.sh ${INSTANCE_DIR}/$line.mps $RESULTS_DIR/bb0/${TASK_ID} bb0 2>&1" >> job_list_bb0.txt
-  echo "nohup /usr/bin/time -v ${SCRIPT_DIR}/run_experiments.sh ${INSTANCE_DIR}/$line.mps $RESULTS_DIR/preprocess/${TASK_ID} preprocess 2>&1" >> job_list_preprocess.txt
+  echo "nohup /usr/bin/time -v ${SCRIPT_DIR}/run_experiments.sh ${INSTANCE_DIR}/$line.mps $RESULTS_DIR/bb/${CASE_NUM} bb 2>&1" >> job_list_bb.txt
+  echo "nohup /usr/bin/time -v ${SCRIPT_DIR}/run_experiments.sh ${INSTANCE_DIR}/$line.mps $RESULTS_DIR/bb0/${CASE_NUM} bb0 2>&1" >> job_list_bb0.txt
+  #echo "nohup /usr/bin/time -v ${SCRIPT_DIR}/run_experiments.sh ${INSTANCE_DIR}/$line.mps $RESULTS_DIR/preprocess/${CASE_NUM} preprocess 2>&1" >> job_list_preprocess.txt
 done < ${INSTANCE_LIST}
 
