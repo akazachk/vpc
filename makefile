@@ -89,12 +89,14 @@ USE_CPLEX_SOLVER = 0
 
 # Concerning executable
 EXECUTABLE_STUB = vpc
-VPC_VERSION = $(shell git log -1 --pretty=format:"%H")
-VPC_CBC_VERSION = $(shell git -C ${COIN_OR}/Cbc log -1 --pretty=format:"%H")
-VPC_CLP_VERSION = $(shell git -C ${COIN_OR}/Clp log -1 --pretty=format:"%H")
 SRC_DIR = src
 SOURCES = main.cpp
 DIR_LIST = $(SRC_DIR) $(SRC_DIR)/branch $(SRC_DIR)/cut $(SRC_DIR)/disjunction $(SRC_DIR)/utility
+
+# Code version
+VPC_VERSION = $(shell git log -1 --pretty=format:"%H")
+VPC_CBC_VERSION = $(shell git -C ${COIN_OR}/Cbc log -1 --pretty=format:"%H")
+VPC_CLP_VERSION = $(shell git -C ${COIN_OR}/Clp log -1 --pretty=format:"%H")
 
 SOURCES += \
 		branch/CbcBranchStrongDecision.cpp \
@@ -148,6 +150,7 @@ ifeq ($(USE_COIN),1)
 endif
 ifeq ($(USE_CLP),1)
   DEFS += -DUSE_CLP
+  DEFS += -DVPC_CLP_VERSION="\#${VPC_CLP_VERSION}"
 endif
 ifeq ($(USE_CLP_SOLVER),1)
   DEFS += -DUSE_CLP_SOLVER
@@ -155,7 +158,6 @@ endif
 ifeq ($(USE_CBC),1)
   DEFS += -DUSE_CBC
   DEFS += -DVPC_CBC_VERSION="\#${VPC_CBC_VERSION}"
-  DEFS += -DVPC_CLP_VERSION="\#${VPC_CLP_VERSION}"
 endif
 ifeq ($(USE_GUROBI),1)
   DEFS += -DUSE_GUROBI
@@ -351,7 +353,7 @@ clean: FORCE
 	@$(RM) $(OUT_OBJECTS) $(EXECUTABLE) $(OUT_DIR)/lib$(EXECUTABLE_STUB).a
 
 distclean: FORCE
-	@$(RM) $(OUT_OBJECTS) $(EXECUTABLE) $(DEPENDENCIES) $(LIB_DIR)/lib$(EXECUTABLE_STUB).a
+	@$(RM) $(OUT_OBJECTS) $(EXECUTABLE) $(DEPENDENCIES) $(OUT_DIR)/lib$(EXECUTABLE_STUB).a $(LIB_DIR)/lib$(EXECUTABLE_STUB).a
 
 ### Making directories that you need ###
 MKDIR_P = mkdir -p
