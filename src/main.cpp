@@ -112,7 +112,7 @@ int startUp(int argc, char** argv);
 int processArgs(int argc, char** argv);
 void initializeSolver(OsiSolverInterface* &solver);
 void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_disj);
-int wrapUp(int retCode);
+int wrapUp(int retCode, int argc, char** argv);
 
 /****************** MAIN FUNCTION **********************/
 int main(int argc, char** argv) {
@@ -187,7 +187,7 @@ int main(int argc, char** argv) {
     performCleaning(params, solver, filename_stub, boundInfo.ip_obj, params.get(PREPROCESS));
 
     printf("\n## Finished preprocessing/cleaning of instance. ##\n");
-    return wrapUp(0);
+    return wrapUp(0, argc, argv);
   }
 
   // Now do rounds of cuts, until a limit is reached (e.g., time, number failures, number cuts, or all rounds are exhausted)
@@ -327,7 +327,7 @@ int main(int argc, char** argv) {
       &vpcs,
       boundInfo, cut_output);
   analyzeBB(params, info_nocuts, info_mycuts, info_allcuts, bb_output);
-  return wrapUp(0);
+  return wrapUp(0, argc, argv);
 } /* main */
 
 /**
@@ -441,7 +441,7 @@ int startUp(int argc, char** argv) {
 /**
  * Close the logfile and print to it
  */
-int wrapUp(int retCode /*= 0*/) {
+int wrapUp(int retCode, int argc, char** argv) {
   const int exitReasonInt = static_cast<int>(exitReason);
 
   time(&end_time_t);
@@ -558,6 +558,13 @@ int wrapUp(int retCode /*= 0*/) {
   printf("Start time: %s\n", start_time_string);
   printf("End time: %s\n", end_time_string);
   printf("Elapsed time: %.f seconds\n", difftime(end_time_t, start_time_t));
+  { // Print command used to repeat this run
+    if (argc > 0) printf("Command: ");
+    for (int i = 0; i < argc; i++) {
+      printf("%s ", argv[i]);
+    }
+    if (argc > 0) printf("\n");
+  }
 
   if (solver) {
     delete solver;
@@ -571,6 +578,7 @@ int wrapUp(int retCode /*= 0*/) {
   if (VPCSolver) {
     delete VPCSolver;
   }
+
   return retCode;
 } /* wrapUp */
 
