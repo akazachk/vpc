@@ -238,7 +238,6 @@ inline const std::string stringValue(const long value,
 } /* stringValue (long) */
 
 /// @brief Covert a double into a string, accounting for possible infinite values
-inline const std::string stringValue(const long value,
 inline const std::string stringValue(const double value, const char* format = "%f",
     const int NUM_DIGITS_BEFORE_DEC = -1, const int NUM_DIGITS_AFTER_DEC = -1) {
   if (!lessThanVal(value, std::numeric_limits<double>::max())) {
