@@ -724,6 +724,7 @@ void printCutInfo(const SummaryCutInfo& cutInfoGMICs,
   fflush(logfile);
 } /* printCutInfo */
 
+/// @brief Find active cuts, and also report density of cuts
 bool checkCutActivity(
   SummaryCutInfo& cutInfo,
   const OsiSolverInterface* const solver,
