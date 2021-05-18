@@ -605,7 +605,7 @@ void printOrigProbInfo(const OsiSolverInterface* const solver, FILE* logfile,
 } /* printOrigProbInfo */
 
 /**
- * Assumed that solver is already with cuts added
+ * @details Assumed that solver is already with cuts added
  */
 void printPostCutProbInfo(const OsiSolverInterface* const solver,
     const SummaryCutInfo& cutInfoGMICs, const SummaryCutInfo& cutInfoVPCs,
@@ -742,7 +742,7 @@ bool checkCutActivity(
 } /* checkCutActivity */
 
 /**
- * The cut properties we want to look at are:
+ * @details The cut properties we want to look at are:
  * 1. Gap closed
  * 2. Activity (after adding cuts)
  * 3. Density
@@ -886,6 +886,7 @@ void analyzeStrength(
   }
 } /* analyzeStrength */
 
+/** @details Branch-and-bound itself has already been performed */
 void analyzeBB(const VPCParameters& params, SummaryBBInfo& info_nocuts,
     SummaryBBInfo& info_mycuts, SummaryBBInfo& info_allcuts, std::string& output) {
   if (params.get(BB_RUNS) == 0) {
@@ -969,7 +970,6 @@ void analyzeBB(const VPCParameters& params, SummaryBBInfo& info_nocuts,
 double getNumGomoryRounds(const VPCParameters& params,
     const OsiSolverInterface* const origSolver,
     const OsiSolverInterface* const postCutSolver) {
-  // Get number rounds of SICs needed to meet bound from GICs+SICs
 #ifdef TRACE
   printf("\nGetting number rounds of Gomory cuts req'd to get bound.\n");
 #endif
@@ -1050,7 +1050,7 @@ void updateDisjInfo(SummaryDisjunctionInfo& disjInfo, const int num_disj, const 
 } /* updateDisjInfo */
 
 /**
- * Use this to add to cutInfo (but within one round,
+ * @details Use this to add to cutInfo (but within one round,
  * because the cutType and objType vectors are cleared in gen in each round
  * (so tracking that based on isSetupForRepeatedUse does not work,
  * and the old cutType and objType stored in cutInfo would be overwritten)
@@ -1099,7 +1099,7 @@ void updateCutInfo(SummaryCutInfo& cutInfo, const CglVPC& gen) {
 } /* updateCutInfo (within one round) */
 
 /**
- * Use this to merge cut info from multiple rounds
+ * @details Compute total number of cuts / objectives / failures of various types, as well as total activity
  */
 void setCutInfo(SummaryCutInfo& cutInfo, const int num_rounds,
     const SummaryCutInfo* const oldCutInfos) {

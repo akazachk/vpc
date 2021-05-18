@@ -1,3 +1,9 @@
+/**
+ * @file main.cpp
+ * @author A. M. Kazachkov
+ * @date 2018-12-24
+ */
+
 // V-Polyhedral Disjunctive Cuts
 // Author:   A. M. Kazachkov
 // Date:     2018-Dec-24
@@ -114,16 +120,19 @@ int main(int argc, char** argv) {
   std::signal(SIGABRT, signal_handler_with_error_msg);
   std::signal(SIGSEGV, signal_handler_with_error_msg);
 
+  //====================================================================================================//
   // Set up timing
   for (int t = 0; t < OverallTimeStats::NUM_TIME_STATS; t++) {
     timer.register_name(OverallTimeStatsName[t]);
   }
 
+  //====================================================================================================//
   // Print welcome message, set up logfile
   timer.start_timer(OverallTimeStats::TOTAL_TIME);
   int status = startUp(argc, argv);
   if (status) { return status; }
 
+  //====================================================================================================//
   // Set up solver and get initial solution
   initializeSolver(solver);
   timer.start_timer(OverallTimeStats::INIT_SOLVE_TIME);
@@ -152,6 +161,7 @@ int main(int argc, char** argv) {
     exit(1);
   } **/
 
+  //====================================================================================================//
   // Save original solver in case we wish to come back to it later
   origSolver = solver->clone();
   if (!origSolver->isProvenOptimal()) {

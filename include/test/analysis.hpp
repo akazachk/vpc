@@ -18,6 +18,10 @@ namespace VPCParametersNamespace {
 }
 
 struct SummaryBBInfo; // BBHelper.hpp
+
+/// @brief Information about objective value at various points in the solution process
+/// @details Gives objective for the LP and IP, and after adding GMICs, L&PCs, VPCs, and combinations of these cuts
+/// and also keeps number of GMICs, L&PCs, and VPCs applied
 struct SummaryBoundInfo {
   double lp_obj = std::numeric_limits<double>::max();
   double best_disj_obj = std::numeric_limits<double>::lowest();
@@ -31,6 +35,7 @@ struct SummaryBoundInfo {
   int num_gmic = 0, num_lpc = 0, num_vpc = 0;
 }; /* SummaryBoundInfo */
 
+/// @brief Summary statistics for the disjunction generated
 struct SummaryDisjunctionInfo {
   double avg_num_terms = 0;
   double avg_density_prlp = 0.;
@@ -44,6 +49,7 @@ struct SummaryDisjunctionInfo {
   double avg_max_depth = 0.;
 }; /* SummaryDisjunctionInfo */
 
+/// @brief Track statistics for a particular family of cuts
 struct SummaryCutInfo {
   int num_cuts = 0;
   int num_active_gmic = 0, num_active_lpc = 0, num_active_vpc, num_active_all = 0;
@@ -60,25 +66,34 @@ struct SummaryCutInfo {
   std::vector<int> numFails;
 }; /* SummaryCutInfo */
 
+/// @brief Write header for output to log in \p params.logfile
 void printHeader(const VPCParametersNamespace::VPCParameters& params,
     const std::vector<std::string>& time_name,
     const char SEP = ',');
+/// @brief Write to log objective values and gaps if IP value is known
 void printBoundAndGapInfo(const SummaryBoundInfo& boundInfo, FILE* logfile,
     const char SEP = ',');
-void printSummaryBBInfo(const std::vector<SummaryBBInfo>& info, FILE* myfile,
+/// @brief Write to log summary of branch-and-bound time and number nodes
+void printSummaryBBInfo(const std::vector<SummaryBBInfo>& info, FILE* logfile,
     const bool print_blanks = false, const char SEP = ',');
-void printFullBBInfo(const std::vector<SummaryBBInfo>& info, FILE* myfile,
+/// @brief Write to log full branch-and-bound information
+void printFullBBInfo(const std::vector<SummaryBBInfo>& info, FILE* logfile,
     const bool print_blanks = false, const char SEP = ',');
+/// @brief Write to log statistics about number of rows, cols, etc. for original problem
 void printOrigProbInfo(const OsiSolverInterface* const solver, FILE* logfile,
     const char SEP = ',');
+/// @brief Write to log statistics about number of rows, cols, etc. about problem after adding cuts, and information about active cuts
 void printPostCutProbInfo(const OsiSolverInterface* const solver,
     const SummaryCutInfo& cutInfoGMICs, const SummaryCutInfo& cutInfoVPCs,
     FILE* logfile, const char SEP = ',');
+/// @brief Write to log statistics about the disjunction stored in #SummaryDisjunctionInfo
 void printDisjInfo(const SummaryDisjunctionInfo& disjInfo, FILE* logfile,
     const char SEP = ',');
+/// @brief Write to log information about cuts generated and applied stored in #SummaryCutInfo
 void printCutInfo(const SummaryCutInfo& cutInfoGMICs,
     const SummaryCutInfo& cutInfo, FILE* logfile, const char SEP = ',');
 
+/// @brief Compute gap closed and active cuts
 void analyzeStrength(const VPCParametersNamespace::VPCParameters& params, 
     const OsiSolverInterface* const solver_gmic,
     const OsiSolverInterface* const solver_vpc,
@@ -86,13 +101,18 @@ void analyzeStrength(const VPCParametersNamespace::VPCParameters& params,
     SummaryCutInfo& cutInfoGMICs, SummaryCutInfo& cutInfoVPCs, 
     const OsiCuts* const gmics, const OsiCuts* const vpcs,
     const SummaryBoundInfo& boundInfo, std::string& output);
+/// @brief Prepare summary of #SummaryBBInfo
 void analyzeBB(const VPCParametersNamespace::VPCParameters& params, SummaryBBInfo& info_nocuts,
     SummaryBBInfo& info_mycuts, SummaryBBInfo& info_allcuts, std::string& output);
+/// @brief Get number rounds of SICs needed to meet bound from VPCs+SICs
 double getNumGomoryRounds(const VPCParametersNamespace::VPCParameters& params,
     const OsiSolverInterface* const origSolver,
     const OsiSolverInterface* const postCutSolver);
 
+/// @brief Update average number of terms, density, rows, cols, points, rays, and partial tree information if applicable
 void updateDisjInfo(SummaryDisjunctionInfo& disjInfo, const int num_disj, const CglVPC& gen);
+/// @brief Add to cut information after a round, such as number of cuts, objectives, failures, etc.
 void updateCutInfo(SummaryCutInfo& cutInfo, const CglVPC& gen);
+/// @brief Use this to merge cut info from multiple rounds
 void setCutInfo(SummaryCutInfo& cutInfo, const int num_rounds, const SummaryCutInfo* const oldCutInfos);
 

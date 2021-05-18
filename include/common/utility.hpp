@@ -24,6 +24,7 @@ class CoinPackedMatrix;
 #define macro_to_string(s) #s
 #define x_macro_to_string(s) macro_to_string(s)
 
+/// @brief overload << operator for vector of ints
 inline std::ostream& operator<<(std::ostream& os, const std::vector<int> &input) {
   os << "{";
   for (unsigned tmp_i = 0; tmp_i < input.size(); tmp_i++) {
@@ -34,6 +35,7 @@ inline std::ostream& operator<<(std::ostream& os, const std::vector<int> &input)
   return os;
 } /* overload << operator for vector of ints */
 
+/// @brief overload << operator for vector of doubles
 inline std::ostream& operator<<(std::ostream& os, const std::vector<double> &input) {
   os << "{";
   for (unsigned tmp_i = 0; tmp_i < input.size(); tmp_i++) {
@@ -44,16 +46,17 @@ inline std::ostream& operator<<(std::ostream& os, const std::vector<double> &inp
   return os;
 } /* overload << operator for vector of doubles */
 
-/**
- * @brief For sorting
- *
- * @details NOTE: the below sorting functions will only work when the index list given is {0,...,size}
- * (not necessarily in that order)
- * because the index list is used to access elements of arr
- *
- * If you want to, say, sort [10,1,2] by [0.5,20.5,10.0], the below would not work
- * Typically you need to use a struct then combining the data together
- */
+///@{
+/// @name Sorting functions
+
+/// @details NOTE: the below sorting functions will only work when the index list given is {0,...,size}
+/// (not necessarily in that order)
+/// because the index list is used to access elements of arr
+///
+/// If you want to, say, sort [10,1,2] by [0.5,20.5,10.0], the below would not work
+/// Typically you need to use a struct then combining the data together
+
+/// @brief In descending order
 template<class T> struct index_cmp_dsc {
 
   const T arr; // array used to be sorted
@@ -70,6 +73,7 @@ template<class T> struct index_cmp_dsc {
   }
 };
 
+/// @brief In ascending order
 template<class T> struct index_cmp_asc {
 
   const T arr; // array used to be sorted
@@ -85,6 +89,7 @@ template<class T> struct index_cmp_asc {
     return arr[a] < arr[b];
   }
 };
+///@}
 
 /* #define error_msg(str, fmt) \
   char str[500]; \
@@ -136,65 +141,69 @@ void createTmpFilename(std::string& f_name, const std::string add_ext = "");
 /** @brief Separate filename into the directory, instance name, and extension */
 int parseFilename(std::string& dir, std::string& instname, std::string& in_file_ext, const std::string& fullfilename, FILE* logfile);
 
-/// Get objective value from file \p opt_filename where each line is "instance,value"
+/// @brief Get objective value from file \p opt_filename where each line is "instance,value"
 double getObjValueFromFile(std::string opt_filename, std::string fullfilename, FILE* logfile);
 
-/// Retrieve solution from a file \p filename.
+/// @brief Retrieve solution from a file \p filename.
 void getSolFromFile(const char* filename, std::vector<double>& sol);
 
-/**
-  * @brief Check if a file exists
-  */
+/// @brief Check if a file exists
 bool fexists(const char* filename);
 
-/**
- * @brief Parses int from string using strtol
- */
+/// @brief Parses int from string using strtol
 bool parseInt(const char *str, int &val);
 
-/**
- * @brief Parses long int from string using strtol
- */
+/// @brief Parses long int from string using strtol
 bool parseLong(const char *str, long &val);
 
-/**
- * @brief Parses double from string using strtod
- */
+/// @brief Parses double from string using strtod
 bool parseDouble(const char *str, double &val);
 
+/// @brief Converst string to lower case
 std::string lowerCaseString(const std::string& data);
+/// @brief Convert vector of strings to lower case
 std::vector<std::string> lowerCaseStringVector(const std::vector<std::string>& strVec);
+/// @brief Converst string to upper case
 std::string upperCaseString(const std::string& tmpData);
+/// @brief Converst string to upper case and remove underscores (for processing parameters)
 std::string upperCaseStringNoUnderscore(const std::string& tmpData);
 
+/// @brief Check equality within tolerance \p eps
 inline bool isVal(const double val1, const double val2, const double eps = 1e-7) {
   return (std::abs((val1) - (val2)) <= eps);
 } /* isVal */
 
+/// @brief Check equality to zero within tolerance \p eps; calls #isVal
 inline bool isZero(const double val, const double eps = 1e-7) {
   return isVal(val, 0.0, eps);
 } /* isZero */
 
+/// @brief Check whether \p val1 is at least \p eps less than \p val2
 inline bool lessThanVal(const double val1, const double val2, const double eps = 1e-7) {
   return (val1 < (val2 - eps));
 } /* lessThanVal */
 
+/// @brief Check whether \p val1 is at least \p eps greater than \p val2
 inline bool greaterThanVal(const double val1, const double val2, const double eps = 1e-7) {
   return (val1 > (val2 + eps));
 } /* greaterThanVal */
 
+/// @brief Global infinity
 inline double getInfinity() {
   return std::numeric_limits<double>::max();
 }
 
+/// @brief Check whether value is at infinity using #lessThanVal
 inline bool isInfinity(const double val, const double infinity = __DBL_MAX__, const double eps = 1e-7) {
   return !lessThanVal(val, infinity, eps);
 } /* isInfinity */
 
+/// @brief Check whether value is at negative infinity using #greaterThanVal
 inline bool isNegInfinity(const double val, const double neg_infinity = __DBL_MIN__, const double eps = 1e-7) {
   return !greaterThanVal(val, neg_infinity, eps);
 } /* isInfinity */
 
+/// @brief Covert an integer into a string, accounting for possible infinite values
 inline const std::string stringValue(const int value,
     const char* format = "%d") {
   if (!lessThanVal(value, std::numeric_limits<int>::max())) {
@@ -211,6 +220,7 @@ inline const std::string stringValue(const int value,
   }
 } /* stringValue (int) */
 
+/// @brief Covert a long into a string, accounting for possible infinite values
 inline const std::string stringValue(const long value,
     const char* format = "%ld") {
   if (!lessThanVal(value, std::numeric_limits<long>::max())) {
@@ -227,6 +237,8 @@ inline const std::string stringValue(const long value,
   }
 } /* stringValue (long) */
 
+/// @brief Covert a double into a string, accounting for possible infinite values
+inline const std::string stringValue(const long value,
 inline const std::string stringValue(const double value, const char* format = "%f",
     const int NUM_DIGITS_BEFORE_DEC = -1, const int NUM_DIGITS_AFTER_DEC = -1) {
   if (!lessThanVal(value, std::numeric_limits<double>::max())) {
@@ -251,12 +263,14 @@ inline const std::string stringValue(const double value, const char* format = "%
   }
 } /* stringValue (double) */
 
-/** @brief The below is mostly for ease of use with params; in the future we may way to format strings though */
+/// @brief Currently returns \p value; mostly for ease of use with params; in the future we may way to format strings though
 inline const std::string stringValue(const std::string value, const char* format = "%s") {
   return value;
 } /* stringValue (string) */
 
+/// @brief Calls #dotProductNoCompensation(int, int*, double*, double*)
 double dotProductNoCompensation(const CoinPackedVector& vec1, const double* vec2);
+/// @brief Calls #dotProductNoCompensation(int, int*, double*, int*, double*)
 double dotProductNoCompensation(const CoinPackedVector& vec1, const CoinPackedVector& vec2);
 
 /// @brief Compute dot product using compensated summation to have small numerical error.

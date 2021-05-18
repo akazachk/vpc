@@ -17,8 +17,8 @@
 #include <CoinPackedMatrix.hpp>
 
 /**
- * Creates temporary file (in /tmp) so that it can be accessed later
- * It does not delete the file
+ * @details Creates temporary file (in /tmp) so that it can be accessed later.
+ * It does not delete the file.
  */
 void createTmpFilename(std::string& f_name,
     const std::string add_ext) {
@@ -36,8 +36,18 @@ void createTmpFilename(std::string& f_name,
 //  }
 } /* createTmpFilename */
 
-/** Separate filename into the directory, instance name, and extension */
-int parseFilename(std::string& dir, std::string& instname, std::string& in_file_ext, const std::string& fullfilename, FILE* logfile) {
+/// \return 0 if successful, 1 if error
+int parseFilename(
+    /// [out] parent directory
+    std::string& dir,
+    /// [out] stub of filename without extension
+    std::string& instname,
+    /// [out] only the extension (after stripping gz/bz2)
+    std::string& in_file_ext,
+    /// [in] filename to be parsed
+    const std::string& fullfilename,
+    /// [in] where to write errors
+    FILE* logfile) {
   // Get file name stub
   size_t found_dot = fullfilename.find_last_of(".");
   std::string filename = fullfilename.substr(0, found_dot);
@@ -76,7 +86,7 @@ int parseFilename(std::string& dir, std::string& instname, std::string& in_file_
   return 0;
 } /* parseFilename (name and logfile given) */
 
-/** We assume it is comma separated */
+/** @details We assume file is comma separated */
 double getObjValueFromFile(std::string opt_filename, std::string fullfilename, FILE* logfile) {
   std::string dir, instname, in_file_ext;
   parseFilename(dir, instname, in_file_ext, fullfilename, logfile);
