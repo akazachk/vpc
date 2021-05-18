@@ -250,7 +250,7 @@ public:
 
   /// Return #user_tight_points
   inline std::vector<std::vector<double> > getUserTightPoints() const { return this->user_tight_points; }
-  /// @brief User can provide set of points for PRLP to try and find cuts that are tight on those points, saved in #user_tight_objectives
+  /// @brief User can provide set of points for PRLP to try and find cuts that are tight on those points, saved in #user_objectives
   void setUserTightPoints(const std::vector<std::vector<double> >& tight_points);
   ///@} // get/set methods
 

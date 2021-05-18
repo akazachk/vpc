@@ -3,7 +3,7 @@
  *
  * @brief This code has been adapted (by Aleksandr M. Kazachkov) from OsiChooseVariable.hpp in the Osi project of COIN-OR.
  * 
- * The key details are located in the description of #method_.
+ * The key details are located in the description of \link OsiChooseStrongCustom::method_ \endlink.
  *
  * @author A. M. Kazachkov
  * @date 2019-01-22

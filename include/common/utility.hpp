@@ -48,7 +48,7 @@ inline std::ostream& operator<<(std::ostream& os, const std::vector<double> &inp
 
 ///@{
 /// @name Sorting functions
-
+// @defgroup Sorting Sorting functions
 /// @details NOTE: the below sorting functions will only work when the index list given is {0,...,size}
 /// (not necessarily in that order)
 /// because the index list is used to access elements of arr
@@ -56,6 +56,7 @@ inline std::ostream& operator<<(std::ostream& os, const std::vector<double> &inp
 /// If you want to, say, sort [10,1,2] by [0.5,20.5,10.0], the below would not work
 /// Typically you need to use a struct then combining the data together
 
+// @addtogroup Sorting
 /// @brief In descending order
 template<class T> struct index_cmp_dsc {
 
@@ -73,6 +74,7 @@ template<class T> struct index_cmp_dsc {
   }
 };
 
+// @addtogroup Sorting
 /// @brief In ascending order
 template<class T> struct index_cmp_asc {
 
@@ -267,9 +269,9 @@ inline const std::string stringValue(const std::string value, const char* format
   return value;
 } /* stringValue (string) */
 
-/// @brief Calls #dotProductNoCompensation(int, int*, double*, double*)
+/// @brief Calls #dotProductNoCompensation(int, const int*, const double*, const double*)
 double dotProductNoCompensation(const CoinPackedVector& vec1, const double* vec2);
-/// @brief Calls #dotProductNoCompensation(int, int*, double*, int*, double*)
+/// @brief Calls #dotProductNoCompensation(int, const int*, const double*, const int*, const double*)
 double dotProductNoCompensation(const CoinPackedVector& vec1, const CoinPackedVector& vec2);
 
 /// @brief Compute dot product using compensated summation to have small numerical error.
