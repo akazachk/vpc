@@ -298,12 +298,14 @@ int main(int argc, char** argv) {
       stringValue(boundInfo.vpc_obj, "%1.6f").c_str(),
       stringValue(boundInfo.best_disj_obj, "%1.6f").c_str());
 
+  //====================================================================================================//
   // Do branch-and-bound experiments (if requested)
   if (params.get(BB_RUNS) != 0) {
     // Collect cuts from all rounds
     timer.start_timer(BB_TIME);
     runBBTests(params, &info_nocuts, &info_mycuts, &info_allcuts,
-        params.get(stringParam::FILENAME), solver, boundInfo.ip_obj, &vpcs, NULL);
+        params.get(stringParam::FILENAME), solver, boundInfo.ip_obj,
+        &vpcs, NULL);
     timer.end_timer(BB_TIME);
   }
 
