@@ -43,7 +43,7 @@ using namespace VPCParametersNamespace;
 #endif
 
 /**
- * Solver is changed unless we are doing row/col permutations
+ * @details Solver is unchanged unless we are doing row/col permutations
  */
 void runBBTests(
     /// [in] Initial set of parameters (will be cloned to change random seeds)

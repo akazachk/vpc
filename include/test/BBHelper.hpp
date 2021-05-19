@@ -87,6 +87,7 @@ struct SummaryBBInfo {
   std::vector<BBInfo> vec_bb_info;
 };
 
+/** @brief Perform branch-and-bound experiments */
 void runBBTests(const VPCParametersNamespace::VPCParameters& base_params, SummaryBBInfo* const info_nocuts,
     SummaryBBInfo* const info_mycuts, SummaryBBInfo* const info_allcuts,
     const std::string fullfilename, const OsiSolverInterface* const solver,
