@@ -109,7 +109,7 @@ void printHeader(const VPCParameters& params,
     fprintf(logfile, "%s%c", "L&PC OBJ", SEP); count++; // 8
     fprintf(logfile, "%s%c", "NUM VPC", SEP); count++; // 9
     fprintf(logfile, "%s%c", "VPC OBJ", SEP); count++; // 10
-    fprintf(logfile, "%s%c", "VPC+GMIC BOUND", SEP); count++; // 11
+    fprintf(logfile, "%s%c", "VPC+GMIC OBJ", SEP); count++; // 11
     assert(count == countBoundInfoEntries);
   } // BOUND INFO
   { // GAP INFO

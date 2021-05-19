@@ -1,5 +1,8 @@
 #!/bin/bash
 
+MODE=original
+MODE=presolved
+
 if [ -z "$PROJ_DIR" ]
 then
   if [ ! -z "${REPOS_DIR}" ]
@@ -18,12 +21,15 @@ fi
 export PROJ_DIR=`realpath -s ${PROJ_DIR}`
 export SCRIPT_DIR=${PROJ_DIR}/scripts
 export INSTANCE_DIR=${PROJ_DIR}/data/instances
-export INSTANCE_LIST=${SCRIPT_DIR}/small_presolved.instances
+export INSTANCE_LIST=${SCRIPT_DIR}/small_${MODE}.instances
 export RESULTS_DIR=${PROJ_DIR}/results
 
 TASK_ID=0
 > job_list_bb.txt
 > job_list_bb0.txt
+if [ $MODE == original ]; then
+  > job_list_preprocess.txt
+fi
 while read line; do
   TASK_ID=$((TASK_ID+1))
 
@@ -37,6 +43,8 @@ while read line; do
   echo "Preparing command to run instance $line (task $TASK_ID) at `date`"
   echo "nohup /usr/bin/time -v ${SCRIPT_DIR}/run_experiments.sh ${INSTANCE_DIR}/$line.mps $RESULTS_DIR/$STUB/bb/${CASE_NUM} bb 2>&1" >> job_list_bb.txt
   echo "nohup /usr/bin/time -v ${SCRIPT_DIR}/run_experiments.sh ${INSTANCE_DIR}/$line.mps $RESULTS_DIR/$STUB/bb0/${CASE_NUM} bb0 2>&1" >> job_list_bb0.txt
-  #echo "nohup /usr/bin/time -v ${SCRIPT_DIR}/run_experiments.sh ${INSTANCE_DIR}/$line.mps $RESULTS_DIR/$STUB/preprocess/${CASE_NUM} preprocess 2>&1" >> job_list_preprocess.txt
+  if [ $MODE == original ]; then
+    echo "nohup /usr/bin/time -v ${SCRIPT_DIR}/run_experiments.sh ${INSTANCE_DIR}/$line.mps $RESULTS_DIR/$STUB/preprocess/${CASE_NUM} preprocess 2>&1" >> job_list_preprocess.txt
+  fi
 done < ${INSTANCE_LIST}
 
