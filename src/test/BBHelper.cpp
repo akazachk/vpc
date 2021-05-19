@@ -45,10 +45,27 @@ using namespace VPCParametersNamespace;
 /**
  * Solver is changed unless we are doing row/col permutations
  */
-void runBBTests(const VPCParametersNamespace::VPCParameters& base_params, SummaryBBInfo* const info_nocuts,
-    SummaryBBInfo* const info_mycuts, SummaryBBInfo* const info_allcuts,
-    const std::string fullfilename, const OsiSolverInterface* const solver,
-    const double best_bound, const OsiCuts* vpcs, const OsiCuts* const gmics) {
+void runBBTests(
+    /// [in] Initial set of parameters (will be cloned to change random seeds)
+    const VPCParametersNamespace::VPCParameters& base_params,
+    /// [out] Store information about branch-and-bound results with no (user-generated) cuts added
+    SummaryBBInfo* const info_nocuts,
+    /// [out] Store information about branch-and-bound results with only VPCs added among user-generated cuts
+    SummaryBBInfo* const info_mycuts,
+    /// [out] Store information about branch-and-bound results with all user-generated cuts added (including GMICs, for example)
+    SummaryBBInfo* const info_allcuts,
+    /// [in] Full path to instance
+    const std::string fullfilename,
+    /// [in] Original model
+    const OsiSolverInterface* const solver,
+    /// [in] Best bound (to provide to IP solver, if relevant option is selected)
+    const double best_bound,
+    /// [in] VPCs to add to solver
+    const OsiCuts* vpcs,
+    /// [in] (Optional) GMICs to test against
+    const OsiCuts* const gmics,
+    /// [in] IP solution to original problem (will usually be empty unless you are debugging)
+    const std::vector<double>& ip_solution) {
   VPCParametersNamespace::VPCParameters params = base_params;
   const int num_vpcs = (vpcs != NULL) ? vpcs->sizeCuts() : 0;
   // Set number of b&b runs to be zero if no cuts generated (unless no disjunctions were requested in the first place)
@@ -268,6 +285,9 @@ void runBBTests(const VPCParametersNamespace::VPCParameters& base_params, Summar
       }
 #endif // USE_CPLEX
     } else if (use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::cbc)) {
+      if (runSolver == NULL) {
+        runSolver = const_cast<OsiSolverInterface*>(solver);
+      }
       if (branch_with_no_cuts) {
         doBranchAndBoundNoCuts(params, (should_permute_rows_and_cols ? runSolver : solver), info_nocuts->vec_bb_info[run_ind]);
       }
