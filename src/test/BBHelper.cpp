@@ -64,8 +64,8 @@ void runBBTests(
     const OsiCuts* vpcs,
     /// [in] (Optional) GMICs to test against
     const OsiCuts* const gmics,
-    /// [in] IP solution to original problem (will usually be empty unless you are debugging)
-    const std::vector<double>& ip_solution) {
+    /// [in/out] IP solution to original problem (will usually be empty unless you are debugging; will be computed here if not previously computed and is requested)
+    std::vector<double>* const ip_solution) {
   VPCParametersNamespace::VPCParameters params = base_params;
   const int num_vpcs = (vpcs != NULL) ? vpcs->sizeCuts() : 0;
   // Set number of b&b runs to be zero if no cuts generated (unless no disjunctions were requested in the first place)
@@ -207,11 +207,18 @@ void runBBTests(
     if (use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::gurobi)) {
 #ifdef USE_GUROBI
       if (use_temp_option(params.get(TEMP), TempOptions::CHECK_CUTS_AGAINST_BB_OPT) && num_vpcs > 0) {
-        // Get the original solution
-        BBInfo tmp_bb_info;
-        std::vector<double> solution;
-        doBranchAndBoundWithGurobi(params, params.get(BB_STRATEGY),
-            fullfilename.c_str(), tmp_bb_info, best_bound, &solution);
+        if (ip_solution && !ip_solution->empty()) {
+          // Get the original solution
+          BBInfo tmp_bb_info;
+          doBranchAndBoundWithGurobi(params, params.get(BB_STRATEGY),
+              fullfilename.c_str(), tmp_bb_info, best_bound, ip_solution);
+        }
+
+        if (!ip_solution || ip_solution->empty()) {
+          error_msg(errorstring, "Unable to obain IP solution.\n");
+          writeErrorToLog(errorstring, params.logfile);
+          exit(1);
+        }
 
         // Check cuts
         for (int cut_ind = 0; cut_ind < num_vpcs; cut_ind++) {
@@ -220,7 +227,7 @@ void runBBTests(
           const int num_el = currCut.row().getNumElements();
           const int* ind = currCut.row().getIndices();
           const double* el = currCut.row().getElements();
-          const double activity = dotProduct(num_el, ind, el, solution.data());
+          const double activity = dotProduct(num_el, ind, el, ip_solution->data());
 
           if (lessThanVal(activity, rhs)) {
             warning_msg(warnstring, "Cut %d removes optimal solution. Activity: %.10f. Rhs: %.10f.\n", cut_ind, activity, rhs);

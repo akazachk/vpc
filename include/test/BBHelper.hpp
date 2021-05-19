@@ -92,7 +92,7 @@ void runBBTests(const VPCParametersNamespace::VPCParameters& base_params, Summar
     SummaryBBInfo* const info_mycuts, SummaryBBInfo* const info_allcuts,
     const std::string fullfilename, const OsiSolverInterface* const solver,
     const double best_bound, const OsiCuts* vpcs, const OsiCuts* const gmics = NULL,
-    const std::vector<double>& ip_solution = {});
+    std::vector<double>* const ip_solution = nullptr);
 
 inline void initializeBBInfo(BBInfo& info, double obj = 0.) {
   info.obj = obj;
