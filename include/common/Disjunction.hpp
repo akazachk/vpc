@@ -43,7 +43,7 @@ public:
   std::vector<OsiRowCut> ineqs; ///< optional: inequalities to add aside from changed bounds
 #endif
 
-  /// @brief efault constructor
+  /// @brief Default constructor
   DisjunctiveTerm();
 
   /// @brief Copy constructor

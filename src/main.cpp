@@ -235,8 +235,6 @@ int main(int argc, char** argv) {
     if (params.get(MODE) != static_cast<int>(CglVPC::VPCMode::CUSTOM)) {
       gen.generateCuts(*solver, vpcs_by_round[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
       exitReason = gen.exitReason;
-      updateDisjInfo(disjInfo, num_disj, gen);
-      updateCutInfo(cutInfoVec[round_ind], gen);
       if (gen.disj()) {
         num_disj++;
         boundInfo.num_vpc += gen.num_cuts;
@@ -245,6 +243,8 @@ int main(int argc, char** argv) {
         if (boundInfo.worst_disj_obj < gen.disj()->worst_obj)
           boundInfo.worst_disj_obj = gen.disj()->worst_obj;
       }
+      updateDisjInfo(disjInfo, num_disj, gen);
+      updateCutInfo(cutInfoVec[round_ind], gen);
     } // check if mode is _not_ CUSTOM
     else {
       doCustomRoundOfCuts(round_ind, vpcs_by_round[round_ind], gen, num_disj);

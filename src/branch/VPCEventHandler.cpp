@@ -280,9 +280,17 @@ void printNodeStatistics(
 /**
  * @details We are assuming here that none of the original columns have been deleted or anything,
  * and that we are only tracking the bound changes for the original columns.
+ * The result may be incorrect for pruned nodes when, for example, an integer solution is found during strong branching.
  */
-void changedBounds(NodeStatistics& stats, const OsiSolverInterface* const solver,
-    const std::vector<double>& originalLB, const std::vector<double>& originalUB) {
+void changedBounds(
+    /// Current node statistics
+    NodeStatistics& stats,
+    /// Current solver state in branch-and-bound
+    const OsiSolverInterface* const solver,
+    /// Original lower bounds on variables
+    const std::vector<double>& originalLB,
+    /// Original upper bounds on variables
+    const std::vector<double>& originalUB) {
   stats.changed_bounds = "";
   const double* lower = solver->getColLower();
   const double* upper = solver->getColUpper();
@@ -1200,8 +1208,8 @@ int VPCEventHandler::saveInformation() {
     // So we drop old code that would prune integer feasible solutions that are above cutoff
     this->owner->num_terms++;
     this->owner->integer_sol = savedSolution_;
-    std::string tmpname = "feasSol0";
-    Disjunction::setCgsName(this->owner->name, tmpname);
+    std::string feasname = "feasSol0";
+    Disjunction::setCgsName(this->owner->name, feasname);
   }
 
   this->owner->terms.reserve(2 * numNodesOnTree_);
@@ -1234,11 +1242,11 @@ int VPCEventHandler::saveInformation() {
 
     // Change bounds in the solver
     // First the root node bounds
-    const int init_num_changed_bounds = stats_[0].changed_var.size();
+    const int init_num_changed_bounds = this->owner->common_changed_var.size();
     for (int i = 0; i < init_num_changed_bounds; i++) {
-      const int col = stats_[0].changed_var[i];
-      const double val = stats_[0].changed_value[i];
-      if (stats_[0].changed_bound[i] <= 0) {
+      const int col = this->owner->common_changed_var[i];
+      const double val = this->owner->common_changed_value[i];
+      if (this->owner->common_changed_bound[i] <= 0) {
         tmpSolverBase->setColLower(col, val);
       } else {
         tmpSolverBase->setColUpper(col, val);

@@ -229,6 +229,9 @@ void Disjunction::getSolverForTerm(
 } /* getSolverForTerm */
 #endif // USE_COIN
 
+/**
+ * @details Append \p disjTermName to \p cgsName, adding a "V" if \p cgsName is nonempty (i.e., other terms are already present).
+ */
 void Disjunction::setCgsName(std::string& cgsName,
     const std::string& disjTermName) {
   if (disjTermName.empty()) {
@@ -242,6 +245,14 @@ void Disjunction::setCgsName(std::string& cgsName,
   cgsName += ")";
 } /* setCgsName (given disj term name) */
 
+/**
+ * @details If \p append is true, then we are adding an inequality to a particular term,
+ * so the last ")" is replaced by a ";" and the inequality given by \p termIndices, \p termCoeff, \p termRHS
+ * is added, followed by a ")".
+ *
+ * If \p append is false, then we are adding a new disjunctive term, so if \p cgsName is nonempty,
+ * then "V" is inserted before the inequality is added within a new set of parentheses.
+ */
 void Disjunction::setCgsName(std::string& cgsName, const int num_coeff,
     const int* const termIndices, const double* const termCoeff,
     const double termRHS, const bool append) {
@@ -282,6 +293,9 @@ void Disjunction::setCgsName(std::string& cgsName, const int num_coeff,
   cgsName += ")";
 } /* setCgsName (one ineq per term) */
 
+/**
+ * @details Adds a set of inequalties using #setCgsName(std::string&, const int, const int* const, const double* const, const double, const bool) called on each of the inequalities given by \p termIndices, \p termCoeff, and \p termRHS.
+ */
 void Disjunction::setCgsName(std::string& cgsName, const int num_ineq_per_term,
     const std::vector<std::vector<int> >& termIndices,
     const std::vector<std::vector<double> >& termCoeff,

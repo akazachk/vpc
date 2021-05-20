@@ -135,6 +135,7 @@ public:
   inline SolverInterface* getOriginalSolver() const {
     return originalSolver_;
   }
+  /// @brief set #originalSolver_ to a clone of copySolver, and call #setOriginalLB and #setOriginalUB
   SolverInterface* setOriginalSolver(const OsiSolverInterface* const copySolver,
       const bool return_old = false);
   inline int getOriginalLB(const int col) const {
@@ -180,8 +181,8 @@ protected:
   int numNodes_; ///< total number of nodes explored
   double obj_; ///< integer-feasible solution value
   SolverInterface* originalSolver_; ///< pointer to original solver to compare bounds
-  std::vector<double> originalLB_; ///< vector of original lower bounds
-  std::vector<double> originalUB_; ///< vector of original upper bounds
+  std::vector<double> originalLB_; ///< vector of original lower bounds at the *end* of the root node processing
+  std::vector<double> originalUB_; ///< vector of original upper bounds at the *end* of the root node processing
 //    std::vector<CoinWarmStartBasis*> bases_; ///< bases of nodes
   std::vector<NodeStatistics> stats_; ///< all stats that we need to recreate tree
   std::vector<NodeStatistics> pruned_stats_; ///< info for all children that were pruned
