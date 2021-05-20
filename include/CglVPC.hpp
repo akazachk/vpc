@@ -380,10 +380,7 @@ protected:
   } /* reachedTimeLimit */
 
   /// @brief Return \link TimeStats::get_total_time() timer.get_total_time(timeName) \endlink > \p max_time
-  inline bool reachedTimeLimit(const std::string& timeName, const double max_time) const {
-    const bool reached_limit = (timer.get_total_time(timeName) > max_time);
-    return reached_limit;
-  } /* reachedTimeLimit */
+  bool reachedTimeLimit(const std::string& timeName, const double max_time) const;
 
 //  inline bool reachedTimelimit(const std::chrono::time_point<std::chrono::high_resolution_clock>& start_chrono) const {
 //    std::chrono::duration<double> elapsed_seconds = std::chrono::high_resolution_clock::now() - start_chrono;

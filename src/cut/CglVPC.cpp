@@ -1316,6 +1316,15 @@ CglVPC::ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
   return status;
 } /* tryObjectives */
 
+bool CglVPC::reachedTimeLimit(const std::string& timeName, const double max_time) const {
+  const bool reached_limit = (timer.get_total_time(timeName) > max_time);
+  if (reached_limit) {
+    printf("Reached %s time limit %f < current time %f.\n",
+        timeName.c_str(), timer.get_total_time(timeName), max_time);
+  }
+  return reached_limit;
+} /* reachedTimeLimit */
+
 /**
  * @details There are four types of checks. The first three have non-decreasing success requirements.
  * 1. Few cuts have been generated:
@@ -1345,9 +1354,19 @@ CglVPC::ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
  *
  * If the failure ratio is 1 (all failures), then we will reject if # obj > FEW_CUTS / (1.-few_cuts_fail_threshold).
  */
-bool CglVPC::reachedFailureLimit(const int num_cuts, const int num_fails, //const double time,
-    const double few_cuts_fail_threshold, const double many_cuts_fail_threshold,
-    const double many_obj_fail_threshold, const double time_fail_threshold) const {
+bool CglVPC::reachedFailureLimit(
+    /// Number of cuts currently generated
+    const int num_cuts, 
+    /// Number of objectives tried that did not lead to cuts
+    const int num_fails,
+    /// Active if FEW_CUTS (= 1 by default) generated; by default at least 1 cut every 20 obj (fail ratio = .95)
+    const double few_cuts_fail_threshold,
+    /// Active if MANY_CUTS (.25 * CUT_LIMIT by default) generated; by default at least 1 cut every 10 obj (fail ratio = .90)
+    const double many_cuts_fail_threshold,
+    /// Active if many objectives have been tried (MANY_OBJ = max(FEW_CUTS / (1 - \p few_cuts_fail_threshold), MANY_CUTS / (1 - \p many_cuts_fail_threshold)), and by default corresponds to at least 1 cut every 5 obj (fail ratio = .80)
+    const double many_obj_fail_threshold,
+    /// CURRENTLY NOT USED: Time is long enough and we are not successful
+    const double time_fail_threshold) const {
   const int num_obj_tried = num_cuts + num_fails;
   if (num_obj_tried == 0) {
     return false;
@@ -1377,8 +1396,9 @@ bool CglVPC::reachedFailureLimit(const int num_cuts, const int num_fails, //cons
       && time / num_obj_tried >= params.get(PRLP_TIMELIMIT)) { // checks if average PRLP solve time is too high
     reached_limit = true;
   }
-//  if (reached_limit) {
+  if (reached_limit) {
 //    this->exitReason = CglVPC::ExitReason::FAIL_LIMIT_EXIT;
-//  }
+    printf("Reached failure limit with %d cuts and %d fails.\n", num_cuts, num_fails);
+  }
   return reached_limit;
 } /* reachedFailureLimit */
