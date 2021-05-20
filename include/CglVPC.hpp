@@ -380,7 +380,9 @@ protected:
   } /* reachedTimeLimit */
 
   /// @brief Return \link TimeStats::get_total_time() timer.get_total_time(timeName) \endlink > \p max_time
-  bool reachedTimeLimit(const std::string& timeName, const double max_time) const;
+  inline bool reachedTimeLimit(const std::string& timeName, const double max_time) const {
+    return (timer.get_total_time(timeName) > max_time);
+  } /* reachedTimeLimit */
 
 //  inline bool reachedTimelimit(const std::chrono::time_point<std::chrono::high_resolution_clock>& start_chrono) const {
 //    std::chrono::duration<double> elapsed_seconds = std::chrono::high_resolution_clock::now() - start_chrono;
@@ -398,13 +400,7 @@ protected:
       const double time_fail_threshold = 0.66) const;
 
   /// @brief Set #exitReason to \p exitReason, end all running clocks in #timer
-  inline void finish(CglVPC::ExitReason exitReason = CglVPC::ExitReason::UNKNOWN) {
-    this->exitReason = exitReason;
-    this->timer.end_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
-#ifdef TRACE
-    printf("CglVPC: Finishing with exit reason: %s. Number cuts: %d.\n", CglVPC::ExitReasonName[static_cast<int>(exitReason)].c_str(), num_cuts);
-#endif
-  }
+  void finish(CglVPC::ExitReason exitReason = CglVPC::ExitReason::UNKNOWN);
 }; /* Class CglVPC */
 
 /** @brief Match status from generating disjunction to status of CglVPC exit */

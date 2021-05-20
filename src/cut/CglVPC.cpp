@@ -1316,15 +1316,6 @@ CglVPC::ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
   return status;
 } /* tryObjectives */
 
-bool CglVPC::reachedTimeLimit(const std::string& timeName, const double max_time) const {
-  const bool reached_limit = (timer.get_total_time(timeName) > max_time);
-  if (reached_limit) {
-    printf("Reached %s time limit %f < current time %f.\n",
-        timeName.c_str(), timer.get_total_time(timeName), max_time);
-  }
-  return reached_limit;
-} /* reachedTimeLimit */
-
 /**
  * @details There are four types of checks. The first three have non-decreasing success requirements.
  * 1. Few cuts have been generated:
@@ -1402,3 +1393,20 @@ bool CglVPC::reachedFailureLimit(
   }
   return reached_limit;
 } /* reachedFailureLimit */
+
+void CglVPC::finish(CglVPC::ExitReason exitReason) {
+  const std::string timeName = VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)];
+  if (exitReason == CglVPC::ExitReason::TIME_LIMIT_EXIT) {
+    printf("Reached %s time limit %f < current time %f.\n",
+        timeName.c_str(), params.get(TIMELIMIT), timer.get_total_time(timeName));
+  } else if (exitReason == CglVPC::ExitReason::CUT_LIMIT_EXIT) {
+    printf("Reached cut limit %d.\n", getCutLimit());
+  } else if (exitReason == CglVPC::ExitReason::FAIL_LIMIT_EXIT) {
+    // printed when reachedFailureLimit() is called
+  }
+  this->exitReason = exitReason;
+  this->timer.end_timer(timeName);
+#ifdef TRACE
+  printf("CglVPC: Finishing with exit reason: %s. Number cuts: %d.\n", CglVPC::ExitReasonName[static_cast<int>(exitReason)].c_str(), num_cuts);
+#endif
+} /* finish */
