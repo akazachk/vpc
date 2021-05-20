@@ -27,7 +27,7 @@ const int countSummaryBBInfoEntries = 4 * 2;
 const int countFullBBInfoEntries = static_cast<int>(BB_INFO_CONTENTS.size()) * 4 * 2;
 const int countOrigProbEntries = 13;
 const int countPostCutProbEntries = 10;
-const int countDisjInfoEntries = 10;
+const int countDisjInfoEntries = 11;
 const int countCutInfoEntries = 10;
 const int countObjInfoEntries = 1 + 4 * static_cast<int>(CglVPC::ObjectiveType::NUM_OBJECTIVE_TYPES);
 const int countFailInfoEntries = 1 + static_cast<int>(CglVPC::FailureType::NUM_FAILURE_TYPES);
@@ -165,6 +165,7 @@ void printHeader(const VPCParameters& params,
   { // DISJ INFO
     int count = 0;
     fprintf(logfile, "%s%c", "NUM DISJ TERMS", SEP); count++;
+    fprintf(logfile, "%s%c", "NUM INTEGER SOL", SEP); count++;
 //    fprintf(logfile, "%s%c", "MIN DENSITY PRLP", SEP); count++;
 //    fprintf(logfile, "%s%c", "MAX DENSITY PRLP", SEP); count++;
     fprintf(logfile, "%s%c", "AVG DENSITY PRLP", SEP); count++;
@@ -658,6 +659,7 @@ void printDisjInfo(const SummaryDisjunctionInfo& disjInfo, FILE* logfile,
 
   int count = 0;
   fprintf(logfile, "%s%c", stringValue(disjInfo.avg_num_terms, "%.0f").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(disjInfo.num_integer_sol, "%d").c_str(), SEP); count++;
   fprintf(logfile, "%s%c", stringValue(disjInfo.avg_density_prlp, "%.0f").c_str(), SEP); count++;
   fprintf(logfile, "%s%c", stringValue(disjInfo.avg_num_rows_prlp, "%.0f").c_str(), SEP); count++;
   fprintf(logfile, "%s%c", stringValue(disjInfo.avg_num_cols_prlp, "%.0f").c_str(), SEP); count++;
@@ -1032,6 +1034,7 @@ void updateDisjInfo(SummaryDisjunctionInfo& disjInfo, const int num_disj, const 
   const PRLP* const prlp = gen.getPRLP();
   if (!prlp)
     return;
+  disjInfo.num_integer_sol += !(disj->integer_sol.empty());
   disjInfo.avg_num_terms = (disjInfo.avg_num_terms * (num_disj - 1) + disj->num_terms) / num_disj;
   disjInfo.avg_density_prlp = (disjInfo.avg_density_prlp * (num_disj - 1) + prlp->density) / num_disj;
   disjInfo.avg_num_rows_prlp += (disjInfo.avg_num_rows_prlp * (num_disj - 1) + prlp->getNumRows()) / num_disj;
