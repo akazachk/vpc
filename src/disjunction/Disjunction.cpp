@@ -279,6 +279,7 @@ void Disjunction::setCgsName(std::string& cgsName, const int num_coeff,
       } else {
         cgsName += std::to_string(absCurrCoeff);
       }
+      cgsName += " ";
     }
     cgsName += "x";
     cgsName += std::to_string(termIndices[coeff_ind]);
