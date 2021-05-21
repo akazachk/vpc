@@ -1035,7 +1035,7 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
 
 #ifdef TRACE
   printf(
-      "\nFinished setting up constraints. Min obj val: Structural: %1.3f, NB: %1.3f.\n",
+      "\nFinished setting up constraints. Min obj val: Structural: %1.3e, NB: %1.3e.\n",
       this->disjunction->best_obj, this->disjunction->best_obj - this->probData.lp_opt);
 #endif
   return CglVPC::ExitReason::SUCCESS_EXIT;

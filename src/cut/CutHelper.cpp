@@ -64,11 +64,24 @@ void removeSmallCoefficients(OsiRowCut* const cut, const OsiSolverInterface* con
         cutRhs -= coeff * colLower[col];
       } else if ((coeff > 0.0) && !isInfinity(colUpper[col])) {
         cutRhs -= coeff * colUpper[col];
+      } else {
+        // Added this because sometimes small coefficients are necessary,
+        // such as in the case of original/coral/neos-593853 -d2,
+        // in which there are large matrix coefficients,
+        // and setting coefficient alpha_{612} = 0 (from 6e-7)
+        // causes an invalid cut
+        // TODO however, this is probably not ideal for other instances,
+        // and we should implement a more careful check
+        if (currPos < i) {
+          cutIndex[currPos] = col;
+          cutElem[currPos] = coeff;
+        }
+        currPos++;
       }
     } else if (absval > EPS_COEFF) {
       if (currPos < i) {
-        cutElem[currPos] = cutElem[i];
-        cutIndex[currPos] = cutIndex[i];
+        cutIndex[currPos] = col;
+        cutElem[currPos] = coeff;
       }
       currPos++;
     }
