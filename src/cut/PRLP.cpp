@@ -196,7 +196,7 @@ CglVPC::ExitReason PRLP::setup(const double scale) {
             || (lessThanVal(rhs1, 0.) && lessThanVal(rhs2, 0.)))) {
           continue;
         }
-        howDissimilar = isRowDifferent(vec1, rhs1, vec2, rhs2, owner->params.get(doubleConst::DIFFEPS));
+        howDissimilar = isRowDifferent(&vec1, rhs1, &vec2, rhs2, owner->params.get(doubleConst::DIFFEPS));
         if (howDissimilar == -1) {
           // This means the current row is better somehow, and we should replace r2
           isDuplicatePoint[p2] = true;
@@ -232,7 +232,7 @@ CglVPC::ExitReason PRLP::setup(const double scale) {
         const int r2 = rowOfRay[ind2];
         const CoinShallowPackedVector vec2 = owner->prlpData.constraints[r2];
         const double rhs2 = owner->prlpData.rhs[r2];
-        howDissimilar = isRowDifferent(vec1, rhs1, vec2, rhs2, owner->params.get(doubleConst::DIFFEPS));
+        howDissimilar = isRowDifferent(&vec1, rhs1, &vec2, rhs2, owner->params.get(doubleConst::DIFFEPS));
         if (howDissimilar == -1) {
           // This means the current row is better somehow, and we should replace r2
           isDuplicateRay[p2] = true;

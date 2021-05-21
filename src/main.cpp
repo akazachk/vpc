@@ -237,7 +237,7 @@ int main(int argc, char** argv) {
       exitReason = gen.exitReason;
       if (gen.disj()) {
         num_disj++;
-        boundInfo.num_vpc += gen.num_cuts;
+        boundInfo.num_vpc += gen.num_cuts; // TODO: does this need to be in this if, and do we need to subtract initial num cuts?
         if (boundInfo.best_disj_obj < gen.disj()->best_obj)
           boundInfo.best_disj_obj = gen.disj()->best_obj;
         if (boundInfo.worst_disj_obj < gen.disj()->worst_obj)

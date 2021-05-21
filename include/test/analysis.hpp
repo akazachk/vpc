@@ -37,6 +37,7 @@ struct SummaryBoundInfo {
 
 /// @brief Summary statistics for the disjunction generated
 struct SummaryDisjunctionInfo {
+  int num_disj = 0;
   int num_integer_sol = 0;
   double avg_num_terms = 0;
   double avg_density_prlp = 0.;
