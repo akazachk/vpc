@@ -146,6 +146,45 @@ bool badDynamism(const OsiRowCut* const cut, const double minAbsCoeff, const dou
               std::abs(SENSIBLE_MAX * maxAbsCoeff / minAbsCoeff), EPS));
 } /* badDynamism */
 
+/// @details Scale cut so that coefficients are neither too small nor too big
+/// similarly to how rays are scaled in nbspace.cpp #setCompNBCoorRay
+void scaleCut(OsiRowCut* const cut, const double EPS) {
+  CoinPackedVector vec = cut->mutableRow();
+  const int num_el = vec.getNumElements();
+  double* el = vec.getElements();
+
+  double minAbsElem = 0.0, maxAbsElem = 0.0;
+  for (int i = 0; i < num_el; i++) {
+    const double absCurr = std::abs(el[i]);
+    if (isZero(absCurr, EPS)) { // make sure min and max are not zero
+      continue;
+    }
+
+    if ((minAbsElem > absCurr) || isZero(minAbsElem, EPS)) {
+      minAbsElem = absCurr;
+    }
+    if (maxAbsElem < absCurr) {
+      maxAbsElem = absCurr;
+    }
+  } // loop over cut coefficients
+  const double absRHS = std::abs(cut->rhs());
+  if (absRHS > maxAbsElem) {
+    maxAbsElem = absRHS;
+  }
+
+  // TODO I am not sure where these values come from exactly...
+  int minExponent = std::log10(minAbsElem);
+  int maxExponent = std::log10(maxAbsElem);
+  const double avgExponents = 0.5 * (minExponent + maxExponent);
+  int scale_exp = 0;
+  if (avgExponents < -0.25) {
+    scale_exp = 1 - static_cast<int>(avgExponents + 0.25);
+  }
+  const double scale = std::pow(10., static_cast<double>(scale_exp));
+  vec *= scale;
+  cut->setLb(cut->lb() * scale);
+} /* scaleCut */
+
 /**
  * Based on the similar method in CglGMI, we clean the cut coefficients and check if the cut is good
  * Returns 0 if no error, otherwise returns -1 * (fail index + 1)
