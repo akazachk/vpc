@@ -354,19 +354,31 @@ void printSummaryBBInfo(const std::vector<SummaryBBInfo>& info_vec, FILE* logfil
 
   int count = 0;
   for (auto info : info_vec) {
-    fprintf(logfile, "%ld%c", info.first_bb_info.nodes, SEP);
+    if (!print_blanks)
+      fprintf(logfile, "%ld%c", info.first_bb_info.nodes, SEP);
+    else
+      fprintf(logfile, "%c", SEP);
     count++;
   }
   for (auto info : info_vec) {
-    fprintf(logfile, "%ld%c", info.best_bb_info.nodes, SEP);
+    if (!print_blanks)
+      fprintf(logfile, "%ld%c", info.best_bb_info.nodes, SEP);
+    else
+      fprintf(logfile, "%c", SEP);
     count++;
   }
   for (auto info : info_vec) {
-    fprintf(logfile, "%2.3f%c", info.first_bb_info.time, SEP);
+    if (!print_blanks)
+      fprintf(logfile, "%2.3f%c", info.first_bb_info.time, SEP);
+    else
+      fprintf(logfile, "%c", SEP);
     count++;
   }
   for (auto info : info_vec) {
-    fprintf(logfile, "%2.3f%c", info.best_bb_info.time, SEP);
+    if (!print_blanks)
+      fprintf(logfile, "%2.3f%c", info.best_bb_info.time, SEP);
+    else
+      fprintf(logfile, "%c", SEP);
     count++;
   }
   fflush(logfile);
@@ -519,7 +531,6 @@ void printFullBBInfo(const std::vector<SummaryBBInfo>& info_vec, FILE* logfile,
     }
 
     // Finally, all
-//    for (unsigned i = 0; i < info_vec.size(); i++) {
     for (auto info : info_vec) {
       std::vector<std::string> vec_str;
       createStringFromBBInfoVec(info.vec_bb_info, vec_str);
@@ -529,7 +540,7 @@ void printFullBBInfo(const std::vector<SummaryBBInfo>& info_vec, FILE* logfile,
       }
     }
   } else {
-    for (unsigned i = 0; i < BB_INFO_CONTENTS.size() * info_vec.size(); i++) {
+    for (unsigned i = 0; i < BB_INFO_CONTENTS.size() * info_vec.size() * 4; i++) {
       fprintf(logfile, "%c", SEP); count++;
     }
   }
