@@ -140,6 +140,31 @@ public:
       this->objViolation.push_back(viol);
     }
   }; /* PRLPData */
+
+  /// @brief Quick reference to information from current instance
+  /// @details This information is key for converting to / from nonbasic space
+  struct ProblemData {
+    int num_cols; ///< number of variables
+    double lp_opt; ///< value of LP optimal solution
+    double minAbsCoeff; ///< useful for dynamism calculation
+    double maxAbsCoeff; ///< useful for dynamism calculation
+    double EPS; ///< epsilon computed from this particular instance data
+    std::vector<int> NBVarIndex; /// indices of nonbasic vectors at LP optimum
+    std::vector<int> varBasicInRow; /// for the optimal basis, what are the variables basic in each row
+    std::vector<int> rowOfVar; ///< row in which var is basic; if var is nonbasic, then it is (-(1 + nonbasic index))
+    std::vector<int> rowOfOrigNBVar; ///< row in which "original" nonbasic vars are basic; if var is still nonbasic, then it is (-(1 + new nonbasic index))
+    std::vector<double> NBReducedCost; ///< objective coefficients in the nonbasic space
+
+    /// Get index of variable in NBVarIndex, and -1 if it is basic
+    int getVarNBIndex(const int var) const {
+      if (rowOfVar[var] <= -1) {
+        return -1 * (1 + rowOfVar[var]);
+      } else {
+        return -1;
+      }
+    }
+  } probData; ///< Quick reference to key information from current instance
+
   ///@} // class enums and structs
 
   ///@{
@@ -321,30 +346,6 @@ protected:
   std::vector<std::vector<double> > user_tight_points; ///< User can provide points that PRLP will attempt to find cuts with small distance to, where the points are in the original (structural) space
   Disjunction* disjunction = NULL; ///< Pointer to Disjunction used for this round of cuts
   PRLPData prlpData; ///< PRLPData for this round of cuts
-
-  /// @brief Quick reference to information from current instance
-  /// @details This information is key for converting to / from nonbasic space
-  struct ProblemData {
-    int num_cols; ///< number of variables
-    double lp_opt; ///< value of LP optimal solution
-    double minAbsCoeff; ///< useful for dynamism calculation
-    double maxAbsCoeff; ///< useful for dynamism calculation
-    double EPS; ///< epsilon computed from this particular instance data
-    std::vector<int> NBVarIndex; /// indices of nonbasic vectors at LP optimum
-    std::vector<int> varBasicInRow; /// for the optimal basis, what are the variables basic in each row
-    std::vector<int> rowOfVar; ///< row in which var is basic; if var is nonbasic, then it is (-(1 + nonbasic index))
-    std::vector<int> rowOfOrigNBVar; ///< row in which "original" nonbasic vars are basic; if var is still nonbasic, then it is (-(1 + new nonbasic index))
-    std::vector<double> NBReducedCost; ///< objective coefficients in the nonbasic space
-
-    /// Get index of variable in NBVarIndex, and -1 if it is basic
-    int getVarNBIndex(const int var) const {
-      if (rowOfVar[var] <= -1) {
-        return -1 * (1 + rowOfVar[var]);
-      } else {
-        return -1;
-      }
-    }
-  } probData; ///< Quick reference to key information from current instance
 
   /// Clear old information before another round of cuts
   void setupAsNew();
