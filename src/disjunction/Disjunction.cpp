@@ -141,17 +141,25 @@ void Disjunction::getSolverForTerm(
   termSolver = solver->clone();
   const DisjunctiveTerm* const term = &(this->terms[term_ind]);
 
-  const int curr_num_changed_bounds = term->changed_var.size();
-  std::vector < std::vector<int> > commonTermIndices(curr_num_changed_bounds);
-  std::vector < std::vector<double> > commonTermCoeff(curr_num_changed_bounds);
-  std::vector<double> commonTermRHS(curr_num_changed_bounds);
-  for (int i = 0; i < curr_num_changed_bounds; i++) {
+  for (int i = 0; i < (int) this->common_changed_var.size(); i++) {
+    const int col = this->common_changed_var[i];
+    const double coeff = (this->common_changed_bound[i] <= 0) ? 1. : -1.;
+    const double val = this->common_changed_value[i];
+    if (shouldChangeBounds) {
+      if (this->common_changed_bound[i] <= 0) {
+        termSolver->setColLower(col, val);
+      } else {
+        termSolver->setColUpper(col, val);
+      }
+    } else {
+      termSolver->addRow(1, &col, &coeff, coeff * val, solver->getInfinity());
+    }
+  } // loop over changed vars in common across terms
+
+  for (int i = 0; i < (int) term->changed_var.size(); i++) {
     const int col = term->changed_var[i];
     const double coeff = (term->changed_bound[i] <= 0) ? 1. : -1.;
     const double val = term->changed_value[i];
-    commonTermIndices[i].resize(1, col);
-    commonTermCoeff[i].resize(1, coeff);
-    commonTermRHS[i] = coeff * val;
     if (shouldChangeBounds) {
       if (term->changed_bound[i] <= 0) {
         termSolver->setColLower(col, val);
@@ -161,7 +169,7 @@ void Disjunction::getSolverForTerm(
     } else {
       termSolver->addRow(1, &col, &coeff, coeff * val, solver->getInfinity());
     }
-  }
+  } // loop over changed vars in term
 
   const int curr_num_added_ineqs = term->ineqs.size();
   for (int i = 0; i < curr_num_added_ineqs; i++) {
@@ -215,8 +223,20 @@ void Disjunction::getSolverForTerm(
     }
 #ifdef TRACE
     std::string commonName;
-    Disjunction::setCgsName(commonName, curr_num_changed_bounds, commonTermIndices,
-        commonTermCoeff, commonTermRHS, false);
+    const int curr_num_changed_bounds = term->changed_var.size();
+    std::vector < std::vector<int> > termIndices(curr_num_changed_bounds);
+    std::vector < std::vector<double> > termCoeff(curr_num_changed_bounds);
+    std::vector<double> termRHS(curr_num_changed_bounds);
+    for (int i = 0; i < curr_num_changed_bounds; i++) {
+      const int col = term->changed_var[i];
+      const double coeff = (term->changed_bound[i] <= 0) ? 1. : -1.;
+      const double val = term->changed_value[i];
+      termIndices[i].resize(1, col);
+      termCoeff[i].resize(1, coeff);
+      termRHS[i] = coeff * val;
+    }
+    Disjunction::setCgsName(commonName, curr_num_changed_bounds, termIndices,
+        termCoeff, termRHS, false);
     printf("Bounds changed: %s.\n", commonName.c_str());
 #endif
   } // check that objective value matches
