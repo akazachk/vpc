@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Takes one argument: gurobi or cplex (to specify type of preprocessed instances we are saving)
 
 if [ -z "$VPC_DIR" ]
 then
@@ -15,62 +16,26 @@ then
   fi
 fi
 
-SOLVER_TYPE="cplex"
+if [ -z "$1" ]; then
+  SOLVER_TYPE="gurobi"
+else
+  SOLVER_TYPE="$1"
+fi
+
 SRC_DIR="${VPC_DIR}/data/instances/original"
 DEST_DIR="${VPC_DIR}/data/instances/presolved_${SOLVER_TYPE}"
+SOL_DIR="${VPC_DIR}/data/solutions"
+STUBS=("miplib2" "miplib3" "miplib2003" "miplib2010" "miplib2017" "coral" "neos")
 
-STUB="miplib2"
-echo "Copying preprocessed instances from ${SRC_DIR}/${STUB} to ${DEST_DIR}/${STUB}"
-mkdir -p ${DEST_DIR}/${STUB}
-mv ${SRC_DIR}/${STUB}/*_presolved.mps* ${DEST_DIR}/${STUB}
-if [ $SOLVER_TYPE = "cplex" ]; then
-  mv ${SRC_DIR}/${STUB}/*_presolved.pre ${DEST_DIR}/${STUB}
-fi
-
-STUB="miplib3"
-echo "Copying preprocessed instances from ${SRC_DIR}/${STUB} to ${DEST_DIR}/${STUB}"
-mkdir -p ${DEST_DIR}/${STUB}
-mv ${SRC_DIR}/${STUB}/*_presolved.mps* ${DEST_DIR}/${STUB}
-if [ $SOLVER_TYPE = "cplex" ]; then
-  mv ${SRC_DIR}/${STUB}/*_presolved.pre ${DEST_DIR}/${STUB}
-fi
-
-STUB="miplib2003"
-echo "Copying preprocessed instances from ${SRC_DIR}/${STUB} to ${DEST_DIR}/${STUB}"
-mkdir -p ${DEST_DIR}/${STUB}
-mv ${SRC_DIR}/${STUB}/*_presolved.mps* ${DEST_DIR}/${STUB}
-if [ $SOLVER_TYPE = "cplex" ]; then
-  mv ${SRC_DIR}/${STUB}/*_presolved.pre ${DEST_DIR}/${STUB}
-fi
-
-STUB="miplib2010"
-echo "Copying preprocessed instances from ${SRC_DIR}/${STUB} to ${DEST_DIR}/${STUB}"
-mkdir -p ${DEST_DIR}/${STUB}
-mv ${SRC_DIR}/${STUB}/*_presolved.mps* ${DEST_DIR}/${STUB}
-if [ $SOLVER_TYPE = "cplex" ]; then
-  mv ${SRC_DIR}/${STUB}/*_presolved.pre ${DEST_DIR}/${STUB}
-fi
-
-STUB="miplib2017"
-echo "Copying preprocessed instances from ${SRC_DIR}/${STUB} to ${DEST_DIR}/${STUB}"
-mkdir -p ${DEST_DIR}/${STUB}
-mv ${SRC_DIR}/${STUB}/*_presolved.mps* ${DEST_DIR}/${STUB}
-if [ $SOLVER_TYPE = "cplex" ]; then
-  mv ${SRC_DIR}/${STUB}/*_presolved.pre ${DEST_DIR}/${STUB}
-fi
-
-STUB="coral"
-echo "Copying preprocessed instances from ${SRC_DIR}/${STUB} to ${DEST_DIR}/${STUB}"
-mkdir -p ${DEST_DIR}/${STUB}
-mv ${SRC_DIR}/${STUB}/*_presolved.mps* ${DEST_DIR}/${STUB}
-if [ $SOLVER_TYPE = "cplex" ]; then
-  mv ${SRC_DIR}/${STUB}/*_presolved.pre ${DEST_DIR}/${STUB}
-fi
-
-STUB="neos"
-echo "Copying preprocessed instances from ${SRC_DIR}/${STUB} to ${DEST_DIR}/${STUB}"
-mkdir -p ${DEST_DIR}/${STUB}
-mv ${SRC_DIR}/${STUB}/*_presolved.mps* ${DEST_DIR}/${STUB}
-if [ $SOLVER_TYPE = "cplex" ]; then
-  mv ${SRC_DIR}/${STUB}/*_presolved.pre ${DEST_DIR}/${STUB}
-fi
+for STUB in ${STUBS[*]}; do
+  echo "Copying preprocessed instances from ${SRC_DIR}/${STUB} to ${DEST_DIR}/${STUB}"
+  mkdir -p ${DEST_DIR}/${STUB}
+  mv ${SRC_DIR}/${STUB}/*_presolved.mps* ${DEST_DIR}/${STUB}
+  mkdir -p ${SOL_DIR}/${STUB}
+  if [ $SOLVER_TYPE = "cplex" ]; then
+    mv ${SRC_DIR}/${STUB}/*_presolved.pre ${SOL_DIR}/${STUB}
+  fi
+  if [ $SOLVER_TYPE = "gurobi" ]; then
+    mv ${SRC_DIR}/${STUB}/*_presolved_gurobi.mst* ${SOL_DIR}/${STUB}
+  fi
+done
