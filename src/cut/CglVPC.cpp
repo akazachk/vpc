@@ -1389,7 +1389,7 @@ bool CglVPC::reachedFailureLimit(
   }
   if (reached_limit) {
 //    this->exitReason = CglVPC::ExitReason::FAIL_LIMIT_EXIT;
-    printf("Reached failure limit with %d cuts and %d fails.\n", num_cuts, num_fails);
+    printf("CglVPC: Reached failure limit with %d cuts and %d fails.\n", num_cuts, num_fails);
   }
   return reached_limit;
 } /* reachedFailureLimit */
@@ -1397,10 +1397,10 @@ bool CglVPC::reachedFailureLimit(
 void CglVPC::finish(CglVPC::ExitReason exitReason) {
   const std::string timeName = VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)];
   if (exitReason == CglVPC::ExitReason::TIME_LIMIT_EXIT) {
-    printf("Reached %s time limit %f < current time %f.\n",
+    printf("CglVPC: Reached %s time limit %f < current time %f.\n",
         timeName.c_str(), params.get(TIMELIMIT), timer.get_total_time(timeName));
   } else if (exitReason == CglVPC::ExitReason::CUT_LIMIT_EXIT) {
-    printf("Reached cut limit %d.\n", getCutLimit());
+    printf("CglVPC: Reached cut limit %d.\n", getCutLimit());
   } else if (exitReason == CglVPC::ExitReason::FAIL_LIMIT_EXIT) {
     // printed when reachedFailureLimit() is called
   }
