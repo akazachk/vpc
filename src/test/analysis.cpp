@@ -671,18 +671,18 @@ void printDisjInfo(const SummaryDisjunctionInfo& disjInfo, FILE* logfile,
     return;
 
   int count = 0;
-  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_num_terms, "%.0f").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_num_terms, "%g").c_str(), SEP); count++;
   fprintf(logfile, "%s%c", stringValue(disjInfo.num_integer_sol, "%d").c_str(), SEP); count++;
   fprintf(logfile, "%s%c", stringValue(disjInfo.num_disj, "%d").c_str(), SEP); count++;
-  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_density_prlp, "%.0f").c_str(), SEP); count++;
-  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_num_rows_prlp, "%.0f").c_str(), SEP); count++;
-  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_num_cols_prlp, "%.0f").c_str(), SEP); count++;
-  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_num_points_prlp, "%.0f").c_str(), SEP); count++;
-  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_num_rays_prlp, "%.0f").c_str(), SEP); count++;
-  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_explored_nodes, "%.0f").c_str(), SEP); count++;
-  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_pruned_nodes, "%.0f").c_str(), SEP); count++;
-  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_min_depth, "%.0f").c_str(), SEP); count++;
-  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_max_depth, "%.0f").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_density_prlp, "%g").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_num_rows_prlp, "%g").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_num_cols_prlp, "%g").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_num_points_prlp, "%g").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_num_rays_prlp, "%g").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_explored_nodes, "%g").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_pruned_nodes, "%g").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_min_depth, "%g").c_str(), SEP); count++;
+  fprintf(logfile, "%s%c", stringValue(disjInfo.avg_max_depth, "%g").c_str(), SEP); count++;
   fflush(logfile);
   assert(count == countDisjInfoEntries);
 } /* printDisjInfo */
