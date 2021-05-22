@@ -48,8 +48,10 @@ void printVectors(const std::vector<CoinPackedVector>& vecs, const bool use_newl
  * @param vec   Vector to be printed
  */
 template <typename T>
-void printVector(const int n, const T* vec, const bool use_newline) {
+void printVector(const int n, const T* vec, const bool use_newline, const bool sparse_mode) {
   for (int i = 0; i < n; ++i) {
+    if (sparse_mode && std::abs(vec[i]) < 1e-7)
+      continue;
     if (use_newline)
       fprintf(stdout, "\n");
     else if (i > 0)
@@ -67,8 +69,8 @@ void printVector(const int n, const T* vec, const bool use_newline) {
  * Print vector
  */
 template <typename T>
-void printVector(const std::vector<T>& vec, const bool use_newline) {
-  printVector(vec.size(), vec.data(), use_newline);
+void printVector(const std::vector<T>& vec, const bool use_newline, const bool sparse_mode) {
+  printVector(vec.size(), vec.data(), use_newline, sparse_mode);
 } /* printVector (std::vector<T>) */
 
 /**

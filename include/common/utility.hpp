@@ -60,14 +60,14 @@ inline std::ostream& operator<<(std::ostream& os, const std::vector<double> &inp
 /// @brief In descending order
 template<class T> struct index_cmp_dsc {
 
-  const T arr; // array used to be sorted
+  const T arr; ///< array used to be sorted
 
-  // Constructor
+  /// Constructor
   index_cmp_dsc(const T _arr) :
       arr(_arr) {
   }
 
-  // Comparator
+  /// Comparator
   bool operator()(const size_t a, const size_t b) const {
     //return arr[a] > arr[b] + param.getEPS();
     return arr[a] > arr[b];
@@ -78,14 +78,14 @@ template<class T> struct index_cmp_dsc {
 /// @brief In ascending order
 template<class T> struct index_cmp_asc {
 
-  const T arr; // array used to be sorted
+  const T arr; ///< array used to be sorted
 
-  // Constructor
+  /// Constructor
   index_cmp_asc(const T _arr) :
       arr(_arr) {
   }
 
-  // Comparator
+  /// Comparator
   bool operator()(const size_t a, const size_t b) const {
     //return arr[a] < arr[b] - param.getEPS();
     return arr[a] < arr[b];

@@ -399,17 +399,24 @@ void doBranchAndBoundWithGurobi(const VPCParameters& params, int strategy,
 
    // Save the solution if needed
    if (solution) {
-     // Get variables
+     // Get variables and double-check objective matches
+     double obj = model.get(GRB_DoubleAttr_ObjCon);
      GRBVar* vars = model.getVars();
      const int num_vars = model.get(GRB_IntAttr_NumVars);
      (*solution).resize(num_vars);
      for (int i = 0; i < num_vars; i++) {
        (*solution)[i] = vars[i].get(GRB_DoubleAttr_X);
+       obj += (*solution)[i] * vars[i].get(GRB_DoubleAttr_Obj);
      }
      if (vars) {
        delete[] vars;
      }
-   }
+     if (!isVal(obj, info.obj)) {
+       error_msg(errorstring, "Gurobi: %.6e, computed objective value from solution, does not match solver's obj value %.6e.\n", obj, info.obj);
+       writeErrorToLog(errorstring, params.logfile);
+       exit(1);
+     }
+   } // save ip solution
 
    if (use_temp_option(params.get(intParam::TEMP), TempOptions::SAVE_IP_OPT)) {
      std::string dir, instname, in_file_ext;

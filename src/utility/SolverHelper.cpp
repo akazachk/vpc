@@ -4,6 +4,12 @@
 
 #include "OsiCuts.hpp"
 
+double getObjOffset(const OsiSolverInterface* const solver) {
+  double offset = 0.;
+  solver->getDblParam(OsiDblParam::OsiObjOffset, offset);
+  return offset;
+} /* getObjOffset */
+
 #ifdef USE_CBC
 #include <CbcModel.hpp>
 

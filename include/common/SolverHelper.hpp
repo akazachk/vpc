@@ -13,6 +13,9 @@
   #include <OsiSolverInterface.hpp>
 #endif /* USE_CLP */
 
+/// @brief Get objective offset (with COIN-OR, \link OsiSolverInterface::getObjValue() \endlink + #getObjOffset() = dot product between \link OsiSolverInterface::getColSolution() \endlink and \link OsiSolverInterface::getObjCoefficients \endlink)
+double getObjOffset(const OsiSolverInterface* const solver);
+
 #ifdef USE_CBC
 class CbcModel;
 /// @brief Set log level and print frequency for \p cbc_model
