@@ -413,10 +413,8 @@ int startUp(int argc, char** argv) {
   #endif
       boundInfo.ip_obj = getObjValueFromFile(optfile, params.get(stringParam::FILENAME), params.logfile);
       params.set(doubleParam::IP_OBJ, boundInfo.ip_obj);
-  #ifdef TRACE
       fprintf(stdout, "Best known objective value is %s.\n", stringValue(boundInfo.ip_obj, "%f").c_str());
       //std::cout << "Best known objective value is " << boundInfo.ip_obj << std::endl;
-  #endif
       if (isInfinity(boundInfo.ip_obj)) {
         warning_msg(warnstring, "Did not find objective value.\n");
       }
@@ -770,6 +768,7 @@ int processArgs(int argc, char** argv) {
       {"preprocess",            required_argument, 0, 'p'*'1'},
       {"rounds",                required_argument, 0, 'r'},
       {"prlp_timelimit",        required_argument, 0, 'R'},
+      {"solfile",               required_argument, 0, 's'*'1'},
       {"temp",                  required_argument, 0, 't'*'1'},
       {"timelimit",             required_argument, 0, 't'},
       {"use_all_ones",          required_argument, 0, 'u'*'1'},
@@ -1018,6 +1017,10 @@ int processArgs(int argc, char** argv) {
                   params.set(stringParam::OPTFILE, optarg);
                   break;
                 }
+      case 's'*'1': {
+                      params.set(stringParam::SOLFILE, optarg);
+                      break;
+                    }
       case 's': {
                   int val;
                   intParam param = intParam::PARTIAL_BB_STRATEGY;
@@ -1203,6 +1206,7 @@ int processArgs(int argc, char** argv) {
                 helpstring += "-i val, --ip_obj=val\n\tValue of integer optimum for this instance (takes precedence over -o/--optfile).\n";
                 helpstring += "-l logfile, --logfile=logfile\n\tWhere to print log messages.\n";
                 helpstring += "-o optfile, --optfile=optfile\n\tWhere to find integer optimum value information (a csv file formatted as \"instance_name,value\" on each row, or a .sol/.mst file to be read by CPLEX/Gurobi).\n";
+                helpstring += "--solfile=solfile\n\tWhere to find integer optimum solution information (e.g., a mst/sol file produced by Gurobi/CPLEX/etc).\n";
                 helpstring += "-v level, --verbosity=level\n\tVerbosity level (0: print little, 1: let solver output be visible).\n";
                 helpstring += "\n# General VPC options #\n";
                 helpstring += "-c num cuts, --cutlimit=num cuts\n\tMaximum number of cuts to generate (0+ = as given, -k = k * # fractional variables at root).\n";

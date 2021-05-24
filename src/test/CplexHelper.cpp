@@ -127,30 +127,30 @@ void setStrategyForBBTestCplexCallable(const VPCParameters& params, const int st
         status += CPXXsetdblparam(env, CPXPARAM_MIP_Tolerances_UpperCutoff, best_bound + 1e-7); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
       }
       // Check if user provides mip start or solution file
-      std::string optfile = params.get(stringParam::OPTFILE);
+      std::string solfile = params.get(stringParam::SOLFILE);
       std::string ext1 = "_cplex.sol.gz";
       std::string ext2 = "_cplex.sol";
       std::string ext3 = "_cplex.mst.gz";
       std::string ext4 = "_cplex.mst";
       bool user_provides_start = false;
-      user_provides_start |= (optfile.size() > ext1.size()) && (optfile.compare(optfile.size() - ext1.size(), ext1.size(), ext1) == 0);
-      user_provides_start |= (optfile.size() > ext2.size()) && (optfile.compare(optfile.size() - ext2.size(), ext2.size(), ext2) == 0);
+      user_provides_start |= (solfile.size() > ext1.size()) && (solfile.compare(solfile.size() - ext1.size(), ext1.size(), ext1) == 0);
+      user_provides_start |= (solfile.size() > ext2.size()) && (solfile.compare(solfile.size() - ext2.size(), ext2.size(), ext2) == 0);
       if (user_provides_start) {
         CPXXsetintparam(env, CPXPARAM_Advance, 1);
 #ifdef CPX_VERSION_VERSION
 #if CPX_VERSION_VERSION >= 20
-        CPXXreadcopystartinfo(env, lp, optfile.c_str()); // for CPLEX 20+
+        CPXXreadcopystartinfo(env, lp, solfile.c_str()); // for CPLEX 20+
 #else
-        CPXXreadcopysol(env, lp, optfile.c_str()); // for older versions
+        CPXXreadcopysol(env, lp, solfile.c_str()); // for older versions
 #endif
 #endif
       }
       user_provides_start = false;
-      user_provides_start |= (optfile.size() > ext3.size()) && (optfile.compare(optfile.size() - ext3.size(), ext3.size(), ext3) == 0);
-      user_provides_start |= (optfile.size() > ext4.size()) && (optfile.compare(optfile.size() - ext4.size(), ext4.size(), ext4) == 0);
+      user_provides_start |= (solfile.size() > ext3.size()) && (solfile.compare(solfile.size() - ext3.size(), ext3.size(), ext3) == 0);
+      user_provides_start |= (solfile.size() > ext4.size()) && (solfile.compare(solfile.size() - ext4.size(), ext4.size(), ext4) == 0);
       if (user_provides_start) {
         CPXXsetintparam(env, CPXPARAM_Advance, 1);
-        CPXXreadcopymipstarts(env, lp, optfile.c_str());
+        CPXXreadcopymipstarts(env, lp, solfile.c_str());
       }
     }
   } /* strategy > 0 */

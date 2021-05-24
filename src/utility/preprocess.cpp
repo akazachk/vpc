@@ -204,14 +204,14 @@ void performCleaning(
     printf("\n## Performing branch-and-bound on cleaned instance. ##\n");
     VPCParametersNamespace::VPCParameters cleaned_params = params;
     cleaned_params.set(stringParam::FILENAME, cleaned_name_stub + ".mps.gz");
-    std::string optfile = params.get(stringParam::OPTFILE);
-    if (!optfile.empty()) {
+    std::string solfile = params.get(stringParam::SOLFILE);
+    if (!solfile.empty()) {
       std::string dir, instname, in_ext;
-      parseFilename(dir, instname, in_ext, optfile, params.logfile);
+      parseFilename(dir, instname, in_ext, solfile, params.logfile);
       if ((in_ext.compare(".sol") == 0) || (in_ext.compare(".sol.gz") == 0)
           || (in_ext.compare(".mst") == 0) || (in_ext.compare(".mst.gz") == 0)) {
-        optfile = dir + "/"  + instname + ((CLEANING_MODE <= 1) ? "_presolved" : "_cleaned") + in_ext;
-        cleaned_params.set(stringParam::OPTFILE, optfile);
+        solfile = dir + "/"  + instname + ((CLEANING_MODE <= 1) ? "_presolved" : "_cleaned") + in_ext;
+        cleaned_params.set(stringParam::SOLFILE, solfile);
       }
     }
     runBBTests(cleaned_params, &cleaned_info, NULL, NULL,
@@ -240,10 +240,10 @@ void performCleaning(
         solver = "_cplex";
       }
 #endif
-      const std::string optfile = filename_stub + solver + ".mst.gz";
-      const std::string optfile_cleaned = cleaned_name_stub + solver + ".mst.gz";
-      if (fexists(optfile.c_str())) {
-//        std::copy_file(optfile.c_str(), optfile_cleaned.c_str()); // needs C++17
+      const std::string solfile = filename_stub + solver + ".mst.gz";
+      const std::string solfile_cleaned = cleaned_name_stub + solver + ".mst.gz";
+      if (fexists(solfile.c_str())) {
+//        std::copy_file(solfile.c_str(), solfile_cleaned.c_str()); // needs C++17
       }
     }
   } // strong branching did nothing so do not repeat the experiments

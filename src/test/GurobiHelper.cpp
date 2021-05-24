@@ -98,18 +98,18 @@ void setStrategyForBBTestGurobi(const VPCParameters& params, const int strategy,
         //model.set(GRB_DoubleParam_Cutoff, best_bound + 1e-3); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
       }
       // Check if user provides mip start or solution file
-      std::string optfile = params.get(stringParam::OPTFILE);
+      std::string solfile = params.get(stringParam::SOLFILE);
       std::string ext1 = "_gurobi.sol.gz";
       std::string ext2 = "_gurobi.sol";
       std::string ext3 = "_gurobi.mst.gz";
       std::string ext4 = "_gurobi.mst";
       bool user_provides_start = false;
-      user_provides_start |= (optfile.size() > ext1.size()) && (optfile.compare(optfile.size() - ext1.size(), ext1.size(), ext1) == 0);
-      user_provides_start |= (optfile.size() > ext2.size()) && (optfile.compare(optfile.size() - ext2.size(), ext2.size(), ext2) == 0);
-      user_provides_start |= (optfile.size() > ext3.size()) && (optfile.compare(optfile.size() - ext3.size(), ext3.size(), ext3) == 0);
-      user_provides_start |= (optfile.size() > ext4.size()) && (optfile.compare(optfile.size() - ext4.size(), ext4.size(), ext4) == 0);
+      user_provides_start |= (solfile.size() > ext1.size()) && (solfile.compare(solfile.size() - ext1.size(), ext1.size(), ext1) == 0);
+      user_provides_start |= (solfile.size() > ext2.size()) && (solfile.compare(solfile.size() - ext2.size(), ext2.size(), ext2) == 0);
+      user_provides_start |= (solfile.size() > ext3.size()) && (solfile.compare(solfile.size() - ext3.size(), ext3.size(), ext3) == 0);
+      user_provides_start |= (solfile.size() > ext4.size()) && (solfile.compare(solfile.size() - ext4.size(), ext4.size(), ext4) == 0);
       if (user_provides_start) {
-        model.read(optfile);
+        model.read(solfile);
       }
     }
   } /* strategy > 0 */
