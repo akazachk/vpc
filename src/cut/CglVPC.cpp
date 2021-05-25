@@ -416,7 +416,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
 bool CglVPC::addCut(
     /// [in] Cut being added
     const OsiRowCut& cut,
-    /// [in/out] Current set of cuts
+    /// [in,out] Current set of cuts
     OsiCuts& cuts,
     /// [in] Track the type of cut, in cases we are taking a multimodal approach, e.g., different types of disjunctions
     const CutType& type,

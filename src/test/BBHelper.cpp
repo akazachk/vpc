@@ -64,7 +64,7 @@ void runBBTests(
     const OsiCuts* vpcs,
     /// [in] (Optional) GMICs to test against
     const OsiCuts* const gmics,
-    /// [in/out] IP solution to original problem (will usually be empty unless you are debugging; will be computed here if not previously computed and is requested)
+    /// [in,out] IP solution to original problem (will usually be empty unless you are debugging; will be computed here if not previously computed and is requested)
     std::vector<double>* const ip_solution) {
   VPCParametersNamespace::VPCParameters params = base_params;
   const int num_vpcs = (vpcs != NULL) ? vpcs->sizeCuts() : 0;
