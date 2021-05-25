@@ -193,29 +193,55 @@ void setSolverSolution(OsiSolverInterface* const solver, const double* const sol
 } /* setSolverSolution */
 
 /// @details Some problems with normal OsiSolverInterface::solverFromHotStart() can happen,
-/// such as with arki001, in which we can have OsiSolverInterface::isIterationLimitReached()
+/// such as with arki001, in which we can have OsiSolverInterface::isIterationLimitReached().
+/// The plan then is to try one more time with a hot start, and otherwise switch to resolving
+/// (depending on the parameter \p MAX_NUM_HOT_START_VIOLS).
 ///
 /// @return OsiSolverInterface::isProvenOptimal()
-bool solveFromHotStart(OsiSolverInterface* const solver, const int col,
-    const bool isChangedUB, const double origBound, const double newBound) {
-  solver->solveFromHotStart();
-  if (solver->isIterationLimitReached()) {
-    // This sometimes happens, e.g., with arki001
-    solver->unmarkHotStart();
-    solver->resolve();
-    if (isChangedUB) {
-      solver->setColUpper(col, origBound);
-    } else {
-      solver->setColLower(col, origBound);
-    }
-    solver->resolve();
-    solver->markHotStart();
-    if (isChangedUB) {
-      solver->setColUpper(col, newBound);
-    } else {
-      solver->setColLower(col, newBound);
-    }
+bool solveFromHotStart(
+    /// [in,out] Original solver
+    OsiSolverInterface* const solver,
+    /// [in] Which variable is being modified
+    const int col,
+    /// [in] Is the upper bound changing?
+    const bool isChangedUB,
+    /// [in] Old value of the variable bound
+    const double origBound,
+    /// [in] New value of the variable bound
+    const double newBound,
+    /// [in,out] If in a prior call, hot start seemed to not work, we might disable it, in which case we need to use normal resolving
+    int& numHotStartViolations,
+    /// [in] Maximum number of \p numHotStartViolations before switching to resolve
+    const int MAX_NUM_HOT_START_VIOLS) {
+  if (numHotStartViolations < MAX_NUM_HOT_START_VIOLS) {
     solver->solveFromHotStart();
+    if (solver->isIterationLimitReached()) {
+      numHotStartViolations++;
+      // This sometimes happens, e.g., with arki001
+      solver->unmarkHotStart();
+      solver->resolve();
+      if (isChangedUB) {
+        solver->setColUpper(col, origBound);
+      } else {
+        solver->setColLower(col, origBound);
+      }
+      solver->resolve();
+      solver->markHotStart();
+      if (isChangedUB) {
+        solver->setColUpper(col, newBound);
+      } else {
+        solver->setColLower(col, newBound);
+      }
+      solver->solveFromHotStart();
+      if (solver->isIterationLimitReached()) {
+        numHotStartViolations++;
+      }
+    }
+  } // check if hot start is not disabled
+
+  if (numHotStartViolations >= MAX_NUM_HOT_START_VIOLS) {
+    // Else, hot start is disabled, revert to resolve
+    solver->resolve();
   }
   return (solver->isProvenOptimal());
 } /* solveFromHotStart overload */
