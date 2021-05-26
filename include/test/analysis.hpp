@@ -19,6 +19,11 @@ namespace VPCParametersNamespace {
 
 struct SummaryBBInfo; // BBHelper.hpp
 
+// Defined here
+struct SummaryBoundInfo; // analysis.hpp
+struct SummaryDisjunctionInfo; // analysis.hpp
+struct SummaryCutInfo; // analysis.hpp
+
 /// @brief Information about objective value at various points in the solution process
 /// @details Gives objective for the LP and IP, and after adding GMICs, L&PCs, VPCs, and combinations of these cuts
 /// and also keeps number of GMICs, L&PCs, and VPCs applied
@@ -94,6 +99,15 @@ void printDisjInfo(const SummaryDisjunctionInfo& disjInfo, FILE* logfile,
 /// @brief Write to log information about cuts generated and applied stored in #SummaryCutInfo
 void printCutInfo(const SummaryCutInfo& cutInfoGMICs,
     const SummaryCutInfo& cutInfo, FILE* logfile, const char SEP = ',');
+
+/// @brief Check cut density and update min/max support in \p cutInfo
+int checkCutDensity(SummaryCutInfo& cutInfo,
+    const OsiRowCut* const cut, const double EPS = 1e-14);
+
+/// @brief Check cut activity in solver and report cut density
+bool checkCutActivity(
+  const OsiSolverInterface* const solver,
+  const OsiRowCut* const cut);
 
 /// @brief Compute gap closed and active cuts
 void analyzeStrength(const VPCParametersNamespace::VPCParameters& params, 
