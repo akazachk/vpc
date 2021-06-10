@@ -1,7 +1,6 @@
-#!/bin/bash
-
-MODE=original
-#MODE=presolved
+#!/usr/bin/env bash
+# Usage example:
+#   prepare_batch.sh [preprocess / bb / bb0]
 
 if [ -z "$PROJ_DIR" ]
 then
@@ -18,20 +17,29 @@ then
   fi
 fi
 
+SILENT=1
+MODE=preprocess
+#MODE=bb
+#MODE=bb0
+
 export PROJ_DIR=`realpath -s ${PROJ_DIR}`
-export SCRIPT_DIR=${PROJ_DIR}/scripts
+export VPC_DIR=${PROJ_DIR}
+
 export INSTANCE_DIR=${PROJ_DIR}/data/instances
-export INSTANCE_LIST=${SCRIPT_DIR}/small_${MODE}.instances
 export RESULTS_DIR=${PROJ_DIR}/results
 export RESULTS_DIR=/local1/$USER/results
+export SCRIPT_DIR=${PROJ_DIR}/scripts
+export SOL_DIR=${PROJ_DIR}/data/solutions
+
+INSTANCE_LIST=${SCRIPT_DIR}/${MODE}.instances
+
+if [ -z $1 ]; then
+  MODE=$1
+fi
+JOB_LIST="job_list_${MODE}.txt"
 
 TASK_ID=0
-if [ $MODE == original ]; then
-  > job_list_preprocess.txt
-else
-  > job_list_bb.txt
-  > job_list_bb0.txt
-fi
+> $JOB_LIST
 while read line; do
   TASK_ID=$((TASK_ID+1))
 
@@ -40,14 +48,43 @@ while read line; do
     continue
   fi
 
+  # Prepare out directory, based on current date
   CASE_NUM=`printf %03d $TASK_ID`
   STUB=`date +%F`
-  echo "Preparing command to run instance $line (task $TASK_ID) at `date`"
-  if [ $MODE == original ]; then
-    echo "nohup /usr/bin/time -v ${SCRIPT_DIR}/run_experiments.sh ${INSTANCE_DIR}/$line.mps $RESULTS_DIR/$STUB/preprocess/${CASE_NUM} preprocess \" --temp=32\" 2>&1" >> job_list_preprocess.txt
+  OUT_DIR=${RESULTS_DIR}/$STUB/${MODE}/${CASE_NUM}
+
+  # Print status (in silent mode, print a ".")
+  if [ $SILENT != 1 ]; then
+    echo "Preparing command to run instance $line (task $TASK_ID) at `date`"
   else
-    echo "nohup /usr/bin/time -v ${SCRIPT_DIR}/run_experiments.sh ${INSTANCE_DIR}/$line.mps $RESULTS_DIR/$STUB/bb/${CASE_NUM} bb 2>&1" >> job_list_bb.txt
-    echo "nohup /usr/bin/time -v ${SCRIPT_DIR}/run_experiments.sh ${INSTANCE_DIR}/$line.mps $RESULTS_DIR/$STUB/bb0/${CASE_NUM} bb0 2>&1" >> job_list_bb0.txt
+    echo -n "."
+  fi
+
+  # Check if solution exists
+  arrIN=(${line//\// })
+  arrIN[0]=""
+  SOLFILE="$SOL_DIR"
+  for entry in ${arrIN[@]}; do
+    SOLFILE="${SOLFILE}/${entry}"
+  done
+  SOLFILE="${SOLFILE}_gurobi.mst.gz"
+  if test -f "$SOLFILE"; then
+    if [ $SILENT != 1 ]; then
+      echo "$SOLFILE exists"
+    fi
+    SOLPARAM="--solfile=${SOLFILE}"
+  else
+    echo "*** WARNING: Could not find $SOLFILE"
+    SOLPARAM=""
+  fi
+
+  # Finally, write command we will call to a file
+  echo -n "mkdir -p ${OUT_DIR}; " >> ${JOB_LIST}
+  if [ $MODE == preprocess ]; then
+    echo "nohup /usr/bin/time -v ${SCRIPT_DIR}/run_experiments.sh ${INSTANCE_DIR}/$line.mps ${OUT_DIR} ${MODE} \" --temp=32 ${SOLPARAM}\" >> ${OUT_DIR}/log.out 2>&1" >> ${JOB_LIST}
+  else
+    echo "nohup /usr/bin/time -v ${SCRIPT_DIR}/run_experiments.sh ${INSTANCE_DIR}/$line.mps ${OUT_DIR} ${MODE} \" ${SOLPARAM}\" >> ${OUT_DIR}/log.out 2>&1" >> ${JOB_LIST}
   fi
 done < ${INSTANCE_LIST}
 
+echo "Done preparing $JOB_LIST"

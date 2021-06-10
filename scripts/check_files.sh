@@ -16,17 +16,36 @@ then
 fi
 
 export SCRIPT_DIR=${PROJ_DIR}/scripts
+export INSTANCE_LIST=${SCRIPT_DIR}/small_presolved.instances
 export INSTANCE_DIR=${PROJ_DIR}/data/instances
-export INSTANCE_LIST=${SCRIPT_DIR}/slurm/small_presolved.instances
 
+if [ ! -z $1 ]; then
+  INSTANCE_LIST="$1"
+fi
+if [ ! -z $2 ]; then
+  INSTANCE_DIR="$2"
+fi
+
+echo "Instance directory set to $INSTANCE_DIR"
+echo "Instance list is $INSTANCE_LIST"
+
+FOUND=0
+TOTAL=0
 while read line; do
+  TOTAL=$((TOTAL+1))
   # Skip empty lines
   if [ -z "$line" ]; then
     continue
   fi
 
-  FILE=${INSTANCE_DIR}/$line.mps.gz
-  if [ ! -f "$FILE" ]; then
+  FILE=${INSTANCE_DIR}/$line.mps
+  if [ ! -f "$FILE" ] && [ ! -f "$FILE.gz" ] && [ ! -f "$FILE.bz2" ]; then
     echo "$FILE does not exist"
+  else
+    echo -n "."
+    FOUND=$((FOUND+1))
   fi
 done < ${INSTANCE_LIST}
+
+echo ""
+echo "Done! Found $FOUND/$TOTAL files."
