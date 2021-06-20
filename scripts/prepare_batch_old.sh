@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage example:
-#   prepare_batch.sh [preprocess / bb / bb0]
+#   prepare_batch.sh /path/to/instance/list.instances /path/to/results/dir [test / preprocess / bb / bb0]
 
 if [ -z "$PROJ_DIR" ]
 then
@@ -31,9 +31,13 @@ export RESULTS_DIR=/local1/$USER/results
 export SCRIPT_DIR=${PROJ_DIR}/scripts
 export SOL_DIR=${PROJ_DIR}/data/solutions
 
-INSTANCE_LIST=${SCRIPT_DIR}/${MODE}.instances
+if [ $MODE == preprocess ]; then
+  INSTANCE_LIST=${SCRIPT_DIR}/original.instances
+else
+  INSTANCE_LIST=${SCRIPT_DIR}/presolved.instances
+fi
 
-if [ -z $1 ]; then
+if [ ! -z $1 ]; then
   MODE=$1
 fi
 JOB_LIST="job_list_${MODE}.txt"
@@ -80,7 +84,7 @@ while read line; do
 
   # Finally, write command we will call to a file
   echo -n "mkdir -p ${OUT_DIR}; " >> ${JOB_LIST}
-  if [ $MODE == preprocess ]; then
+  if [ ${MODE} == preprocess ]; then
     echo "nohup /usr/bin/time -v ${SCRIPT_DIR}/run_experiments.sh ${INSTANCE_DIR}/$line.mps ${OUT_DIR} ${MODE} \" --temp=32 ${SOLPARAM}\" >> ${OUT_DIR}/log.out 2>&1" >> ${JOB_LIST}
   else
     echo "nohup /usr/bin/time -v ${SCRIPT_DIR}/run_experiments.sh ${INSTANCE_DIR}/$line.mps ${OUT_DIR} ${MODE} \" ${SOLPARAM}\" >> ${OUT_DIR}/log.out 2>&1" >> ${JOB_LIST}

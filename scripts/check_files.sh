@@ -1,29 +1,40 @@
 #!/usr/bin/env bash
 
-if [ -z "$PROJ_DIR" ]
-then
-  if [ ! -z "${REPOS_DIR}" ]
-  then
-    echo "Please define PROJ_DIR (the root project dir, possibly ${REPOS_DIR}/vpc):"
-  else
-    echo "Please define PROJ_DIR (the root project dir):"
-  fi
-  read PROJ_DIR
+check_proj_dir() {
   if [ -z "$PROJ_DIR" ]
-    then echo "Need to define PROJ_DIR. Exiting."
-    exit 1
+  then
+    if [ ! -z "${REPOS_DIR}" ]
+    then
+      echo "Please define PROJ_DIR (the root project dir, possibly ${REPOS_DIR}/vpc):" > /dev/stderr
+    else
+      echo "Please define PROJ_DIR (the root project dir):" > /dev/stderr
+    fi
+    read PROJ_DIR
   fi
-fi
-
-export SCRIPT_DIR=${PROJ_DIR}/scripts
-export INSTANCE_LIST=${SCRIPT_DIR}/small_presolved.instances
-export INSTANCE_DIR=${PROJ_DIR}/data/instances
+  echo $PROJ_DIR
+}
 
 if [ ! -z $1 ]; then
   INSTANCE_LIST="$1"
+else
+  PROJ_DIR=$(check_proj_dir)
+  if [ -z "$PROJ_DIR" ]
+    then echo "Need to define PROJ_DIR. Exiting." > /dev/stderr
+    exit 1
+  fi
+  SCRIPT_DIR=${PROJ_DIR}/scripts
+  INSTANCE_LIST=${SCRIPT_DIR}/small_presolved.instances
 fi
+
 if [ ! -z $2 ]; then
   INSTANCE_DIR="$2"
+else
+  PROJ_DIR=$(check_proj_dir)
+  if [ -z "$PROJ_DIR" ]
+    then echo "Need to define PROJ_DIR. Exiting." > /dev/stderr
+    exit 1
+  fi
+  INSTANCE_DIR=${PROJ_DIR}/data/instances
 fi
 
 echo "Instance directory set to $INSTANCE_DIR"

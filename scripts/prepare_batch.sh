@@ -150,4 +150,4 @@ for d in ${depthList[*]}; do
   done < ${INSTANCE_LIST}
 done # loop over depth list
 
-echo "Done preparing $JOB_LIST"
+echo "Done preparing $JOB_LIST. Total errors: $TOTAL_ERRORS."
