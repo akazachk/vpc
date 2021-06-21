@@ -45,18 +45,18 @@ DEST_DIR="${SRC_DIR}/../presolved_${SOLVER_TYPE}"
 STUBS=("miplib2" "miplib3" "miplib2003" "miplib2010" "miplib2017" "coral" "neos")
 
 for STUB in ${STUBS[*]}; do
-  echo "Copying preprocessed instances from ${SRC_DIR}/${STUB} to ${DEST_DIR}/${STUB}"
+  echo "Moving preprocessed instances from ${SRC_DIR}/${STUB} to ${DEST_DIR}/${STUB}"
   mkdir -p ${DEST_DIR}/${STUB}
   mv ${SRC_DIR}/${STUB}/*_presolved.mps* ${DEST_DIR}/${STUB}
   mkdir -p ${SOL_DIR}/${STUB}
   if [ $SOLVER_TYPE = "cplex" ]; then
     EXT="_presolved.pre"
-    echo "Copying ${SOLVER_TYPE} solutions (*${EXT}) from ${SRC_DIR}/${STUB} to ${SOL_DIR}/${STUB}"
+    echo "Moving ${SOLVER_TYPE} solutions (*${EXT}) from ${SRC_DIR}/${STUB} to ${SOL_DIR}/${STUB}"
     mv ${SRC_DIR}/${STUB}/*${EXT} ${SOL_DIR}/${STUB}
   fi
   if [ $SOLVER_TYPE = "gurobi" ]; then
     EXT="_presolved_gurobi.mst"
-    echo "Copying ${SOLVER_TYPE} solutions (*${EXT}*) from ${SRC_DIR}/${STUB} to ${SOL_DIR}/${STUB}"
+    echo "Moving ${SOLVER_TYPE} solutions (*${EXT}*) from ${SRC_DIR}/${STUB} to ${SOL_DIR}/${STUB}"
     mv ${SRC_DIR}/${STUB}/*${EXT}* ${SOL_DIR}/${STUB}
   fi
 done
