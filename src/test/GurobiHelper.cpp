@@ -390,22 +390,22 @@ void doBranchAndBoundWithGurobi(const VPCParameters& params, int strategy,
     info.time = model.get(GRB_DoubleAttr_Runtime);
 
 #ifdef TRACE
-    printf("Gurobi: Solution value: %s.\n", stringValue(info.obj, "%1.6f").c_str());
-    printf("Gurobi: Best bound: %s.\n", stringValue(info.bound, "%1.6f").c_str());
-    printf("Gurobi: Number iterations: %ld.\n", info.iters);
-    printf("Gurobi: Number nodes: %ld.\n", info.nodes);
+    printf("Gurobi: Solution value: %s.\n", stringValue(info.obj, "%1.6f", GRB_INFINITY).c_str());
+    printf("Gurobi: Best bound: %s.\n", stringValue(info.bound, "%1.6f", GRB_INFINITY).c_str());
+    printf("Gurobi: Number iterations: %s.\n", stringValue(info.iters, "%ld").c_str());
+    printf("Gurobi: Number nodes: %s.\n", stringValue(info.nodes, "%ld").c_str());
     printf("Gurobi: Time: %f.\n", info.time);
 #endif
 
    // Save the solution if needed
-   if (solution) {
+   if (solution && model.get(GRB_IntAttr_SolCount) > 0) {
      // Get variables and double-check objective matches
      double obj = model.get(GRB_DoubleAttr_ObjCon);
      GRBVar* vars = model.getVars();
      const int num_vars = model.get(GRB_IntAttr_NumVars);
      (*solution).resize(num_vars);
      for (int i = 0; i < num_vars; i++) {
-       (*solution)[i] = vars[i].get(GRB_DoubleAttr_X);
+       (*solution)[i] = vars[i].get(GRB_DoubleAttr_X); // will throw an error if no feasible solution is available
        obj += (*solution)[i] * vars[i].get(GRB_DoubleAttr_Obj);
      }
      if (vars) {
@@ -418,7 +418,7 @@ void doBranchAndBoundWithGurobi(const VPCParameters& params, int strategy,
      }
    } // save ip solution
 
-   if (use_temp_option(params.get(intParam::TEMP), TempOptions::SAVE_IP_OPT)) {
+   if (use_temp_option(params.get(intParam::TEMP), TempOptions::SAVE_IP_OPT) && model.get(GRB_IntAttr_SolCount) > 0) {
      std::string dir, instname, in_file_ext;
      std::string filename = params.get(stringParam::FILENAME);
      parseFilename(dir, instname, in_file_ext, filename, params.logfile);

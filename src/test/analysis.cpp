@@ -838,6 +838,7 @@ void analyzeStrength(
   int NAME_WIDTH = 25;
   int NUM_DIGITS_BEFORE_DEC = 7;
   int NUM_DIGITS_AFTER_DEC = 7;
+  const double INF = std::numeric_limits<double>::max();
   char tmpstring[300];
 
   snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
@@ -845,14 +846,19 @@ void analyzeStrength(
   output += tmpstring;
   snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%-*.*s%s\n",
       NAME_WIDTH, NAME_WIDTH, "LP: ",
-      stringValue(boundInfo.lp_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC,
-          NUM_DIGITS_AFTER_DEC).c_str());
+      stringValue(boundInfo.lp_obj, "% -*.*g",
+        INF,
+        NUM_DIGITS_BEFORE_DEC,
+        NUM_DIGITS_AFTER_DEC).c_str());
   output += tmpstring;
   if (!isInfinity(std::abs(boundInfo.gmic_obj))) {
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
         "%-*.*s%s (%d cuts", NAME_WIDTH, NAME_WIDTH, "GMICs: ",
-        stringValue(boundInfo.gmic_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC,
-            NUM_DIGITS_AFTER_DEC).c_str(), boundInfo.num_gmic);
+        stringValue(boundInfo.gmic_obj, "% -*.*g",
+          INF,
+          NUM_DIGITS_BEFORE_DEC,
+          NUM_DIGITS_AFTER_DEC).c_str(),
+        boundInfo.num_gmic);
     output += tmpstring;
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
         ", %d active GMICs", cutInfoGMICs.num_active_gmic);
@@ -865,8 +871,11 @@ void analyzeStrength(
   if (!isInfinity(std::abs(boundInfo.vpc_obj))) {
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
         "%-*.*s%s (%d cuts", NAME_WIDTH, NAME_WIDTH, "VPCs: ",
-        stringValue(boundInfo.vpc_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC,
-            NUM_DIGITS_AFTER_DEC).c_str(), boundInfo.num_vpc);
+        stringValue(boundInfo.vpc_obj, "% -*.*g",
+          INF,
+          NUM_DIGITS_BEFORE_DEC,
+          NUM_DIGITS_AFTER_DEC).c_str(),
+        boundInfo.num_vpc);
     output += tmpstring;
     if (gmics && gmics->sizeCuts() > 0) {
       snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
@@ -881,7 +890,7 @@ void analyzeStrength(
   if (boundInfo.num_gmic + boundInfo.num_lpc > 0) {
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
         "%-*.*s%s (%d cuts", NAME_WIDTH, NAME_WIDTH, "All: ",
-        stringValue(boundInfo.all_cuts_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str(), 
+        stringValue(boundInfo.all_cuts_obj, "% -*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str(), 
         boundInfo.num_gmic + boundInfo.num_lpc + boundInfo.num_vpc);
     output += tmpstring;
     if (gmics && gmics->sizeCuts() > 0) {
@@ -899,22 +908,28 @@ void analyzeStrength(
   if (!isInfinity(std::abs(boundInfo.best_disj_obj))) {
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%-*.*s%s\n",
         NAME_WIDTH, NAME_WIDTH, "Disjunctive lb: ",
-        stringValue(boundInfo.best_disj_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC,
-            NUM_DIGITS_AFTER_DEC).c_str());
+        stringValue(boundInfo.best_disj_obj, "% -*.*g",
+          INF,
+          NUM_DIGITS_BEFORE_DEC,
+          NUM_DIGITS_AFTER_DEC).c_str());
     output += tmpstring;
   }
   if (!isInfinity(std::abs(boundInfo.worst_disj_obj))) {
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%-*.*s%s\n",
         NAME_WIDTH, NAME_WIDTH, "Disjunctive ub: ",
-        stringValue(boundInfo.worst_disj_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC,
-            NUM_DIGITS_AFTER_DEC).c_str());
+        stringValue(boundInfo.worst_disj_obj, "% -*.*g",
+          INF,
+          NUM_DIGITS_BEFORE_DEC,
+          NUM_DIGITS_AFTER_DEC).c_str());
     output += tmpstring;
   }
   if (!isInfinity(std::abs(boundInfo.ip_obj))) {
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%-*.*s%s\n",
         NAME_WIDTH, NAME_WIDTH, "IP: ",
-        stringValue(boundInfo.ip_obj, "% -*.*f", NUM_DIGITS_BEFORE_DEC,
-            NUM_DIGITS_AFTER_DEC).c_str());
+        stringValue(boundInfo.ip_obj, "% -*.*g",
+          INF,
+          NUM_DIGITS_BEFORE_DEC,
+          NUM_DIGITS_AFTER_DEC).c_str());
     output += tmpstring;
   }
 } /* analyzeStrength */
@@ -938,9 +953,17 @@ void analyzeBB(const VPCParameters& params, SummaryBBInfo& info_nocuts,
   }
 
   // Save results to string and also print to the logfile
-  int NAME_WIDTH = 10; //25
-  int NUM_DIGITS_BEFORE_DEC = 15; //10
-  int NUM_DIGITS_AFTER_DEC = 2; //2
+  const int NAME_WIDTH = 10; //25
+  const int NUM_DIGITS_BEFORE_DEC = 15; //10
+  const int NUM_DIGITS_AFTER_DEC = 2; //2
+  const double INF = std::numeric_limits<double>::max();
+#ifdef USE_GUROBI
+  const std::string SOLVER = "Gur";
+#elif defined USE_CPLEX
+  const std::string SOLVER = "Cpx";
+#else
+  const std::string SOLVER = "Cbc";
+#endif
   char tmpstring[300];
 
   snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "\n## Branch-and-bound results ##\n"); output += tmpstring;
@@ -957,45 +980,48 @@ void analyzeBB(const VPCParameters& params, SummaryBBInfo& info_nocuts,
   snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%-*s", NUM_DIGITS_BEFORE_DEC, "Time"); output += tmpstring;
   snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "\n"); output += tmpstring;
   if (branch_with_no_cuts) {
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%-*s", NAME_WIDTH, "Gur"); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_nocuts.avg_bb_info.obj, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_nocuts.avg_bb_info.bound, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%-*ld", NUM_DIGITS_BEFORE_DEC, info_nocuts.avg_bb_info.iters); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%-*ld", NUM_DIGITS_BEFORE_DEC, info_nocuts.avg_bb_info.nodes); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%-*ld", NUM_DIGITS_BEFORE_DEC, info_nocuts.avg_bb_info.root_passes); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_nocuts.avg_bb_info.first_cut_pass, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_nocuts.avg_bb_info.last_cut_pass, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_nocuts.avg_bb_info.root_time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_nocuts.avg_bb_info.last_sol_time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_nocuts.avg_bb_info.time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
+    const std::string CURR_NAME = SOLVER;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%-*s", NAME_WIDTH, CURR_NAME.c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_nocuts.avg_bb_info.obj, "%-*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_nocuts.avg_bb_info.bound, "%-*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_nocuts.avg_bb_info.iters, "%-*ld", std::numeric_limits<long double>::max(), NUM_DIGITS_BEFORE_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_nocuts.avg_bb_info.nodes, "%-*ld", std::numeric_limits<long double>::max(), NUM_DIGITS_BEFORE_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_nocuts.avg_bb_info.root_passes, "%-*ld", std::numeric_limits<long double>::max(), NUM_DIGITS_BEFORE_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_nocuts.avg_bb_info.first_cut_pass, "%-*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_nocuts.avg_bb_info.last_cut_pass, "%-*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_nocuts.avg_bb_info.root_time, "%-*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_nocuts.avg_bb_info.last_sol_time, "%-*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_nocuts.avg_bb_info.time, "%-*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "\n"); output += tmpstring;
   } // no cuts
   if (branch_with_vpcs) {
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%-*s", NAME_WIDTH, "Gur+V"); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_mycuts.avg_bb_info.obj, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_mycuts.avg_bb_info.bound, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%-*ld", NUM_DIGITS_BEFORE_DEC, info_mycuts.avg_bb_info.iters); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%-*ld", NUM_DIGITS_BEFORE_DEC, info_mycuts.avg_bb_info.nodes); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%-*ld", NUM_DIGITS_BEFORE_DEC, info_mycuts.avg_bb_info.root_passes); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_mycuts.avg_bb_info.first_cut_pass, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_mycuts.avg_bb_info.last_cut_pass, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_mycuts.avg_bb_info.root_time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_mycuts.avg_bb_info.last_sol_time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_mycuts.avg_bb_info.time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
+    const std::string CURR_NAME = SOLVER + "V";
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%-*s", NAME_WIDTH, CURR_NAME.c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_mycuts.avg_bb_info.obj, "%-*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_mycuts.avg_bb_info.bound, "%-*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_mycuts.avg_bb_info.iters, "%-*ld", std::numeric_limits<long double>::max(), NUM_DIGITS_BEFORE_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_mycuts.avg_bb_info.nodes, "%-*ld", std::numeric_limits<long double>::max(), NUM_DIGITS_BEFORE_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_mycuts.avg_bb_info.root_passes, "%-*ld", std::numeric_limits<long double>::max(), NUM_DIGITS_BEFORE_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_mycuts.avg_bb_info.first_cut_pass, "%-*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_mycuts.avg_bb_info.last_cut_pass, "%-*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_mycuts.avg_bb_info.root_time, "%-*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_mycuts.avg_bb_info.last_sol_time, "%-*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_mycuts.avg_bb_info.time, "%-*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "\n"); output += tmpstring;
   } // vpcs
   if (branch_with_gmics) {
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%-*s", NAME_WIDTH, "Gur+V+G"); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_allcuts.avg_bb_info.obj, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_allcuts.avg_bb_info.bound, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%-*ld", NUM_DIGITS_BEFORE_DEC, info_allcuts.avg_bb_info.iters); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%-*ld", NUM_DIGITS_BEFORE_DEC, info_allcuts.avg_bb_info.nodes); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%-*ld", NUM_DIGITS_BEFORE_DEC, info_allcuts.avg_bb_info.root_passes); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_allcuts.avg_bb_info.first_cut_pass, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_allcuts.avg_bb_info.last_cut_pass, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_allcuts.avg_bb_info.root_time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_allcuts.avg_bb_info.last_sol_time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_allcuts.avg_bb_info.time, "%-*.*f", NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
+    const std::string CURR_NAME = SOLVER + "V+G";
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%-*s", NAME_WIDTH, CURR_NAME.c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_allcuts.avg_bb_info.obj, "%-*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_allcuts.avg_bb_info.bound, "%-*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_allcuts.avg_bb_info.iters, "%-*ld", std::numeric_limits<long double>::max(), NUM_DIGITS_BEFORE_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_allcuts.avg_bb_info.nodes, "%-*ld", std::numeric_limits<long double>::max(), NUM_DIGITS_BEFORE_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_allcuts.avg_bb_info.root_passes, "%-*ld", std::numeric_limits<long double>::max(), NUM_DIGITS_BEFORE_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_allcuts.avg_bb_info.first_cut_pass, "%-*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_allcuts.avg_bb_info.last_cut_pass, "%-*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_allcuts.avg_bb_info.root_time, "%-*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_allcuts.avg_bb_info.last_sol_time, "%-*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "%s", stringValue(info_allcuts.avg_bb_info.time, "%-*.*g", INF, NUM_DIGITS_BEFORE_DEC, NUM_DIGITS_AFTER_DEC).c_str()); output += tmpstring;
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "\n"); output += tmpstring;
   } // gmics
 } /* analyzeBB */

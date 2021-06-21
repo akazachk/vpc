@@ -24,6 +24,14 @@ class CoinPackedMatrix;
 #define macro_to_string(s) #s
 #define x_macro_to_string(s) macro_to_string(s)
 
+/// Templated format string
+template <typename T> constexpr const char *outFormat = "%g"; // pick a default.
+template <> constexpr const char *outFormat<int> = "%d";
+template <> constexpr const char *outFormat<float> = "%g";
+template <> constexpr const char *outFormat<double> = "%lf";
+template <> constexpr const char *outFormat<long double> = "%Lf";
+template <> constexpr const char *outFormat<char> = "%c";
+
 /// @brief overload << operator for vector of ints
 inline std::ostream& operator<<(std::ostream& os, const std::vector<int> &input) {
   os << "{";
@@ -205,47 +213,61 @@ inline bool isNegInfinity(const double val, const double neg_infinity = __DBL_MI
   return !greaterThanVal(val, neg_infinity, eps);
 } /* isInfinity */
 
-/// @brief Covert an integer into a string, accounting for possible infinite values
-inline const std::string stringValue(const int value,
-    const char* format = "%d") {
-  if (!lessThanVal(value, std::numeric_limits<int>::max())) {
-    const std::string infty = "\'inf\'";
-    return infty;
-  } else if (!greaterThanVal(value, std::numeric_limits<int>::min())) {
-    const std::string neg_infty = "\'-inf\'";
-    return neg_infty;
-  } else {
-    char temp[500];
-    snprintf(temp, sizeof(temp) / sizeof(char), format, value);
-    std::string tmp(temp);
-    return tmp;
-  }
-} /* stringValue (int) */
+///// @brief Covert an integer into a string, accounting for possible infinite values
+//inline const std::string stringValue(const int value,
+//    const char* format = "%d",
+//    const int MIN = std::numeric_limits<int>::min(),
+//    const int MAX = std::numeric_limits<int>::max()) {
+//  if (!lessThanVal(value, MAX)) {
+//    const std::string infty = "\'inf\'";
+//    return infty;
+//  } else if (!greaterThanVal(value, MIN)) {
+//    const std::string neg_infty = "\'-inf\'";
+//    return neg_infty;
+//  } else {
+//    char temp[500];
+//    snprintf(temp, sizeof(temp) / sizeof(char), format, value);
+//    std::string tmp(temp);
+//    return tmp;
+//  }
+//} /* stringValue (int) */
+//
+///// @brief Covert a long into a string, accounting for possible infinite values
+//inline const std::string stringValue(const long value,
+//    const char* format = "%ld",
+//    const long MIN = std::numeric_limits<long>::min(),
+//    const long MAX = std::numeric_limits<long>::max()) {
+//  if (!lessThanVal(value, MAX)) {
+//    const std::string infty = "\'inf\'";
+//    return infty;
+//  } else if (!greaterThanVal(value, MIN)) {
+//    const std::string neg_infty = "\'-inf\'";
+//    return neg_infty;
+//  } else {
+//    char temp[500];
+//    snprintf(temp, sizeof(temp) / sizeof(char), format, value);
+//    std::string tmp(temp);
+//    return tmp;
+//  }
+//} /* stringValue (long) */
 
-/// @brief Covert a long into a string, accounting for possible infinite values
-inline const std::string stringValue(const long value,
-    const char* format = "%ld") {
-  if (!lessThanVal(value, std::numeric_limits<long>::max())) {
+/// @brief Covert a numeric type into a string, accounting for possible infinite values
+template <class T, typename = typename std::enable_if<std::is_arithmetic<T>::value, T>::type>
+inline const std::string stringValue(
+    /// value to be converted
+    const T value,
+    /// formatting to be used (note that outFormat<T> needs to be defined for the specific type T)
+    const char* format = outFormat<T>,
+    /// value of infinity to be used
+    const double INF = std::numeric_limits<T>::max(),
+    /// how many digits before the decimal to print (-1 default implies do not limit)
+    const int NUM_DIGITS_BEFORE_DEC = -1,
+    /// how many digits after the decimal to print (-1 default implies do not limit)
+    const int NUM_DIGITS_AFTER_DEC = -1) {
+  if (!lessThanVal(value, INF)) {
     const std::string infty = "\'inf\'";
     return infty;
-  } else if (!greaterThanVal(value, std::numeric_limits<long>::min())) {
-    const std::string neg_infty = "\'-inf\'";
-    return neg_infty;
-  } else {
-    char temp[500];
-    snprintf(temp, sizeof(temp) / sizeof(char), format, value);
-    std::string tmp(temp);
-    return tmp;
-  }
-} /* stringValue (long) */
-
-/// @brief Covert a double into a string, accounting for possible infinite values
-inline const std::string stringValue(const double value, const char* format = "%f",
-    const int NUM_DIGITS_BEFORE_DEC = -1, const int NUM_DIGITS_AFTER_DEC = -1) {
-  if (!lessThanVal(value, std::numeric_limits<double>::max())) {
-    const std::string infty = "\'inf\'";
-    return infty;
-  } else if (!greaterThanVal(value, std::numeric_limits<double>::lowest())) {
+  } else if (!greaterThanVal(value, -INF)) {
     const std::string neg_infty = "\'-inf\'";
     return neg_infty;
   } else {
@@ -262,7 +284,7 @@ inline const std::string stringValue(const double value, const char* format = "%
     std::string tmp(temp);
     return tmp;
   }
-} /* stringValue (double) */
+} /* stringValue (numeric) */
 
 /// @brief Currently returns \p value; mostly for ease of use with params; in the future we may way to format strings though
 inline const std::string stringValue(const std::string value, const char* format = "%s") {
