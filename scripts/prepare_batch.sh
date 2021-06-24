@@ -2,6 +2,9 @@
 # Usage example:
 #   prepare_batch.sh /path/to/instance/list.instances /path/to/results/dir [test / preprocess / bb / bb0]
 
+if [ ! -z "$VPC_DIR" ]; then
+  export PROJ_DIR=${VPC_DIR}
+fi
 if [ -z "$PROJ_DIR" ]
 then
   if [ ! -z "${REPOS_DIR}" ]
@@ -133,7 +136,9 @@ for d in ${depthList[*]}; do
       fi
       SOLPARAM="--solfile=${SOLFILE}"
     else
-      echo "*** WARNING: Could not find $SOLFILE"
+      if [ $SILENT != 1 ]; then
+        echo "*** WARNING: Could not find $SOLFILE"
+      fi
       SOLPARAM=""
     fi
 
