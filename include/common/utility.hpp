@@ -25,12 +25,12 @@ class CoinPackedMatrix;
 #define x_macro_to_string(s) macro_to_string(s)
 
 /// Templated format string
-template <typename T> constexpr const char *outFormat = "%g"; // pick a default.
-template <> constexpr const char *outFormat<int> = "%d";
-template <> constexpr const char *outFormat<float> = "%g";
-template <> constexpr const char *outFormat<double> = "%lf";
-template <> constexpr const char *outFormat<long double> = "%Lf";
-template <> constexpr const char *outFormat<char> = "%c";
+template <typename T> inline constexpr const char *outFormat = "%g"; // pick a default.
+template <> inline constexpr const char *outFormat<int> = "%d";
+template <> inline constexpr const char *outFormat<float> = "%g";
+template <> inline constexpr const char *outFormat<double> = "%lf";
+template <> inline constexpr const char *outFormat<long double> = "%Lf";
+template <> inline constexpr const char *outFormat<char> = "%c";
 
 /// @brief overload << operator for vector of ints
 inline std::ostream& operator<<(std::ostream& os, const std::vector<int> &input) {
