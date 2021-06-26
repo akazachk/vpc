@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# Usage:
+#   check_files.sh presolved.instances /path/to/instances/
+#
+# Argument 1: instance list
+# Argument 2: instance directory
 
 check_proj_dir() {
   if [ -z "$PROJ_DIR" ]
