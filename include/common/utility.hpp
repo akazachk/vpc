@@ -169,13 +169,13 @@ bool parseLong(const char *str, long &val);
 /// @brief Parses double from string using strtod
 bool parseDouble(const char *str, double &val);
 
-/// @brief Converst string to lower case
+/// @brief Converts string to lower case
 std::string lowerCaseString(const std::string& data);
 /// @brief Convert vector of strings to lower case
 std::vector<std::string> lowerCaseStringVector(const std::vector<std::string>& strVec);
-/// @brief Converst string to upper case
+/// @brief Converts string to upper case
 std::string upperCaseString(const std::string& tmpData);
-/// @brief Converst string to upper case and remove underscores (for processing parameters)
+/// @brief Converts string to upper case and remove underscores (for processing parameters)
 std::string upperCaseStringNoUnderscore(const std::string& tmpData);
 
 /// @brief Check equality within tolerance \p eps
