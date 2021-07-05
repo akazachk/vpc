@@ -90,7 +90,7 @@ endif
 USE_COIN   = 1
 USE_CLP    = 1
 USE_CBC    = 1
-USE_GUROBI = 1
+USE_GUROBI = 0
 USE_CPLEX  = 1
 USE_CLP_SOLVER = 1
 USE_CPLEX_SOLVER = 0
@@ -98,7 +98,7 @@ USE_CPLEX_SOLVER = 0
 # Concerning executable
 EXECUTABLE_STUB = vpc
 SRC_DIR = src
-SOURCES = main.cpp
+MAIN_SRC = main.cpp
 DIR_LIST = $(SRC_DIR) $(SRC_DIR)/branch $(SRC_DIR)/cut $(SRC_DIR)/disjunction $(SRC_DIR)/utility
 
 # Code version
@@ -106,7 +106,7 @@ VPC_VERSION = $(shell git log -1 --pretty=format:"%H")
 VPC_CBC_VERSION = $(shell git -C ${COIN_OR}/Cbc log -1 --pretty=format:"%H")
 VPC_CLP_VERSION = $(shell git -C ${COIN_OR}/Clp log -1 --pretty=format:"%H")
 
-SOURCES += \
+SOURCES = \
 		branch/CbcBranchStrongDecision.cpp \
 		branch/CbcCompareBFS.cpp \
 		branch/OsiChooseStrongCustom.cpp \
@@ -199,6 +199,7 @@ OBJ_DIR = $(OUT_DIR)/$(SRC_DIR)
 OUT_DIR_LIST = $(addprefix $(OUT_DIR)/,$(DIR_LIST))
 OBJECTS = $(SOURCES:.cpp=.o)
 OUT_OBJECTS = $(addprefix $(OBJ_DIR)/,$(OBJECTS))
+MAIN_OBJ = $(addprefix $(OBJ_DIR)/,$(MAIN_SRC:.cpp=.o))
 
 # Set includes
 APPLINCLS = -Iinclude -Iinclude/test -Iinclude/common
@@ -279,7 +280,7 @@ debug: FORCE
 release: FORCE
 	@$(MAKE) "BUILD_CONFIG=release"
 
-$(EXECUTABLE): $(OUT_OBJECTS)
+$(EXECUTABLE): $(MAIN_OBJ) $(OUT_OBJECTS)
 		@echo ' '
 		@echo 'Building target: $@'
 		@echo 'Invoking' $(CC) 'linker'
@@ -333,7 +334,7 @@ $(SO_TARGET): $(OUT_OBJECTS)
 
 ### Dependencies ###
 # Dependencies (the -include says to ignore errors)
-DEPENDENCIES = $(OUT_OBJECTS:.o=.d)
+DEPENDENCIES = $(OUT_OBJECTS:.o=.d) $(MAIN_OBJ:.o=.d)
 -include $(DEPENDENCIES)
 
 ### Phony ###
@@ -358,10 +359,10 @@ distclean_%: FORCE
 	@$(MAKE) distclean "BUILD_CONFIG=$*"
 
 clean: FORCE
-	@$(RM) $(OUT_OBJECTS) $(EXECUTABLE) $(OUT_DIR)/lib$(EXECUTABLE_STUB).a
+	@$(RM) $(MAIN_OBJ) $(OUT_OBJECTS) $(EXECUTABLE) $(OUT_DIR)/lib$(EXECUTABLE_STUB).a
 
 distclean: FORCE
-	@$(RM) $(OUT_OBJECTS) $(EXECUTABLE) $(DEPENDENCIES) $(OUT_DIR)/lib$(EXECUTABLE_STUB).a $(LIB_DIR)/lib$(EXECUTABLE_STUB).a
+	@$(RM) $(MAIN_OBJ) $(OUT_OBJECTS) $(EXECUTABLE) $(DEPENDENCIES) $(OUT_DIR)/lib$(EXECUTABLE_STUB).a $(LIB_DIR)/lib$(EXECUTABLE_STUB).a
 
 ### Making directories that you need ###
 MKDIR_P = mkdir -p

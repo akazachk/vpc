@@ -534,6 +534,7 @@ void printPreprocessingHeader(const VPCParametersNamespace::VPCParameters& param
     fprintf(logfile, "%s%c", "cbc_version", SEP);
     fprintf(logfile, "%s%c", "clp_version", SEP);
     fprintf(logfile, "%s%c", "gurobi_version", SEP);
+    fprintf(logfile, "%s%c", "cplex_version", SEP);
   } // VERSION INFO
   { // WRAP UP INFO
     fprintf(logfile, "%s%c", "ExitReason", SEP);
