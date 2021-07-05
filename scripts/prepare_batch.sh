@@ -97,6 +97,18 @@ else
   exit
 fi
 
+# Figure out how many digits to prepend to each folder/case number
+# This is done through a couple of calls to bc, which is usually available on most systems
+if ! command -v bc &> /dev/null; then
+  NUM_DIGITS=3
+else
+  NUM_JOBS=`< $JOB_LIST wc -l`
+  listLength=${#depthList[@]}
+  NUM_JOBS=$((NUM_JOBS*listLength))
+  LOG_NUM_JOBS=`echo "l(${NUM_JOBS})/l(10)" | bc -l`
+  NUM_DIGITS=`echo "${LOG_NUM_JOBS}/1 + 1" | bc`
+fi
+
 TASK_ID=0
 TOTAL_ERRORS=0
 > $JOB_LIST
@@ -111,7 +123,7 @@ for d in ${depthList[*]}; do
     fi
 
     # Prepare out directory, based on current date
-    CASE_NUM=`printf %03d $TASK_ID`
+    CASE_NUM=`printf %0${NUM_DIGITS}d $TASK_ID`
     STUB=`date +%F`
     OUT_DIR=${RESULTS_DIR}/$STUB/${MODE}/${CASE_NUM}
 
