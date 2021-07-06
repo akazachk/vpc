@@ -22,34 +22,6 @@ namespace VPCParametersNamespace {
 struct BBInfo;
 struct SummaryBBInfo;
 
-enum class BB_Strategy_Options {
-  off = 0,
-  cbc = 2,
-  cplex = 4,
-  gurobi = 8,
-  user_cuts = 16,
-  all_cuts_off = 32,
-  all_cuts_on = 64,
-  gmics_off = 128,
-  gmics_on = 256,
-  presolve_off = 512,
-  presolve_on = 1024,
-  heuristics_off = 2048,
-  heuristics_on = 4096,
-  use_best_bound = 8192,
-  strong_branching_on = 16384
-}; /* BB_Strategy_Options */
-
-inline bool use_bb_option(const int strategy, const BB_Strategy_Options option) {
-  return strategy & static_cast<int>(option);
-}
-inline int enable_bb_option(const int strategy, const BB_Strategy_Options option) {
-  return strategy | static_cast<int>(option);
-}
-inline int disable_bb_option(const int strategy, const BB_Strategy_Options option) {
-  return strategy & ~static_cast<int>(option);
-}
-
 struct BBInfo {
   double obj = 0.; // objective value of best IP-feasible solution
   double bound = 0.; // best dual bound found (best objective of any leaf node)

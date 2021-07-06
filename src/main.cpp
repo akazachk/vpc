@@ -1061,12 +1061,27 @@ int processArgs(int argc, char** argv) {
                   params.set(intParam::PREPROCESS, val);
                   params.set(intParam::BB_RUNS, 1);
                   params.set(intParam::BB_MODE, 001);
+                  const int base_bb_strategy =
+                    get_bb_option_value({
+                        BB_Strategy_Options::user_cuts,
+                        BB_Strategy_Options::presolve_off
+                    });
 #ifdef USE_GUROBI
-                  params.set(intParam::BB_STRATEGY, 536); // previously 10776
+                  params.set(intParam::BB_STRATEGY,
+                      base_bb_strategy + get_bb_option_value({BB_Strategy_Options::gurobi})
+                  ); // previously 10776
 #elif USE_CPLEX
-                  params.set(intParam::BB_STRATEGY, 532); // previously 10772
+                  params.set(intParam::BB_STRATEGY,
+                      base_bb_strategy + get_bb_option_value({BB_Strategy_Options::cplex})
+                  ); // previously 10772
+#elif USE_CBC
+                  params.set(intParam::BB_STRATEGY,
+                      base_bb_strategy + get_bb_option_value({BB_Strategy_Options::cbc})
+                  ); // previously 10770
 #else
-                  params.set(intParam::BB_STRATEGY, 528); // previously 10768
+                  params.set(intParam::BB_STRATEGY,
+                      base_bb_strategy + get_bb_option_value({BB_Strategy_Options::off})
+                  ); // previously 10768
 #endif
                   params.set(doubleParam::TIMELIMIT, 7200);
                   break;

@@ -29,6 +29,23 @@
  * 3. Optionally, add a way to set the parameter in the option handling part of the code (in the main file)
  **/
 namespace VPCParametersNamespace {
+#define ENUM_OPTION_0 1
+#define ENUM_OPTION_1 2
+#define ENUM_OPTION_2 4
+#define ENUM_OPTION_3 8
+#define ENUM_OPTION_4 16
+#define ENUM_OPTION_5 32
+#define ENUM_OPTION_6 64
+#define ENUM_OPTION_7 128
+#define ENUM_OPTION_8 256
+#define ENUM_OPTION_9 512
+#define ENUM_OPTION_10 1024
+#define ENUM_OPTION_11 2048
+#define ENUM_OPTION_12 4096
+#define ENUM_OPTION_13 8192
+#define ENUM_OPTION_14 16384
+#define ENUM_OPTION_15 32768
+
 /********** PARAMETERS **********/
 /// Integer-valued parameters
 enum intParam {
@@ -143,23 +160,6 @@ enum class doubleConst {
   NUM_DOUBLE_CONST ///< number of double constants
 }; /* doubleConst */
 
-#define ENUM_OPTION_0 1
-#define ENUM_OPTION_1 2
-#define ENUM_OPTION_2 4
-#define ENUM_OPTION_3 8
-#define ENUM_OPTION_4 16
-#define ENUM_OPTION_5 32
-#define ENUM_OPTION_6 64
-#define ENUM_OPTION_7 128
-#define ENUM_OPTION_8 256
-#define ENUM_OPTION_9 512
-#define ENUM_OPTION_10 1024
-#define ENUM_OPTION_11 2048
-#define ENUM_OPTION_12 4096
-#define ENUM_OPTION_13 8192
-#define ENUM_OPTION_14 16384
-#define ENUM_OPTION_15 32768
-
 /// @brief Temporary options that might be invoked during testing or running of the code
 enum class TempOptions {
   NONE = 0, ///< default
@@ -175,18 +175,58 @@ enum class TempOptions {
   GEN_TIKZ_STRING_AND_EXIT = ENUM_OPTION_15, ///< quit after generating tikz string
 };
 
-/// Shortcut for checking if a bit is enabled
+/// @brief Shortcut for checking if a bit is enabled
 inline bool use_temp_option(const int strategy, const TempOptions option) {
   return strategy & static_cast<int>(option);
 }
-/// Shortcut for bitwise enabling an option
+/// @brief Shortcut for bitwise enabling an option
 inline int enable_temp_option(const int strategy, const TempOptions option) {
   return strategy | static_cast<int>(option);
 }
-/// Shortcut for bitwise disabling an option
+/// @brief Shortcut for bitwise disabling an option
 inline int disable_temp_option(const int strategy, const TempOptions option) {
   return strategy & ~static_cast<int>(option);
 }
+
+/// @brief Options for the parameter BB_STRATEGY
+enum class BB_Strategy_Options {
+  off                 = 0,              ///< do not do any b&b tests
+  cbc                 = ENUM_OPTION_1,  ///< use Cbc as the branch-and-bound solver
+  cplex               = ENUM_OPTION_2,  ///< use CPLEX as the branch-and-bound solver
+  gurobi              = ENUM_OPTION_3,  ///< use Gurobi as the branch-and-bound solver
+  user_cuts           = ENUM_OPTION_4,  ///< tell solver that user cuts may be used
+  all_cuts_off        = ENUM_OPTION_5,  ///< in b&b, do not use any cuts
+  all_cuts_on         = ENUM_OPTION_6,  ///< in b&b, use all possible (default) cuts
+  gmics_off           = ENUM_OPTION_7,  ///< in b&b, turn off gomory cuts
+  gmics_on            = ENUM_OPTION_8,  ///< in b&b, turn on gomory cuts
+  presolve_off        = ENUM_OPTION_9,  ///< in b&b, turn off presolve
+  presolve_on         = ENUM_OPTION_10, ///< in b&b, turn on presolve
+  heuristics_off      = ENUM_OPTION_11, ///< in b&b, turn off heuristics for finding primal-feasible solutions
+  heuristics_on       = ENUM_OPTION_12, ///< in b&b, turn on heuristics for finding primal-feasible solutions
+  use_best_bound      = ENUM_OPTION_13, ///< tell b&b solver to use best known obj value bound to prune subtrees
+  strong_branching_on = ENUM_OPTION_14, ///< tell b&b solver to use strong branching
+}; /* BB_Strategy_Options */
+
+/// @brief Shortcut for checking if a bit is enabled
+inline bool use_bb_option(const int strategy, const BB_Strategy_Options option) {
+  return strategy & static_cast<int>(option);
+}
+/// @brief Shortcut for bitwise enabling an option
+inline int enable_bb_option(const int strategy, const BB_Strategy_Options option) {
+  return strategy | static_cast<int>(option);
+}
+/// @brief Shortcut for bitwise disabling an option
+inline int disable_bb_option(const int strategy, const BB_Strategy_Options option) {
+  return strategy & ~static_cast<int>(option);
+}
+/// @brief Get int value of a set of #BB_Strategy_Options
+inline int get_bb_option_value(const std::vector<BB_Strategy_Options>& options) {
+  int val = 0;
+  for (const auto option : options) {
+    val += static_cast<int>(option);
+  }
+  return val;
+} /* get bb_option_value */
 
 /********** DEFINITIONS **********/
 //template <class T> class Parameter;
@@ -431,7 +471,12 @@ struct VPCParameters {
     ///previously default was 10776 = 010101000011000 => gurobi: 8, user_cuts: 16, presolve_off: 512, heuristics_off: 2048, use_best_bound: 8192
     {intParam::BB_STRATEGY,
         IntParameter(intParam::BB_STRATEGY, "BB_STRATEGY",
-            536, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+            get_bb_option_value({
+              BB_Strategy_Options::gurobi,
+              BB_Strategy_Options::user_cuts,
+              BB_Strategy_Options::presolve_off
+            }),
+            std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
     {intParam::BB_RUNS,
         IntParameter(intParam::BB_RUNS, "BB_RUNS",
             0, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
