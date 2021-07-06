@@ -186,6 +186,15 @@ class GurobiUserCutCallback : public GRBCallback {
             return;
           }
           this->info.root_iters = GRBCallback::getDoubleInfo(GRB_CB_MIP_ITRCNT);
+          if (this->info.root_passes == 0) {
+            // In case we never enter the root node, keep the first lp opt here
+            // This should be updated at the end of presolve?
+            // Example in which this is needed: neos-796608_presolved
+            const double objValue = GRBCallback::getDoubleInfo(GRB_CB_MIP_OBJBND);
+            this->first_lp_opt = objValue;
+            this->info.first_cut_pass = objValue;
+            this->info.last_cut_pass = objValue;
+          }
         }
         else if (where == GRB_CB_MIPNODE) {
           const int num_nodes = GRBCallback::getDoubleInfo(GRB_CB_MIPNODE_NODCNT);
@@ -211,7 +220,7 @@ class GurobiUserCutCallback : public GRBCallback {
           }
 
           this->first_lp_opt = objValue;
-          this->info.first_cut_pass  = objValue;
+          this->info.first_cut_pass = objValue;
 
           // Add cuts to the model, one at a time
           if (cuts) {
