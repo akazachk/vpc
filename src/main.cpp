@@ -743,11 +743,11 @@ int processArgs(int argc, char** argv) {
       {"bb_mode",               required_argument, 0, 'b'*'1'},
       {"bb_strategy",           required_argument, 0, 'B'},
       {"bb_timelimit",          required_argument, 0, 'B'*'0'},
-      {"cbc",                   no_argument,       0, 'B'*'1'*'1'},
-      {"cplex",                 no_argument,       0, 'B'*'1'*'2'},
-      {"gurobi",                no_argument,       0, 'B'*'1'*'3'},
-      {"user_cuts",             no_argument,       0, 'B'*'2'},
-      {"use_best_bound",        no_argument,       0, 'B'*'3'},
+      {"cbc",                   required_argument, 0, 'B'*'1'*'1'},
+      {"cplex",                 required_argument, 0, 'B'*'1'*'2'},
+      {"gurobi",                required_argument, 0, 'B'*'1'*'3'},
+      {"user_cuts",             required_argument, 0, 'B'*'2'},
+      {"use_best_bound",        required_argument, 0, 'B'*'3'},
       {"bb_all_cuts",           required_argument, 0, 'B'*'4'},
       {"bb_gmics",              required_argument, 0, 'B'*'5'},
       {"bb_heuristics",         required_argument, 0, 'B'*'6'},
@@ -839,35 +839,91 @@ int processArgs(int argc, char** argv) {
                 }
       case 'B'*'1'*'1': {
                   intParam param = intParam::BB_STRATEGY;
-                  int val = params.get(param);
-                  val = enable_bb_option(val, BB_Strategy_Options::cbc);
+                  int val;
+                  if (!parseInt(optarg, val) || (val != 0 && val != 1)) {
+                    error_msg(errorstring, "Error reading binary parameter cbc. Given value: %s.\n", optarg);
+                    exit(1);
+                  }
+                  switch (val) {
+                    case 0:
+                      val = disable_bb_option(params.get(param), BB_Strategy_Options::cbc);
+                      break;
+                    case 1:
+                      val = enable_bb_option(params.get(param), BB_Strategy_Options::cbc);
+                      break;
+                  }
                   params.set(param, val);
                   break;
                 }
       case 'B'*'1'*'2': {
                   intParam param = intParam::BB_STRATEGY;
-                  int val = params.get(param);
-                  val = enable_bb_option(val, BB_Strategy_Options::cplex);
+                  int val;
+                  if (!parseInt(optarg, val) || (val != 0 && val != 1)) {
+                    error_msg(errorstring, "Error reading binary parameter cplex. Given value: %s.\n", optarg);
+                    exit(1);
+                  }
+                  switch (val) {
+                    case 0:
+                      val = disable_bb_option(params.get(param), BB_Strategy_Options::cplex);
+                      break;
+                    case 1:
+                      val = enable_bb_option(params.get(param), BB_Strategy_Options::cplex);
+                      break;
+                  }
                   params.set(param, val);
                   break;
                 }
       case 'B'*'1'*'3': {
                   intParam param = intParam::BB_STRATEGY;
-                  int val = params.get(param);
-                  val = enable_bb_option(val, BB_Strategy_Options::gurobi);
+                  int val;
+                  if (!parseInt(optarg, val) || (val != 0 && val != 1)) {
+                    error_msg(errorstring, "Error reading binary parameter gurobi. Given value: %s.\n", optarg);
+                    exit(1);
+                  }
+                  switch (val) {
+                    case 0:
+                      val = disable_bb_option(params.get(param), BB_Strategy_Options::gurobi);
+                      break;
+                    case 1:
+                      val = enable_bb_option(params.get(param), BB_Strategy_Options::gurobi);
+                      break;
+                  }
                   params.set(param, val);
                   break;
                 }
       case 'B'*'2': {
                   intParam param = intParam::BB_STRATEGY;
-                  int val = params.get(param);
-                  val = enable_bb_option(val, BB_Strategy_Options::user_cuts);
+                  int val;
+                  if (!parseInt(optarg, val) || (val != 0 && val != 1)) {
+                    error_msg(errorstring, "Error reading binary parameter user_cuts. Given value: %s.\n", optarg);
+                    exit(1);
+                  }
+                  switch (val) {
+                    case 0:
+                      val = disable_bb_option(params.get(param), BB_Strategy_Options::user_cuts);
+                      break;
+                    case 1:
+                      val = enable_bb_option(params.get(param), BB_Strategy_Options::user_cuts);
+                      break;
+                  }
                   params.set(param, val);
                   break;
                 }
       case 'B'*'3': {
                   intParam param = intParam::BB_STRATEGY;
-                  int val = params.get(param);
+                  int val;
+                  if (!parseInt(optarg, val) || (val != 0 && val != 1)) {
+                    error_msg(errorstring, "Error reading binary parameter use_best_bound. Given value: %s.\n", optarg);
+                    exit(1);
+                  }
+                  switch (val) {
+                    case 0:
+                      val = disable_bb_option(params.get(param), BB_Strategy_Options::use_best_bound);
+                      break;
+                    case 1:
+                      val = enable_bb_option(params.get(param), BB_Strategy_Options::use_best_bound);
+                      break;
+                  }
                   val = enable_bb_option(val, BB_Strategy_Options::use_best_bound);
                   params.set(param, val);
                   break;
@@ -879,12 +935,15 @@ int processArgs(int argc, char** argv) {
                     error_msg(errorstring, "Error reading binary parameter bb_all_cuts. Given value: %s.\n", optarg);
                     exit(1);
                   }
-                  if (val == 0) {
-                    val = enable_bb_option(params.get(param), BB_Strategy_Options::all_cuts_off);
-                    val = disable_bb_option(params.get(param), BB_Strategy_Options::all_cuts_on);
-                  } else if (val == 1) {
-                    val = enable_bb_option(params.get(param), BB_Strategy_Options::all_cuts_on);
-                    val = disable_bb_option(params.get(param), BB_Strategy_Options::all_cuts_off);
+                  switch (val) {
+                    case 0:
+                      val = enable_bb_option(params.get(param), BB_Strategy_Options::all_cuts_off);
+                      val = disable_bb_option(val, BB_Strategy_Options::all_cuts_on);
+                      break;
+                    case 1:
+                      val = enable_bb_option(params.get(param), BB_Strategy_Options::all_cuts_on);
+                      val = disable_bb_option(val, BB_Strategy_Options::all_cuts_off);
+                      break;
                   }
                   params.set(param, val);
                   break;
@@ -896,12 +955,15 @@ int processArgs(int argc, char** argv) {
                     error_msg(errorstring, "Error reading binary parameter bb_gmics. Given value: %s.\n", optarg);
                     exit(1);
                   }
-                  if (val == 0) {
-                    val = enable_bb_option(params.get(param), BB_Strategy_Options::gmics_off);
-                    val = disable_bb_option(params.get(param), BB_Strategy_Options::gmics_on);
-                  } else if (val == 1) {
-                    val = enable_bb_option(params.get(param), BB_Strategy_Options::gmics_on);
-                    val = disable_bb_option(params.get(param), BB_Strategy_Options::gmics_off);
+                  switch (val) {
+                    case 0:
+                      val = enable_bb_option(params.get(param), BB_Strategy_Options::gmics_off);
+                      val = disable_bb_option(val, BB_Strategy_Options::gmics_on);
+                      break;
+                    case 1:
+                      val = enable_bb_option(params.get(param), BB_Strategy_Options::gmics_on);
+                      val = disable_bb_option(val, BB_Strategy_Options::gmics_off);
+                      break;
                   }
                   params.set(param, val);
                   break;
@@ -913,12 +975,15 @@ int processArgs(int argc, char** argv) {
                     error_msg(errorstring, "Error reading binary parameter bb_heuristics. Given value: %s.\n", optarg);
                     exit(1);
                   }
-                  if (val == 0) {
-                    val = enable_bb_option(params.get(param), BB_Strategy_Options::presolve_off);
-                    val = disable_bb_option(params.get(param), BB_Strategy_Options::presolve_on);
-                  } else if (val == 1) {
-                    val = enable_bb_option(params.get(param), BB_Strategy_Options::presolve_on);
-                    val = disable_bb_option(params.get(param), BB_Strategy_Options::presolve_off);
+                  switch (val) {
+                    case 0:
+                      val = enable_bb_option(params.get(param), BB_Strategy_Options::presolve_off);
+                      val = disable_bb_option(val, BB_Strategy_Options::presolve_on);
+                      break;
+                    case 1:
+                      val = enable_bb_option(params.get(param), BB_Strategy_Options::presolve_on);
+                      val = disable_bb_option(val, BB_Strategy_Options::presolve_off);
+                      break;
                   }
                   params.set(param, val);
                   break;
@@ -930,12 +995,15 @@ int processArgs(int argc, char** argv) {
                     error_msg(errorstring, "Error reading binary parameter bb_presolve. Given value: %s.\n", optarg);
                     exit(1);
                   }
-                  if (val == 0) {
-                    val = enable_bb_option(params.get(param), BB_Strategy_Options::heuristics_off);
-                    val = disable_bb_option(params.get(param), BB_Strategy_Options::heuristics_on);
-                  } else if (val == 1) {
-                    val = enable_bb_option(params.get(param), BB_Strategy_Options::heuristics_on);
-                    val = disable_bb_option(params.get(param), BB_Strategy_Options::heuristics_off);
+                  switch (val) {
+                    case 0:
+                      val = enable_bb_option(params.get(param), BB_Strategy_Options::heuristics_off);
+                      val = disable_bb_option(val, BB_Strategy_Options::heuristics_on);
+                      break;
+                    case 1:
+                      val = enable_bb_option(params.get(param), BB_Strategy_Options::heuristics_on);
+                      val = disable_bb_option(val, BB_Strategy_Options::heuristics_off);
+                      break;
                   }
                   params.set(param, val);
                   break;
@@ -947,10 +1015,13 @@ int processArgs(int argc, char** argv) {
                     error_msg(errorstring, "Error reading binary parameter bb_strong_branching. Given value: %s.\n", optarg);
                     exit(1);
                   }
-                  if (val == 0) {
-                    val = disable_bb_option(params.get(param), BB_Strategy_Options::strong_branching_on);
-                  } else if (val == 1) {
-                    val = enable_bb_option(params.get(param), BB_Strategy_Options::strong_branching_on);
+                  switch (val) {
+                    case 0:
+                      val = disable_bb_option(params.get(param), BB_Strategy_Options::strong_branching_on);
+                      break;
+                    case 1:
+                      val = enable_bb_option(params.get(param), BB_Strategy_Options::strong_branching_on);
+                      break;
                   }
                   params.set(param, val);
                   break;
