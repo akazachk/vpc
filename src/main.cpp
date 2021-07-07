@@ -850,6 +850,8 @@ int processArgs(int argc, char** argv) {
                       break;
                     case 1:
                       val = enable_bb_option(params.get(param), BB_Strategy_Options::cbc);
+                      val = disable_bb_option(val, BB_Strategy_Options::cplex);
+                      val = disable_bb_option(val, BB_Strategy_Options::gurobi);
                       break;
                   }
                   params.set(param, val);
@@ -868,6 +870,8 @@ int processArgs(int argc, char** argv) {
                       break;
                     case 1:
                       val = enable_bb_option(params.get(param), BB_Strategy_Options::cplex);
+                      val = disable_bb_option(val, BB_Strategy_Options::cbc);
+                      val = disable_bb_option(val, BB_Strategy_Options::gurobi);
                       break;
                   }
                   params.set(param, val);
@@ -886,6 +890,8 @@ int processArgs(int argc, char** argv) {
                       break;
                     case 1:
                       val = enable_bb_option(params.get(param), BB_Strategy_Options::gurobi);
+                      val = disable_bb_option(val, BB_Strategy_Options::cbc);
+                      val = disable_bb_option(val, BB_Strategy_Options::cplex);
                       break;
                   }
                   params.set(param, val);

@@ -957,13 +957,14 @@ void analyzeBB(const VPCParameters& params, SummaryBBInfo& info_nocuts,
   const int NUM_DIGITS_BEFORE_DEC = 15; //10
   const int NUM_DIGITS_AFTER_DEC = 2; //2
   const double INF = std::numeric_limits<double>::max();
-#ifdef USE_GUROBI
-  const std::string SOLVER = "Gur";
-#elif defined USE_CPLEX
-  const std::string SOLVER = "Cpx";
-#else
-  const std::string SOLVER = "Cbc";
-#endif
+  const bool use_gurobi = use_bb_option(params.get(intParam::BB_STRATEGY), BB_Strategy_Options::gurobi);
+  const bool use_cplex = use_bb_option(params.get(intParam::BB_STRATEGY), BB_Strategy_Options::cplex);
+  const bool use_cbc = use_bb_option(params.get(intParam::BB_STRATEGY), BB_Strategy_Options::cbc);
+  const std::string SOLVER =
+    use_gurobi ? "Gur" :
+    (use_cplex ? "Cpx" :
+     (use_cbc ? "Cbc" : "")
+    );
   char tmpstring[300];
 
   snprintf(tmpstring, sizeof(tmpstring) / sizeof(char), "\n## Branch-and-bound results ##\n"); output += tmpstring;
