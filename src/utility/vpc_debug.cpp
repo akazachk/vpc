@@ -194,7 +194,7 @@ std::string generateTreePlotString(
 #endif
 
   if (saveToFile) {
-    std::string filename = params.get(stringParam::FILENAME) + "-Tree.alex";
+    std::string filename = params.get(stringParam::FILENAME) + "-Tree.aleks";
     FILE* myfile = fopen(filename.c_str(), "a");
     fprintf(myfile, "%s%s%s\n", prepend.c_str(), str.c_str(), append.c_str());
     printNodeStatistics(stats, false, myfile);
@@ -509,7 +509,7 @@ std::string generateTikzTreeString(const VPCEventHandler* eventHandler,
   if (saveToFile) {
     std::string dir, instname, ext;
     parseFilename(dir, instname, ext, params.get(FILENAME), params.logfile);
-    std::string filename = dir + "/" + instname + "-Tree.alex";
+    std::string filename = dir + "/" + instname + "-Tree.aleks";
     FILE* myfile = fopen(filename.c_str(), "a");
     if (!myfile) {
       error_msg(errorstring, "Failed to open %s.\n", filename.c_str());
