@@ -21,7 +21,11 @@ class OsiCuts;
 void printTree(PartialBBDisjunction* const orig_owner,
     OsiSolverInterface* solver, OsiCuts* vpcs, OsiCuts* gmics);
 #endif
+
+/// @brief Create a string that can be fed into Mathematica to plot the tree
 std::string generateTreePlotString(const VPCEventHandler* eventHandler, const VPCParametersNamespace::VPCParameters& params,
     const bool saveToFile = false);
+
+/// @brief Create a string that can be fed into LuaLaTeX to plot the tree
 std::string generateTikzTreeString(const VPCEventHandler* eventHandler, const VPCParametersNamespace::VPCParameters& params,
-    const int orig_strategy, const double branching_lb, const bool saveToFile);
+    const int orig_strategy, const double branching_lb, const std::string filename_stub = "");

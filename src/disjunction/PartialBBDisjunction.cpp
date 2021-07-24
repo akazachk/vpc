@@ -203,7 +203,10 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
 #ifdef TRACE
   const int TEMP_VAL = params.get(intParam::TEMP);
   if (use_temp_option(std::abs(TEMP_VAL), TempOptions::GEN_TIKZ_STRING)) {
-    generateTikzTreeString(eventHandler, params, params.get(intParam::PARTIAL_BB_STRATEGY), si->getObjValue(), true);
+    std::string dir, instname, ext;
+    parseFilename(dir, instname, ext, params.get(FILENAME), params.logfile);
+    const std::string filename_stub = dir + "/" + instname + "-round" + std::to_string(this->num_rounds);
+    generateTikzTreeString(eventHandler, params, params.get(intParam::PARTIAL_BB_STRATEGY), si->getObjValue(), filename_stub);
     if (use_temp_option(TEMP_VAL, TempOptions::GEN_TIKZ_STRING_AND_RETURN)) {
       // Free
       if (BBSolver && !cbc_model->modelOwnsSolver()) { delete BBSolver; }

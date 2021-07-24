@@ -100,8 +100,10 @@ void printTree(PartialBBDisjunction* const orig_owner,
           printf("\n");
           printNodeStatistics(newEventHandler->getPrunedStatsVector(), false);
         }
+
+        const std::string filename_stub = tmp_params.get(stringParam::FILENAME) + "-Tree";
         generateTikzTreeString(newEventHandler, tmp_params, old_param_val,
-            owner->best_obj, true);
+            owner->best_obj, filename_stub);
         if (new_cbc_model->getNodeCount() < 70) {
           printf(
               "Number nodes: %d.\nCut strategy: %d.\n# leafs: %d.\nSolve strategy: %d.\nDo you wish to exit? (y/n) ",
@@ -128,10 +130,6 @@ void printTree(PartialBBDisjunction* const orig_owner,
 } /* printTree */
 #endif // USE_CBC
 
-/************************************************************/
-/**
- * Create a string that can be fed into Mathematica to plot the tree
- */
 std::string generateTreePlotString(
     const VPCEventHandler* eventHandler, 
     const VPCParametersNamespace::VPCParameters& params,
@@ -310,12 +308,17 @@ void setChildForTikzTreeString(std::vector<std::vector<int> >& children,
   }
 } /* setChildForTikzTreeString */
 
-/**
- * Create a string that can be fed into LuaLaTeX to plot the tree
- */
-std::string generateTikzTreeString(const VPCEventHandler* eventHandler,
+std::string generateTikzTreeString(
+    /// [in] Where information about the partial tree is pulled from
+    const VPCEventHandler* eventHandler,
+    /// [in] What were the parameters used to generate the tree
     const VPCParametersNamespace::VPCParameters& params,
-    const int orig_strategy, const double branching_lb, const bool saveToFile) {
+    /// [in] Strategy used to generate tree
+    const int orig_strategy,
+    /// [in] Best objective value of any leaf node
+    const double branching_lb,
+    /// [in] Where to save the tikz code (no extension should be provided)
+    const std::string filename_stub) {
   const std::vector<NodeStatistics>& stats = eventHandler->getStatsVector();
   const std::vector<NodeStatistics>& pruned_stats = eventHandler->getPrunedStatsVector();
   const int numNodes = eventHandler->getNumNodes();
@@ -506,10 +509,10 @@ std::string generateTikzTreeString(const VPCEventHandler* eventHandler,
   printf("%s\n", str.c_str());
 #endif
 
-  if (saveToFile) {
-    std::string dir, instname, ext;
-    parseFilename(dir, instname, ext, params.get(FILENAME), params.logfile);
-    std::string filename = dir + "/" + instname + "-Tree.aleks";
+  if (!filename_stub.empty()) {
+    // First save a file that contains some extra information for debugging / evaluation purposes
+    // such as the node statistics from VPCEventHandler, to compare against the tex code
+    std::string filename = filename_stub + ".aleks";
     FILE* myfile = fopen(filename.c_str(), "a");
     if (!myfile) {
       error_msg(errorstring, "Failed to open %s.\n", filename.c_str());
@@ -525,7 +528,8 @@ std::string generateTikzTreeString(const VPCEventHandler* eventHandler,
     fprintf(myfile, "\n");
     fclose(myfile);
 
-    filename = dir + "/" + instname + ".tex";
+    // Now save the tex file
+    filename = filename_stub + ".tex";
     myfile = fopen(filename.c_str(), "w");
     if (!myfile) {
       error_msg(errorstring, "Failed to open %s.\n", filename.c_str());
