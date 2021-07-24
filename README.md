@@ -2,7 +2,11 @@
 #### [Aleksandr M. Kazachkov](https://akazachk.github.io)
 #### Based on joint work with Egon Balas
 
-This project contains the code for one implementation of the V-polyhedral disjunctive cut paradigm.
+This project contains the code for one implementation of the *V-polyhedral disjunctive cut paradigm*. Some more details in Chapter 4 of my [dissertation](https://akazachk.github.io/pubs/thesis_201901.pdf), [talk slides from the INFORMS Annual Meeting in 2018](https://akazachk.github.io/pubs/INFORMS2018.pdf), [poster at NemFest 2017](https://akazachk.github.io/pubs/Nemfest2017.pdf), or video at a [2021 GERAD seminar](https://youtu.be/TyWemNwPGq0?t=4).
+
+## Documentation
+
+If [`doxygen`](https://www.doxygen.nl/index.html) is installed, type `make doxygen` for documentation on classes and functions in the code. This documentation is still incomplete.
 
 ## Installation
 
@@ -19,11 +23,11 @@ This project contains the code for one implementation of the V-polyhedral disjun
 
 This code has been tested on Linux and Mac operating systems. It is assumed that the installer has some familiarity and comfort with running commands in the terminal. Root access may be needed to get the proper dependencies installed. If you do not have root access, contact your system adminstrator for support.
 
-You will need a compiler (`g++` on Linux and `clang` on Mac). Some of the scripts use `bash`, but can probably be adapted to other shells. Your `bash` version should be at least version 4. Recently, MacOS comes with `zsh` instead of `bash`, and most of the time this should be fine, but if needed, use `homebrew` to install `bash` (via `homebrew install bash`).
+You will need a compiler (typically `g++` on Linux and `clang` on Mac). Some of the scripts use `bash`, but can probably be adapted to other shells. Your `bash` version should be at least version 4. Recently, MacOS comes with `zsh` instead of `bash`, and most of the time this should be fine, but if needed, use `homebrew` to install `bash` (via `homebrew install bash`).
 
 The VPC code relies on [Cbc](https://github.com/coin-or/Cbc), which is installed via the [`setup/install_coin.sh`](setup/install_coin.sh) script. The script requires you to have `wget`.
 
-The project was previously extensively tested with Cbc version 2.9 (up to revision 2376 in the subversion history), though this backwards compatibility is no longer actively maintained. Performance in the main/trunk and 2.10 versions has been more unstable. Specifically, Cbc version 2.10 will probably *not* work. See the related GitHub issue [#12](https://github.com/akazachk/vpc/issues/12). In particular, as of 2020/03/27, we need to compile the development branch of Cbc with `SAVE_NODE_INFO` defined (using `ADD_CXXFLAGS="-DSAVE_NODE_INFO"`) to enable access to the `parentNode` code in `CbcModel`. In addition, if the Cbc commit is before [0f6ffed](https://github.com/coin-or/Cbc/commit/0f6ffed4c26daaf75edac2f87b70f3cc40cb12fd), we need to comment out the line `currentNode_ = NULL` in `CbcModel.cpp` around [line CbcModel.cpp:15392](https://github.com/coin-or/Cbc/blob/53f34cfea21360091608b02a041a962b2be7d6bc/src/CbcModel.cpp#L15390-L15391).
+The project was previously extensively tested with Cbc version 2.9 (up to revision 2376 in the subversion history), though this backwards compatibility is no longer actively maintained. Performance in the main/trunk and 2.10 versions has been more unstable. Specifically, Cbc version 2.10 will probably *not* work. See the related issue [#12](https://github.com/akazachk/vpc/issues/12). In particular, as of 2020/03/27, we need to compile the development branch of Cbc with `SAVE_NODE_INFO` defined (using `ADD_CXXFLAGS="-DSAVE_NODE_INFO"`) to enable access to the `parentNode` code in `CbcModel`. In addition, if the Cbc commit is before [0f6ffed](https://github.com/coin-or/Cbc/commit/0f6ffed4c26daaf75edac2f87b70f3cc40cb12fd), we need to comment out the line `currentNode_ = NULL` in `CbcModel.cpp` around [line CbcModel.cpp:15392](https://github.com/coin-or/Cbc/blob/53f34cfea21360091608b02a041a962b2be7d6bc/src/CbcModel.cpp#L15390-L15391).
 
 For Cbc, you may need `gfortran`, `pkg-conf`, `LAPACK`, and `BLAS`. It may also be necessary to use `--with-cplex=false` as an option in the `coinbrew` commands, if [Osi](https://github.com/coin-or/Osi)'s configure script detects the CPLEX library through `CPXgetstat` but the CPLEX include directory is not found (see https://github.com/coin-or/coinbrew/issues/49).
 
@@ -39,16 +43,17 @@ There are some optional libraries, such as `libbz2-dev`, that are linked to in [
 In more detail, to run the code, a basic call will look like:
 
 ```
-[Debug or Release]/vpc -f filename -d num_disj_terms
+${VPC_DIR}/[Debug or Release]/vpc -f filename -d num_disj_terms
 ```
 
 The flag `-f` is used to specify the filename. Then `-d` takes an integer (the number of disjunctive terms to generate, though we also use this for the number of split disjunctions). Other options are described when calling the code with `--help` or `-h`.
 
 ## Advanced Execution
 
-To run experiments with a set of instances, use [`scripts/run_experiments.sh`](scripts/run_experiments.sh), which will by default put output in the `results` folder.
+To run experiments with a set of instances, you can either use (1) [`scripts/run_experiments.sh`](scripts/run_experiments.sh), which will by default put output in the `results` folder, or (2) set up a batch of runs using [`scripts/prepare_batch.sh`](scripts/prepare_batch.sh), which will save a list of commands to a file `job_list_$MODE.txt`, where `$MODE` is the last argument into the `prepare_batch.sh` script.
 You will either need to export the shell variable `VPC_DIR`, pointing to the root directory of the repository, or enter it when prompted by the script.
-The script takes four arguments:
+
+The `run_experiments.sh` script takes four arguments:
 1. the full path to an instance (in .mps or .lp format, possibly compressed with `gzip` or `bz2`) or a set of instances given in a file with extension `.instances` or `.batch`, with a specific format detailed below
 2. the path to a directory where you wish to save results
 3. the type of experiments to run; options are: "preprocess" (presolve instances), "bb0" (run each instance 7 times without cuts to gather baseline statistics), or "bb" (run each instance with VPCs from 2, 4, 8, 16, 32, and 64 term disjunctions)
@@ -72,7 +77,6 @@ If you run experiments in batch mode, or generally save results in `/path/to/res
 scripts/merge.sh /path/to/results type
 ```
 to merge (and sort) the results to `/path/to/results/vpc-{type}.csv`.
-Note that `preprocess` is a special type, for which the script will merge results in `cleaning_log.csv` instead of `vpc-{type}.csv`.
 The [`merge.sh`](scripts/merge.sh) script also takes a third optional argument for where to save the output.
 
 ## Details
@@ -98,7 +102,7 @@ There are many things left to be implemented in the future:
 1. Cuts that do not cut off the LP optimum (this capability will be controlled by the parameter `PRLP_beta`).
 2. Objective functions based on intermediate nodes of the partial branch-and-bound tree, to cut off points other than the LP optimum.
 3. Dynamic disjunctions, in which cutting and branching are alternated.
-4. Strengthening cuts.
+4. Strengthening cuts -- see the related [MIP 2021 talk](https://www.youtube.com/watch?v=axqaOED4CXQ).
 
 ## Contact Information
 [Aleksandr M. Kazachkov](https://akazachk.github.io),
