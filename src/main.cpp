@@ -224,7 +224,7 @@ int main(int argc, char** argv) {
       }
     }
 
-    CglVPC gen(params);
+    CglVPC gen(params, round_ind);
 
     // Store the initial solve time in order to set a baseline for the PRLP resolve time
     gen.timer.add_value(
@@ -770,6 +770,7 @@ int processArgs(int argc, char** argv) {
       {"prlp_timelimit",        required_argument, 0, 'R'},
       {"solfile",               required_argument, 0, 's'*'1'},
       {"temp",                  required_argument, 0, 't'*'1'},
+      {"tikz",                  required_argument, 0, 't'*'2'},
       {"timelimit",             required_argument, 0, 't'},
       {"use_all_ones",          required_argument, 0, 'u'*'1'},
       {"use_disj_lb",           required_argument, 0, 'u'*'2'},
@@ -1202,6 +1203,38 @@ int processArgs(int argc, char** argv) {
                       params.set(param, val);
                       break;
                     }
+      case 't'*'2': {
+                      intParam param = intParam::TEMP;
+                      int val = params.get(param); // old param value, so we do not overwrite it
+                      if (strcmp(optarg, "GEN_TIKZ_STRING") == 0) {
+                        val = enable_temp_option(val, TempOptions::GEN_TIKZ_STRING);
+                      }
+                      else if (strcmp(optarg, "GEN_TIKZ_STRING_WITH_VPCS") == 0) {
+                        val = enable_temp_option(val, TempOptions::GEN_TIKZ_STRING_WITH_VPCS);
+                        val = enable_temp_option(val, TempOptions::GEN_TIKZ_STRING);
+                      }
+                      else if (strcmp(optarg, "GEN_TIKZ_STRING_WITH_GMICS") == 0) {
+                        val = enable_temp_option(val, TempOptions::GEN_TIKZ_STRING_WITH_GMICS);
+                        val = enable_temp_option(val, TempOptions::GEN_TIKZ_STRING);
+                      }
+                      else if (strcmp(optarg, "GEN_TIKZ_STRING_AND_RETURN") == 0) {
+                        val = enable_temp_option(val, TempOptions::GEN_TIKZ_STRING_AND_RETURN);
+                        val = enable_temp_option(val, TempOptions::GEN_TIKZ_STRING);
+                      }
+                      else if (strcmp(optarg, "GEN_TIKZ_STRING_AND_EXIT") == 0) {
+                        val = enable_temp_option(val, TempOptions::GEN_TIKZ_STRING_AND_EXIT);
+                        val = enable_temp_option(val, TempOptions::GEN_TIKZ_STRING);
+                      }
+                      else {
+                        error_msg(errorstring,
+                            "Error reading %s. Given value: %s. Possible values can be found in VPCParameters.hpp under the enum class TempOptions.\n",
+                            "tikz parameter", optarg);
+                        exit(1);
+                      }
+
+                      params.set(param, val);
+                      break;
+                    }
       case 't': {
                   double val;
                   doubleParam param = doubleParam::TIMELIMIT;
@@ -1312,6 +1345,7 @@ int processArgs(int argc, char** argv) {
                 helpstring += "-s strategy, --partial_bb_strategy=strategy\n\tPartial branch-and-bound strategy; this is a complicated parameter, and the user should check params.hpp for the description.\n";
                 helpstring += "-S num strong, --partial_bb_num_strong=num strong\n\tNumber of candidates for strong branching to consider during the creation of the partial branch-and-bound tree.\n";
                 helpstring += "-T num seconds, --partial_bb_timelimit=num seconds\n\tTotal number of seconds allotted for generating the partial branch-and-bound tree.\n";
+                helpstring += "--tikz=[GEN_TIKZ_STRING | GEN_TIKZ_STRING_WITH_VPCS | ... ]\n\tWhether to generate code that prints tree used in partial b&b tree.";
                 helpstring += "\n# Objective options #\n";
                 helpstring += "--use_all_ones=0/1\n\tUse all ones objective.\n";
                 helpstring += "--use_disj_lb=0/1\n\tUse disjunctive lower bound objective.\n";
@@ -1322,11 +1356,11 @@ int processArgs(int argc, char** argv) {
                 helpstring += "\n# Branch-and-bound options #\n";
                 helpstring += "-b 0+ --bb_runs=0+\n\tNumber of branch-and-bound repeats.\n";
                 helpstring += "-B strategy --bb_strategy=strategy\n\tBranch-and-bound strategy (see VPCParameters.hpp; default = 536, corresponding to gurobi: 8 + user_cuts: 16 + presolve_off: 512; another common setting is 10776, which in addition enables heuristics_off: 2048, use_best_bound: 8192). Can be set individually.\n";
-                helpstring += "--cbc\n";
-                helpstring += "--cplex\n";
-                helpstring += "--gurobi\n";
-                helpstring += "--use_best_bound\n";
-                helpstring += "--user_cuts\n";
+                helpstring += "--cbc=0/1\n";
+                helpstring += "--cplex=0/1\n";
+                helpstring += "--gurobi=0/1\n";
+                helpstring += "--use_best_bound=0/1\n";
+                helpstring += "--user_cuts=0/1\n";
                 helpstring += "--bb_all_cuts=0/1\n";
                 helpstring += "--bb_gmics=0/1\n";
                 helpstring += "--bb_heuristics=0/1\n";
