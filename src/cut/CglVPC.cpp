@@ -146,8 +146,9 @@ CglVPC::CglVPC() {
 } /* default constructor */
 
 /// Calls \link initialize() initialize(NULL, &param) \endlink
-CglVPC::CglVPC(const VPCParameters& param) {
+CglVPC::CglVPC(const VPCParameters& param, const int round_ind) {
   initialize(NULL, &param);
+  this->num_rounds = round_ind;
 } /* param constructor */
 
 /// Calls CglCutGenerator(source) and \link initialize() initialize(&source) \endlink
@@ -445,10 +446,10 @@ bool CglVPC::addCut(
 //<!------------------ PROTECTED ---------------------->/
 
 /**
- * @details Reset _some_ things (those corresponding to a previous run of this generator)
- * E.g., we do not reset timing, the cutType vector, or the cutHeurVec
+ * @details Reset _some_ things (those corresponding to a previous run of this generator).
+ * E.g., we do not reset timing, the cutType vector, or the cutHeurVec.
  * The latter two should not be changed and need to correspond to the cuts passed into generateCuts
- * (in order to enable replacing the cuts in PRLP)
+ * (in order to enable replacing the cuts in PRLP).
  */
 void CglVPC::setupAsNew() {
   this->exitReason = CglVPC::ExitReason::UNKNOWN;
@@ -477,9 +478,15 @@ void CglVPC::setupAsNew() {
 } /* setupAsNew */
 
 /**
- * @details Calls setParams(const VPCParametersNamespace::VPCParameters&) if \p param != NULL, copies over information from \p source if provided
+ * @details
+ * With neither argument provided, sets up default values for class members through calling #setupAsNew, setting #mode = Partial_BB (in #VPCMode), and initializing #timer.
+ * Calls setParams(const VPCParametersNamespace::VPCParameters&) if \p param != NULL, copies over information from \p source if provided.
  */
-void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const param) {
+void CglVPC::initialize(
+  /// [in] Everything will be copied from here if provided, except #param when \p param != NULL
+  const CglVPC* const source,
+  /// [in] Set of parameters to use for the run
+  const VPCParameters* const param) {
   if (param != NULL)
     setParams(*param);
   if (source != NULL) {
@@ -500,6 +507,7 @@ void CglVPC::initialize(const CglVPC* const source, const VPCParameters* const p
     this->numFailsFromHeur = source->numFailsFromHeur;
     this->numFails = source->numFails;
     this->init_num_cuts = source->init_num_cuts;
+    this->num_rounds = source->num_rounds;
     this->num_cuts = source->num_cuts;
     this->num_obj_tried = source->num_obj_tried;
     this->num_failures = source->num_failures;
