@@ -41,7 +41,7 @@ If using Gurobi, make sure that the same compiler is used when running [`install
 
 ## Execution
 
-In more detail, to run the code, a basic call will look like:
+To run the code, a basic call will look like:
 
 ```
 ${VPC_DIR}/[Debug or Release]/vpc -f filename -d num_disj_terms
