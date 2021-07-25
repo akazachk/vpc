@@ -35,7 +35,7 @@ If using Gurobi, make sure that the same compiler is used when running [`install
 
 6. *Environment variables*: There shoud be an environment variable `VPC_DIR` pointing to the local repository location, or this variable can be defined in each of the scripts: [`setup/install_coin.sh`](setup/install_coin.sh), [`test/run_test.sh`](test/run_test.sh), and others.
 
-7. *Git*: The `Makefile` assumes that `git` is at least version 2, to use the `-C` option to get the version of `Cbc` and `Clp`.
+7. *Git*: The [`Makefile`](Makefile) assumes that `git` is at least version 2, to use the `-C` option to get the version of `Cbc` and `Clp`.
 
 8. *Optional*: There are some optional libraries, such as `libbz2-dev`, that are linked to in [`Makefile`](Makefile). If these are missing, _remove the corresponding linking in the Makefile_.
 
