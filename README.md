@@ -25,9 +25,7 @@ If [`doxygen`](https://www.doxygen.nl/index.html) is installed, type `make doxyg
 
 2. *Compiler*: You will need a compiler (typically `g++` on Linux and `clang` on Mac). Some of the scripts use `bash`, but can probably be adapted to other shells. Your `bash` version should be at least version 4. Recently, MacOS comes with `zsh` instead of `bash`, and most of the time this should be fine, but if needed, use `homebrew` to install `bash` (via `homebrew install bash`).
 
-3. *Branch-and-bound code*: The VPC code relies on [Cbc](https://github.com/coin-or/Cbc), which is installed via the [`setup/install_coin.sh`](setup/install_coin.sh) script. The script requires you to have `wget`.
-
-  The project was previously extensively tested with Cbc version 2.9 (up to revision 2376 in the subversion history), though this backwards compatibility is no longer actively maintained. Performance in the main/trunk and 2.10 versions has been more unstable. Specifically, Cbc version 2.10 will probably *not* work. See the related issue [#12](https://github.com/akazachk/vpc/issues/12). In particular, as of 2020/03/27, we need to compile the development branch of Cbc with `SAVE_NODE_INFO` defined (using `ADD_CXXFLAGS="-DSAVE_NODE_INFO"`) to enable access to the `parentNode` code in `CbcModel`. In addition, if the Cbc commit is before [0f6ffed](https://github.com/coin-or/Cbc/commit/0f6ffed4c26daaf75edac2f87b70f3cc40cb12fd), we need to comment out the line `currentNode_ = NULL` in `CbcModel.cpp` around [line CbcModel.cpp:15392](https://github.com/coin-or/Cbc/blob/53f34cfea21360091608b02a041a962b2be7d6bc/src/CbcModel.cpp#L15390-L15391).
+3. *Branch-and-bound code*: The VPC code relies on [Cbc](https://github.com/coin-or/Cbc), which is installed via the [`setup/install_coin.sh`](setup/install_coin.sh) script. The script requires you to have `wget`. See also some additional [Cbc comments](#cbc-comments) below.
 
 4. *Cbc dependencies*: For Cbc, you may need `gfortran`, `pkg-conf`, `LAPACK`, and `BLAS`. It may also be necessary to use `--with-cplex=false` as an option in the `coinbrew` commands, if [Osi](https://github.com/coin-or/Osi)'s configure script detects the CPLEX library through `CPXgetstat` but the CPLEX include directory is not found (see https://github.com/coin-or/coinbrew/issues/49).
 
@@ -96,6 +94,10 @@ In addition, a `Disjunction` has a few optional members:
 4. `timer`, a way to do timing via `VPCTimeStats`
 
 Before running `generateCuts` from `CglVPC`, ensure that the cut limit is properly set (especially when cuts are done in rounds or multiple disjunctions are used per round, the user must decide how to set the cut limit before each call to `generateCuts`).
+
+## Cbc Comments
+
+The project was previously extensively tested with Cbc version 2.9 (up to revision 2376 in the subversion history), though this backwards compatibility is no longer actively maintained. Performance in the main/trunk and 2.10 versions has been more unstable. Specifically, Cbc version 2.10 will probably *not* work. See the related issue [#12](https://github.com/akazachk/vpc/issues/12). In particular, as of 2020/03/27, we need to compile the development branch of Cbc with `SAVE_NODE_INFO` defined (using `ADD_CXXFLAGS="-DSAVE_NODE_INFO"`) to enable access to the `parentNode` code in `CbcModel`. In addition, if the Cbc commit is before [0f6ffed](https://github.com/coin-or/Cbc/commit/0f6ffed4c26daaf75edac2f87b70f3cc40cb12fd), we need to comment out the line `currentNode_ = NULL` in `CbcModel.cpp` around [line CbcModel.cpp:15392](https://github.com/coin-or/Cbc/blob/53f34cfea21360091608b02a041a962b2be7d6bc/src/CbcModel.cpp#L15390-L15391).
 
 ## Future
 
