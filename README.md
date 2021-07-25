@@ -2,7 +2,7 @@
 #### [Aleksandr M. Kazachkov](https://akazachk.github.io)
 #### Based on joint work with Egon Balas
 
-This project contains the code for one implementation of the *V-polyhedral disjunctive cut paradigm*. Some more details in Chapter 4 of my [dissertation](https://akazachk.github.io/pubs/dissertation.pdf), [talk slides from the INFORMS Annual Meeting in 2018](https://akazachk.github.io/pubs/INFORMS2018.pdf), [poster at NemFest 2017](https://akazachk.github.io/pubs/Nemfest2017.pdf), or video at a [2021 GERAD seminar](https://youtu.be/TyWemNwPGq0?t=4).
+This project contains the code for one implementation of the *V-polyhedral disjunctive cut paradigm*. Some more details can be found in Chapter 4 of my [dissertation](https://akazachk.github.io/pubs/dissertation.pdf), [talk slides from the INFORMS Annual Meeting in 2018](https://akazachk.github.io/pubs/INFORMS2018.pdf), [poster at NemFest 2017](https://akazachk.github.io/pubs/Nemfest2017.pdf), or video at a [2021 GERAD seminar](https://youtu.be/TyWemNwPGq0?t=4).
 
 ## Documentation
 
@@ -10,7 +10,7 @@ If [`doxygen`](https://www.doxygen.nl/index.html) is installed, type `make doxyg
 
 ## Installation
 
-1. Check that the dependencies are present in your system. You may need to install [`homebrew`](https://brew.sh) on a Mac in order to download the dependencies, and installation on Windows has never been tested.
+1. Check that the [dependencies](#dependencies) are present in your system. You may need to install [`homebrew`](https://brew.sh) on a Mac in order to download the dependencies, and installation on Windows has never been tested.
 2. Clone the code by typing (in your terminal) `git clone git@github.com:akazachk/vpc.git` if you have a GitHub account and your SSH key has been added to it, or `git clone git://github.com/akazachk/vpc.git` otherwise. This will create a directory `vpc` and download the project code there.
 3. Save this location via `export VPC_DIR=$PWD/vpc` (modified as needed if you change the directory you are located in, or the name of the `vpc` folder). Check that this worked via the output of `echo $VPC_DIR`. It will help (but is not necessary) to add the full path to the `vpc` directory via a definition of `VPC_DIR` in your `.bashrc` or `.zprofile` preference files in your home directory.
 4. Install [Cbc](https://github.com/coin-or/Cbc) by running [`setup/install_coin.sh`](setup/install_coin.sh). If there are any problems, please start an issue (in this project, [coinbrew](https://github.com/coin-or/coinbrew), or [Cbc](https://github.com/coin-or/Cbc)). This step can be customized (e.g., if Cbc is already installed), but it is crucial that the latest Cbc version is compiled with the macro `SAVE_NODE_INFO` defined.
