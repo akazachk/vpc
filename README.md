@@ -23,19 +23,21 @@ If [`doxygen`](https://www.doxygen.nl/index.html) is installed, type `make doxyg
 
 1. *Operating system*: This code has been tested on Linux and Mac operating systems. It is assumed that the installer has some familiarity and comfort with running commands in the terminal. Root access may be needed to get the proper dependencies installed. If you do not have root access, contact your system adminstrator for support.
 
-2. *Compiler*: You will need a compiler (typically `g++` on Linux and `clang` on Mac). Some of the scripts use `bash`, but can probably be adapted to other shells. Your `bash` version should be at least version 4. Recently, MacOS comes with `zsh` instead of `bash`, and most of the time this should be fine, but if needed, use `homebrew` to install `bash` (via `homebrew install bash`).
-
-3. *Branch-and-bound code*: The VPC code relies on [Cbc](https://github.com/coin-or/Cbc), which is installed via the [`setup/install_coin.sh`](setup/install_coin.sh) script. The script requires you to have `wget`. See also some additional [Cbc comments](#cbc-comments) below.
-
-4. *Cbc dependencies*: For Cbc, you may need `gfortran`, `pkg-conf`, `LAPACK`, and `BLAS`. It may also be necessary to use `--with-cplex=false` as an option in the `coinbrew` commands, if [Osi](https://github.com/coin-or/Osi)'s configure script detects the CPLEX library through `CPXgetstat` but the CPLEX include directory is not found (see https://github.com/coin-or/coinbrew/issues/49).
-
-5. *Environment variables*: There shoud be an environment variable `VPC_DIR` pointing to the local repository location, or this variable can be defined in each of the scripts: [`setup/install_coin.sh`](setup/install_coin.sh), [`test/run_test.sh`](test/run_test.sh), and others.
-
-6. You may need to check compatibility with your version of `clang` or `g++` (for example, for the [inline variable features](https://github.com/akazachk/vpc/commit/0974799ec01e4a9135a58d48c03c5afa09756419#diff-b16b01e4c6bc7937a16cdc866415fcb3cc1c882a79dda4543dc626056a698f00) that this code uses from from C++17, at least version 7 of `g++` is needed).
+2. *Compiler*: You will need a compiler (typically `g++` on Linux and `clang` on Mac).
+You may need to check compatibility with your version of `clang` or `g++` (for example, for the [inline variable features](https://github.com/akazachk/vpc/commit/0974799ec01e4a9135a58d48c03c5afa09756419#diff-b16b01e4c6bc7937a16cdc866415fcb3cc1c882a79dda4543dc626056a698f00) that this code uses from from C++17, at least version 7 of `g++` is needed).
 If using Gurobi, make sure that the same compiler is used when running [`install_coin.sh`](setup/install_coin.sh) and the one used to generate `libgurobi_c++.a`, which can be rebuilt in the Gurobi directory (located at, say, `${GUROBI_HOME}`), under `${GUROBI_HOME}/src/build`.
-The `Makefile` also assumes that `git` is at least version 2, to use the `-C` option to get the version of `Cbc` and `Clp`.
 
-6. *Optional*: There are some optional libraries, such as `libbz2-dev`, that are linked to in [`Makefile`](Makefile). If these are missing, _remove the corresponding linking in the Makefile_.
+3. *Terminal*: Some of the scripts use `bash`, but can probably be adapted to other shells. Your `bash` version should be at least version 4. Recently, MacOS comes with `zsh` instead of `bash`, and most of the time this should be fine, but if needed, use [`homebrew`](https://brew.sh) to install `bash` (via `homebrew install bash`).
+
+4. *Branch-and-bound code*: The VPC code relies on [Cbc](https://github.com/coin-or/Cbc), which is installed via the [`setup/install_coin.sh`](setup/install_coin.sh) script. The script requires you to have `wget`. See also some additional [Cbc comments](#cbc-comments) below.
+
+5. *Cbc dependencies*: For Cbc, you may need `gfortran`, `pkg-conf`, `LAPACK`, and `BLAS`. It may also be necessary to use `--with-cplex=false` as an option in the `coinbrew` commands, if [Osi](https://github.com/coin-or/Osi)'s configure script detects the CPLEX library through `CPXgetstat` but the CPLEX include directory is not found (see https://github.com/coin-or/coinbrew/issues/49).
+
+6. *Environment variables*: There shoud be an environment variable `VPC_DIR` pointing to the local repository location, or this variable can be defined in each of the scripts: [`setup/install_coin.sh`](setup/install_coin.sh), [`test/run_test.sh`](test/run_test.sh), and others.
+
+7. *Git*: The `Makefile` assumes that `git` is at least version 2, to use the `-C` option to get the version of `Cbc` and `Clp`.
+
+8. *Optional*: There are some optional libraries, such as `libbz2-dev`, that are linked to in [`Makefile`](Makefile). If these are missing, _remove the corresponding linking in the Makefile_.
 
 ## Execution
 
