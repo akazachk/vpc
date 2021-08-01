@@ -1345,7 +1345,7 @@ int processArgs(int argc, char** argv) {
                 helpstring += "-s strategy, --partial_bb_strategy=strategy\n\tPartial branch-and-bound strategy; this is a complicated parameter, and the user should check params.hpp for the description.\n";
                 helpstring += "-S num strong, --partial_bb_num_strong=num strong\n\tNumber of candidates for strong branching to consider during the creation of the partial branch-and-bound tree.\n";
                 helpstring += "-T num seconds, --partial_bb_timelimit=num seconds\n\tTotal number of seconds allotted for generating the partial branch-and-bound tree.\n";
-                helpstring += "--tikz=[GEN_TIKZ_STRING | GEN_TIKZ_STRING_WITH_VPCS | ... ]\n\tWhether to generate code that prints tree used in partial b&b tree.";
+                helpstring += "--tikz=[GEN_TIKZ_STRING | GEN_TIKZ_STRING_WITH_VPCS | ... ]\n\tWhether to generate code that prints tree used in partial b&b tree.\n";
                 helpstring += "\n# Objective options #\n";
                 helpstring += "--use_all_ones=0/1\n\tUse all ones objective.\n";
                 helpstring += "--use_disj_lb=0/1\n\tUse disjunctive lower bound objective.\n";
