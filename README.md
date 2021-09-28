@@ -13,7 +13,7 @@ If [`doxygen`](https://www.doxygen.nl/index.html) is installed, type `make doxyg
 1. Check that the [dependencies](#dependencies) are present in your system. You may need to install [`homebrew`](https://brew.sh) on a Mac in order to download the dependencies, and installation on Windows has never been tested.
 2. Clone the code by typing (in your terminal) `git clone git@github.com:akazachk/vpc.git` if you have a GitHub account and your SSH key has been added to it, or `git clone git://github.com/akazachk/vpc.git` otherwise. This will create a directory `vpc` and download the project code there.
 3. Save this location via `export VPC_DIR=$PWD/vpc` (modified as needed if you change the directory you are located in, or the name of the `vpc` folder). Check that this worked via the output of `echo $VPC_DIR`. It will help (but is not necessary) to add the full path to the `vpc` directory via a definition of `VPC_DIR` in your `.bashrc` or `.zprofile` preference files in your home directory.
-4. Install [Cbc](https://github.com/coin-or/Cbc) by running [`setup/install_coin.sh`](setup/install_coin.sh). If there are any problems, please start an issue (in this project, [coinbrew](https://github.com/coin-or/coinbrew), or [Cbc](https://github.com/coin-or/Cbc)). This step can be customized (e.g., if Cbc is already installed), but it is crucial that the latest Cbc version is compiled with the macro `SAVE_NODE_INFO` defined.
+4. Install [Cbc](https://github.com/coin-or/Cbc) by running [`setup/install_coin.sh`](setup/install_coin.sh). If there are any problems, please start an issue (in this project, [coinbrew](https://github.com/coin-or/coinbrew), or [Cbc](https://github.com/coin-or/Cbc)). This step can be customized (e.g., if Cbc is already installed), but it is crucial that the latest Cbc version is compiled with the macro `SAVE_NODE_INFO` defined. See also [known issues](#known-issues).
 5. [Optional] Install Gurobi or CPLEX.
 6. Choose the appropriate options in the [`Makefile`](Makefile) under `Variables user should set`: `PROJ_DIR`, for the location of the repository, and `COIN_OR`, for where Cbc is installed. If you wish to use Gurobi, set `USE_GUROBI=1` under `Options for solvers`, and set `GUROBI_DIR` appropriately. Similarly, set `USE_CPLEX=1` and `CPLEX_DIR` if you wish to use CPLEX. If you are not using Gurobi or CPLEX, make sure to set `USE_GUROBI=0` and `USE_CPLEX=0`, as appropriate.
 7. There are two compilation modes: `debug` and `release`. These can be compiled with `make [debug or release]`, which creates the executable `vpc` in a new subdirectory `Debug` or `Release` of the main folder.
@@ -96,6 +96,11 @@ In addition, a `Disjunction` has a few optional members:
 4. `timer`, a way to do timing via `VPCTimeStats`
 
 Before running `generateCuts` from `CglVPC`, ensure that the cut limit is properly set (especially when cuts are done in rounds or multiple disjunctions are used per round, the user must decide how to set the cut limit before each call to `generateCuts`).
+
+## Known Issues
+
+1. When installing COIN-OR projects, you may receive an error of type `BADCERT_NOT_TRUSTED`, which happens for example on HiPerGator at the University of Florida. One (very unsafe) work around is adding the option `git config http.sslVerify false` (you may need to add it globally, with `git config --global http.sslVerify false`).
+2. On HiPerGator, the installation of Cbc will also fail if lapack is requested, but the lapack module is not loaded. The lapack module may not work with the latest gcc version, so you may need to first invoke `module load gcc/8.2.0` then `module load lapack`; consult `module spider lapack` for updated compatibility. Afterwards, add the lapack library to your path via `export LIBRARY_PATH=$LIBRARY_PATH:$HPC_LAPACK_LIB`. At that point, rerun the COIN-OR installation script.
 
 ## Cbc Comments
 
