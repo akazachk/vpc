@@ -197,6 +197,13 @@ int main(int argc, char** argv) {
   cutInfoVec.resize(num_rounds);
   int round_ind = 0;
   int num_disj = 0;
+  std::vector<int> disjOptions;
+  if (!params.get(stringParam::DISJ_OPTIONS).empty()) {
+    // TODO
+    error_msg(errorstring, "Setting DISJ_OPTIONS is currently not implemented. Received from command line: %s.\n", params.get(stringParam::DISJ_OPTIONS).c_str());
+    writeErrorToLog(errorstring, params.logfile);
+    return wrapUp(1, argc, argv);
+  }
   for (round_ind = 0; round_ind < num_rounds; ++round_ind) {
     if (num_rounds > 1) {
       printf("\n## Starting round %d/%d. ##\n", round_ind+1, num_rounds);
@@ -224,6 +231,9 @@ int main(int argc, char** argv) {
       }
     }
 
+    if (disjOptions.size() > round_ind) {
+      params.set(intParam::DISJ_TERMS, disjOptions[round_ind]);
+    }
     CglVPC gen(params, round_ind);
 
     // Store the initial solve time in order to set a baseline for the PRLP resolve time
@@ -304,7 +314,7 @@ int main(int argc, char** argv) {
     // Collect cuts from all rounds
     timer.start_timer(BB_TIME);
     runBBTests(params, &info_nocuts, &info_mycuts, &info_allcuts,
-        params.get(stringParam::FILENAME), solver, boundInfo.ip_obj,
+        params.get(stringParam::FILENAME), origSolver, boundInfo.ip_obj,
         &vpcs, NULL);
     timer.end_timer(BB_TIME);
   }
@@ -736,7 +746,7 @@ int processArgs(int argc, char** argv) {
   // has_arg: 0,1,2 for none, required, or optional
   // *flag: how results are returned; if NULL, getopt_long() returns val (e.g., can be the equivalent short option character), and o/w getopt_long() returns 0, and flag points to a var which is set to val if the option is found, but left unchanged if the option is not found
   // val: value to return, or to load into the variable pointed to by flag
-  const char* const short_opts = "b:B:c:d:f:g:hi:l:m:o:r:R:s:S:t:T:v:";
+  const char* const short_opts = "b:B:c:d:D:f:g:hi:l:m:o:r:R:s:S:t:T:v:";
   const struct option long_opts[] =
   {
       {"bb_runs",               required_argument, 0, 'b'},
@@ -755,6 +765,7 @@ int processArgs(int argc, char** argv) {
       {"bb_strong_branching",   required_argument, 0, 'B'*'8'},
       {"cutlimit",              required_argument, 0, 'c'},
       {"disj_terms",            required_argument, 0, 'd'},
+      {"disj_options",          required_argument, 0, 'D'},
       {"file",                  required_argument, 0, 'f'},
       {"gomory",                required_argument, 0, 'g'},
       {"help",                  no_argument,       0, 'h'},
@@ -1051,6 +1062,10 @@ int processArgs(int argc, char** argv) {
                     exit(1);
                   }
                   params.set(param, val);
+                  break;
+                }
+      case 'D': {
+                  params.set(stringParam::DISJ_OPTIONS, optarg);
                   break;
                 }
       case 'f': {

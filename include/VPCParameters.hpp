@@ -109,6 +109,7 @@ enum doubleParam {
 }; /* doubleParam */
 /// String-valued parameters
 enum stringParam {
+  DISJ_OPTIONS,
   FILENAME,
   LOGFILE,
   OPTFILE,
@@ -573,7 +574,7 @@ struct VPCParameters {
 
   /// @brief string parameter values
   std::unordered_map<stringParam, StringParameter, EnumClassHash> stringParamValues {
-//    {stringParam::OUTDIR, StringParameter("OUTDIR", "")},
+    {stringParam::DISJ_OPTIONS, StringParameter("DISJ_OPTIONS", "")},
     {stringParam::SOLFILE,
       StringParameter(stringParam::SOLFILE, "SOLFILE", "")},
     {stringParam::OPTFILE,
