@@ -100,6 +100,7 @@ enum intParam {
 enum doubleParam {
   BB_TIMELIMIT, ///< time limit for doing branch-and-bound
   EPS, ///< global epsilon (may be further refined based on instance-specific data)
+  INF, ///< infinity (INFINITY keyword is reserved as a macro from math header)
   IP_OBJ, ///< way to give just the objective for this instance rather than reading it from a file
   MIN_ORTHOGONALITY, ///< minimum orthogonality between cuts added to the collection
   PARTIAL_BB_TIMELIMIT, ///< time allotted for generating partial b&b tree
@@ -146,7 +147,6 @@ enum class intConst {
 enum class doubleConst {
   AWAY, ///< min fractionality before a variable is considered not integer-valued
   DIFFEPS, ///< to check whether something is different enough to throw an error
-  INF, ///< infinity (INFINITY keyword is reserved as a macro from math header)
   RAYEPS, ///< value for which a ray coefficient will be treated as zero
   // Time limits
   MIN_PRLP_TIMELIMIT, ///< minimum amount of time allotted for solving/resolving PRLP
@@ -564,6 +564,9 @@ struct VPCParameters {
     {doubleParam::IP_OBJ,
         DoubleParameter(doubleParam::IP_OBJ, "IP_OBJ",
             std::numeric_limits<double>::max(), std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max())},
+    {doubleParam::INF,
+        DoubleParameter(doubleParam::EPS, "INF",
+            std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max())},
     {doubleParam::EPS,
         DoubleParameter(doubleParam::EPS, "EPS",
             1e-7, 0., 1.)},
@@ -607,7 +610,6 @@ struct VPCParameters {
     {doubleConst::EPS_COEFF, DoubleParameter("EPS_COEFF", 1e-5, 1e-5, 1e-5)},
     {doubleConst::MIN_PRLP_TIMELIMIT, DoubleParameter("MIN_PRLP_TIMELIMIT", 5., 5., 5.)},
     {doubleConst::RAYEPS, DoubleParameter("RAYEPS", 1e-7, 1e-7, 1e-7)},
-    {doubleConst::INF, DoubleParameter("INF", std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max())},
     {doubleConst::DIFFEPS, DoubleParameter("DIFFEPS", 1e-3, 1e-3, 1e-3)}, // to check whether something is different enough to throw an error
     {doubleConst::AWAY, DoubleParameter("AWAY", 1e-3, 1e-3, 1e-3)},
   }; /* doubleConstValues */

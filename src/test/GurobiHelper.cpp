@@ -138,11 +138,11 @@ class GurobiUserCutCallback : public GRBCallback {
         GRBVar* vars, const OsiCuts* cutsToAdd, const bool lazyFlag = false)
         : params(params), num_vars(num_vars), obj_offset(obj_offset), grb_vars(vars),
         cuts(cutsToAdd), addAsLazy(lazyFlag) {
-      this->info.obj = params.get(doubleConst::INF);
-      this->first_lp_opt = -1 * params.get(doubleConst::INF);
+      this->info.obj = params.get(doubleParam::INF);
+      this->first_lp_opt = -1 * params.get(doubleParam::INF);
       this->info.root_passes = 0;
-      this->info.first_cut_pass = -1 * params.get(doubleConst::INF);
-      this->info.last_cut_pass = -1 * params.get(doubleConst::INF);
+      this->info.first_cut_pass = -1 * params.get(doubleParam::INF);
+      this->info.last_cut_pass = -1 * params.get(doubleParam::INF);
       this->info.root_iters = 0;
       this->info.root_time = 0.;
       this->info.last_sol_time = 0.;

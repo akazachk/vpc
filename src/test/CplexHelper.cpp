@@ -828,8 +828,8 @@ void doBranchAndBoundWithUserCutsCplexCallable(const VPCParameters& params,
   } /* ensure cuts is not NULL */
 
   // Add callback to get root_passes, etc.
-  info.first_cut_pass = -1. * params.get(doubleConst::INF);
-  info.last_cut_pass = -1. * params.get(doubleConst::INF);
+  info.first_cut_pass = -1. * params.get(doubleParam::INF);
+  info.last_cut_pass = -1. * params.get(doubleParam::INF);
   int status = CPXXsetinfocallbackfunc (env, logcallback, &info)
     || CPXXsetusercutcallbackfunc (env, usercutcallback, &info);
 //  int status = CPXXsetnodecallbackfunc (env, logcallback, &info);

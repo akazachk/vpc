@@ -65,8 +65,8 @@ CglVPC::ExitReason PRLP::setup(const double scale) {
   const int num_cols = owner->probData.num_cols;
 
   // Build the matrix as well as col lower/upper bounds
-  std::vector<double> colLB(num_cols, -1 * owner->params.get(doubleConst::INF));
-  std::vector<double> colUB(num_cols, owner->params.get(doubleConst::INF));
+  std::vector<double> colLB(num_cols, -1 * owner->params.get(doubleParam::INF));
+  std::vector<double> colUB(num_cols, owner->params.get(doubleParam::INF));
   std::vector<double> rowLB;
   rowLB.reserve(num_constraints);
   int numElementsEstimate = 0; // estimate max size of sparse coefficient matrix, for reserve
@@ -533,7 +533,7 @@ int PRLP::resolvePRLP(const bool tryExtraHard) {
   }
 
   if (this->isProvenOptimal()
-      && isNegInfinity(this->getObjValue(), -owner->params.get(doubleConst::INF))) {
+      && isNegInfinity(this->getObjValue(), -owner->params.get(doubleParam::INF))) {
     // We essentially have a ray, though it is not being reported as such
     // Try resolving because this fixes the issue sometimes
     setTimeLimit(this, timeLimit);
@@ -1858,7 +1858,7 @@ int PRLP::iterateDeepestCutPostGomory(OsiCuts & cuts,
           exit(1);
         }
 
-        if (isNegInfinity(PostGomorySolver->getObjValue(), -owner->params.get(doubleConst::INF))) {
+        if (isNegInfinity(PostGomorySolver->getObjValue(), -owner->params.get(doubleParam::INF))) {
           // We essentially have a ray, though it is not being reported as such
           // Try resolving because this fixes the issue sometimes
           setTimeLimit(PostGomorySolver, timeLimit);

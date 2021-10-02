@@ -532,6 +532,8 @@ void doBranchAndBoundNoCuts(const VPCParametersNamespace::VPCParameters& params,
   info.obj = cbc_model->getObjValue();
   info.iters = cbc_model->getIterationCount();
   info.nodes = cbc_model->getNodeCount();
+  //info.bound = cbc_model->getCutoff();
+  //info.bound = cbc_model->getDblParam(CbcModel::CbcDblParam::CbcCurrentCutoff);
 
   // Free
   if (cbc_model) {
@@ -624,6 +626,7 @@ void doBranchAndBoundYesCuts(const VPCParametersNamespace::VPCParameters& params
   info.obj = cbc_model->getObjValue();
   info.iters = cbc_model->getIterationCount();
   info.nodes = cbc_model->getNodeCount();
+  //info.bound = cbc_model->getCutoff();
 
   // Free
   if (cbc_model) {

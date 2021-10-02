@@ -264,14 +264,20 @@ inline const std::string stringValue(
     const int NUM_DIGITS_BEFORE_DEC = -1,
     /// how many digits after the decimal to print (-1 default implies do not limit)
     const int NUM_DIGITS_AFTER_DEC = -1) {
+  char temp[500];
   if (!lessThanVal(value, INF)) {
-    const std::string infty = "\'inf\'";
-    return infty;
+    if (NUM_DIGITS_BEFORE_DEC == -1) {
+      snprintf(temp, sizeof(temp) / sizeof(char), "%s", "\'inf\'");
+    } else {
+      snprintf(temp, sizeof(temp) / sizeof(char), "%-*s", NUM_DIGITS_BEFORE_DEC, "\'inf\'");
+    }
   } else if (!greaterThanVal(value, -INF)) {
-    const std::string neg_infty = "\'-inf\'";
-    return neg_infty;
+    if (NUM_DIGITS_BEFORE_DEC == -1) {
+      snprintf(temp, sizeof(temp) / sizeof(char), "%s", "\'-inf\'");
+    } else {
+      snprintf(temp, sizeof(temp) / sizeof(char), "%-*s", NUM_DIGITS_BEFORE_DEC, "\'-inf\'");
+    }
   } else {
-    char temp[500];
     if (NUM_DIGITS_BEFORE_DEC == -1 && NUM_DIGITS_AFTER_DEC == -1) {
       snprintf(temp, sizeof(temp) / sizeof(char), format, value);
     } else if (NUM_DIGITS_BEFORE_DEC >= 0 && NUM_DIGITS_AFTER_DEC >= 0) {
@@ -281,9 +287,9 @@ inline const std::string stringValue(
     } else {
       snprintf(temp, sizeof(temp) / sizeof(char), format, NUM_DIGITS_AFTER_DEC, value);
     }
-    std::string tmp(temp);
-    return tmp;
   }
+  std::string tmp(temp);
+  return tmp;
 } /* stringValue (numeric) */
 
 /// @brief Currently returns \p value; mostly for ease of use with params; in the future we may way to format strings though
