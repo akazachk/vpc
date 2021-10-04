@@ -38,9 +38,11 @@ void doBranchAndBoundWithUserCutsCbc(const VPCParametersNamespace::VPCParameters
     const OsiSolverInterface* const solver, const OsiCuts* cuts, BBInfo& info,
     const double best_bound, const bool addAsLazy = false);
 
+/*
 void doBranchAndBoundNoCuts(const VPCParametersNamespace::VPCParameters& params, const OsiSolverInterface* const solver, BBInfo& info);
 void doBranchAndBoundYesCuts(const VPCParametersNamespace::VPCParameters& params, const OsiSolverInterface* const solver,
     BBInfo& info, const OsiCuts& structCuts, const bool doCutSelection,
     const int numCutsToAddPerRound, const int maxRounds,
     const std::string logstring);
+*/
 #endif /* USE_CBC */

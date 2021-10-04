@@ -32,7 +32,7 @@
 #include "Disjunction.hpp" // needed to access disjunction properties
 #include "DisjunctionHelper.hpp" // for custom disjunctions
 #include "preprocess.hpp" // performCleaning
-#include "SolverHelper.hpp"
+#include "SolverHelper.hpp" // initializeSolver
 #include "SolverInterface.hpp"
 #include "VPCParameters.hpp"
 using namespace VPCParametersNamespace;
@@ -110,7 +110,6 @@ void signal_handler_with_error_msg(int signal_number) {
 
 int startUp(int argc, char** argv);
 int processArgs(int argc, char** argv);
-void initializeSolver(OsiSolverInterface* &solver);
 void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_disj);
 int wrapUp(int retCode, int argc, char** argv);
 
@@ -134,7 +133,7 @@ int main(int argc, char** argv) {
 
   //====================================================================================================//
   // Set up solver and get initial solution
-  initializeSolver(solver);
+  initializeSolver(solver, params.get(stringParam::FILENAME));
   timer.start_timer(OverallTimeStats::INIT_SOLVE_TIME);
   solver->initialSolve();
   if (!checkSolverOptimality(solver, false)) {
@@ -591,62 +590,6 @@ int wrapUp(int retCode, int argc, char** argv) {
 
   return retCode;
 } /* wrapUp */
-
-void initializeSolver(OsiSolverInterface* &solver) {
-  // Generate cuts
-  solver = new SolverInterface;
-  setLPSolverParameters(solver, params.get(VERBOSITY), params.get(TIMELIMIT));
-
-  int status = 0;
-  if (in_file_ext.compare("lp") == 0) {
-#ifdef TRACE
-    printf("\n## Reading LP file. ##\n");
-#endif
-    status = solver->readLp(params.get(stringParam::FILENAME).c_str());
-  } else {
-    if (in_file_ext.compare("mps") == 0) {
-#ifdef TRACE
-      printf("\n## Reading MPS file. ##\n");
-#endif
-      status = solver->readMps(params.get(stringParam::FILENAME).c_str());
-    } else {
-      try {
-#ifdef TRACE
-        printf("\n## Reading MPS file. ##\n");
-#endif
-        status = solver->readMps(params.get(stringParam::FILENAME).c_str());
-      } catch (std::exception& e) {
-        error_msg(errorstring, "Unrecognized extension: %s.\n",
-            in_file_ext.c_str());
-        writeErrorToLog(errorstring, params.logfile);
-        exit(1);
-      }
-    }
-  } // read file
-  if (status < 0) {
-    error_msg(errorstring, "Unable to read in file %s.\n",
-        params.get(stringParam::FILENAME).c_str());
-    writeErrorToLog(errorstring, params.logfile);
-    exit(1);
-  }
-
-  // Make sure we are doing a minimization problem; this is just to make later
-  // comparisons simpler (i.e., a higher LP obj after adding the cut is better).
-  if (solver->getObjSense() < 1e-3) {
-    printf(
-        "\n## Detected maximization problem. Negating objective function to make it minimization. ##\n");
-    solver->setObjSense(1.0);
-    const double* obj = solver->getObjCoefficients();
-    for (int col = 0; col < solver->getNumCols(); col++) {
-      solver->setObjCoeff(col, -1. * obj[col]);
-    }
-    double objOffset = 0.;
-    solver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
-    if (objOffset != 0.) {
-      solver->setDblParam(OsiDblParam::OsiObjOffset, -1. * objOffset);
-    }
-  }
-} /* initializeSolver */
 
 void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_disj) {
   std::vector<Disjunction*> disjVec;

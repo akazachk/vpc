@@ -92,11 +92,3 @@ void createStringFromBBInfoVec(const std::vector<BBInfo>& vec_info,
 void createTmpFileCopy(const VPCParametersNamespace::VPCParameters& params,
     const OsiSolverInterface* const solver, std::string& f_name);
 
-// COIN-OR
-#ifdef USE_CBC
-void doBranchAndBoundNoCuts(const VPCParametersNamespace::VPCParameters& params, const OsiSolverInterface* const solver, BBInfo& info);
-void doBranchAndBoundYesCuts(const VPCParametersNamespace::VPCParameters& params, const OsiSolverInterface* const solver,
-    BBInfo& info, const OsiCuts& structCuts, const bool doCutSelection,
-    const int numCutsToAddPerRound, const int maxRounds,
-    const std::string logstring);
-#endif /* USE_CBC */

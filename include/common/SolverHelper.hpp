@@ -13,6 +13,18 @@
   #include <OsiSolverInterface.hpp>
 #endif /* USE_CLP */
 
+/// @brief Read in file \p FILENAME into solver
+void initializeSolver(OsiSolverInterface* &solver,
+    const std::string FILENAME,
+    const int VERBOSITY =
+#ifdef TRACE
+        1,
+#else
+        0,
+#endif
+    const double TIMELIMIT = std::numeric_limits<double>::max(),
+    FILE* logfile = NULL);
+
 /// @brief Get objective offset (with COIN-OR, \link OsiSolverInterface::getObjValue() \endlink + #getObjOffset() = dot product between \link OsiSolverInterface::getColSolution() \endlink and \link OsiSolverInterface::getObjCoefficients \endlink)
 double getObjOffset(const OsiSolverInterface* const solver);
 

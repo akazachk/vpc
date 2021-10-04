@@ -166,6 +166,7 @@ endif
 ifeq ($(USE_CBC),1)
   DEFS += -DUSE_CBC
   DEFS += -DVPC_CBC_VERSION="\#${VPC_CBC_VERSION}"
+  SOURCES += test/CbcHelper.cpp
 endif
 ifeq ($(USE_GUROBI),1)
   DEFS += -DUSE_GUROBI

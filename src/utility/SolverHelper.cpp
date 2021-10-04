@@ -1,8 +1,78 @@
 #include "SolverHelper.hpp"
 
+#include "SolverInterface.hpp"
 #include "utility.hpp"
 
-#include "OsiCuts.hpp"
+#include <OsiCuts.hpp>
+
+void initializeSolver(
+    OsiSolverInterface* &solver,
+    const std::string FILENAME,
+    const int VERBOSITY,
+    const double TIMELIMIT,
+    FILE* logfile) {
+  solver = new SolverInterface;
+  setLPSolverParameters(solver, VERBOSITY, TIMELIMIT);
+
+  std::string dir, instname, in_file_ext;
+  if (parseFilename(dir, instname, in_file_ext, FILENAME, logfile) != 0) {
+    error_msg(errorstring,
+        "Unable to parse filename: %s. Found: dir=\"%s\", instname=\"%s\",ext=\"%s\".\n",
+        FILENAME.c_str(), dir.c_str(),
+        instname.c_str(), in_file_ext.c_str());
+    exit(1);
+  }
+
+  int status = 0;
+  if (in_file_ext.compare("lp") == 0) {
+#ifdef TRACE
+    printf("\n## Reading LP file. ##\n");
+#endif
+    status = solver->readLp(FILENAME.c_str());
+  } else {
+    if (in_file_ext.compare("mps") == 0) {
+#ifdef TRACE
+      printf("\n## Reading MPS file. ##\n");
+#endif
+      status = solver->readMps(FILENAME.c_str());
+    } else {
+      try {
+#ifdef TRACE
+        printf("\n## Reading MPS file. ##\n");
+#endif
+        status = solver->readMps(FILENAME.c_str());
+      } catch (std::exception& e) {
+        error_msg(errorstring, "Unrecognized extension: %s.\n",
+            in_file_ext.c_str());
+        writeErrorToLog(errorstring, logfile);
+        exit(1);
+      }
+    }
+  } // read file
+  if (status < 0) {
+    error_msg(errorstring, "Unable to read in file %s.\n",
+        FILENAME.c_str());
+    writeErrorToLog(errorstring, logfile);
+    exit(1);
+  }
+
+  // Make sure we are doing a minimization problem; this is just to make later
+  // comparisons simpler (i.e., a higher LP obj after adding the cut is better).
+  if (solver->getObjSense() < 1e-3) {
+    printf(
+        "\n## Detected maximization problem. Negating objective function to make it minimization. ##\n");
+    solver->setObjSense(1.0);
+    const double* obj = solver->getObjCoefficients();
+    for (int col = 0; col < solver->getNumCols(); col++) {
+      solver->setObjCoeff(col, -1. * obj[col]);
+    }
+    double objOffset = 0.;
+    solver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
+    if (objOffset != 0.) {
+      solver->setDblParam(OsiDblParam::OsiObjOffset, -1. * objOffset);
+    }
+  }
+} /* initializeSolver */
 
 double getObjOffset(const OsiSolverInterface* const solver) {
   double offset = 0.;
@@ -525,7 +595,8 @@ double applyCutsCustom(OsiSolverInterface* const solver, const OsiCuts& cs,
 } /* applyCutsCustom */
 
 /**
- * Generic way to apply a set of cuts to a solver
+ * @details Calls #applyCutsCustom(OsiSolverInterface* const, const OsiCuts*, FILE*, const int, const int, double)
+ * with \p numCuts set to size of cut collection in \p cs, unless \p numCutsOverload takes a nonnegative value
  * @return Solver value after adding the cuts, if they were added successfully
  */
 double applyCutsCustom(OsiSolverInterface* const solver, const OsiCuts& cs,

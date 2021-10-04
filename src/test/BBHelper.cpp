@@ -24,23 +24,14 @@ using namespace VPCParametersNamespace;
 #include <OsiCuts.hpp>
 
 #ifdef USE_CBC
-// Cbc
-#include <CbcModel.hpp>
-
-// Variable selection
-#include <CbcBranchDefaultDecision.hpp>
-#include <OsiChooseVariable.hpp>
-
-// General strategy
-#include <CbcStrategy.hpp>
-#endif /* USE_CBC */
-
+#include "CbcHelper.hpp"
+#endif // USE_CBC
 #ifdef USE_GUROBI
 #include "GurobiHelper.hpp"
-#endif
+#endif // USE_GUROBI
 #ifdef USE_CPLEX
 #include "CplexHelper.hpp"
-#endif
+#endif // USE_CPLEX
 
 /**
  * @details Solver is unchanged unless we are doing row/col permutations
@@ -78,7 +69,7 @@ void runBBTests(
    * Perform branch-and-bound
    ***********************************************************************************/
   const int num_gmics = (gmics != NULL) ? gmics->sizeCuts() : 0;
-  const int numCutsToAddPerRound = (num_gmics > 0) ? num_gmics : num_vpcs;
+  //const int numCutsToAddPerRound = (num_gmics > 0) ? num_gmics : num_vpcs;
 
   // B&B mode: ones bit = no_cuts, tens bit = w/vpcs, hundreds bit = w/gmics
   const int mode_param = params.get(intParam::BB_MODE);
@@ -292,10 +283,27 @@ void runBBTests(
       }
 #endif // USE_CPLEX
     } else if (use_bb_option(params.get(BB_STRATEGY), BB_Strategy_Options::cbc)) {
+#ifdef USE_CBC
       if (runSolver == NULL) {
         runSolver = const_cast<OsiSolverInterface*>(solver);
       }
       if (branch_with_no_cuts) {
+        // NB: If user cuts is not explicitly set, this is WITHOUT user cuts
+        doBranchAndBoundWithCbc(params, params.get(BB_STRATEGY),
+            runSolver, info_nocuts->vec_bb_info[run_ind],
+            best_bound);
+      }
+      if (branch_with_vpcs) {
+        doBranchAndBoundWithUserCutsCbc(params, params.get(BB_STRATEGY),
+            runSolver, vpcs, info_mycuts->vec_bb_info[run_ind],
+            best_bound);
+      }
+      if (branch_with_gmics) {
+        doBranchAndBoundWithUserCutsCbc(params, params.get(BB_STRATEGY),
+            runSolver, &GMICsAndVPCs,
+            info_allcuts->vec_bb_info[run_ind], best_bound);
+      }
+      /*if (branch_with_no_cuts) {
         doBranchAndBoundNoCuts(params, (should_permute_rows_and_cols ? runSolver : solver), info_nocuts->vec_bb_info[run_ind]);
       }
       if (branch_with_vpcs) {
@@ -305,7 +313,8 @@ void runBBTests(
       if (branch_with_gmics) {
         doBranchAndBoundYesCuts(params, (should_permute_rows_and_cols ? runSolver : solver), info_allcuts->vec_bb_info[run_ind],
             GMICsAndVPCs, false, numCutsToAddPerRound, 1, "\nBB with VPC+Gomorys.\n");
-      }
+      }*/
+#endif // USE_CBC
     }
 
     if (branch_with_no_cuts) updateBestBBInfo(info_nocuts->best_bb_info, info_nocuts->vec_bb_info[run_ind], (run_ind == 0));
@@ -397,8 +406,10 @@ void createStringFromBBInfoVec(const std::vector<BBInfo>& vec_info,
  * Creates temporary file (in /tmp) so that it can be read by a different solver
  * It does not delete the file
  */
-void createTmpFileCopy(const VPCParametersNamespace::VPCParameters& params,
-    const OsiSolverInterface* const solver, std::string& f_name) {
+void createTmpFileCopy(
+    const VPCParametersNamespace::VPCParameters& params,
+    const OsiSolverInterface* const solver,
+    std::string& f_name) {
   if (f_name.empty()) {
     try {
       createTmpFilename(f_name, "");
@@ -413,225 +424,3 @@ void createTmpFileCopy(const VPCParametersNamespace::VPCParameters& params,
   f_name += ".mps.gz"; // writeMps calls writeMpsNative, which invokes the CoinMpsIO writer with gzip option = 1
 } /* createTmpFileCopy (Osi) */
 
-#ifdef USE_CBC
-void setStrategyForBBTestCbc(const VPCParametersNamespace::VPCParameters& params,
-    CbcModel* const cbc_model,
-    int seed = -1) {
-  if (seed < 0) seed = params.get(intParam::RANDOM_SEED);
-  // Parameters that should always be set
-  cbc_model->setMaximumSeconds(params.get(doubleParam::BB_TIMELIMIT)); // time limit
-  cbc_model->setRandomSeed(seed); // random seed
-
-  int strategy = params.get(intParam::BB_STRATEGY);
-  if (strategy <= 0) {
-    // Default strategy
-    CbcStrategyDefault strategy;
-    cbc_model->setStrategy(strategy);
-    /*
-    CbcStrategyDefault strategy(-1);
-    strategy.setupPreProcessing(-1,0);
-    cbc_model->setStrategy(strategy);
-    cbc_model->setMaximumCutPassesAtRoot(0);
-    cbc_model->setMaximumCutPasses(0);
-    cbc_model->setWhenCuts(0);
-    */
-  } else {
-    if (use_bb_option(strategy, BB_Strategy_Options::user_cuts)) {
-      // Make sure dual reductions are off
-    }
-
-    // Turn off all cuts
-    if (use_bb_option(strategy, BB_Strategy_Options::all_cuts_off)) {
-      cbc_model->setMaximumCutPassesAtRoot(0);
-      cbc_model->setMaximumCutPasses(0);
-      cbc_model->setWhenCuts(0);
-    }
-
-    // Presolve
-    if (use_bb_option(strategy, BB_Strategy_Options::presolve_off)) {
-      cbc_model->setTypePresolve(0);
-    }
-  }
-
-  // Check if we should use strong branching
-  // Not sure this works when using StrategyDefault as well...
-  if (use_bb_option(std::abs(strategy), BB_Strategy_Options::strong_branching_on)) {
-    CbcBranchDefaultDecision branch;
-    OsiChooseStrong choose;
-    choose.setNumberStrong(cbc_model->solver()->getNumCols());
-    choose.setNumberBeforeTrusted(std::numeric_limits<int>::max());
-    branch.setChooseMethod(choose);
-    cbc_model->setBranchingMethod(branch);
-  }
-} /* setStrategyForBBTestCbc */
-
-/************************************************************/
-/**
- * Perform branch-and-bound without cuts
- */
-void doBranchAndBoundNoCuts(const VPCParametersNamespace::VPCParameters& params,
-    const OsiSolverInterface* const solver, BBInfo& info) {
-#ifdef TRACE
-  printf("\nBB with no cuts.\n");
-#endif
-  const bool test_using_main = false;
-
-  // Set up solver
-  SolverInterface* BBSolver;
-  BBSolver = dynamic_cast<SolverInterface*>(solver->clone());
-  setLPSolverParameters(BBSolver, params.get(intParam::VERBOSITY), params.get(doubleParam::TIMELIMIT));
-
-  // Set up model
-  CbcModel* cbc_model = new CbcModel;
-  cbc_model->swapSolver(BBSolver);
-  cbc_model->setModelOwnsSolver(true);
-  setIPSolverParameters(cbc_model, params.get(VERBOSITY));
-
-  // Set up options and run B&B
-  if (!test_using_main) {
-    setStrategyForBBTestCbc(params, cbc_model);
-#ifdef TRACE
-    cbc_model->branchAndBound(3);
-#else
-    cbc_model->branchAndBound(0);
-#endif
-  } else {
-#ifndef CBC_VERSION_210PLUS
-    CbcMain0(*cbc_model);
-    std::string name, logLevel, presolveOnOff, preprocessOnOff, cutsOnOff, heurOnOff, solveOption;
-    name = "BBHelper_doBranchAndBoundNoCuts";
-    presolveOnOff = "-presolve=off";
-    preprocessOnOff = "-preprocess=off";
-    cutsOnOff = "-cuts=off";
-    heurOnOff = "-heur=off";
-    solveOption = "-solve";
-#ifdef TRACE
-    logLevel = "-loglevel=3";
-#else
-    logLevel = "-loglevel=0";
-#endif
-
-    int argc = 0;
-    const char** cbc_options = new const char*[20];
-    cbc_options[argc++] = name.c_str();
-    cbc_options[argc++] = logLevel.c_str();
-    cbc_options[argc++] = presolveOnOff.c_str();
-    cbc_options[argc++] = preprocessOnOff.c_str();
-    cbc_options[argc++] = cutsOnOff.c_str();
-    cbc_options[argc++] = heurOnOff.c_str();
-    cbc_options[argc++] = solveOption.c_str();
-
-    CbcMain1(argc, cbc_options, *cbc_model);
-    delete[] cbc_options;
-#endif
-  }
-
-  // Collect statistics
-  info.time = CoinCpuTime()
-      - cbc_model->getDblParam(CbcModel::CbcStartSeconds);
-  info.obj = cbc_model->getObjValue();
-  info.iters = cbc_model->getIterationCount();
-  info.nodes = cbc_model->getNodeCount();
-  //info.bound = cbc_model->getCutoff();
-  //info.bound = cbc_model->getDblParam(CbcModel::CbcDblParam::CbcCurrentCutoff);
-
-  // Free
-  if (cbc_model) {
-    delete cbc_model;
-    cbc_model = NULL;
-  }
-} /* doBranchAndBoundNoCuts */
-
-/************************************************************/
-/**
- * Perform branch-and-bound using the given cuts, perhaps doing cut selection
- */
-void doBranchAndBoundYesCuts(const VPCParametersNamespace::VPCParameters& params,
-    const OsiSolverInterface* const solver, BBInfo& info, const OsiCuts& structCuts,
-    const bool doCutSelection, const int numCutsToAddPerRound,
-    const int maxRounds, const std::string logstring) {
-//#ifdef TRACE
-  printf("%s", logstring.c_str());
-//#endif
-  const bool test_using_main = false;
-
-  // Check that there are cuts
-  const int numCuts = structCuts.sizeCuts();
-  if (numCuts == 0) {
-    info.nodes = 0;
-    info.time = 0.;
-    return;
-  }
-
-  // Set up solver
-  SolverInterface* BBSolver;
-  BBSolver = dynamic_cast<SolverInterface*>(solver->clone());
-  setLPSolverParameters(BBSolver, params.get(intParam::VERBOSITY), params.get(doubleParam::TIMELIMIT));
-
-  // Apply cuts
-//  if (doCutSelection) {
-//    applyCutsInRounds(BBSolver, structCuts, numCutsToAddPerRound, maxRounds);
-//  } else {
-    applyCutsCustom(BBSolver, structCuts, params.logfile);
-//  }
-
-  // Set up model
-  CbcModel* cbc_model = new CbcModel;
-  cbc_model->swapSolver(BBSolver);
-  cbc_model->setModelOwnsSolver(true);
-  setIPSolverParameters(cbc_model, params.get(VERBOSITY));
-
-  // Set up options and run B&B
-  if (!test_using_main) {
-    setStrategyForBBTestCbc(params, cbc_model);
-#ifdef TRACE
-    cbc_model->branchAndBound(3);
-#else
-    cbc_model->branchAndBound(0);
-#endif
-  } else {
-#ifndef CBC_VERSION_210PLUS
-    CbcMain0(*cbc_model);
-    std::string name, logLevel, presolveOnOff, preprocessOnOff, cutsOnOff, heurOnOff, solveOption;
-    name = "BBHelper_doBranchAndBoundYesCuts";
-    presolveOnOff = "-presolve=off";
-    preprocessOnOff = "-preprocess=off";
-    cutsOnOff = "-cuts=off";
-    heurOnOff = "-heur=off";
-    solveOption = "-solve";
-#ifdef TRACE
-    logLevel = "-loglevel=3";
-#else
-    logLevel = "-loglevel=0";
-#endif
-
-    int argc = 0;
-    const char** cbc_options = new const char*[20];
-    cbc_options[argc++] = name.c_str();
-    cbc_options[argc++] = logLevel.c_str();
-    cbc_options[argc++] = presolveOnOff.c_str();
-    cbc_options[argc++] = preprocessOnOff.c_str();
-    cbc_options[argc++] = cutsOnOff.c_str();
-    cbc_options[argc++] = heurOnOff.c_str();
-    cbc_options[argc++] = solveOption.c_str();
-
-    CbcMain1(argc, cbc_options, *cbc_model);
-    delete[] cbc_options;
-#endif
-  }
-
-  // Collect statistics
-  info.time = CoinCpuTime()
-      - cbc_model->getDblParam(CbcModel::CbcStartSeconds);
-  info.obj = cbc_model->getObjValue();
-  info.iters = cbc_model->getIterationCount();
-  info.nodes = cbc_model->getNodeCount();
-  //info.bound = cbc_model->getCutoff();
-
-  // Free
-  if (cbc_model) {
-    delete cbc_model;
-    cbc_model = NULL;
-  }
-} /* doBranchAndBoundYesCuts */
-#endif // USE_CBC

@@ -10,6 +10,9 @@
 // Project files
 #include "analysis.hpp"
 #include "BBHelper.hpp"
+#ifdef USE_CBC
+#include "CbcHelper.hpp"
+#endif
 #ifdef USE_GUROBI
 #include "GurobiHelper.hpp"
 #endif

@@ -5,8 +5,6 @@
  */
 #include "GurobiHelper.hpp"
 
-//#include <cstdio> // for tmpnam
-
 // Project files
 #include "BBHelper.hpp"
 #include "CutHelper.hpp" // applyCuts
