@@ -129,23 +129,42 @@ class CbcUserCutEventHandler : public CbcEventHandler {
     ///     endSearch
     ///   };
     virtual CbcAction event(CbcEvent whichEvent) {
-      const int num_nodes = model_->getNodeCount2();
+      const int num_nodes = model_->getNodeCount();
+      const double objValue = model_->getBestPossibleObjValue(); //model_->solver()->getObjValue();
+      this->info.bound = objValue;
+      if (num_nodes == 0) {
+        if (this->info.root_passes == 1) {
+          this->info.first_cut_pass = objValue;
+        }
+      }
+
+      { /// DEBUG DEBUG
+        if (model_->currentNumberCuts() > 0 || model_->globalCuts()->sizeRowCuts() > 0) {
+          exit(1);
+        }
+      } /// DEBUG DEBUG
+
       if (whichEvent == CbcEventHandler::treeStatus) {
-        this->info.bound = model_->solver()->getObjValue();
       }
       else if (whichEvent == CbcEventHandler::node) {
-        if (num_nodes == 1) {
+        if (num_nodes <= 1) {
           this->info.root_iters = model_->getIterationCount();
+          if (this->info.root_passes == 0) {
+            // In case no cuts are ever generated
+            this->info.first_cut_pass = objValue;
+            this->info.last_cut_pass = objValue;
+          }
         }
-        this->info.bound = model_->solver()->getObjValue();
       }
       else if (whichEvent == CbcEventHandler::beforeSolution2) {
         this->info.last_sol_time = model_->getCurrentSeconds();
       }
 #ifdef CBC_VERSION_210PLUS
       else if (whichEvent == CbcEventHandler::generatedCuts) {
-        if (num_nodes == 1) {
+        if (num_nodes == 0) {
+          // When root_passes = 0, we have not applied any cuts yet
           this->info.root_passes++;
+          this->info.last_cut_pass = objValue;
         }
       }
 #endif // CBC_VERSION_210PLUS
@@ -245,7 +264,7 @@ void doBranchAndBoundWithCbc(
       strategy, params.get(intParam::RANDOM_SEED));
   setStrategyForBBTestCbc(params, strategy, &model, best_bound);
 
-  model.branchAndBound(params.get(intParam::VERBOSITY));
+  model.branchAndBound(params.get(intParam::VERBOSITY) > 0 ? 3 : 0);
 
   // Status of problem - 0 finished, 1 stopped, 2 difficulties
   const int optimstatus = model.status();
@@ -260,9 +279,10 @@ void doBranchAndBoundWithCbc(
   info.time = CoinCpuTime()
     - model.getDblParam(CbcModel::CbcStartSeconds);
   info.obj = model.getObjValue();
-  //info.bound = model.getCutoff();
+  info.bound = model.getBestPossibleObjValue();
   info.iters = model.getIterationCount();
   info.nodes = model.getNodeCount();
+  //info.last_cut_pass = model.rootObjectiveAfterCuts();
 
 #ifdef TRACE
     printf("Cbc: Solution value: %s.\n", stringValue(info.obj, "%1.6f", params.get(doubleParam::INF)).c_str());
@@ -331,6 +351,7 @@ void doBranchAndBoundWithUserCutsCbc(
   if (info.root_passes > 0) {
     info.first_cut_pass = cb->info.first_cut_pass; // second because first is lp opt val
     info.last_cut_pass = cb->info.last_cut_pass;
+    //info.last_cut_pass = model.rootObjectiveAfterCuts();
     info.root_iters = cb->info.root_iters;
     info.root_time = cb->info.root_time;
     info.last_sol_time = cb->info.last_sol_time;
