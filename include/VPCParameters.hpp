@@ -766,70 +766,57 @@ inline void printParams(
     const VPCParameters& params, 
     /// where to print
     FILE* logfile = stdout, 
-    /// \li 0 = all param name/values except string params (newline-separated)
-    /// \li 1 = only param names (comma-separated)
-    /// \li 2 = only param values (comma-separated)
-    /// \li 3 = string param name/values (newline-sep)
-    /// \li 4 = only string names (comma-sep)
-    /// \li 5 = only string values (comma-sep)
-    /// \li 10 = all const name/values (newline-separated)
-    /// \li 11 = only const names (comma-separated)
-    /// \li 12 = only const values (comma-separated)
-    const int amountToPrint = 0) {
+    /// \li 0 = numeric param name/values except string params (newline-separated)
+    /// \li 1 = only numeric param names (comma-separated)
+    /// \li 2 = only numeric param values (comma-separated)
+    /// \li 3 = string param name/values (newline-separated)
+    /// \li 4 = only string names (comma-separated)
+    /// \li 5 = only string values (comma-separated)
+    /// \li 6 = numeric+string param name/values (newline-separated)
+    /// \li 7 = only numeric+string names (comma-separated)
+    /// \li 8 = only numeric+string values (comma-separated)
+    /// \li 9 = all const name/values (newline-separated)
+    /// \li 10 = only const names (comma-separated)
+    /// \li 11 = only const values (comma-separated)
+    const int whatToPrint = 0) {
   if (!logfile)
     return;
 
 //  !(std::find(allowed_vals.begin(), allowed_vals.end(), test_val) == allowed_vals.end())
-  const bool printIntParams = amountToPrint == 0 || amountToPrint == 1 || amountToPrint == 2;
-  const bool printDoubleParams = amountToPrint == 0 || amountToPrint == 1 || amountToPrint == 2;
-  const bool printStringParams = amountToPrint == 3 || amountToPrint == 4 || amountToPrint == 5;
-  const bool printIntConsts = amountToPrint == 10 || amountToPrint == 11 || amountToPrint == 12;
-  const bool printDoubleConsts = amountToPrint == 10 || amountToPrint == 11 || amountToPrint == 12;
+  const bool printIntParams = whatToPrint == 0 || whatToPrint == 1 || whatToPrint == 2 || whatToPrint == 6 || whatToPrint == 7 || whatToPrint == 8;
+  const bool printDoubleParams = whatToPrint == 0 || whatToPrint == 1 || whatToPrint == 2 || whatToPrint == 6 || whatToPrint == 7 || whatToPrint == 8;
+  const bool printStringParams = whatToPrint == 3 || whatToPrint == 4 || whatToPrint == 5 || whatToPrint == 6 || whatToPrint == 7 || whatToPrint == 8;
+  const bool printIntConsts = whatToPrint == 9 || whatToPrint == 10 || whatToPrint == 11;
+  const bool printDoubleConsts = whatToPrint == 9 || whatToPrint == 10 || whatToPrint == 11;
+  //const bool printNames = whatToPrint == 0 || whatToPrint == 1 || whatToPrint == 3 || whatToPrint == 4 || whatToPrint == 6 || whatToPrint == 7 || whatToPrint == 9 || whatToPrint == 10;
+  //const bool printValues = whatToPrint == 0 || whatToPrint == 2 || whatToPrint == 3 || whatToPrint == 5 || whatToPrint == 6 || whatToPrint == 8 || whatToPrint == 9 || whatToPrint == 11;
+  const char SEP = (whatToPrint == 0 || whatToPrint == 3 || whatToPrint == 6 || whatToPrint == 10) ? '\n' : ',';
+  const int amountToPrint = whatToPrint % 3;
 
   if (printIntParams)
   for (auto param : params.intParamValues) {
-    if (amountToPrint == 0) {
-      fprintf(logfile, "%s\n", param.second.to_string(amountToPrint).c_str());
+    if (param.second.id() == intParam::DISJ_TERMS) {
+      // Special handling for disjunctive terms to sort well in the logfile
+      fprintf(logfile, "%s%c", param.second.to_string(amountToPrint, "%05d").c_str(), SEP);
     } else {
-      if (param.second.id() == intParam::DISJ_TERMS) {
-        // Special handling for disjunctive terms to sort well in the logfile
-        fprintf(logfile, "%s,", param.second.to_string(amountToPrint, "%05d").c_str());
-      } else {
-        fprintf(logfile, "%s,", param.second.to_string(amountToPrint).c_str());
-      }
+      fprintf(logfile, "%s%c", param.second.to_string(amountToPrint).c_str(), SEP);
     }
   }
   if (printDoubleParams)
   for (auto param : params.doubleParamValues) {
-    if (amountToPrint == 0) {
-      fprintf(logfile, "%s\n", param.second.to_string(amountToPrint).c_str());
-    } else {
-      fprintf(logfile, "%s,", param.second.to_string(amountToPrint).c_str());
-    }
+    fprintf(logfile, "%s%c", param.second.to_string(amountToPrint).c_str(), SEP);
   }
   if (printStringParams)
   for (auto param : params.stringParamValues) {
-    if (amountToPrint == 0) {
-      fprintf(logfile, "%s\n", param.second.to_string(amountToPrint).c_str());
-    } else {
-      fprintf(logfile, "%s,", param.second.to_string(amountToPrint).c_str());
-    }
+    fprintf(logfile, "%s%c", param.second.to_string(amountToPrint).c_str(), SEP);
   }
   if (printIntConsts)
   for (auto param : params.intConstValues) {
-    if (amountToPrint == 0) {
-      fprintf(logfile, "%s\n", param.second.to_string(amountToPrint).c_str());
-    } else {
-      fprintf(logfile, "%s,", param.second.to_string(amountToPrint).c_str());
-    }
+    fprintf(logfile, "%s%c", param.second.to_string(amountToPrint).c_str(), SEP);
   }
   if (printDoubleConsts)
   for (auto param : params.doubleConstValues) {
-    if (amountToPrint == 0) {
-      fprintf(logfile, "%s\n", param.second.to_string(amountToPrint).c_str());
-    } else {
-      fprintf(logfile, "%s,", param.second.to_string(amountToPrint).c_str());
-    }
+    fprintf(logfile, "%s%c", param.second.to_string(amountToPrint).c_str(), SEP);
   }
   fflush(logfile);
 } /* printParams */

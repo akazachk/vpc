@@ -439,7 +439,7 @@ int startUp(int argc, char** argv) {
     }
     fprintf(params.logfile, "%s,", instname.c_str());
     if (params.get(PREPROCESS) == 0) {
-      printParams(params, params.logfile, 2); // only values
+      printParams(params, params.logfile, 8); // only values
     }
     fflush(params.logfile);
   }
@@ -517,9 +517,9 @@ int wrapUp(int retCode, int argc, char** argv) {
 #ifdef TRACE
   // Print parameters
   printf("\n## Parameter values ##\n");
-  printParams(params, stdout, 1);
+  printParams(params, stdout, 7);
   printf("\n");
-  printParams(params, stdout, 2);
+  printParams(params, stdout, 8);
   printf("\n");
 
   int NAME_WIDTH = 25;
@@ -1294,6 +1294,7 @@ int processArgs(int argc, char** argv) {
                 helpstring += "\n# General VPC options #\n";
                 helpstring += "-c num cuts, --cutlimit=num cuts\n\tMaximum number of cuts to generate (0+ = as given, -k = k * # fractional variables at root).\n";
                 helpstring += "-d num terms, --disj_terms=num terms\n\tMaximum number of disjunctive terms or disjunctions to generate (depending on mode).\n";
+                helpstring += "--disj_options={num_terms1, num_terms2,...}\n\tNumber of terms to use in each round.\n";
                 helpstring += "-g -1/0/1, --gomory=-1/0/1\n\t0: do not use Gomory cuts before generating VPCs, +/-1: generate Gomory cuts before generating VPCs (-1: only gen, +1: also apply to LP).\n";
                 helpstring += "-m mode, --mode=mode\n\tMode for generating disjunction(s). 0: partial b&b tree, 1: splits, 2: crosses (not implemented), 3: custom.\n";
                 helpstring += "-r num rounds, --rounds=num rounds\n\tNumber of rounds of cuts to apply.\n";

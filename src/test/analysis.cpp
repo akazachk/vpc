@@ -32,7 +32,7 @@ const int countDisjInfoEntries = 12;
 const int countCutInfoEntries = 10;
 const int countObjInfoEntries = 1 + 4 * static_cast<int>(CglVPC::ObjectiveType::NUM_OBJECTIVE_TYPES);
 const int countFailInfoEntries = 1 + static_cast<int>(CglVPC::FailureType::NUM_FAILURE_TYPES);
-const int countParamInfoEntries = intParam::NUM_INT_PARAMS + doubleParam::NUM_DOUBLE_PARAMS;
+const int countParamInfoEntries = intParam::NUM_INT_PARAMS + doubleParam::NUM_DOUBLE_PARAMS + stringParam::NUM_STRING_PARAMS;
 int countTimeInfoEntries = 0; // set in printHeader
 const int countVersionInfoEntries = 5;
 const int countExtraInfoEntries = 4;
@@ -96,7 +96,8 @@ void printHeader(const VPCParameters& params,
 
   fprintf(logfile, "%s%c", "INSTANCE", SEP);
   { // PARAM INFO
-    printParams(params, logfile, 1); // only int/double param names
+    //printParams(params, logfile, 1); // names for int/double params
+    printParams(params, logfile, 7); // names for int/double/string params
   } // PARAM INFO
   { // BOUND INFO
     int count = 0;
