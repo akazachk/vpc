@@ -1,0 +1,573 @@
+"""This file is part of matrix2latex.
+
+matrix2latex is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+matrix2latex is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with matrix2latex. If not, see <http://www.gnu.org/licenses/>.
+"""
+#from __future__ import print_function
+import sys
+import os.path
+import math
+import re
+def isnan(e):
+    try:
+        return math.isnan(e)
+    except (TypeError, AttributeError):
+        return e == float("nan")
+
+from fixEngineeringNotation import fix
+from error import *                     # error handling
+from IOString import IOString
+from niceFloat import nice
+# Definitions
+# Matrix environments where alignment can be utilized. CHECK: Note alignment[0] used!
+matrix_alignment = ["pmatrix*","bmatrix*","Bmatrix*","vmatrix*","Vmatrix*"] # Needs mathtools package
+# Table environments where alignment can be utilized
+table_alignment = ["tabular", "longtable"]
+    
+# Aleksandr Kazachkov adapted this from "xtable" from R
+#def sanitize(str_in):
+#  result = str_in
+#  result = re.sub("\\\\", "SANITIZE.BACKSLASH", result)
+#  result = re.sub("$", "\\$", result, fixed = TRUE)
+#  result = re.sub(">", "$>$", result, fixed = TRUE)
+#  result = re.sub("<", "$<$", result, fixed = TRUE)
+#  result = re.sub("|", "$|$", result, fixed = TRUE)
+#  result = re.sub("{", "\\{", result, fixed = TRUE)
+#  result = re.sub("}", "\\}", result, fixed = TRUE)
+#  result = re.sub("%", "\\%", result, fixed = TRUE)
+#  result = re.sub("&", "\\&", result, fixed = TRUE)
+#  result = re.sub("_", "\\_", result, fixed = TRUE)
+#  result = re.sub("#", "\\#", result, fixed = TRUE)
+#  result = re.sub("^", "\\verb|^|", result, fixed = TRUE)
+#  result = re.sub("~", "\\~{}", result, fixed = TRUE)
+#  result = re.sub("SANITIZE.BACKSLASH", "$\\backslash$", result, fixed = TRUE)
+#  return(result)
+#}
+
+# Aleksandr Kazachkov adapted this from "tabulate" module
+#from collections import namedtuple
+#from __future__ import unicode_literals
+#Line = namedtuple("Line", ["begin", "hline", "sep", "end"])
+#DataRow = namedtuple("DataRow", ["begin", "sep", "end"])
+LATEX_ESCAPE_RULES = {r"&": r"\&", r"%": r"\%", r"#": r"\#", #r"$": r"\$",
+                      r"_": r"\_", r"^": r"\^{}", #r"{": r"\{", r"}": r"\}",
+                      r"~": r"\textasciitilde{}", #"\\": r"\textbackslash{}",
+                      r"<": r"\ensuremath{<}", r">": r"\ensuremath{>}"}
+
+def escape_char(c):
+  return LATEX_ESCAPE_RULES.get(c, c)
+
+def matrix2latex(matr, filename=None, *environments, **keywords):
+    r'''
+A detailed pdf version of this documentation is available as doc<date>.pdf
+Takes a python matrix or nested list and converts to a LaTeX table or matrix.
+Author: ob@cakebox.net, inspired by the work of koehler@in.tum.de who has written
+a similar package for matlab
+\url{http://www.mathworks.com/matlabcentral/fileexchange/4894-matrix2latex}
+
+The following packages and definitions are recommended in the latex preamble 
+\providecommand{\e}[1]{\ensuremath{\times 10^{#1}}} % scientific notation, 1\e{9} will print as 1x10^9
+\usepackage{amsmath} % needed for pmatrix
+\usepackage{booktabs} % Fancy tables
+...
+\begin{document}
+...
+
+Arguments:
+  
+matrix
+  A numpy matrix or a nested list
+
+Filename
+  File to place output, extension .tex is added automatically. File can be included in a LaTeX
+  document by \input{filename}. Output will always be returned in a string. If filename is None
+  or not a string it is ignored.
+  
+*environments
+A list specifing the begin and end block.
+  Use 
+matrix2latex(m, None, "align*", "pmatrix", ...) for matrix.
+  This will give
+  \begin{align*}
+    \begin{pmatrix}
+      1 & 2 \\
+      3 & 4
+    \end{pmatrix}
+  \end{align*}
+  Use 
+matrix2latex(m, "test", "table", "center", "tabular" ...) for table.
+  Table is default so given no arguments: table, center and tabular will be used.
+  The above command is then equivalent to \\
+matrix2latex(m, "test", ...)
+
+**keywords
+headerRow
+    A row at the top used to label the columns.
+    Must be a list of strings. Can be a nested list for multiple headings.
+    If two or more items are repeated, a multicolumn is inserted, so:
+    headerRow=['a', 'a']
+    will produces "\multicolumn{2}{c}{Item}" with an appropriate cmidrule beneath.
+    To avoid this behavior ensure each consecutive item is unique, for instance:
+    headerRow=['a', 'a ']
+    will produces the expected "a & a".
+
+headerColumn
+    A column used to label the rows.
+    Must be a list of strings
+
+transpose
+    Flips the table around in case you messed up. Equivalent to
+    matrix2latex(m.H, ...)
+    if m is a numpy matrix.
+
+caption
+    Use to define a caption for your table.
+    Inserts \caption after \begin{center},
+    note that without the center environment the caption is currently ignored.
+    
+label
+    Used to insert \verb!\label{tab:...}! after \verb!\end{tabular}!
+    Default is filename without extension.
+
+format
+    Printf syntax format, e.g. $%.2f$. Default is $%g$.
+    This format is then used for all the elements in the table.
+
+formatColumn
+    A list of printf-syntax formats, e.g. [$%.2f$, $%g$]
+    Must be of same length as the number of columns.
+    Format i is then used for column i.
+    This is useful if some of your data should be printed with more significant figures
+    than other parts
+
+alignment
+    Used as an option when tabular is given as enviroment.
+    \verb!\begin{tabular}{alignment}!
+    A latex alignment like c, l or r.
+    Can be given either as one per column e.g. "ccc".
+    Or if only a single character is given e.g. "c",
+    it will produce the correct amount depending on the number of columns.
+    Default is "r".
+
+position
+    Used for the table environment to specify the optional parameter "position specifier"
+    Default is '[' + 'htp' + ']'
+    If you want to place your table manually, do not use the table environment.
+
+summaryrows
+    Are there any average or such rows at the bottom?
+
+midruleIndex
+    Where to insert midrules (if some central place, for example)
+
+Note that many of these options only has an effect when typesetting a table,
+if the correct environment is not given the arguments are simply ignored.
+    '''
+    headerRow = None
+    headerColumn = None
+    #if (separator is None):
+    #    separator = '  '  # Added by Alex, but default was '\t'
+    #if (postcaption is None):
+    #    postcaption = r"\vspace{\tablecaptionvspace}"
+    #if (summaryrows is None):
+    #    summaryrows = 0
+    #
+    # Convert to list
+    #
+    # If pandas
+    try:
+        headerColumn = list(matr.index)
+    except (AttributeError, TypeError):
+        pass
+    try:
+        headerRow = [list(matr.columns)]
+    except (AttributeError, TypeError):
+        pass
+    try:
+        matr = matr.to_records(index=False)
+    except AttributeError:
+        pass
+    # If numpy (vops: must be placed below pandas check)
+    try:
+        matr = matr.tolist()
+    except AttributeError:
+        pass # lets hope it looks like a list
+
+    #
+    # Define matrix-size
+    # 
+    m = len(matr)
+    try:
+        n = len(matr[0]) # may raise TypeError
+        for row in matr:
+            n = max(n, len(row)) # keep max length
+    except TypeError: # no length in this dimension (vector...)
+        # convert [1, 2] to [[1], [2]]
+        newMatr = list()
+        [newMatr.append([matr[ix]]) for ix in range(m)]
+        matr = newMatr
+        m = len(matr)
+        n = len(matr[0])
+    except IndexError:
+        m = 0
+        n = 0
+    #assert m > 0 and n > 0, "Expected positive matrix dimensions, got %g by %g matrix" % (m, n)
+#   Bug with transpose:
+#     # If header and/or column labels are longer use those lengths
+#     try:
+#         m = max(m, len(keywords['headerColumn'])) # keep max length
+#     except KeyError:
+#         pass
+#     try:
+#         n = max(n, len(keywords['headerRow'])) # keep max length
+#     except KeyError:
+#         pass
+    
+    #
+    # Default values
+    #
+
+    # Keywords
+    formatNumber = "$%g$"
+    formatColumn = None
+    if n != 0:
+        alignment = "c"*n               # cccc
+    else:
+        alignment = "c"
+
+    caption = None
+    label = None
+    position = "htp"            # position specifier for floating table environment
+    separator = "  "  # Added by Alex, default was '\t'
+    #postcaption = r"\vspace{\tablecaptionvspace}"  # Added by Alex
+    postcaption = None
+    summaryrows = 0  # Added by Alex
+    midruleIndex = []  # Added by Alex
+
+    # 
+    # Conflicts
+    #
+    if "format" in keywords and "formatColumn" in keywords:
+        print('Using both format and formatColumn is not supported, using formatColumn')
+        del keywords["format"]
+        
+    #
+    # User-defined values
+    # 
+    for key in keywords:
+        value = keywords[key]
+        if key == "format":
+            assertKeyFormat(value)
+            formatNumber = value
+            formatColumn = None         # never let both formatColumn and formatNumber to be defined
+        elif key == "formatColumn":
+            if (type(value) is str):
+                assertKeyFormat(value)
+                formatNumber = value
+                formatColumn = None
+            else:
+                formatColumn = value
+                formatNumber = None
+        elif key == "alignment":
+            if len(value) == 1:
+                alignment = value*n # rrrr
+            else:
+                alignment = value
+            assertKeyAlignment(alignment, n)
+        elif key == "headerRow":
+            if value == None:
+                headerRow = None
+            else:
+                if not(type(value[0]) == list):
+                    value = [value]         # just one header
+                #assertListString(value, "headerRow") # todo: update
+                headerRow = list(value)
+        elif key == "headerColumn":
+            if value == None:
+                headerColumn = None
+            else:
+                assertListString(value, "headerColumn")
+                headerColumn = list(value)
+        elif key == "caption":
+            assertStr(value, "caption")
+            caption = value
+        elif key == "label":
+            assertStr(value, "label")
+            if value.startswith('tab:'):
+                label = value[len('tab:'):] # this will be added later in the code, avoids 'tab:tab:' as label
+            else:
+                label = value
+        elif key == "filename":
+            assertStr(value, "filename")
+            filename = value
+        elif key == "position":
+            assertStr(value, "position")
+            position = value
+        elif key == "transpose":
+            newMatr = list(zip(*matr))
+#             for j in range(0, n):
+#                 row = list()
+#                 for i in range(0, m):
+#                     row.append(matr[i][j])
+#                 newMatr.append(row)
+            copyKeywords = dict(keywords) # can't del original since we are inside for loop.
+            del copyKeywords['transpose']
+            # Recursion!
+            return matrix2latex(newMatr, filename, *environments, **copyKeywords)
+        elif key == "separator":
+            assertStr(value, "separator")
+            separator = value
+        elif key == "postcaption":
+            assertStr(value, "postcaption")  # Alex: unsure of what this should do (blank method)
+            postcaption = value
+        elif key == "summaryrows":
+            assertStr(value, "summaryrows")
+            try:
+                summaryrows = int(value)
+            except:
+                raise
+        elif key == "midruleIndex":
+            midruleIndex = value
+            if type(midruleIndex) != list:
+                midruleIndex = [midruleIndex]
+        else:
+            sys.stderr.write("Error: key not recognized '%s'\n" % key)
+            sys.exit(2)
+
+    if headerColumn != None:
+        alignment = "r" + alignment
+
+    # Environments
+    if len(environments) == 0:          # no environment give, assume table
+        environments = ("table", "center", "tabular")
+
+    if formatColumn == None:
+        formatColumn = list()
+        for j in range(0, n):
+            formatColumn.append(formatNumber)
+
+    if headerColumn != None and headerRow != None and len(headerRow[0]) == n:
+        for i in range(len(headerRow)):
+            headerRow[i].insert(0, "")
+
+    # 
+    # Set outputFile
+    # 
+    f = None
+    if isinstance(filename, str) and filename != '':
+        if not filename.endswith('.tex'): # assure propper file extension
+            filename += '.tex'
+        f = open(filename, 'w')
+        if label == None:
+            label = os.path.basename(filename) # get basename
+            label = label[:-len(".tex")]  # remove extension
+
+    f = IOString(f)
+    #
+    # Begin block
+    # 
+    for ixEnv in range(0, len(environments)):
+        f.write(separator*ixEnv)
+        f.write(r"\begin{%s}" % environments[ixEnv])
+        # special environments:
+        if environments[ixEnv] == "table":
+            f.write("[" + position + "]")
+        elif environments[ixEnv] == "center":
+            if caption != None:
+                f.write("\n"+separator*ixEnv)
+                f.write(r"\caption{%s}" % fix(caption))
+                if postcaption!= None:
+                    f.write(r"%s" % fix(postcaption))
+            if label != None:
+                f.write("\n"+separator*ixEnv)
+                f.write(r"\label{tab:%s}" % label)
+        elif environments[ixEnv] in table_alignment:
+            f.write("{" + alignment + "}\n")
+            f.write(separator*ixEnv)
+            f.write(r"\toprule")
+        elif environments[ixEnv] in matrix_alignment:
+            f.write("[" + alignment[0] + "]\n") #These environment you can add
+        elif environments[ixEnv] == "adjustbox":
+            f.write("{")
+            f.write('\n' + separator*(ixEnv+1) + "max totalheight = 0.95\\textheight,")
+            f.write('\n' + separator*(ixEnv+1) + "max width = \\textwidth,")
+            f.write('\n' + separator*(ixEnv+1) + "center,")
+            if (caption != None):
+                f.write("\n"+separator*(ixEnv+1))
+                f.write(r"captionabove={%s}," % fix(caption))
+            if (label != None):
+                f.write("\n"+separator*(ixEnv+1))
+                f.write(r"label={tab:%s}," % label)
+            f.write("\n"+separator*(ixEnv+1))
+            f.write("float=table")
+            f.write("\n}")
+        # newline
+        f.write("\n")
+    tabs = len(environments)            # number of separator to use
+
+    # 
+    # Table block
+    # 
+
+    # Row labels
+    if headerRow != None:
+        for row in range(len(headerRow)): # for each header
+            i = 0
+            start, end = list(), list() # of cmidrule
+            f.write(separator*tabs)    
+            while i < len(headerRow[row]): # for each element (skipping repeating ones)
+                j = 1
+                
+                # Format the output
+                e = str(headerRow[row][i])
+                e = ["".join(map(escape_char, cell)) for cell in [e]][0]
+                try:
+                    e = nice(e, int(reg.group(1)))
+                except Exception: pass
+                fcj = '%s'
+                formatted = fcj % e
+                formatted = fix(formatted, table=True) # fix 1e+2
+                #import pdb; pdb.set_trace()
+
+                # check for legal index then check if current element is equal to next (repeating)
+                repeating = (i+j < len(headerRow[row]) and 
+                            headerRow[row][i] != '' and 
+                            headerRow[row][i] == headerRow[row][i + j])
+                if repeating:
+                    while repeating:        # figure out how long it repeats (j)
+                        j += 1
+                        repeating = i+j < len(headerRow[row]) and headerRow[row][i] == headerRow[row][i + j]
+                    f.write(r'\multicolumn{%d}{c}{%s}' % (j, formatted)) # multicol heading
+                    start.append(i);end.append(j+i)
+                    i += j                 # skip ahed
+                else:
+                    f.write('{%s}' % formatted) # normal heading
+                    i += 1
+                if i < len(headerRow[row]): # if not last element
+                    f.write(' & ')
+                    
+            f.write(r'\\')
+            for s, e in zip(start, end):
+                f.write(r'\cmidrule(r){%d-%d}' % (s+1, e))
+            f.write('\n')
+        if len(start) == 0:             # do not use if cmidrule is used on last header
+            f.write(separator*tabs)
+            f.write('\\midrule\n')
+
+    # Values
+    for i in range(0, m):
+        f.write(separator*tabs)
+        #if (summaryrows > 0) and (i == m-summaryrows):
+        #    f.write("\midrule\n"+separator*tabs)
+        if (i in midruleIndex):
+            f.write("\midrule\n"+separator*tabs)
+        for j in range(0, n):
+
+            if j == 0:                  # first row
+                if headerColumn != None:
+                    try:
+                        #f.write("{%s} & " % headerColumn[i])
+                        e = str(headerColumn[i])
+                        e = ["".join(map(escape_char, cell)) for cell in [e]][0]
+                        try:
+                            e = nice(e, int(reg.group(1)))
+                        except Exception: pass
+                        fcj = '%s'
+                        formatted = fcj % e
+                        formatted = fix(formatted, table=True) # fix 1e+2
+                        f.write('{%s}' % formatted)
+                    except IndexError:
+                        f.write('&')
+
+            treatAsString = False
+            try: # get current element
+                if '%s' not in formatColumn[j]:
+                    try:
+                        e = float(matr[i][j]) # current element
+                    except ValueError: # can't convert to float, use string
+                        #formatColumn[j] = '%s'
+                        treatAsString = True
+                        e = matr[i][j]
+                        e = ["".join(map(escape_char, cell)) for cell in [e]][0]
+                    except TypeError:       # raised for None
+                        e = None
+                else:
+                    e = str(matr[i][j])
+                    e = ["".join(map(escape_char, cell)) for cell in [e]][0]
+            except IndexError:
+                e = None
+                
+            if e == None or isnan(e):#e == float('NaN'):
+                f.write("{-}")
+            elif e == float('inf'):
+                f.write(r"{$\infty$}")
+            elif e == float('-inf'):
+                f.write(r"{$-\infty$}")                
+            else:
+                fcj = '%s' if treatAsString else formatColumn[j]
+
+                reg = re.match('%.(\d)g', fcj) # Change the %.3g pattern to nicefloat instead
+                try:
+                    e = nice(e, int(reg.group(1)))
+                    fcj = '%s'
+                except Exception: pass #sys.stderr.write('%s %s %s\n' %(e, reg, err))
+                
+                formatted = fcj % e
+                formatted = fix(formatted, table=True) # fix 1e+2
+                f.write('{%s}' % formatted)
+            if j != n-1:                # not last row
+                f.write(" & ")
+            else:                       # last row
+                f.write(r"\\")
+                f.write("\n")
+
+    #
+    # End block
+    #
+    for ixEnv in range(0, len(environments)):
+        ixEnv = len(environments)-1 - ixEnv # reverse order
+        # special environments:
+        if environments[ixEnv] == "center":
+            pass
+        elif environments[ixEnv] == "tabular":
+            f.write(separator*ixEnv)
+            f.write(r"\bottomrule"+"\n")
+        f.write(separator*ixEnv)
+        f.write(r"\end{%s}" % environments[ixEnv])
+        if ixEnv != 0:
+            f.write("\n")
+
+    f.close()
+    return f.__str__()
+
+if __name__ == '__main__':
+#     m = matrix('1 2 4;3 4 6')
+#     m = matrix('1 2 4;2 2 1;2 1 2')
+    m = [[1, 2, 3], [3, 4, 5]]
+    print(matrix2latex(m))
+    print(matrix2latex(m, 'tmp.tex'))
+    print(matrix2latex(m, None, "table", "center", "tabular", format="$%.2f$", alignment='lcr'))
+    cl = ["a", "b", "c"]
+    rl = ['d', 'e', 'f', 'g']
+    print(matrix2latex(m, None, format="$%.2g$", alignment='lcr',
+                 headerColumn=cl,caption="test", label="2", headerRow=rl))
+    print(matrix2latex(m, None, "align*", "pmatrix", format="%g", alignment='c'))
+    print(matrix2latex(m, None, headerColumn=cl, caption="Hello", label="la"))
+    print(matrix2latex([['a', 'b', '1'], ['1', '2', '3']], format='%s'))
+
+    m = [[1,None,None], [2,2,1], [2,1,2]]
+    print(matrix2latex(m, transpose=True))
+
+    # TODO:
+#     m = [[1], [2,2,1], [2,1,2]]
+#     print matrix2latex(m, transpose=True)
