@@ -34,8 +34,8 @@ export RESULTS_DIR=${PROJ_DIR}/results
 export SCRIPT_DIR=${PROJ_DIR}/scripts
 export SOL_DIR=${PROJ_DIR}/data/solutions
 
-export INSTANCE_DIR=/local1/$USER/instances
-export RESULTS_DIR=/local1/$USER/results
+#export INSTANCE_DIR=/local1/$USER/instances
+#export RESULTS_DIR=/local1/$USER/results
 
 EXECUTABLE="${PROJ_DIR}/Release/vpc"
 
