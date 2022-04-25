@@ -4,9 +4,9 @@ if [ -z "$VPC_DIR" ]
 then 
   if [ -z "${REPOS_DIR}" ]
   then
-    echo "Please define VPC_DIR (the root vpc dir, possibly ${REPOS_DIR}/vpc):"
-  else
     echo "Please define VPC_DIR (the root vpc dir):"
+  else
+    echo "Please define VPC_DIR (the root vpc dir, possibly ${REPOS_DIR}/vpc):"
   fi
   read VPC_DIR
   echo "Set VPC_DIR=$VPC_DIR"
