@@ -129,6 +129,7 @@ class GurobiUserCutCallback : public GRBCallback {
     GRBVar* grb_vars;
     const OsiCuts* cuts;
     bool addAsLazy;
+    bool setFirstCutPass;
     double first_lp_opt;
     BBInfo info;
 
@@ -138,6 +139,7 @@ class GurobiUserCutCallback : public GRBCallback {
         cuts(cutsToAdd), addAsLazy(lazyFlag) {
       this->info.obj = params.get(doubleParam::INF);
       this->first_lp_opt = -1 * params.get(doubleParam::INF);
+      this->setFirstCutPass = false;
       this->info.root_passes = 0;
       this->info.first_cut_pass = -1 * params.get(doubleParam::INF);
       this->info.last_cut_pass = -1 * params.get(doubleParam::INF);
@@ -193,13 +195,37 @@ class GurobiUserCutCallback : public GRBCallback {
             this->info.first_cut_pass = objValue;
             this->info.last_cut_pass = objValue;
           }
+          else if (this->info.root_passes == 1 && !this->setFirstCutPass) {
+            // If we have exactly one round of cuts, the very next MIP cb after the MIPNODE cb
+            // should contain the value after that first round of cuts was added
+            // However, the MIP cb may be reached several times after the MIPNODE cb
+            // (for example, if heuristics are called)
+            // For simplicity, we will store the value of the last time the MIP cb is entered with root_passes == 1
+            // NB: the obj bound from this call is *rounded* to account for integrality
+            const double objValue = GRBCallback::getDoubleInfo(GRB_CB_MIP_OBJBND);
+            this->info.first_cut_pass = objValue;
+            this->info.last_cut_pass = objValue;
+            this->setFirstCutPass = true;
+
+            //const int cutCount = GRBCallback::getIntInfo(GRB_CB_MIP_CUTCNT);
+            //printf("### DEBUG: MIP: (pass %ld) Obj value = %f.\n", this->info.root_passes, objValue);
+            //printf("### DEBUG: MIP: (pass %ld) Cut count = %d.\n", this->info.root_passes, cutCount);
+          }
         }
         else if (where == GRB_CB_MIPNODE) {
+          // Note that the MIPNODE callback will be called once for each cut pass during the root node solve.
+          // The MIPNODE_NODCNT value will remain at 0 until the root node is complete.
+          // If you query relaxation values from during the root node,
+          // the first MIPNODE callback will give the relaxation with no cutting planes,
+          // and the last will give the relaxation after all root cuts have been applied.
+          // ISSUE: if there is exactly one round of cuts, how do we get the relaxation value after that round?
           const int num_nodes = GRBCallback::getDoubleInfo(GRB_CB_MIPNODE_NODCNT);
           if (num_nodes > 0) {
             return;
           }
           this->info.root_passes++;
+          //printf("### DEBUG: MIPNODE: Cut pass %ld.\n", this->info.root_passes);
+          //printf("### DEBUG: MIPNODE: Obj value = %f.\n", getObjValue());
           this->info.root_time = GRBCallback::getDoubleInfo(GRB_CB_RUNTIME);
 
           if (GRBCallback::getIntInfo(GRB_CB_MIPNODE_STATUS) != GRB_OPTIMAL) {
@@ -228,12 +254,13 @@ class GurobiUserCutCallback : public GRBCallback {
           if (this->info.root_passes > 1) {
             if (this->info.root_passes == 2) {
               this->info.first_cut_pass = objValue;
+              this->setFirstCutPass = true;
             }
             return;
           }
 
-          this->first_lp_opt = objValue;
-          this->info.first_cut_pass = objValue;
+          this->first_lp_opt = objValue; // root LP relaxation
+          this->info.first_cut_pass = objValue; // stores LP relaxation value because we only get here when root_passes == 1
 
           // Add cuts to the model, one at a time
           if (cuts) {
