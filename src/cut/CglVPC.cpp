@@ -84,7 +84,7 @@ const std::vector<std::string> CglVPC::ObjectiveTypeName {
   "CUT_VERTICES",
   "ITER_BILINEAR",
   "UNIT_VECTORS",
-  "STRONG_LB",
+  "DISJ_LB",
   "TIGHT_POINTS",
   "TIGHT_RAYS",
   "TIGHT_POINTS2",
