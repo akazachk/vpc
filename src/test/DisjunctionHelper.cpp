@@ -206,4 +206,4 @@ int generateSplitDisjunctions(std::vector<Disjunction*>& disjVec, const OsiSolve
     }
   }
   return num_splits;
-} /* generateCutsFromSplitDisjunctions */
+} /* generateSplitDisjunctions */
