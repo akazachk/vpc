@@ -69,7 +69,14 @@ mkdir -p $COIN_DIR
 if [ ${USE_COINBREW} == "1" ]
 then
   cd $COIN_DIR
-  wget -N https://raw.githubusercontent.com/coin-or/coinbrew/master/coinbrew
+  COINBREW_LINK="https://raw.githubusercontent.com/coin-or/coinbrew/master/coinbrew"
+  if which wget > /dev/null ; then
+    wget -N $COINBREW_LINK
+  elif which curl > /dev/null ; then
+    curl $COINBREW_LINK -o coinbrew
+  else
+    error "Cannot download, neither wget nor curl is available."
+  fi
   chmod u+x coinbrew
   if [ ${CBC_VERSION} == "trunk" ]
   then
