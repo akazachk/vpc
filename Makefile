@@ -60,8 +60,8 @@ ifeq ($(USER),kazaalek)
 	COIN_OR = /local_workspace/$(USER)/coin-or/Cbc-$(COIN_VERSION)
 endif
 
-# HiPerGator
 ifeq ($(USER),akazachkov)
+	# HiPerGator
   ifeq ($(UNAME),Linux)
 	  COIN_OR = ${HOME}/repos/coin-or/Cbc-$(COIN_VERSION)
     GUROBI_LINK = gurobi91
@@ -69,6 +69,12 @@ ifeq ($(USER),akazachkov)
 		CPLEX_DIR = ${CPLEX_HOME}
 		CONDA_LIB = ${HOME}/.conda/envs/vpc/lib
 	endif
+	# MacStudio
+  ifeq ($(UNAME),Darwin)
+    GUROBI_LINK = gurobi95
+    GUROBI_DIR = ${GUROBI_HOME}
+    CPLEX_DIR = ${CPLEX_HOME}
+  endif
 endif
 
 ifeq ($(USER),akazachk)
