@@ -97,7 +97,7 @@ USE_COIN   = 1
 USE_CLP    = 1
 USE_CBC    = 1
 USE_GUROBI = 1
-USE_CPLEX  = 1
+USE_CPLEX  = 0
 USE_CLP_SOLVER = 1
 USE_CPLEX_SOLVER = 0
 
@@ -212,8 +212,12 @@ MAIN_OBJ = $(addprefix $(OBJ_DIR)/,$(MAIN_SRC:.cpp=.o))
 APPLINCLS = -Iinclude -Iinclude/test -Iinclude/common
 
 APPLLIB = -lm -lz -lbz2 -lreadline
-ifeq ($(USER),akazachkov)
-	APPLLIB += -L${CONDA_LIB}
+ifeq ($(UNAME),Linux)
+	ifeq ($(USER),akazachkov)
+		ifneq (${CONDA_LIB},)
+			APPLLIB += -L${CONDA_LIB}
+	  endif
+	endif
 endif
 
 # Linker
@@ -257,7 +261,8 @@ ifeq ($(USE_COIN),1)
 	APPLLIB += -L$(CBClib)
   CXXLINKFLAGS += -Wl,-rpath $(CBClib)
 	ifeq ($(USE_CBC),1)
-		APPLLIB += -lCbcSolver -lCbc
+		#APPLLIB += -lCbcSolver
+		APPLLIB += -lCbc
 	endif
   ifeq ($(USE_CLP),1)
     APPLLIB += -lOsiClp
