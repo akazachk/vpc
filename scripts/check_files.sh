@@ -47,6 +47,7 @@ echo "Instance list is $INSTANCE_LIST"
 
 FOUND=0
 TOTAL=0
+MISSING="Missing:"
 while read line; do
   TOTAL=$((TOTAL+1))
   # Skip empty lines
@@ -57,6 +58,7 @@ while read line; do
   FILE=${INSTANCE_DIR}/$line.mps
   if [ ! -f "$FILE" ] && [ ! -f "$FILE.gz" ] && [ ! -f "$FILE.bz2" ]; then
     echo "$FILE does not exist"
+    MISSING="$MISSING\n$line"
   else
     echo -n "."
     FOUND=$((FOUND+1))
@@ -65,3 +67,5 @@ done < ${INSTANCE_LIST}
 
 echo ""
 echo "Done! Found $FOUND/$TOTAL files."
+echo ""
+echo -e $MISSING
