@@ -89,7 +89,7 @@ elif option == OPTION_BB0:
     extraparams = extraparams + ' --bb_timelimit=3600'
 elif option == OPTION_PREPROCESS:
     depthList = [0]
-    outinfo_stub = 'cleaning_log'
+    outinfo_stub = CUT_TYPE + '-preprocess'
     extraparams = extraparams + ' --preprocess=1'
     extraparams = extraparams + ' -t 7200'
     extraparams = extraparams + ' --bb_runs=1'
