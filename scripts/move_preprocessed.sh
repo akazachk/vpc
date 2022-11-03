@@ -6,7 +6,7 @@
 #   First argument is SRC_DIR location of original files (default is $VPC_DIR/data/instances/original),
 #     which also determines the destination of the presolved files (SRC_DIR/../presolved_${SOLVER_TYPE})
 #   Second argument is gurobi or cplex to specify type (SOLVER_TYPE) of preprocessed instances we are saving (default is gurobi)
-#   Third argument is SOL_DIR, where to copy solutions to (default is $VPC_DIR/data/solutions)
+#   Third argument is SOL_DIR, where to copy solutions to (default is $SRC_DIR/../../solutions, equivalent to $VPC_DIR/data/solutions by default)
 
 
 if [ -z "$1" ]; then
