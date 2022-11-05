@@ -50,9 +50,6 @@ elif [ ! -z $3 ]; then
 fi
 
 TMPNAME="${CUT_TYPE}-${RUN_TYPE_STUB}.csv"
-#if [ "$RUN_TYPE_STUB" = "preprocess" ]
-#  then TMPNAME="cleaning_log.csv"
-#fi
 OUTNAME="${RESULTS_DIR}/${TMPNAME}"
 ERR_OUTNAME="${RESULTS_DIR}/errors_${TMPNAME}"
 
