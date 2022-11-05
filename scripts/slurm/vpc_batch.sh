@@ -1,24 +1,28 @@
 #!/bin/bash
-#SBATCH --time=03:00:00             # time limit hrs:min:sec
-#SBATCH --mem-per-cpu=100M          # job memory
+#SBATCH --job-name=vpc-preprocess
+#SBATCH --output=slurm_%x_%A_%a.log # standard output and error log
 
-#SBATCH --output=output/slurm_vpc_%A-%a.log      # standard output and error log
 #SBATCH --ntasks=1                  # run a single task
 #SBATCH --cpus-per-task=1
-#SBATCH --mail-type=BEGIN,FAIL,END  # mail events (NONE, BEGIN, END, FAIL, ALL)
+
+#SBATCH --mail-type=BEGIN           # mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
-
-#SBATCH --account=def-alodi
-#SBATCH --mail-user=aleksandr.kazachkov@polymtl.ca
-
-#SBATCH --account=akazachkov
 #SBATCH --mail-user=akazachkov@ufl.edu
 
-#SBATCH --time=24:00:00             # time limit hrs:min:sec
+#SBATCH --account=akazachkov
+#SBATCH --qos=akazachkov
+
+#SBATCH --time=05:00:00             # time limit hrs:min:sec
 #SBATCH --mem-per-cpu=4G            # job memory
-#SBATCH --array=1-659
-#SBATCH --array=31,45,74,164,295,299,300,600,616
+##SBATCH --array=1-659
+#SBATCH --array=1-30,32-44,46-73,75-163,165-294,296-298,301-599,601-615,617-659
+
+##SBATCH --mem-per-cpu=8G            # job memory
+##SBATCH --array=45,164,295,616
+
+##SBATCH --mem-per-cpu=32G            # job memory
+##SBATCH --array=31,74,299,300,600
 
 #########################
 ## To run this script, call (for example)
