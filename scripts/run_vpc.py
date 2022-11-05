@@ -97,6 +97,7 @@ elif option == OPTION_PREPROCESS:
     # Set strategy (536 uses Gurobi, 532 uses CPLEX)
     extraparams = extraparams + ' --bb_strategy=536'
     extraparams = extraparams + ' --bb_timelimit=7200'
+    extraparams = extraparams + ' --temp=32'
 elif option == OPTION_TEST:
     depthList = [2]
     outinfo_stub = CUT_TYPE + '-test'
