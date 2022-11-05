@@ -103,7 +103,8 @@ fi
 if ! command -v bc &> /dev/null; then
   NUM_DIGITS=3
 else
-  NUM_JOBS=`< $JOB_LIST wc -l`
+  #NUM_JOBS=`< $JOB_LIST wc -l`
+  NUM_JOBS=`< ${INSTANCE_LIST} wc -l`
   listLength=${#depthList[@]}
   NUM_JOBS=$((NUM_JOBS*listLength))
   LOG_NUM_JOBS=`echo "l(${NUM_JOBS})/l(10)" | bc -l`
