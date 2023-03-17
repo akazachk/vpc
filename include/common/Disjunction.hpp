@@ -128,7 +128,9 @@ public:
     const OsiSolverInterface* const solver,
     const bool shouldChangeBounds,
     const double DIFFEPS,
-    FILE* logfile) const;
+    FILE* logfile,
+    bool enforceSameObjective=true,
+    bool failOnInoptimalTermSolver=true) const;
 #else
   void getSolverForTerm(const int term_ind) const;
 #endif

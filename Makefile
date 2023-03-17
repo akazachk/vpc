@@ -27,15 +27,10 @@ BUILD_CONFIG = debug
 
 ### Variables user should set ###
 PROJ_DIR=${PWD}
-#COIN_VERSION = 2.9
-#COIN_VERSION = 2.9r2376
-#COIN_VERSION = 2.10
-COIN_VERSION = trunk
-ifeq (${COIN_OR_HOME},)
-	COIN_OR = $(PROJ_DIR)/lib/Cbc-$(COIN_VERSION)
-else
-	COIN_OR = ${COIN_OR_HOME}
-endif
+COIN_VERSION = master
+COIN_OR = /Users/sean/coin-or
+GUROBI_DIR = /Library/gurobi912
+GUROBI_LINK="gurobi91"
 
 ifeq ($(USER),otherperson)
   #COIN_OR = enter/dir/here
@@ -96,8 +91,8 @@ endif
 USE_COIN   = 1
 USE_CLP    = 1
 USE_CBC    = 1
-USE_GUROBI = 1
-USE_CPLEX  = 1
+USE_GUROBI = 0
+USE_CPLEX  = 0
 USE_CLP_SOLVER = 1
 USE_CPLEX_SOLVER = 0
 
@@ -177,8 +172,8 @@ endif
 ifeq ($(USE_GUROBI),1)
   DEFS += -DUSE_GUROBI
   SOURCES += test/GurobiHelper.cpp
-  GUROBI_INC="${GUROBI_DIR}/include"
-  GUROBI_LIB="${GUROBI_DIR}/lib"
+  GUROBI_INC="${GUROBI_DIR}/mac64/include"
+  GUROBI_LIB="${GUROBI_DIR}/mac64/lib"
 endif
 ifeq ($(USE_CPLEX),1)
   DEFS += -DIL_STD -DUSE_CPLEX
@@ -192,7 +187,7 @@ endif
 ifeq ($(COIN_VERSION),2.10)
   DEFS += -DCBC_VERSION_210PLUS -DSAVE_NODE_INFO
 endif
-ifeq ($(COIN_VERSION),trunk)
+ifeq ($(COIN_VERSION),master)
   DEFS += -DCBC_VERSION_210PLUS -DCBC_TRUNK -DSAVE_NODE_INFO
 endif
 
@@ -245,14 +240,14 @@ endif
 ifeq ($(USE_COIN),1)
 	# If not defined for the environment, define CBC / BCP here
 	ifeq ($(BUILD_CONFIG),debug)
-		CBC = $(COIN_OR)/buildg
+		CBC = $(COIN_OR)/dist
 	endif
 	ifeq ($(BUILD_CONFIG),release)
-		CBC = $(COIN_OR)/build
+		CBC = $(COIN_OR)/dist
 	endif
 	CBClib = $(CBC)/lib
 	# When switching from svn to coinbrew, the new include directory is coin-or not coin
-	ifeq ($(COIN_VERSION),trunk)
+	ifeq ($(COIN_VERSION),master)
 		CBCinc = $(CBC)/include/coin-or
   else
 		CBCinc = $(CBC)/include/coin
