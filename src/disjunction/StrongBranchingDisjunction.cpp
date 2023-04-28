@@ -241,7 +241,8 @@ DisjExitReason StrongBranchingDisjunction::prepareDisjunction(const OsiSolverInt
   cartesianProduct(valuesByTerm, tempOutput2, valuesByVar.begin(), valuesByVar.end());
 
   // add each term to the disjunction
-  for (int i = 0; i < std::pow(2, selectedIndices.size()); i++) {
+  int actualNumTerms = std::pow(2, selectedIndices.size());
+  for (int i = 0; i < actualNumTerms; i++) {
     addTerm(selectedIndices, waysByTerm[i], valuesByTerm[i], solver);
   }
 
@@ -251,7 +252,13 @@ DisjExitReason StrongBranchingDisjunction::prepareDisjunction(const OsiSolverInt
   if (solver)
     delete solver;
 
-  return DisjExitReason::SUCCESS_EXIT;
+  // check to make sure we have a feasible term
+  for (int i = 0; i < actualNumTerms; i++) {
+    if (terms[i].feasible){
+      return DisjExitReason::SUCCESS_EXIT;
+    }
+  }
+  return DisjExitReason::NO_DISJUNCTION_EXIT;;
 } /* prepareDisjunction */
 
 /****************** PROTECTED **********************/
@@ -304,6 +311,7 @@ void StrongBranchingDisjunction::addTerm(const std::vector<int>& branching_varia
   term.changed_var = branching_variables;
   term.changed_bound = branching_ways;
   term.changed_value = branching_values;
+  term.feasible = solver->isProvenPrimalInfeasible() ? false : true;
   this->terms.push_back(term);
   this->num_terms++;
   Disjunction::setCgsName(this->name, disjTermName);

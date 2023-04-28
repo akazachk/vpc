@@ -38,6 +38,7 @@ public:
   std::vector<int> changed_var; ///< list of indices of variables with changed bounds
   std::vector<int> changed_bound; ///< for each var in #changed_var, which bound was changaed: <= 0: lower bound, 1: upper bound
   std::vector<double> changed_value; ///< new value of the variable
+  bool feasible; ///< whether the term is feasible
 #ifdef USE_COIN
   CoinWarmStart* basis = NULL; ///< optional: saved basis for this term (to enable quick warm start)
   std::vector<OsiRowCut> ineqs; ///< optional: inequalities to add aside from changed bounds
