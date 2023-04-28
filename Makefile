@@ -124,6 +124,7 @@ SOURCES = \
     disjunction/Disjunction.cpp \
     disjunction/PartialBBDisjunction.cpp \
     disjunction/SplitDisjunction.cpp \
+    disjunction/StrongBranchingDisjunction.cpp \
     disjunction/VPCDisjunction.cpp
 
 # For running tests (need not include these or main if releasing code to others)

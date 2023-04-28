@@ -27,6 +27,7 @@ using namespace VPCParametersNamespace;
 // Various pre-built disjunction options
 #include "PartialBBDisjunction.hpp"
 #include "SplitDisjunction.hpp"
+#include "StrongBranchingDisjunction.hpp"
 
 #ifdef TRACE
 #include "vpc_debug.hpp"
@@ -64,7 +65,8 @@ const std::vector<std::string> CglVPC::VPCModeName {
   "PARTIAL_BB",
   "SPLITS",
   "CROSSES",
-  "CUSTOM"
+  "CUSTOM",
+  "STRONG_BRANCHING"
 }; /* VPCModeName */
 const std::vector<std::string> CglVPC::VPCTimeStatsName {
   "TOTAL_TIME",
@@ -292,6 +294,10 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
       printf("\n## Starting VPC generation from one split. ##\n");
       disjunction = new SplitDisjunction(this->params);
       dynamic_cast<SplitDisjunction*>(disjunction)->timer = &timer;
+    } else if (mode == VPCMode::STRONG_BRANCHING) {
+      printf("\n## Starting VPC generation from cartesian product of best strong branching candidates. ##\n");
+      disjunction = new StrongBranchingDisjunction(this->params);
+      dynamic_cast<StrongBranchingDisjunction *>(disjunction)->timer = &timer;
     } else {
       error_msg(errorstring,
           "Mode that is chosen has not yet been implemented for VPC generation: %s.\n",
@@ -930,14 +936,14 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
       if (greaterThanVal(ratio, 1.03)) {
         error_msg(errorstring,
             "Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
-            tmp_ind, num_normal_terms, stringValue(term->obj, "%1.3f").c_str(),
+            tmp_ind + 1, num_normal_terms, stringValue(term->obj, "%1.3f").c_str(),
             stringValue(tmpSolver->getObjValue(), "%1.3f").c_str());
         writeErrorToLog(errorstring, params.logfile);
         exit(1);
       } else {
         warning_msg(warnstring,
             "Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
-            tmp_ind, num_normal_terms, stringValue(term->obj, "%1.3f").c_str(),
+            tmp_ind + 1, num_normal_terms, stringValue(term->obj, "%1.3f").c_str(),
             stringValue(tmpSolver->getObjValue(), "%1.3f").c_str());
       }
 #ifdef TRACE
