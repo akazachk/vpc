@@ -19,11 +19,13 @@ endif
 RM = rm -f
 
 ### Build type ###
-# Choose 'debug' or 'release'
+# Choose 'debug', 'release', or 'unit_test'
 # Can also be chosen through make "BUILD_CONFIG=XX" from command line 
-# Or one can call make debug or make release directly
+# Or one can call make debug, make release, or make test directly
+BUILD_CONFIG = unit_test
 BUILD_CONFIG = release
 BUILD_CONFIG = debug
+UNIT_TEST_FILE = TestCompleteDisjunction.cpp
 
 ### Variables user should set ###
 PROJ_DIR=${PWD}
@@ -97,9 +99,16 @@ USE_CLP_SOLVER = 1
 USE_CPLEX_SOLVER = 0
 
 # Concerning executable
-EXECUTABLE_STUB = vpc
+ifneq ($(BUILD_CONFIG),unit_test)
+	EXECUTABLE_STUB = vpc
+	MAIN_SRC = main.cpp
+endif
+# can make this take an argument for which unit test to build
+ifeq ($(BUILD_CONFIG),unit_test)
+	EXECUTABLE_STUB = UnitTest
+	SOURCES = test/$(UNIT_TEST_FILE)
+endif
 SRC_DIR = src
-MAIN_SRC = main.cpp
 DIR_LIST = $(SRC_DIR) $(SRC_DIR)/branch $(SRC_DIR)/cut $(SRC_DIR)/disjunction $(SRC_DIR)/utility
 
 # Code version
@@ -121,6 +130,7 @@ SOURCES = \
 		cut/CglVPC.cpp \
 		cut/CutHelper.cpp \
     cut/PRLP.cpp \
+    disjunction/CompleteDisjunction.cpp \
     disjunction/Disjunction.cpp \
     disjunction/PartialBBDisjunction.cpp \
     disjunction/SplitDisjunction.cpp \
@@ -129,13 +139,18 @@ SOURCES = \
 
 # For running tests (need not include these or main if releasing code to others)
 DIR_LIST += $(SRC_DIR)/test
-SOURCES += test/analysis.cpp test/BBHelper.cpp test/DisjunctionHelper.cpp
+SOURCES += test/analysis.cpp test/BBHelper.cpp test/DisjunctionHelper.cpp test/TestCompleteDisjunction.cpp
 
 ### Set build values based on user variables ###
-ifeq ($(BUILD_CONFIG),debug)
+ifneq ($(BUILD_CONFIG),release)
   # "Debug" build - no optimization, include debugging symbols, and keep inline functions
 	SOURCES += utility/debug.cpp utility/vpc_debug.cpp
-  OUT_DIR = Debug
+  ifeq ($(BUILD_CONFIG),debug)
+    	OUT_DIR = Debug
+    endif
+    ifeq ($(BUILD_CONFIG),unit_test)
+  		OUT_DIR = UnitTest
+  	endif
   DEBUG_FLAG = -g3
   OPT_FLAG = -O0
   DEFS = -DTRACE -DPRINT_LP_WITH_CUTS -DVPC_VERSION="\#${VPC_VERSION}"
@@ -240,7 +255,7 @@ endif
 # Set up COIN-OR stuff
 ifeq ($(USE_COIN),1)
 	# If not defined for the environment, define CBC / BCP here
-	ifeq ($(BUILD_CONFIG),debug)
+	ifneq ($(release),debug)
 		CBC = $(COIN_OR)/dist
 	endif
 	ifeq ($(BUILD_CONFIG),release)
@@ -287,6 +302,8 @@ debug: FORCE
 	@$(MAKE) "BUILD_CONFIG=debug"
 release: FORCE
 	@$(MAKE) "BUILD_CONFIG=release"
+unit_test: FORCE
+	@$(MAKE) "BUILD_CONFIG=unit_test"
 
 $(EXECUTABLE): $(MAIN_OBJ) $(OUT_OBJECTS)
 		@echo ' '
