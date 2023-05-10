@@ -9,10 +9,11 @@
 #include <algorithm> // min
 #include <cmath> // round, power
 #include <math.h> // abs, log2
+#include <vector> // vector
 
 // Project files
 #include "CglVPC.hpp" // get timer information too
-#include "OsiChooseStrongCustom.hpp"
+#include "SolverInterface.hpp" // SolverInterface
 #include "SolverHelper.hpp"
 #include "utility.hpp"
 #include "VPCEventHandler.hpp"
@@ -58,7 +59,7 @@ CompleteDisjunction* CompleteDisjunction::clone() const {
  * Set up the disjunction class as new
  */
 void CompleteDisjunction::setupAsNew() {
-  Disjunction::setupAsNew();
+  VPCDisjunction::setupAsNew();
   partialDisj = NULL;
 } /* setupAsNew */
 
@@ -68,18 +69,20 @@ void CompleteDisjunction::setupAsNew() {
  * This will throw away all the information from the old disjunction (if one exists)
  */
 DisjExitReason CompleteDisjunction::prepareDisjunction(const OsiSolverInterface* const si,
-                                                       const Disjunction* const partialDisj) {
+                                                       const VPCDisjunction* const partialDisj) {
   setupAsNew();
+  VPCDisjunction::initialize(NULL, &partialDisj->params);
   this->partialDisj = partialDisj->clone();
-  prepareDisjunction(si);
+  return prepareDisjunction(si);
 }
 
 /****************** PROTECTED **********************/
 void CompleteDisjunction::initialize(const CompleteDisjunction* const source) {
-  Disjunction::initialize(source);
   if (source) {
+    VPCDisjunction::initialize(source, &source->params);
     partialDisj = source->partialDisj;
   } else {
+    VPCDisjunction::initialize(NULL, NULL);
     partialDisj = NULL;
   }
 } /* initialize */
@@ -90,11 +93,179 @@ void CompleteDisjunction::initialize(const CompleteDisjunction* const source) {
  * This will throw away all the information from the old disjunction, except it will not reset the timer
  */
 DisjExitReason CompleteDisjunction::prepareDisjunction(const OsiSolverInterface* const si) {
-  return DisjExitReason::NO_DISJUNCTION_EXIT;
+
+  // get the solver
+  std::shared_ptr<SolverInterface> solver = getSolver(si);
+
+  // expand the tree for the common fixed terms
+  addCommonFixedTerms(solver.get());
+
+  // expand the tree for the fixes in each disjunction
+  addDisjunctionFixedTerms(solver.get());
+
+  // remove terms that contain other terms (i.e. are not leaf nodes)
+  removeRedundantTerms(si);
+
+  // add objective information
+  best_obj = partialDisj->best_obj;
+  worst_obj = partialDisj->worst_obj;
+  integer_obj = partialDisj->integer_obj;
+  integer_sol = partialDisj->integer_sol;
+
+  // set the name
+  for (int i = 0; i < num_terms; i++) {
+    Disjunction::setCgsName(this->name, this->terms[i].name);
+  }
+
+  // clean up the solver before it's removal
+  solver->unmarkHotStart();
+  solver->disableFactorization();
+
+  return DisjExitReason::SUCCESS_EXIT;
 } /* prepareDisjunction */
 
+/// @brief add the terms arising from the tree that created the fixed variables
+/// common for all disjunctive terms
+void CompleteDisjunction::addCommonFixedTerms(OsiSolverInterface* solver){
+  std::vector<std::vector<int> > variablesByTerm;
+  std::vector<std::vector<int> > boundsByTerm;
+  std::vector<std::vector<double> > valuesByTerm;
+
+  // add the terms for the common fixed variables
+  getTerms(variablesByTerm, boundsByTerm, valuesByTerm, partialDisj->common_changed_var,
+           partialDisj->common_changed_bound, partialDisj->common_changed_value);
+  // the first term will be further broken up by terms in the partial disjunction
+  for (int i = 1; i < boundsByTerm.size(); i++) {
+    addTerm(variablesByTerm[i], boundsByTerm[i], valuesByTerm[i], solver);
+  }
+}
+
+/// @brief add the terms arising from the tree that created fixed variables for each term
+void CompleteDisjunction::addDisjunctionFixedTerms(OsiSolverInterface* solver){
+
+  std::vector<std::vector<int> > variablesByTerm;
+  std::vector<std::vector<int> > boundsByTerm;
+  std::vector<std::vector<double> > valuesByTerm;
+
+  for (int i = 0; i < partialDisj->num_terms; i++) {
+
+    // get the info for the terms
+    getTerms(variablesByTerm, boundsByTerm, valuesByTerm, partialDisj->terms[i].changed_var,
+             partialDisj->terms[i].changed_bound, partialDisj->terms[i].changed_value,
+             &partialDisj->common_changed_var, &partialDisj->common_changed_bound,
+             &partialDisj->common_changed_value);
+
+    // create each term
+    for (int j = 0; j < boundsByTerm.size(); j++) {
+      addTerm(variablesByTerm[j], boundsByTerm[j], valuesByTerm[j], solver);
+    }
+
+    // reset the info for the next term
+    variablesByTerm.clear();
+    boundsByTerm.clear();
+    valuesByTerm.clear();
+  }
+}
+
+/// @brief Complete the tree encoded in the disjunction
+void CompleteDisjunction::getTerms(
+    /// [out] the variables to fix for each term
+    std::vector<std::vector<int> >& variablesByTerm,
+    /// [out] the bounds to fix for each term
+    std::vector<std::vector<int> >& boundsByTerm,
+    /// [out] the values to fix respective bounds for each term
+    std::vector<std::vector<double> >& valuesByTerm,
+    /// [in] which variable had a bound changed
+    const std::vector<int>& changedVariables,
+    /// [in] which bound was changed (0 - lower; 1 - upper)
+    const std::vector<int>& changedBounds,
+    /// [in] which value was the bound changed to
+    const std::vector<double>& changedValues,
+    /// [in] which variables are fixed for these terms
+    const std::vector<int>* fixedVariables,
+    /// [in] which bounds are fixed for these terms
+    const std::vector<int>* fixedBounds,
+    /// [in] which values are the fixed bounds for these terms set to
+    const std::vector<double>* fixedValues){
+
+  // validate inputs
+  if ((fixedBounds == NULL) != (fixedValues == NULL) ||
+      (fixedValues == NULL) != (fixedVariables == NULL)) {
+    error_msg(errorstring, "fixedValues, fixedBounds, and fixedVariables must"
+                           "either be all null or all nonnull.\n");
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
+  if (changedVariables.size() != changedBounds.size() ||
+      changedBounds.size() != changedValues.size()) {
+    error_msg(errorstring, "changedVariables, changedBounds, and changedValues"
+                           "must be the same size.\n");
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
+  if ((fixedBounds != NULL) && (fixedValues != NULL) && (fixedBounds != NULL) &&
+      ((fixedBounds->size() != fixedValues->size()) || (fixedValues->size() != fixedVariables->size()))) {
+    error_msg(errorstring, "fixedBounds, fixedValues, and fixedVariables must"
+                           "be the same size.\n");
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
+
+  // if no inputs, just return
+  if ((changedVariables.size() == 0) && (changedValues.size() == 0) &&
+      (changedBounds.size() == 0)) {
+    return;
+  }
+
+  // containers for creating disjunctive terms
+  std::vector<int> workingVariables = changedVariables;
+  std::vector<int> workingBounds = changedBounds;
+  std::vector<double> workingValues = changedValues;
+  int newBound;
+  double newVal;
+
+  // add the existing term first
+  variablesByTerm.push_back(workingVariables);
+  boundsByTerm.push_back(workingBounds);
+  valuesByTerm.push_back(workingValues);
+
+  // then negate and remove branching decisions one at a time
+  do {
+    // swap the last variable's branching direction
+    newBound = workingBounds.back() == 0 ? 1 : 0;
+    // if newBound is upper bound, get the next value below the current bound and vice versa
+    newVal = workingValues.back() + (newBound == 1 ? -1 : 1);
+    workingBounds.pop_back();
+    workingValues.pop_back();
+    workingBounds.push_back(newBound);
+    workingValues.push_back(newVal);
+
+    // add the term
+    variablesByTerm.push_back(workingVariables);
+    boundsByTerm.push_back(workingBounds);
+    valuesByTerm.push_back(workingValues);
+
+    // pop the last variable, moving a level up in the tree
+    workingVariables.pop_back();
+    workingBounds.pop_back();
+    workingValues.pop_back();
+
+  } while (workingVariables.size() > 0);
+
+  // prepend the fixed bounds and values to each term
+  if ((fixedBounds != NULL) && (fixedValues != NULL) && (fixedVariables != NULL)) {
+    for (int i = 0; i < boundsByTerm.size(); i++) {
+      variablesByTerm[i].insert(variablesByTerm[i].begin(), fixedVariables->begin(), fixedVariables->end());
+      boundsByTerm[i].insert(boundsByTerm[i].begin(), fixedBounds->begin(), fixedBounds->end());
+      valuesByTerm[i].insert(valuesByTerm[i].begin(), fixedValues->begin(), fixedValues->end());
+    }
+  }
+} /* getTerms */
+
+/// @brief Add disjunctive term - split this into creating the term and adding it
+/// to the disjunction. Then inbetween check if the term contains another term
 void CompleteDisjunction::addTerm(const std::vector<int>& branching_variables,
-                                  const std::vector<int>& branching_ways,
+                                  const std::vector<int>& branching_bounds,
                                   const std::vector<double>& branching_values,
                                   OsiSolverInterface* solver) {
 
@@ -105,7 +276,7 @@ void CompleteDisjunction::addTerm(const std::vector<int>& branching_variables,
   // set the bounds for this term on the solver and resolve
   for (int i = 0; i < branching_variables.size(); i++) {
     disjTermName += "x" + std::to_string(branching_variables[i]);
-    if (branching_ways[i]) {
+    if (branching_bounds[i]) {
       // down branch
       oldBounds[i] = solver->getColUpper()[branching_variables[i]];
       solver->setColUpper(branching_variables[i], branching_values[i]);
@@ -118,7 +289,7 @@ void CompleteDisjunction::addTerm(const std::vector<int>& branching_variables,
     }
     valxk = static_cast<int>(branching_values[i]);
     disjTermName += std::to_string(valxk);
-    disjTermName += i < branching_variables.size() - 1 ? " ^ " : "";
+    disjTermName += i < branching_variables.size() - 1 ? "; " : "";
   }
   solver->solveFromHotStart();
 
@@ -127,16 +298,16 @@ void CompleteDisjunction::addTerm(const std::vector<int>& branching_variables,
   term.basis = dynamic_cast<CoinWarmStartBasis*>(solver->getWarmStart());
   term.obj = solver->getObjValue();
   term.changed_var = branching_variables;
-  term.changed_bound = branching_ways;
+  term.changed_bound = branching_bounds;
   term.changed_value = branching_values;
   term.feasible = solver->isProvenPrimalInfeasible() ? false : true;
+  term.name = disjTermName;
   this->terms.push_back(term);
   this->num_terms++;
-  Disjunction::setCgsName(this->name, disjTermName);
 
   // reset the solver to its original bounds
   for (int i = 0; i < branching_variables.size(); i++) {
-    if (branching_ways[i]) {
+    if (branching_bounds[i]) {
       // down branch
       solver->setColUpper(branching_variables[i], oldBounds[i]);
     } else {
@@ -145,34 +316,38 @@ void CompleteDisjunction::addTerm(const std::vector<int>& branching_variables,
     }
   }
   solver->solveFromHotStart();
-
 } /* addTerm */
 
-// cartesian product of vector of vectors
-template <typename T>
-void CompleteDisjunction::cartesianProduct(
-    /// [out] empty vector of vectors that will return as cartesian product
-    std::vector< std::vector<T> >& finalResult,
-    /// [out] empty vector that will have work done in it
-    std::vector<T>& currentResult,
-    /// [in] begin iterator for input vector of vectors to cartesian product
-    typename std::vector< std::vector<T> >::const_iterator currentInput,
-    /// [in] end iterator for input vector of vectors to cartesian product
-    typename std::vector< std::vector<T> >::const_iterator lastInput) {
-
-  if(currentInput == lastInput) {
-    // terminal condition of the recursion. We no longer have
-    // any input vectors to manipulate. Add the current result (currentResult)
-    // to the total set of results (finalResult).
-    finalResult.push_back(currentResult);
-    return;
+/// @brief finds and removes redundant terms from the disjunction
+void CompleteDisjunction::removeRedundantTerms(const OsiSolverInterface* const si){
+  // check to see which terms are redundant
+  // (i.e. have variable bounds that contain another term's variable bounds)
+  std::vector<std::vector<int> > containsTerms(num_terms);
+  std::vector<std::vector<int> > equalsTerms(num_terms);
+  OsiSolverInterface* iSolver;
+  OsiSolverInterface* jSolver;
+  bool i_contains_j, j_contains_i;
+  for (int i = 0; i < num_terms; i++) {
+    getSolverForTerm(iSolver, i, si, true, .001, params.logfile, false, false);
+    for (int j = i + 1; j < num_terms; j++) {
+      getSolverForTerm(jSolver, j, si, true, .001, params.logfile, false, false);
+      i_contains_j = variableBoundsContained(iSolver, jSolver);
+      j_contains_i = variableBoundsContained(jSolver, iSolver);
+      if (i_contains_j && j_contains_i) {
+        equalsTerms[j].push_back(i); // use the larger index so we can remove in reverse order
+      } else if (i_contains_j) {
+        containsTerms[i].push_back(j); // term i contains term j
+      } else if (j_contains_i) {
+        containsTerms[j].push_back(i); // term j contains term i
+      }
+    }
   }
 
-  // need an easy name for my vector-of-T
-  const std::vector<T>& temp = *currentInput;
-  for(typename std::vector<T>::const_iterator it = temp.begin(); it != temp.end(); it++) {
-    currentResult.push_back(*it);  // add currentInput
-    cartesianProduct(finalResult, currentResult, currentInput+1, lastInput);
-    currentResult.pop_back(); // clean currentInput off for next round
+  // remove all redundant terms
+  for (int i = num_terms - 1; i >= 0; i--) {
+    if (containsTerms[i].size() > 0 || equalsTerms[i].size() > 0) {
+      this->terms.erase(this->terms.begin() + i);
+      this->num_terms--;
+    }
   }
 }

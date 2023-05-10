@@ -15,6 +15,7 @@
 #include <CoinPackedVectorBase.hpp>
 #include <CoinPackedVector.hpp>
 #include <CoinPackedMatrix.hpp>
+#include <OsiSolverInterface.hpp>
 
 /**
  * @details Creates temporary file (in /tmp) so that it can be accessed later.
@@ -570,3 +571,51 @@ void packedSortedVectorSum(CoinPackedVector& sum, const double mult1,
 
   sum.setVector(sumIndex.size(), sumIndex.data(), sumVal.data(), false);
 } /* packedSortedVectorSum */
+
+/** @details determine if the variable bounds of solver1 contain the variable
+ * bounds of solver2 */
+bool variableBoundsContained(const OsiSolverInterface* const solver1,
+                             const OsiSolverInterface* const solver2) {
+
+  for (int i = 0; i < solver1->getNumCols(); i++) {
+    if (solver1->getColLower()[i] > solver2->getColLower()[i] + 1e-7) {
+      return false;
+    }
+    if (solver1->getColUpper()[i] < solver2->getColUpper()[i] - 1e-7) {
+      return false;
+    }
+  }
+  return true;
+} /* variableBoundsContain */
+
+/// @brief create a mutable solver interface
+std::shared_ptr<SolverInterface> getSolver(const OsiSolverInterface* const si, FILE* logfile) {
+  // setup the solver for getting term bases
+  std::shared_ptr<SolverInterface> solver;
+  try {
+    solver = std::make_shared<SolverInterface>(*dynamic_cast<SolverInterface*>(si->clone()));
+  } catch (std::exception& e) {
+    error_msg(errorstring, "Unable to clone solver into desired SolverInterface.\n");
+    writeErrorToLog(errorstring, logfile);
+    exit(1);
+  }
+#ifdef USE_CLP
+  try {
+    setupClpForStrongBranching(dynamic_cast<OsiClpSolverInterface*>(solver.get()));
+  } catch (std::exception& e) {
+    // It's okay, we can continue
+  }
+#endif
+  // make sure solver is optimal
+  if (!solver->isProvenOptimal()) {
+    solver->initialSolve();
+    if (!solver->isProvenOptimal()) {
+      error_msg(errorstring, "Solver must be optimal to create disjunction.\n");
+      writeErrorToLog(errorstring, logfile);
+      exit(1);
+    }
+  }
+  solver->enableFactorization();
+  solver->markHotStart();
+  return solver;
+}
