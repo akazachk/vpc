@@ -132,7 +132,8 @@ public:
     const double DIFFEPS,
     FILE* logfile,
     bool enforceSameObjective=true,
-    bool failOnInoptimalTermSolver=true) const;
+    bool failOnInoptimalTermSolver=true,
+    bool resolve=true) const;
 #else
   void getSolverForTerm(const int term_ind) const;
 #endif

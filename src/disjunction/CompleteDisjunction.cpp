@@ -319,20 +319,24 @@ void CompleteDisjunction::addTerm(const std::vector<int>& branching_variables,
 } /* addTerm */
 
 /// @brief finds and removes redundant terms from the disjunction
+/// (i.e. terms with variable bounds that contain another term's variable bounds)
 void CompleteDisjunction::removeRedundantTerms(const OsiSolverInterface* const si){
-  // check to see which terms are redundant
-  // (i.e. have variable bounds that contain another term's variable bounds)
+
   std::vector<std::vector<int> > containsTerms(num_terms);
   std::vector<std::vector<int> > equalsTerms(num_terms);
-  OsiSolverInterface* iSolver;
-  OsiSolverInterface* jSolver;
+
+  // get each term's solver
+  std::vector<OsiSolverInterface*> solver(num_terms);
+  for (int i = 0; i < num_terms; i++) {
+    getSolverForTerm(solver[i], i, si, true, .001, params.logfile, false, false, false);
+  }
+
+  // check for containment
   bool i_contains_j, j_contains_i;
   for (int i = 0; i < num_terms; i++) {
-    getSolverForTerm(iSolver, i, si, true, .001, params.logfile, false, false);
     for (int j = i + 1; j < num_terms; j++) {
-      getSolverForTerm(jSolver, j, si, true, .001, params.logfile, false, false);
-      i_contains_j = variableBoundsContained(iSolver, jSolver);
-      j_contains_i = variableBoundsContained(jSolver, iSolver);
+      i_contains_j = variableBoundsContained(solver[i], solver[j]);
+      j_contains_i = variableBoundsContained(solver[j], solver[i]);
       if (i_contains_j && j_contains_i) {
         equalsTerms[j].push_back(i); // use the larger index so we can remove in reverse order
       } else if (i_contains_j) {
