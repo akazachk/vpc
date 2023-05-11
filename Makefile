@@ -139,7 +139,7 @@ SOURCES = \
 
 # For running tests (need not include these or main if releasing code to others)
 DIR_LIST += $(SRC_DIR)/test
-SOURCES += test/analysis.cpp test/BBHelper.cpp test/DisjunctionHelper.cpp test/TestCompleteDisjunction.cpp
+SOURCES += test/analysis.cpp test/BBHelper.cpp test/DisjunctionHelper.cpp
 
 ### Set build values based on user variables ###
 ifneq ($(BUILD_CONFIG),release)
