@@ -199,6 +199,15 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
     writeErrorToLog(errstr, params.logfile);
     exit(1);
   }
+
+#ifdef TRACE
+  std::vector<NodeStatistics> stats = eventHandler->getStatsVector();
+  printNodeStatistics(stats, false);
+  if (eventHandler->getPrunedStatsVector().size() > 0) {
+    printf("\n");
+    printNodeStatistics(eventHandler->getPrunedStatsVector(), false);
+  }
+#endif
   
 #ifdef TRACE
   const int TEMP_VAL = params.get(intParam::TEMP);
@@ -264,15 +273,6 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
     writeErrorToLog(errstr, params.logfile);
     exit(1);
   }
-
-#ifdef TRACE
-  std::vector<NodeStatistics> stats = eventHandler->getStatsVector();
-  printNodeStatistics(stats, false);
-  if (eventHandler->getPrunedStatsVector().size() > 0) {
-    printf("\n");
-    printNodeStatistics(eventHandler->getPrunedStatsVector(), false);
-  }
-#endif
 
   if (BBSolver && !cbc_model->modelOwnsSolver()) { delete BBSolver; }
   if (cbc_model) { delete cbc_model; }
