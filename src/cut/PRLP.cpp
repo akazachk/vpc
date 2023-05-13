@@ -943,7 +943,7 @@ int PRLP::findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
     const int MAX_NUM_OBJ_PER_POINT) {
   const int num_rows = this->getNumRows();
   const int num_cols = this->getNumCols();
-  int num_cuts_per_point = 0;
+  // int num_cuts_per_point = 0;
   int check_ind = -1; //strong_lb_row_ind; // row that we last _subtracted_ from the objective
   const int BAD_RETURN_CODE = -1 * (static_cast<int>(CglVPC::FailureType::PRIMAL_INFEASIBLE) + 1);
   int ret_val = 1;
@@ -968,7 +968,7 @@ int PRLP::findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
       numTimesTightColUB, cuts, origSolver, beta, structSICs,
       inNBSpace, cutHeur, true);
   if (tmp_return_code > 0) {
-    num_cuts_per_point += tmp_return_code;
+  //   num_cuts_per_point += tmp_return_code;
 #ifdef TRACE_CUT_BOUND
     for (int add_ind = 0; add_ind < tmp_return_code; add_ind++) {
       tmpCuts.insert(tmpCuts.rowCut(tmpCuts.sizeCuts() + add_ind));
@@ -1194,7 +1194,7 @@ int PRLP::findCutsTightOnPoint(std::vector<int>& numTimesTightRow,
         numTimesTightColUB, cuts, origSolver, beta, structSICs, inNBSpace,
         cutHeur);
     if (tmp_return_code > 0) {
-      num_cuts_per_point += tmp_return_code;
+    //   num_cuts_per_point += tmp_return_code;
 #ifdef TRACE_CUT_BOUND
       for (int add_ind = 0; add_ind < tmp_return_code; add_ind++) {
         tmpCuts.insert(tmpCuts.rowCut(tmpCuts.sizeCuts() + add_ind));
