@@ -97,7 +97,7 @@ public:
   VPCEventHandler();
   /** @brief VPC special constructors */
   VPCEventHandler(PartialBBDisjunction* const disj, const int maxNumLeafNodes,
-      const double maxTime);
+      const double maxTime, const bool keepPrunedNodes = false);
   /// @brief Constructor with pointer to model (redundant as setEventHandler does)
   VPCEventHandler(CbcModel* model);
   /** Destructor */
@@ -173,6 +173,7 @@ protected:
   int maxNumLeafNodes_; ///< stop when we reach this many leaf nodes
   int numCuts_; ///< number of cuts generated
   double maxTime_; ///< maximum allowable time
+  bool keepPrunedNodes_; ///< add terms for pruned nodes?
 
   ///@{
   /// @name Things that will be saved at the end

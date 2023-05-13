@@ -321,12 +321,13 @@ VPCEventHandler::VPCEventHandler () : CbcEventHandler() {
 } /* default constructor */
 
 VPCEventHandler::VPCEventHandler(PartialBBDisjunction* const disj,
-    const int maxNumLeafNodes, const double maxTime) :
+    const int maxNumLeafNodes, const double maxTime, const bool keepPrunedNodes) :
     CbcEventHandler() {
   initialize(NULL);
   this->owner = disj;
   this->maxNumLeafNodes_ = maxNumLeafNodes;
   this->maxTime_ = maxTime;
+  this->keepPrunedNodes_ = keepPrunedNodes;
 } /* VPCEventHandler-specific constructor */
 
 VPCEventHandler::VPCEventHandler (const VPCEventHandler & rhs) : CbcEventHandler(rhs) {
@@ -819,7 +820,8 @@ VPCEventHandler::event(CbcEvent whichEvent) {
       if (prunedNodeStats.number >= numNodes_) {
         numNodes_ = prunedNodeStats.number + 1;
       }
-    } // node is pruned
+    } 
+    // node is pruned
 
     // Update parent if it has branches left
     if (parentInfo_->numberBranchesLeft() > 0) {
@@ -1046,6 +1048,7 @@ void VPCEventHandler::initialize(const VPCEventHandler* const source) {
     this->maxNumLeafNodes_ = source->maxNumLeafNodes_;
     this->numCuts_ = source->numCuts_;
     this->maxTime_ = source->maxTime_;
+    this->keepPrunedNodes_ = source->keepPrunedNodes_;
     this->numNodesOnTree_ = source->numNodesOnTree_;
     this->numLeafNodes_ = source->numLeafNodes_;
     this->numNodes_ = source->numNodes_;
@@ -1070,6 +1073,7 @@ void VPCEventHandler::initialize(const VPCEventHandler* const source) {
     this->maxNumLeafNodes_ = 0;
     this->numCuts_ = 0;
     this->maxTime_ = 0;
+    this->keepPrunedNodes_ = false;
     this->numNodesOnTree_ = 0;
     this->numLeafNodes_ = 0;
     this->numNodes_ = 0;
