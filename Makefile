@@ -36,6 +36,7 @@ ifeq (${COIN_OR_HOME},)
 else
 	COIN_OR = ${COIN_OR_HOME}
 endif
+#COIN_OR = ${REPOS_DIR}/coin-or/Cbc-trunk_test
 
 ifeq ($(USER),otherperson)
   #COIN_OR = enter/dir/here

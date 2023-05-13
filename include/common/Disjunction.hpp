@@ -38,6 +38,7 @@ public:
   std::vector<int> changed_var; ///< list of indices of variables with changed bounds
   std::vector<int> changed_bound; ///< for each var in #changed_var, which bound was changaed: <= 0: lower bound, 1: upper bound
   std::vector<double> changed_value; ///< new value of the variable
+  bool is_feasible; ///< is this term LP-feasible?
 #ifdef USE_COIN
   CoinWarmStart* basis = NULL; ///< optional: saved basis for this term (to enable quick warm start)
   std::vector<OsiRowCut> ineqs; ///< optional: inequalities to add aside from changed bounds
@@ -71,8 +72,8 @@ class Disjunction {
 public:
   /// @name Required members
   ///@{
-  int num_terms; ///< number
-  std::vector<DisjunctiveTerm> terms; ///< optimal bases of parents of each of the disjunctive terms
+  int num_terms; ///< number of terms in disjunction (some may be infeasible)
+  std::vector<DisjunctiveTerm> terms; ///< information about disjunctive terms, including optimal bases of each feasible term when available
   ///@}
 
   /// @name Optional members
