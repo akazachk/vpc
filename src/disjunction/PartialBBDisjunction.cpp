@@ -180,8 +180,9 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
     num_strong = static_cast<int>(std::ceil(std::sqrt(si->getNumCols())));
   }
   const int num_before_trusted = std::numeric_limits<int>::max(); // 10;
+  const bool keep_pruned_nodes = params.get(intParam::PARTIAL_BB_KEEP_PRUNED_NODES);
   generatePartialBBTree(this, cbc_model, si, params.get(intParam::DISJ_TERMS),
-      num_strong, num_before_trusted);
+      num_strong, num_before_trusted, keep_pruned_nodes);
   printf("PartialBBDisjunction::prepareDisjunction: Finished generating partial branch-and-bound tree");
   if (timer) {
     timer->end_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
@@ -430,13 +431,13 @@ void setCbcParametersForPartialBB(
 //<!--***********************************************************-->
 void generatePartialBBTree(PartialBBDisjunction* const owner, CbcModel* cbc_model,
     const OsiSolverInterface* const solver, const int max_leaf_nodes,
-    const int num_strong, const int num_before_trusted) {
+    const int num_strong, const int num_before_trusted, const bool keep_pruned_nodes) {
   //  const double partial_timelimit = 100 * max_leaf_nodes * solver->getNumCols()
   //      * GlobalVariables::timeStats.get_time(GlobalConstants::INIT_SOLVE_TIME);
   const double partial_timelimit = owner->params.get(PARTIAL_BB_TIMELIMIT); // will be checked manually by the eventHandler
 
   // Set up options
-  VPCEventHandler* eventHandler = new VPCEventHandler(owner, max_leaf_nodes, partial_timelimit);
+  VPCEventHandler* eventHandler = new VPCEventHandler(owner, max_leaf_nodes, partial_timelimit, keep_pruned_nodes);
   eventHandler->setOriginalSolver(solver);
 
   // This sets branching decision, event handling, etc.

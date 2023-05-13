@@ -59,6 +59,7 @@ enum intParam {
   /// \li node comparison decision => ones digit: 0: default: 1: bfs, 2: depth, 3: estimate, 4: objective
   PARTIAL_BB_STRATEGY,
   PARTIAL_BB_NUM_STRONG, ///< -1: num cols, -2: sqrt(num cols), >= 0: that many
+  PARTIAL_BB_KEEP_PRUNED_NODES, ///< whether to keep pruned nodes in the partial b&b tree
   PREPROCESS, ///< 0: off, 1: on (with solver), 2: on (solver + custom cleaning process)
   PRLP_FLIP_BETA, ///< controls rhs in nb space, -1: do not cut away LP opt, 0: cut away LP opt, 1: both
   ROUNDS, ///< number of VPC rounds to do
@@ -529,6 +530,9 @@ struct VPCParameters {
     {intParam::PARTIAL_BB_NUM_STRONG,
         IntParameter(intParam::PARTIAL_BB_NUM_STRONG, "PARTIAL_BB_NUM_STRONG",
             5, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::PARTIAL_BB_KEEP_PRUNED_NODES,
+        IntParameter(intParam::PARTIAL_BB_KEEP_PRUNED_NODES, "PARTIAL_BB_KEEP_PRUNED_NODES",
+            0, 0, 1)},
     /// PARTIAL_BB_STRATEGY: 004 => default variable decision, default branch decision, objective-based node comparison
     {intParam::PARTIAL_BB_STRATEGY,
         IntParameter(intParam::PARTIAL_BB_STRATEGY, "PARTIAL_BB_STRATEGY",

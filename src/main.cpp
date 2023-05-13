@@ -718,6 +718,7 @@ int processArgs(int argc, char** argv) {
       {"optfile",               required_argument, 0, 'o'},
       {"partial_bb_strategy",   required_argument, 0, 's'},
       {"partial_bb_num_strong", required_argument, 0, 'S'},
+      {"partial_bb_keep_pruned",required_argument, 0, 'S'*'1'},
       {"partial_bb_timelimit",  required_argument, 0, 'T'},
       {"preprocess",            required_argument, 0, 'p'*'1'},
       {"rounds",                required_argument, 0, 'r'},
@@ -1070,6 +1071,16 @@ int processArgs(int argc, char** argv) {
       case 'S': {
                   int val;
                   intParam param = intParam::PARTIAL_BB_NUM_STRONG;
+                  if (!parseInt(optarg, val)) {
+                    error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                    exit(1);
+                  }
+                  params.set(param, val);
+                  break;
+                }
+      case 'S'*'1': {
+                  int val;
+                  intParam param = intParam::PARTIAL_BB_KEEP_PRUNED_NODES;
                   if (!parseInt(optarg, val)) {
                     error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
                     exit(1);

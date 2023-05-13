@@ -31,7 +31,8 @@ void setCbcParametersForPartialBB(CbcModel* const cbc_model,
 /// @brief Generate a partial branch-and-bound tree with at most \p max_leaf_nodes leaf nodes
 void generatePartialBBTree(PartialBBDisjunction* const owner,
     CbcModel* cbc_model, const OsiSolverInterface* const solver,
-    const int max_leaf_nodes, const int num_strong, const int num_before_trusted);
+    const int max_leaf_nodes, const int num_strong, const int num_before_trusted,
+    const bool keep_pruned_nodes = false);
 #endif // USE_CBC
 
 /// @brief Keeps split information at root, and best bound on each side
