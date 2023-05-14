@@ -1529,5 +1529,4 @@ int VPCEventHandler::saveInformationFromStats() {
   // }
 
   return status;
-} /* saveInformationFromStats */
-  
+} /* saveInformationFromStats */  
