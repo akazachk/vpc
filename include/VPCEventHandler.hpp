@@ -209,20 +209,32 @@ protected:
   /// @brief Copy our stuff
   void initialize(const VPCEventHandler* const rhs);
 
+  /// @brief Save disjunctive term using only stats vector, without solving for it
+  int setupDisjunctiveTermFromStats(const int orig_node_id,
+      const int branching_variable, const int branching_way,
+      const double branching_value, const int parent_num_changed_bounds,
+      const std::vector<std::vector<int> >& parentTermIndices,
+      const std::vector<std::vector<double> >& parentTermCoeff,
+      const std::vector<double>& parentTermRHS,
+      SolverInterface* const tmpSolver);
+
   /// @brief Solve for a disjunctive term
-  bool setupDisjunctiveTerm(const int node_id, const int branching_variable,
-      const int branching_way, const double branching_value,
-      const SolverInterface* const tmpSolverBase,
-      const int curr_num_changed_bounds,
-      std::vector<std::vector<int> >& commonTermIndices,
-      std::vector<std::vector<double> >& commonTermCoeff,
-      std::vector<double>& commonTermRHS);
+  bool setupDisjunctiveTerm(const int orig_node_id,
+      const int branching_variable, const int branching_way,
+      const double branching_value, const int parent_num_changed_bounds,
+      const std::vector<std::vector<int> >& parentTermIndices,
+      const std::vector<std::vector<double> >& parentTermCoeff,
+      const std::vector<double>& parentTermRHS,
+      const SolverInterface* const tmpSolverBase);
 
   /// @brief Clear saved information and free memory
   void clearInformation();
 
   /// @brief Save node information before we reach endSearch_
   int saveInformation();
+
+  /// @brief Save node information using only #stats_ and #pruned_stats_ vectors
+  int saveInformationFromStats();
   //@}
 };
 /* VPCEventHandler definition */

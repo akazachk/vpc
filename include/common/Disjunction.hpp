@@ -36,7 +36,7 @@ class DisjunctiveTerm {
 public:
   double obj = std::numeric_limits<double>::max(); ///< objective value
   std::vector<int> changed_var; ///< list of indices of variables with changed bounds
-  std::vector<int> changed_bound; ///< for each var in #changed_var, which bound was changaed: <= 0: lower bound, 1: upper bound
+  std::vector<int> changed_bound; ///< for each var in #changed_var, which bound was changed: <= 0: lower bound, 1: upper bound
   std::vector<double> changed_value; ///< new value of the variable
   bool is_feasible; ///< is this term LP-feasible?
 #ifdef USE_COIN
