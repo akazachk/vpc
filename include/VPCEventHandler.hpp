@@ -216,13 +216,20 @@ protected:
       const int curr_num_changed_bounds,
       std::vector<std::vector<int> >& commonTermIndices,
       std::vector<std::vector<double> >& commonTermCoeff,
-      std::vector<double>& commonTermRHS);
+      std::vector<double>& commonTermRHS,
+      const double isPruned = false);
+
+  /// @brief Save disjunctive term using only stats vector, without solving for it
+  bool setupDisjunctiveTermFromStats();
 
   /// @brief Clear saved information and free memory
   void clearInformation();
 
   /// @brief Save node information before we reach endSearch_
   int saveInformation();
+
+  /// @brief Save node information using only #stats_ and #pruned_stats_ vectors
+  int saveInformationFromStats();
   //@}
 };
 /* VPCEventHandler definition */

@@ -820,8 +820,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
       if (prunedNodeStats.number >= numNodes_) {
         numNodes_ = prunedNodeStats.number + 1;
       }
-    } 
-    // node is pruned
+    } // node is pruned
 
     // Update parent if it has branches left
     if (parentInfo_->numberBranchesLeft() > 0) {
@@ -1102,12 +1101,14 @@ bool VPCEventHandler::setupDisjunctiveTerm(const int node_id,
     const int curr_num_changed_bounds,
     std::vector<std::vector<int> >& commonTermIndices,
     std::vector<std::vector<double> >& commonTermCoeff,
-    std::vector<double>& commonTermRHS) {
+    std::vector<double>& commonTermRHS,
+    const double isPruned) {
   bool isFeasible = false;
   const int ind[] = {branching_variable};
   const double coeff[] = {(branching_way <= 0) ? -1. : 1.};
   const double rhs = coeff[0] * branching_value;
-  const int orig_node_id = stats_[node_id].orig_id;
+  std::vector<NodeStatistics>& curr_stats = isPruned ? pruned_stats_ : stats_;
+  const int orig_node_id = curr_stats[node_id].orig_id;
 
   SolverInterface* tmpSolver = dynamic_cast<SolverInterface*>(tmpSolverBase->clone());
   if (branching_way <= 0)
@@ -1116,34 +1117,40 @@ bool VPCEventHandler::setupDisjunctiveTerm(const int node_id,
     tmpSolver->setColLower(branching_variable, branching_value);
   //tmpSolver->addRow(1, ind, coeff, rhs, tmpSolver->getInfinity());
   tmpSolver->resolve();
-  if (checkSolverOptimality(tmpSolver, true)) {
-    enableFactorization(tmpSolver, owner->params.get(doubleParam::EPS)); // this may change the solution slightly
+  const bool SOLVER_IS_OPTIMAL = checkSolverOptimality(tmpSolver, true);
+  if (SOLVER_IS_OPTIMAL || this->keepPrunedNodes_) {
     this->owner->num_terms++;
     Disjunction::setCgsName(this->owner->name, 1, ind, coeff, rhs);
     if (curr_num_changed_bounds > 0)
       Disjunction::setCgsName(this->owner->name, curr_num_changed_bounds,
           commonTermIndices, commonTermCoeff, commonTermRHS, true);
+    
     DisjunctiveTerm term;
-    term.basis = dynamic_cast<CoinWarmStartBasis*>(tmpSolver->getWarmStart());
-    term.obj = tmpSolver->getObjValue();
-    term.changed_var = stats_[orig_node_id].changed_var;
+    if (SOLVER_IS_OPTIMAL) {
+      enableFactorization(tmpSolver, owner->params.get(doubleParam::EPS)); // this may change the solution slightly
+      term.basis = dynamic_cast<CoinWarmStartBasis*>(tmpSolver->getWarmStart());
+      term.obj = tmpSolver->getObjValue();
+      isFeasible = true;
+    } else {
+      term.obj = std::numeric_limits<double>::max();
+    }
+    term.changed_var = curr_stats[orig_node_id].changed_var;
     term.changed_var.push_back(branching_variable);
-    term.changed_bound = stats_[orig_node_id].changed_bound;
+    term.changed_bound = curr_stats[orig_node_id].changed_bound;
     term.changed_bound.push_back(branching_way == 1 ? 0 : 1);
-    term.changed_value = stats_[orig_node_id].changed_value;
+    term.changed_value = curr_stats[orig_node_id].changed_value;
     term.changed_value.push_back(branching_value);
     owner->terms.push_back(term);
-    isFeasible = true;
 
     // Update the root node information
     // First, identify if this node is on the down or up part of the root split
-    // stats_[0].way tells us which is the first child of the root node
+    // curr_stats[0].way tells us which is the first child of the root node
     // The other node with 0 as a parent is therefore the second child
     bool is_down = false, is_up = false;
     int curr_id = orig_node_id;
-    const int way = stats_[0].way;
+    const int way = curr_stats[0].way;
     while (!is_down && !is_up) {
-      if (stats_[curr_id].parent_id == -1) {
+      if (curr_stats[curr_id].parent_id == -1) {
         if (curr_id == 0) { // check if this is the first child of the root
           if (way <= 0)
             is_down = true;
@@ -1156,7 +1163,7 @@ bool VPCEventHandler::setupDisjunctiveTerm(const int node_id,
             is_down = true;
         }
       } else {
-        curr_id = stats_[curr_id].parent_id;
+        curr_id = curr_stats[curr_id].parent_id;
       }
     }
     // Now update the bound if possible
@@ -1407,3 +1414,255 @@ int VPCEventHandler::saveInformation() {
   }
   return status;
 } /* saveInformation */
+
+/**
+ * Setup disjunctive term using stats vector only
+*/
+bool VPCEventHandler::setupDisjunctiveTermFromStats(
+  // const int orig_node_id,
+  // const int node_id,
+  // const std::vector<NodeStatistics> &curr_stats,
+) {
+  // const int branching_index = curr_stats[node_id].branch_index;
+  // const int branching_variable = curr_stats[node_id].variable;
+  // int branching_way = stats_[node_id].way;
+  // double branching_value = (branching_way <= 0) ? stats_[node_id].ub : stats_[node_id].lb;
+
+  // DisjunctiveTerm term;
+  // term.basis = NULL;
+  // term.obj = curr_stats[orig_node_id].obj; // might be inaccurate
+  // term.changed_var = curr_stats[orig_node_id].changed_var;
+  // term.changed_var.push_back(branching_variable);
+  // term.changed_bound = curr_stats[orig_node_id].changed_bound;
+  // term.changed_bound.push_back(branching_way == 1 ? 0 : 1);
+  // term.changed_value = curr_stats[orig_node_id].changed_value;
+  // term.changed_value.push_back(branching_value);
+  // owner->terms.push_back(term);
+  // isFeasible = true;
+
+  return false;
+} /* setupDisjunctiveTermFromStats */
+
+/**
+ * Save all relevant information before it gets deleted by BB finishing
+ *
+ * @return status: 0 if everything is okay, otherwise 1 (e.g., if all but one of the terms is infeasible)
+ */
+int VPCEventHandler::saveInformationFromStats() {
+//   int status = 0;
+//   const bool hitTimeLimit = model_->getCurrentSeconds() >= maxTime_;
+//   const bool hitHardNodeLimit = false;
+//   //const bool hitHardNodeLimit = model_->getNodeCount2() > maxNumLeafNodes_ * 10;
+
+//   clearInformation();
+//   this->owner->data.num_nodes_on_tree = this->getNumNodesOnTree();
+//   this->owner->data.num_partial_bb_nodes = model_->getNodeCount(); // save number of nodes looked at
+//   this->owner->data.num_pruned_nodes = this->getPrunedStatsVector().size();
+//   this->owner->data.num_fixed_vars = model_->strongInfo()[1]; // number fixed during b&b
+
+//   const std::vector<NodeStatistics>& stats = this->getStatsVector();
+//   const std::vector<NodeStatistics>& pruned_stats = this->getPrunedStatsVector();
+//   const int numLeafNodes = 2 * this->getNumNodesOnTree() + pruned_stats.size();
+
+//   // Save variables with bounds that were changed at the root
+//   const int num_stats = stats.size();
+//   if (num_stats > 0) {
+//     this->owner->common_changed_bound = stats[0].changed_bound;
+//     this->owner->common_changed_value = stats[0].changed_value;
+//     this->owner->common_changed_var = stats[0].changed_var;
+//     this->owner->root.var = stats[0].variable;
+//     this->owner->root.val = stats[0].value;
+//   }
+
+//   // Add the leaf nodes that have not already been pruned
+//   // For each node on the tree, add a term for the two branches
+//   const int numActiveNodes = this->getNumNodesOnTree();
+//   for (int tmp_ind = 0; tmp_ind < numActiveNodes; tmp_ind++) {
+//     const int i = this->getNodeIndex(tmp_ind);
+//     const int node_id = stats[i].id;
+//     const int orig_node_id = stats[node_id].orig_id;
+
+//     // Collect changed bounds
+//     const int curr_num_changed_bounds =
+//         (orig_node_id == 0) ? 0 : stats[orig_node_id].changed_var.size();
+//     std::vector < std::vector<int> > commonTermIndices(curr_num_changed_bounds);
+//     std::vector < std::vector<double> > commonTermCoeff(curr_num_changed_bounds);
+//     std::vector<double> commonTermRHS(curr_num_changed_bounds);
+
+//     const int branch = stats[i].branch_index;
+//     const int first_child_ind = (stats[i].way <= 0);
+//     const int parent_node_ind = stats[i].number;
+//     for (int b = branch; b < 2; b++) {
+//       const int tmp_child_ind = (b == 0) ? first_child_ind : !first_child_ind;
+//       const int child_ind = (tmp_child_ind == 0) ? 0 : 2; // reserve index 1 for strong branching "child"
+//     }
+
+//     // Change bounds in the solver
+
+//     // First the root node bounds
+//     const int init_num_changed_bounds = this->owner->common_changed_var.size();
+//     for (int i = 0; i < init_num_changed_bounds; i++) {
+//       const int col = this->owner->common_changed_var[i];
+//       const double val = this->owner->common_changed_value[i];
+//       if (this->owner->common_changed_bound[i] <= 0) {
+//         tmpSolverBase->setColLower(col, val);
+//       } else {
+//         tmpSolverBase->setColUpper(col, val);
+//       }
+//     }
+
+//     // Now the parent changed node bounds
+//     const int curr_num_changed_bounds =
+//         (orig_node_id == 0) ? 0 : stats_[orig_node_id].changed_var.size();
+//     std::vector < std::vector<int> > commonTermIndices(curr_num_changed_bounds);
+//     std::vector < std::vector<double> > commonTermCoeff(curr_num_changed_bounds);
+//     std::vector<double> commonTermRHS(curr_num_changed_bounds);
+//     for (int i = 0; i < curr_num_changed_bounds; i++) {
+//       const int col = stats_[orig_node_id].changed_var[i];
+//       const double coeff = (stats_[orig_node_id].changed_bound[i] <= 0) ? 1. : -1.;
+//       const double val = stats_[orig_node_id].changed_value[i];
+//       commonTermIndices[i].resize(1, col);
+//       commonTermCoeff[i].resize(1, coeff);
+//       commonTermRHS[i] = coeff * val;
+//       if (stats_[orig_node_id].changed_bound[i] <= 0) {
+//         tmpSolverBase->setColLower(col, val);
+//       } else {
+//         tmpSolverBase->setColUpper(col, val);
+//       }
+//     }
+
+// #ifdef TRACE
+//     double curr_nb_obj_val = tmpSolverBase->getObjValue() - originalSolver_->getObjValue();
+//     printf("DEBUG: Node: %d .......... Obj val: %.3f .......... NB obj val: %.3f\n", node_id,
+//         tmpSolverBase->getObjValue(), curr_nb_obj_val);
+//     printNodeStatistics(stats_[node_id], true);
+// #endif
+//     if (!isVal(tmpSolverBase->getObjValue(), stats_[node_id].obj,
+//         owner->params.get(doubleConst::DIFFEPS))) {
+// #ifdef TRACE
+//       std::string commonName;
+//       Disjunction::setCgsName(commonName, curr_num_changed_bounds, commonTermIndices,
+//           commonTermCoeff, commonTermRHS, false);
+//       printf("Bounds changed: %s.\n", commonName.c_str());
+// #endif
+//         }
+
+
+//     // Now we check the branch or branches left for this node
+//     bool hasFeasibleChild = false;
+//     const int branching_index = stats_[node_id].branch_index;
+//     const int branching_variable = stats_[node_id].variable;
+//     int branching_way = stats_[node_id].way;
+//     double branching_value = (branching_way <= 0) ? stats_[node_id].ub : stats_[node_id].lb;
+//   } // loop over nodes still on tree
+
+
+//   std::vector<std::vector<int> > children(numNodes); // the children of this node (node indices)
+//   std::vector<std::vector<int> > locationOfChild(numNodes); // 0: children, 1: feas_children, 2: pruned_children, 3: unexplored_children, 4: feas children found during strong branching
+//   std::vector<int> variable(numNodes); // variable that was branched on to get to this node
+//   std::vector<double> obj(numNodes); // objective value at this node
+//   variable[0] = -1;
+//   obj[0] = this->getOriginalSolver()->getObjValue();
+
+//   // Assume there are at most 3 children
+//   // (middle "child" reserved for feas sol found during strong branching at that node)
+//   // There may be more / less in general
+//   for (int i = 0; i < numNodes; i++) {
+//     children[i].resize(3, -1);
+//     locationOfChild[i].resize(3, -1);
+//   }
+
+//   // First handle the nodes already explored
+//   for (int i = 0; i < (int) stats.size(); i++) {
+//     if (stats[i].orig_id != stats[i].id || stats[i].parent_id < 0) {
+//       continue; // skip if the node has already been handled
+//     }
+//     const int node_ind = stats[i].number;
+//     const int parent_id = stats[i].parent_id;
+//     const int parent_node_ind = stats[parent_id].number;
+//     const int child_ind = (stats[parent_id].way <= 0) ? 0 : 2;
+//     int loc = 0;
+//     if (stats[i].found_integer_solution && isVal(stats[i].obj, stats[i].integer_obj)) {
+//       loc = 1;
+//     }
+//     setChildForTikzTreeString(children, locationOfChild, loc,
+//         parent_node_ind, child_ind, node_ind);
+//     variable[node_ind] = stats[parent_id].variable;
+//     obj[node_ind] = stats[i].obj;
+//   }
+
+//   // Add the leaf nodes
+//   int numActiveNodes = this->getNumNodesOnTree();
+//   for (int tmp_ind = 0; tmp_ind < numActiveNodes; tmp_ind++) {
+//     const int i = this->getNodeIndex(tmp_ind);
+//     const int branch = stats[i].branch_index;
+//     const int first_child_ind = (stats[i].way <= 0);
+//     const int parent_node_ind = stats[i].number;
+//     for (int b = branch; b < 2; b++) {
+//       const int tmp_child_ind = (b == 0) ? first_child_ind : !first_child_ind;
+//       const int child_ind = (tmp_child_ind == 0) ? 0 : 2; // reserve index 1 for strong branching "child"
+//       setChildForTikzTreeString(children, locationOfChild, 3, parent_node_ind, child_ind, numNodesTotal);
+//       variable.push_back(stats[i].variable);
+//       obj.push_back(-1);
+//       numNodesTotal++;
+//     }
+//   }
+
+//   // Add the pruned nodes
+//   int numInfeasNodes = 0, numFeasNodes = 0;
+//   for (int i = 0; i < (int) pruned_stats.size(); i++) {
+//     const int node_ind = pruned_stats[i].number;
+//     assert(children[node_ind][0] == -1 && children[node_ind][1] == -1);
+//     const int parent_id = pruned_stats[i].parent_id;
+//     const int parent_node_ind = stats[parent_id].number;
+//     const int child_ind = (stats[parent_id].way <= 0) ? 0 : 2;
+//     variable[node_ind] = stats[parent_id].variable;
+//     obj[node_ind] = pruned_stats[i].obj;
+//     if (pruned_stats[i].found_integer_solution) {
+//       int loc = (pruned_stats[i].obj == pruned_stats[i].integer_obj);
+//       setChildForTikzTreeString(children, locationOfChild, loc, parent_node_ind, child_ind, node_ind);
+//       numFeasNodes++;
+//       if (loc == 0) {
+//         // An integer solution was found during strong branching
+//         // Add this as a child with loc set to 4
+//         children.resize(numNodes+numSBFeasNodes+1);
+//         locationOfChild.resize(numNodes+numSBFeasNodes+1);
+//         children[numNodes+numSBFeasNodes].resize(3,-1);
+//         locationOfChild[numNodes+numSBFeasNodes].resize(3,-1);
+//         loc = 4;
+//         setChildForTikzTreeString(children, locationOfChild, loc,
+//             node_ind, 1, numNodes+numSBFeasNodes); // place it in the middle
+//         variable.push_back(-1);
+//         obj.push_back(pruned_stats[i].integer_obj);
+//         numSBFeasNodes++;
+//       }
+//     } else { // although it says infeasible, it may have been pruned by bound...
+//       setChildForTikzTreeString(children, locationOfChild, 2, parent_node_ind, child_ind, node_ind);
+//       numInfeasNodes++;
+//     }
+//   }
+
+//   // In the case that there are no leaf nodes, move the dangling ones to pruned
+//   if (numActiveNodes == 0) {
+//     std::vector<bool> isLeafNode(numNodes, false);
+//     for (int i = numNodes - 1; i >= 0; i--) {
+//       int num_children = locationOfChild[i].size();
+//       int num_empty = 0;
+//       for (int j = 0; j < num_children; j++) {
+//         const int loc = locationOfChild[i][j];
+//         if (loc < 0) {
+//           num_empty++;
+//         } else if (loc == 0) {
+//           const int child_node_ind = children[i][j];
+//           if (isLeafNode[child_node_ind]) {
+//             locationOfChild[i][j] = 2;
+//           }
+//         }
+//       }
+//       if (num_children - num_empty == 0) {
+//         isLeafNode[i] = true;
+//       }
+//     }
+//   }
+} /* saveInformationFromStats */
+  
