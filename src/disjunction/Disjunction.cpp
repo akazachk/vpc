@@ -51,7 +51,13 @@ void DisjunctiveTerm::initialize(const DisjunctiveTerm* const source) {
     changed_value = source->changed_value;
     is_feasible = source->is_feasible;
 #ifdef USE_COIN
-    basis = source->basis->clone();
+    if (basis) {
+      delete basis;
+      basis = NULL;
+    }
+    if (source->basis) {
+      basis = source->basis->clone();
+    }
     ineqs = source->ineqs;
 #endif
   } else {

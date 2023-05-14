@@ -219,15 +219,17 @@ protected:
       std::vector<double>& commonTermRHS,
       const double isPruned = false);
 
-  /// @brief Save disjunctive term using only stats vector, without solving for it
-  bool setupDisjunctiveTermFromStats();
-
   /// @brief Clear saved information and free memory
   void clearInformation();
 
   /// @brief Save node information before we reach endSearch_
   int saveInformation();
 
+  /// @brief Save disjunctive term using only stats vector, without solving for it
+  bool setupDisjunctiveTermFromStats(const int orig_node_id,
+      const int branching_variable, const int branching_way, 
+      const double branching_value);
+  
   /// @brief Save node information using only #stats_ and #pruned_stats_ vectors
   int saveInformationFromStats();
   //@}
