@@ -1095,54 +1095,96 @@ void VPCEventHandler::initialize(const VPCEventHandler* const source) {
   }
 } /* initialize */
 
-bool VPCEventHandler::setupDisjunctiveTerm(const int node_id,
-    const int branching_variable, const int branching_way,
-    const double branching_value, const SolverInterface* const tmpSolverBase,
-    const int curr_num_changed_bounds,
-    std::vector<std::vector<int> >& commonTermIndices,
-    std::vector<std::vector<double> >& commonTermCoeff,
-    std::vector<double>& commonTermRHS,
-    const double isPruned) {
-  bool isFeasible = false;
+/**
+ * @return Returns index of the term in the #owner->terms_ vector if the
+ *  disjunctive term was set up successfully.
+*/
+int VPCEventHandler::setupDisjunctiveTermFromStats(
+    const int orig_node_id, ///< node id in #stats_ vector
+    const int branching_variable, ///< variable that we branch on to get to term
+    const int branching_way, ///< direction of branching (0 = down, 1 = up)
+    const double branching_value, ///< value that branching variable's bound is set to
+    const int parent_num_changed_bounds,
+    const std::vector<std::vector<int> >& parentTermIndices,
+    const std::vector<std::vector<double> >& parentTermCoeff,
+    const std::vector<double>& parentTermRHS,
+    SolverInterface* const tmpSolver ///< solver to use to get objective value + basis
+) {
   const int ind[] = {branching_variable};
   const double coeff[] = {(branching_way <= 0) ? -1. : 1.};
   const double rhs = coeff[0] * branching_value;
-  std::vector<NodeStatistics>& curr_stats = isPruned ? pruned_stats_ : stats_;
-  const int orig_node_id = curr_stats[node_id].orig_id;
+  Disjunction::setCgsName(this->owner->name, 1, ind, coeff, rhs);
+  if (parent_num_changed_bounds > 0) {
+    Disjunction::setCgsName(this->owner->name, parent_num_changed_bounds,
+        parentTermIndices, parentTermCoeff, parentTermRHS, true);
+  }
 
-  SolverInterface* tmpSolver = dynamic_cast<SolverInterface*>(tmpSolverBase->clone());
-  if (branching_way <= 0)
-    tmpSolver->setColUpper(branching_variable, branching_value);
-  else
-    tmpSolver->setColLower(branching_variable, branching_value);
-  //tmpSolver->addRow(1, ind, coeff, rhs, tmpSolver->getInfinity());
-  tmpSolver->resolve();
-  const bool SOLVER_IS_OPTIMAL = checkSolverOptimality(tmpSolver, true);
-  if (SOLVER_IS_OPTIMAL || this->keepPrunedNodes_) {
-    this->owner->num_terms++;
-    Disjunction::setCgsName(this->owner->name, 1, ind, coeff, rhs);
-    if (curr_num_changed_bounds > 0)
-      Disjunction::setCgsName(this->owner->name, curr_num_changed_bounds,
-          commonTermIndices, commonTermCoeff, commonTermRHS, true);
-    
-    DisjunctiveTerm term;
-    if (SOLVER_IS_OPTIMAL) {
+  const bool USE_SOLVER_BASIS = tmpSolver != NULL && checkSolverOptimality(tmpSolver, true);
+
+  DisjunctiveTerm term;
+  if (USE_SOLVER_BASIS) {
 #ifdef USE_COIN
-      enableFactorization(tmpSolver, owner->params.get(doubleParam::EPS)); // this may change the solution slightly
-      term.basis = dynamic_cast<CoinWarmStartBasis*>(tmpSolver->getWarmStart());
+    enableFactorization(tmpSolver, owner->params.get(doubleParam::EPS)); // this may change the solution slightly
+    term.basis = dynamic_cast<CoinWarmStartBasis*>(tmpSolver->getWarmStart());
 #endif
-      term.obj = tmpSolver->getObjValue();
-      isFeasible = true;
-    } else {
-      term.obj = std::numeric_limits<double>::max();
+    term.obj = tmpSolver->getObjValue();
+    term.is_feasible = true;
+  } else {
+    term.obj = stats_[orig_node_id].obj; // will be inaccurate
+    term.basis = NULL;
+  }
+  term.changed_var = stats_[orig_node_id].changed_var;
+  term.changed_var.push_back(branching_variable);
+  term.changed_bound = stats_[orig_node_id].changed_bound;
+  term.changed_bound.push_back(branching_way == 1 ? 0 : 1);
+  term.changed_value = stats_[orig_node_id].changed_value;
+  term.changed_value.push_back(branching_value);
+  owner->terms.push_back(term);
+  this->owner->num_terms++;
+
+  return owner->terms.size() - 1;
+} /* setupDisjunctiveTermFromStats */
+
+bool VPCEventHandler::setupDisjunctiveTerm(
+    const int orig_node_id, ///< node id in #stats_ vector
+    const int branching_variable, ///< variable that we branch on to get to term
+    const int branching_way, ///< direction of branching (0 = down, 1 = up)
+    const double branching_value, ///< value that branching variable's bound is set to
+    const int parent_num_changed_bounds,
+    const std::vector<std::vector<int> >& parentTermIndices,
+    const std::vector<std::vector<double> >& parentTermCoeff,
+    const std::vector<double>& parentTermRHS,
+    const SolverInterface* const tmpSolverBase ///< solver of parent node (if available)
+) {
+  SolverInterface* tmpSolver = NULL;
+  
+  if (tmpSolverBase) {
+    tmpSolver = dynamic_cast<SolverInterface*>(tmpSolverBase->clone());
+    if (branching_way <= 0)
+      tmpSolver->setColUpper(branching_variable, branching_value);
+    else
+      tmpSolver->setColLower(branching_variable, branching_value);
+    //tmpSolver->addRow(1, ind, coeff, rhs, tmpSolver->getInfinity());
+    tmpSolver->resolve();
+  }
+  const bool isFeasible = tmpSolver != NULL && checkSolverOptimality(tmpSolver, true);
+
+  if (isFeasible || this->keepPrunedNodes_) {
+    const int term_ind = setupDisjunctiveTermFromStats(orig_node_id, branching_variable,
+        branching_way, branching_value, parent_num_changed_bounds,
+        parentTermIndices, parentTermCoeff, parentTermRHS,
+        isFeasible ? tmpSolver : NULL);
+
+    if (term_ind < 0) {
+      // Return error that term could not be set up
+      error_msg(errorstring,
+          "Term was not correctly set up for node %d with branching variable %d, branching way %d, and branching value %f.\n",
+          orig_node_id, branching_variable, branching_way, branching_value);
+      writeErrorToLog(errorstring, owner->params.logfile);
+      exit(1);
     }
-    term.changed_var = curr_stats[orig_node_id].changed_var;
-    term.changed_var.push_back(branching_variable);
-    term.changed_bound = curr_stats[orig_node_id].changed_bound;
-    term.changed_bound.push_back(branching_way == 1 ? 0 : 1);
-    term.changed_value = curr_stats[orig_node_id].changed_value;
-    term.changed_value.push_back(branching_value);
-    owner->terms.push_back(term);
+        
+    DisjunctiveTerm& term = owner->terms[term_ind];
 
     // Update the root node information
     // First, identify if this node is on the down or up part of the root split
@@ -1150,9 +1192,9 @@ bool VPCEventHandler::setupDisjunctiveTerm(const int node_id,
     // The other node with 0 as a parent is therefore the second child
     bool is_down = false, is_up = false;
     int curr_id = orig_node_id;
-    const int way = curr_stats[0].way;
+    const int way = stats_[0].way;
     while (!is_down && !is_up) {
-      if (curr_stats[curr_id].parent_id == -1) {
+      if (stats_[curr_id].parent_id == -1) {
         if (curr_id == 0) { // check if this is the first child of the root
           if (way <= 0)
             is_down = true;
@@ -1165,7 +1207,7 @@ bool VPCEventHandler::setupDisjunctiveTerm(const int node_id,
             is_down = true;
         }
       } else {
-        curr_id = curr_stats[curr_id].parent_id;
+        curr_id = stats_[curr_id].parent_id;
       }
     }
     // Now update the bound if possible
@@ -1266,19 +1308,19 @@ int VPCEventHandler::saveInformation() {
       }
     }
 
-    // Now the parent changed node bounds
-    const int curr_num_changed_bounds =
+    // Collect and apply the parent changed node bounds
+    const int parent_num_changed_bounds =
         (orig_node_id == 0) ? 0 : stats_[orig_node_id].changed_var.size();
-    std::vector < std::vector<int> > commonTermIndices(curr_num_changed_bounds);
-    std::vector < std::vector<double> > commonTermCoeff(curr_num_changed_bounds);
-    std::vector<double> commonTermRHS(curr_num_changed_bounds);
-    for (int i = 0; i < curr_num_changed_bounds; i++) {
+    std::vector < std::vector<int> > parentTermIndices(parent_num_changed_bounds);
+    std::vector < std::vector<double> > parentTermCoeff(parent_num_changed_bounds);
+    std::vector<double> parentTermRHS(parent_num_changed_bounds);
+    for (int i = 0; i < parent_num_changed_bounds; i++) {
       const int col = stats_[orig_node_id].changed_var[i];
       const double coeff = (stats_[orig_node_id].changed_bound[i] <= 0) ? 1. : -1.;
       const double val = stats_[orig_node_id].changed_value[i];
-      commonTermIndices[i].resize(1, col);
-      commonTermCoeff[i].resize(1, coeff);
-      commonTermRHS[i] = coeff * val;
+      parentTermIndices[i].resize(1, col);
+      parentTermCoeff[i].resize(1, coeff);
+      parentTermRHS[i] = coeff * val;
       if (stats_[orig_node_id].changed_bound[i] <= 0) {
         tmpSolverBase->setColLower(col, val);
       } else {
@@ -1328,8 +1370,8 @@ int VPCEventHandler::saveInformation() {
         owner->params.get(doubleConst::DIFFEPS))) {
 #ifdef TRACE
       std::string commonName;
-      Disjunction::setCgsName(commonName, curr_num_changed_bounds, commonTermIndices,
-          commonTermCoeff, commonTermRHS, false);
+      Disjunction::setCgsName(commonName, parent_num_changed_bounds, parentTermIndices,
+          parentTermCoeff, parentTermRHS, false);
       printf("Bounds changed: %s.\n", commonName.c_str());
 #endif
       // Allow it to be up to 3% off without causing an error
@@ -1361,9 +1403,9 @@ int VPCEventHandler::saveInformation() {
     printf("\n## Solving first child of parent %d/%d for term %d. ##\n",
         tmp_ind + 1, this->numNodesOnTree_, this->owner->num_terms);
 #endif
-    hasFeasibleChild = setupDisjunctiveTerm(node_id, branching_variable,
-        branching_way, branching_value, tmpSolverBase, curr_num_changed_bounds,
-        commonTermIndices, commonTermCoeff, commonTermRHS);
+    hasFeasibleChild = setupDisjunctiveTerm(orig_node_id,
+        branching_variable, branching_way, branching_value, parent_num_changed_bounds,
+        parentTermIndices, parentTermCoeff, parentTermRHS, tmpSolverBase);
 
     // Check if we exit early
     if (!hitTimeLimit && !hitHardNodeLimit 
@@ -1379,9 +1421,9 @@ int VPCEventHandler::saveInformation() {
       branching_way = (stats_[node_id].way <= 0) ? 1 : 0;
       branching_value =
           (branching_way <= 0) ? branching_value - 1 : branching_value + 1;
-      const bool childIsFeasible = setupDisjunctiveTerm(node_id, branching_variable, branching_way,
-              branching_value, tmpSolverBase, curr_num_changed_bounds,
-              commonTermIndices, commonTermCoeff, commonTermRHS);
+      const bool childIsFeasible = setupDisjunctiveTerm(orig_node_id,
+              branching_variable, branching_way, branching_value, parent_num_changed_bounds,
+              parentTermIndices, parentTermCoeff, parentTermRHS, tmpSolverBase);
       hasFeasibleChild = hasFeasibleChild || childIsFeasible;
     } // end second branch computation
 
@@ -1418,31 +1460,6 @@ int VPCEventHandler::saveInformation() {
 } /* saveInformation */
 
 /**
- * Setup disjunctive term using stats vector only
-*/
-bool VPCEventHandler::setupDisjunctiveTermFromStats(
-  const int orig_node_id, ///< node id in #stats_ vector
-  const int branching_variable, ///< variable that was branch on to get to term
-  const int branching_way, ///< direction of branching (0 = down, 1 = up)
-  const double branching_value ///< value that branching variable's bound is set to
-) {
-  DisjunctiveTerm term;
-#ifdef USE_COIN
-  term.basis = NULL;
-#endif
-  term.obj = stats_[orig_node_id].obj; // will be inaccurate
-  term.changed_var = stats_[orig_node_id].changed_var;
-  term.changed_var.push_back(branching_variable);
-  term.changed_bound = stats_[orig_node_id].changed_bound;
-  term.changed_bound.push_back(branching_way == 1 ? 0 : 1);
-  term.changed_value = stats_[orig_node_id].changed_value;
-  term.changed_value.push_back(branching_value);
-  owner->terms.push_back(term);
-
-  return true;
-} /* setupDisjunctiveTermFromStats */
-
-/**
  * Save all relevant information before it gets deleted by BB finishing
  *
  * @return status: 0 if everything is okay, otherwise 1 (e.g., if all but one of the terms is infeasible)
@@ -1475,14 +1492,14 @@ int VPCEventHandler::saveInformationFromStats() {
 
   // Add the leaf nodes that have not already been pruned
   // For each node on the tree, add a term for the two branches
-  // [Not needed here] Set up original basis including bounds changed at root
-  // CoinWarmStartBasis* original_basis = dynamic_cast<CoinWarmStartBasis*>(originalSolver_->getWarmStart());
+  // Set up original basis including bounds changed at root
+  CoinWarmStartBasis* original_basis = dynamic_cast<CoinWarmStartBasis*>(originalSolver_->getWarmStart());
   const int numActiveNodes = this->getNumNodesOnTree();
   for (int tmp_ind = 0; tmp_ind < numActiveNodes; tmp_ind++) {
-    // CoinWarmStartBasis* parent_basis = dynamic_cast<CoinWarmStartBasis*>(original_basis->clone());
+    CoinWarmStartBasis* parent_basis = dynamic_cast<CoinWarmStartBasis*>(original_basis->clone());
     CbcNode* node = model_->tree()->nodePointer(tmp_ind);
     CbcNodeInfo* nodeInfo = node->nodeInfo();
-    // nodeInfo->buildRowBasis(*parent_basis);
+    nodeInfo->buildRowBasis(*parent_basis);
     finalNodeIndices_.push_back(stats[nodeInfo->nodeNumber()].id);
 
     const int i = this->getNodeIndex(tmp_ind);
@@ -1493,6 +1510,52 @@ int VPCEventHandler::saveInformationFromStats() {
     const int init_branching_way = (stats[orig_node_id].way == 1);
     const double init_branching_value = (init_branching_way <= 0) ? stats[orig_node_id].ub : stats[orig_node_id].lb;
 
+    SolverInterface* tmpSolverBase =
+        dynamic_cast<SolverInterface*>(originalSolver_->clone());
+    setLPSolverParameters(tmpSolverBase, owner->params.get(VERBOSITY), owner->params.get(TIMELIMIT));
+//    tmpSolverBase->disableFactorization(); // seg fault
+
+    // Change bounds in the solver
+    // First the root node bounds
+    const int init_num_changed_bounds = this->owner->common_changed_var.size();
+    for (int i = 0; i < init_num_changed_bounds; i++) {
+      const int col = this->owner->common_changed_var[i];
+      const double val = this->owner->common_changed_value[i];
+      if (this->owner->common_changed_bound[i] <= 0) {
+        tmpSolverBase->setColLower(col, val);
+      } else {
+        tmpSolverBase->setColUpper(col, val);
+      }
+    }
+
+    // Collect and apply the parent changed node bounds
+    const int parent_num_changed_bounds =
+        (orig_node_id == 0) ? 0 : stats_[orig_node_id].changed_var.size();
+    std::vector < std::vector<int> > parentTermIndices(parent_num_changed_bounds);
+    std::vector < std::vector<double> > parentTermCoeff(parent_num_changed_bounds);
+    std::vector<double> parentTermRHS(parent_num_changed_bounds);
+    for (int i = 0; i < parent_num_changed_bounds; i++) {
+      const int col = stats_[orig_node_id].changed_var[i];
+      const double coeff = (stats_[orig_node_id].changed_bound[i] <= 0) ? 1. : -1.;
+      const double val = stats_[orig_node_id].changed_value[i];
+      parentTermIndices[i].resize(1, col);
+      parentTermCoeff[i].resize(1, coeff);
+      parentTermRHS[i] = coeff * val;
+      if (stats_[orig_node_id].changed_bound[i] <= 0) {
+        tmpSolverBase->setColLower(col, val);
+      } else {
+        tmpSolverBase->setColUpper(col, val);
+      }
+    }
+
+    // Set the parent node warm start
+    if (!(tmpSolverBase->setWarmStart(parent_basis))) {
+      error_msg(errorstring,
+          "Warm start information not accepted for parent node %d.\n", tmp_ind);
+      writeErrorToLog(errorstring, owner->params.logfile);
+      exit(1);
+    }
+
     for (int b = branching_index; b < 2; b++) {
       const int branching_way = (b == 0) ? init_branching_way : 1 - init_branching_way;
       const double branching_value = 
@@ -1500,18 +1563,21 @@ int VPCEventHandler::saveInformationFromStats() {
               ? init_branching_value 
               : ((branching_way <= 0) ? init_branching_value - 1 : init_branching_value + 1);
       
-      setupDisjunctiveTermFromStats(orig_node_id, branching_variable, branching_way, branching_value);
+      setupDisjunctiveTerm(orig_node_id,
+          branching_variable, branching_way, branching_value, parent_num_changed_bounds,
+          parentTermIndices, parentTermCoeff, parentTermRHS, tmpSolverBase);
     } // loop over branching ways
 
-    // if (parent_basis != NULL) {
-    //   delete parent_basis;
-    //   parent_basis = NULL;
-    // }
+    if (parent_basis != NULL) {
+      delete parent_basis;
+      parent_basis = NULL;
+    }
   } // loop over active nodes
 
   // Add the pruned nodes
   // For each pruned node, to get the changes to arrive at the node, 
   // we retrieve the parent node and then branch using the parent's info
+  // 2023-05-14 amk: we might not be able to compute basis since parent may be gone
   for (int tmp_ind = 0; tmp_ind < pruned_stats.size(); tmp_ind++) {
     const int parent_id = pruned_stats[tmp_ind].parent_id;
     const int node_id = parent_id;
@@ -1520,13 +1586,30 @@ int VPCEventHandler::saveInformationFromStats() {
     const int branching_way = (stats[node_id].way == 1);
     const double branching_value = (branching_way <= 0) ? stats[node_id].ub : stats[node_id].lb;
 
-    setupDisjunctiveTermFromStats(orig_node_id, branching_variable, branching_way, branching_value);
+    // Collect the parent changed node bounds
+    const int parent_num_changed_bounds =
+        (orig_node_id == 0) ? 0 : stats_[orig_node_id].changed_var.size();
+    std::vector < std::vector<int> > parentTermIndices(parent_num_changed_bounds);
+    std::vector < std::vector<double> > parentTermCoeff(parent_num_changed_bounds);
+    std::vector<double> parentTermRHS(parent_num_changed_bounds);
+    for (int i = 0; i < parent_num_changed_bounds; i++) {
+      const int col = stats_[orig_node_id].changed_var[i];
+      const double coeff = (stats_[orig_node_id].changed_bound[i] <= 0) ? 1. : -1.;
+      const double val = stats_[orig_node_id].changed_value[i];
+      parentTermIndices[i].resize(1, col);
+      parentTermCoeff[i].resize(1, coeff);
+      parentTermRHS[i] = coeff * val;
+    }
+
+    setupDisjunctiveTerm(orig_node_id,
+        branching_variable, branching_way, branching_value, parent_num_changed_bounds,
+        parentTermIndices, parentTermCoeff, parentTermRHS, NULL);
   } // loop over pruned nodes
 
-  // if (original_basis != NULL) {
-  //   delete original_basis;
-  //   original_basis = NULL;
-  // }
+  if (original_basis != NULL) {
+    delete original_basis;
+    original_basis = NULL;
+  }
 
   return status;
 } /* saveInformationFromStats */  

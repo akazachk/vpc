@@ -266,7 +266,8 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
 
   // Make sure that the right number of terms has been saved
   if ((num_terms != eventHandler->getNumLeafNodes())
-      || (num_terms != static_cast<int>(terms.size() + eventHandler->isIntegerSolutionFound()))) {
+      || (params.get(intParam::PARTIAL_BB_KEEP_PRUNED_NODES) == 0 
+            && (num_terms != static_cast<int>(terms.size() + eventHandler->isIntegerSolutionFound())))) {
     error_msg(errstr,
         "Number of terms does not match: num terms = %d, num leaf nodes = %d, num bases = %d, found_integer_sol = %d\n",
         num_terms, eventHandler->getNumLeafNodes(), static_cast<int>(terms.size()),
