@@ -115,6 +115,7 @@ There are many things left to be implemented in the future:
 2. Objective functions based on intermediate nodes of the partial branch-and-bound tree, to cut off points other than the LP optimum.
 3. Dynamic disjunctions, in which cutting and branching are alternated.
 4. Strengthening cuts -- see the related [MIP 2021 talk](https://www.youtube.com/watch?v=axqaOED4CXQ).
+5. Reduced dependence on Cbc; e.g., introduce compatibility with [HiGHS](https://highs.dev) and/or [SCIP](https://scipopt.org).
 
 ## Contact Information
 [Aleksandr M. Kazachkov](https://akazachk.github.io),
