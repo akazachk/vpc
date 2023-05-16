@@ -452,7 +452,10 @@ VPCEventHandler::event(CbcEvent whichEvent) {
 
     // Save the nodes currently on the tree so we can figure out the parent easily
     numNodesOnTree_ = model_->tree()->size();
-    numLeafNodes_ = isIntegerSolutionFound(); // the best integer feasible solution should be a leaf
+    numLeafNodes_ =
+      (this->owner->params.get(intParam::PARTIAL_BB_KEEP_PRUNED_NODES) == 0) ?
+        isIntegerSolutionFound() : // the best integer feasible solution should be a leaf
+        pruned_stats_.size();
     for (int i = 0; i < numNodesOnTree_; i++) {
       numLeafNodes_ += model_->tree()->nodePointer(i)->nodeInfo()->numberBranchesLeft();
     }
@@ -468,7 +471,10 @@ VPCEventHandler::event(CbcEvent whichEvent) {
     // Check if we are done
     if (numLeafNodes_ >= maxNumLeafNodes_ || model_->getCurrentSeconds() >= maxTime_) {
       // Save information
-      const int status = (this->owner->params.get(intParam::PARTIAL_BB_KEEP_PRUNED_NODES) == 0) ? saveInformation() : saveInformationFromStats();
+      const int status =
+        (this->owner->params.get(intParam::PARTIAL_BB_KEEP_PRUNED_NODES) == 0) ?
+        saveInformation() :
+        saveInformationFromStats();
       if (status == 0) {
 #ifdef TRACE
       printf(
