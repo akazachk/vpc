@@ -126,6 +126,7 @@ inline void TimeStats::start_timer(const std::string &name) {
 inline void TimeStats::start_timer(int id) {
   //assert(id >= 0 && id < (int )value.size());
   if (id >= 0 && id < (int )value.size()) {
+    assert(!timer_running[id]);
     timer_start[id] = clock();
     timer_running[id] = true;
   }
@@ -138,6 +139,7 @@ inline void TimeStats::end_timer(const std::string &name) {
 inline void TimeStats::end_timer(int id) {
   //assert(id >= 0 && id < (int )value.size());
   if (id >= 0 && id < (int )value.size()) {
+    assert(timer_running[id]);
     value[id] += clock() - timer_start[id];
     timer_running[id] = false;
   }
