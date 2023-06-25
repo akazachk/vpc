@@ -42,6 +42,12 @@ using namespace VPCParametersNamespace;
 enum OverallTimeStats {
   INIT_SOLVE_TIME,
   VPC_GEN_TIME,
+  VPC_INIT_SOLVE_TIME,
+  VPC_DISJ_SETUP_TIME,
+  VPC_DISJ_GEN_TIME,
+  VPC_PRLP_SETUP_TIME,
+  VPC_PRLP_SOLVE_TIME,
+  VPC_GEN_CUTS_TIME,
   VPC_APPLY_TIME,
   BB_TIME,
   TOTAL_TIME,
@@ -50,6 +56,12 @@ enum OverallTimeStats {
 const std::vector<std::string> OverallTimeStatsName {
   "INIT_SOLVE_TIME",
   "VPC_GEN_TIME",
+  "VPC_INIT_SOLVE_TIME",
+  "VPC_DISJ_SETUP_TIME",
+  "VPC_DISJ_GEN_TIME",
+  "VPC_PRLP_SETUP_TIME",
+  "VPC_PRLP_SOLVE_TIME",
+  "VPC_GEN_CUTS_TIME",
   "VPC_APPLY_TIME",
   "BB_TIME",
   "TOTAL_TIME"
@@ -259,6 +271,31 @@ int main(int argc, char** argv) {
       doCustomRoundOfCuts(round_ind, vpcs_by_round[round_ind], gen, num_disj);
     } // check if mode is CUSTOM
     timer.end_timer(OverallTimeStats::VPC_GEN_TIME);
+
+    // Update timing from underlying generator
+    const TimeStats& vpctimer = gen.timer;
+    std::vector<CglVPC::VPCTimeStats> vpc_stats = {
+      CglVPC::VPCTimeStats::INIT_SOLVE_TIME,
+      CglVPC::VPCTimeStats::DISJ_SETUP_TIME,
+      CglVPC::VPCTimeStats::DISJ_GEN_TIME,
+      CglVPC::VPCTimeStats::PRLP_SETUP_TIME,
+      CglVPC::VPCTimeStats::PRLP_SOLVE_TIME,
+      CglVPC::VPCTimeStats::GEN_CUTS_TIME,
+    };
+    std::vector<OverallTimeStats> overall_stats = {
+      OverallTimeStats::VPC_INIT_SOLVE_TIME,
+      OverallTimeStats::VPC_DISJ_SETUP_TIME,
+      OverallTimeStats::VPC_DISJ_GEN_TIME,
+      OverallTimeStats::VPC_PRLP_SETUP_TIME,
+      OverallTimeStats::VPC_PRLP_SOLVE_TIME,
+      OverallTimeStats::VPC_GEN_CUTS_TIME
+    };
+    for (int i = 0; i < (int) vpc_stats.size(); i++) {
+      const CglVPC::VPCTimeStats stat = vpc_stats[i];
+      const OverallTimeStats overall_stat = overall_stats[i];
+      const clock_t currtimevalue = vpctimer.get_value(CglVPC::VPCTimeStatsName[static_cast<int>(stat)]);
+      timer.add_value(overall_stat, currtimevalue);
+    }
 
     timer.start_timer(OverallTimeStats::VPC_APPLY_TIME);
     applyCutsCustom(solver, vpcs_by_round[round_ind], params.logfile);
