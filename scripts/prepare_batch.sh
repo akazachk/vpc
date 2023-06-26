@@ -61,15 +61,16 @@ fi
 JOB_LIST="job_list_${MODE}.txt"
 
 # Set parameters
+# --bb_mode={0,1,10,11,100,...,111}
+#        Which branch-and-bound experiments to run (ones = no cuts, tens = vpcs, hundreds = gmics).
 PARAMS=" --optfile=${OPTFILE}"
 if [ $MODE == bb ]; then
   depthList=(2 4 8 16 32 64)
   PARAMS="$PARAMS -t 3600"
   PARAMS="$PARAMS --rounds=1"
+  PARAMS="$PARAMS --bb_mode=10"
   #PARAMS="$PARAMS --bb_runs=1"
-  #PARAMS="$PARAMS --bb_mode=10"
   PARAMS="$PARAMS --bb_runs=7"
-  PARAMS="$PARAMS --bb_mode=11"
   PARAMS="$PARAMS --bb_timelimit=3600"
   PARAMS="$PARAMS --use_all_ones=1"
   PARAMS="$PARAMS --use_iter_bilinear=1"
@@ -85,6 +86,20 @@ elif [ $MODE == bb0 ]; then
   PARAMS="$PARAMS --bb_runs=7"
   PARAMS="$PARAMS --bb_mode=001"
   PARAMS="$PARAMS --bb_timelimit=3600"
+elif [ $MODE == bb0bb ]; then
+  depthList=(2 4 8 16 32 64)
+  PARAMS="$PARAMS -t 3600"
+  PARAMS="$PARAMS --rounds=1"
+  PARAMS="$PARAMS --bb_runs=7"
+  PARAMS="$PARAMS --bb_mode=11"
+  PARAMS="$PARAMS --bb_timelimit=3600"
+  PARAMS="$PARAMS --use_all_ones=1"
+  PARAMS="$PARAMS --use_iter_bilinear=1"
+  PARAMS="$PARAMS --use_disj_lb=1"
+  PARAMS="$PARAMS --use_tight_points=0"
+  PARAMS="$PARAMS --use_tight_rays=0"
+  PARAMS="$PARAMS --use_unit_vectors=0"
+  PARAMS="$PARAMS --gomory=-1"
 elif [ $MODE == preprocess ]; then
   depthList=(0)
   PARAMS="$PARAMS -t 7200"
