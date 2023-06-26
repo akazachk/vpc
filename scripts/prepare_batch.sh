@@ -28,15 +28,17 @@ MODE=preprocess
 export PROJ_DIR=`realpath -s ${PROJ_DIR}`
 export VPC_DIR=${PROJ_DIR}
 
-export INSTANCE_DIR=${PROJ_DIR}/data/instances
 export OPTFILE="${VPC_DIR}/data/ip_obj.csv"
-export RESULTS_DIR=${PROJ_DIR}/results
 export SCRIPT_DIR=${PROJ_DIR}/scripts
+
+export INSTANCE_DIR=${PROJ_DIR}/data/instances
+export RESULTS_DIR=${PROJ_DIR}/results
 export SOL_DIR=${PROJ_DIR}/data/solutions
 
-export LOCAL_DIR=/blue/akazachkov/$USER
-export INSTANCE_DIR=${LOCAL_DIR}/instances/vpc
+export LOCAL_DIR=${HOME}
+export INSTANCE_DIR=${LOCAL_DIR}/instances
 export RESULTS_DIR=${LOCAL_DIR}/results
+export SOL_DIR=${INSTANCE_DIR}/solutions
 
 EXECUTABLE="${PROJ_DIR}/Release/vpc"
 
@@ -64,8 +66,10 @@ if [ $MODE == bb ]; then
   depthList=(2 4 8 16 32 64)
   PARAMS="$PARAMS -t 3600"
   PARAMS="$PARAMS --rounds=1"
-  PARAMS="$PARAMS --bb_runs=1"
-  PARAMS="$PARAMS --bb_mode=10"
+  #PARAMS="$PARAMS --bb_runs=1"
+  #PARAMS="$PARAMS --bb_mode=10"
+  PARAMS="$PARAMS --bb_runs=7"
+  PARAMS="$PARAMS --bb_mode=11"
   PARAMS="$PARAMS --bb_timelimit=3600"
   PARAMS="$PARAMS --use_all_ones=1"
   PARAMS="$PARAMS --use_iter_bilinear=1"
@@ -168,5 +172,9 @@ for d in ${depthList[*]}; do
     fi
   done < ${INSTANCE_LIST}
 done # loop over depth list
+
+
+# Shuffle command order to not have dependency in the performance
+shuf -o ${JOB_LIST} < ${JOB_LIST}
 
 echo "Done preparing $JOB_LIST. Total errors: $TOTAL_ERRORS."
