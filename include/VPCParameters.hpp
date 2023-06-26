@@ -166,7 +166,8 @@ enum class doubleConst {
 enum class TempOptions {
   NONE = 0, ///< default
   CHECK_CUTS_AGAINST_BB_OPT = ENUM_OPTION_3, ///< if integer optimal solution is available, check if it violates any cuts
-  CALC_NUM_GOMORY_ROUNDS_TO_MATCH = ENUM_OPTION_4, ///< calculate number of rounds of GMICs needed to get same bound as obtained by our cuts
+  //CALC_NUM_GOMORY_ROUNDS_TO_MATCH = ENUM_OPTION_4, ///< calculate number of rounds of GMICs needed to get same bound as obtained by our cuts
+  PRINT_BOUND_BY_ROUND = ENUM_OPTION_4, ///< print bound after each round of cuts to file
   SAVE_IP_OPT = ENUM_OPTION_5, ///< save IP optimum solution
   // Options for generating tikz string (if negative, then print nodes without the LP value at the node)
   GEN_TIKZ_STRING = ENUM_OPTION_10, ///< generate code for printing (partial) b&b tree in tikz format

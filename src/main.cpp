@@ -82,6 +82,7 @@ std::time_t start_time_t, end_time_t;
 char start_time_string[25];
 
 SummaryBoundInfo boundInfo;
+std::vector<SummaryBoundInfo> boundInfoVec;
 SummaryBBInfo info_nocuts, info_mycuts, info_allcuts;
 SummaryDisjunctionInfo disjInfo;
 std::vector<SummaryCutInfo> cutInfoVec;
@@ -208,6 +209,7 @@ int main(int argc, char** argv) {
   int num_rounds = params.get(ROUNDS);
   std::vector<OsiCuts> vpcs_by_round(num_rounds);
   cutInfoVec.resize(num_rounds);
+  boundInfoVec.resize(num_rounds);
   int round_ind = 0;
   int num_disj = 0;
   std::vector<int> disjOptions;
@@ -222,6 +224,10 @@ int main(int argc, char** argv) {
       printf("\n## Starting round %d/%d. ##\n", round_ind+1, num_rounds);
     }
 
+    boundInfoVec[round_ind].lp_obj = solver->getObjValue();
+    boundInfoVec[round_ind].num_vpc = 0;
+    boundInfoVec[round_ind].num_gmic = 0;
+
     timer.start_timer(OverallTimeStats::GOMORY_TIME);
     if (params.get(GOMORY) == -1 || params.get(GOMORY) == 1) {
       OsiCuts currGMICs;
@@ -234,8 +240,10 @@ int main(int argc, char** argv) {
       GMIGen.generateCuts(*solver, currGMICs);
       gmics.insert(currGMICs);
       boundInfo.num_gmic += currGMICs.sizeCuts();
+      boundInfoVec[round_ind].num_gmic += currGMICs.sizeCuts();
       applyCutsCustom(GMICSolver, currGMICs, params.logfile);
       boundInfo.gmic_obj = GMICSolver->getObjValue();
+      boundInfoVec[round_ind].gmic_obj = boundInfo.gmic_obj;
       if (params.get(GOMORY) > 0) {
         applyCutsCustom(solver, currGMICs, params.logfile);
       }
@@ -265,10 +273,15 @@ int main(int argc, char** argv) {
         if (gen.disj()) {
           num_disj++;
           boundInfo.num_vpc += gen.num_cuts; // TODO: does this need to be in this if, and do we need to subtract initial num cuts?
-          if (boundInfo.best_disj_obj < gen.disj()->best_obj)
+          boundInfoVec[round_ind].num_vpc += gen.num_cuts;
+          if (boundInfo.best_disj_obj < gen.disj()->best_obj) {
             boundInfo.best_disj_obj = gen.disj()->best_obj;
-          if (boundInfo.worst_disj_obj < gen.disj()->worst_obj)
+            boundInfoVec[round_ind].best_disj_obj = gen.disj()->best_obj;
+          }
+          if (boundInfo.worst_disj_obj < gen.disj()->worst_obj) {
             boundInfo.worst_disj_obj = gen.disj()->worst_obj;
+            boundInfoVec[round_ind].worst_disj_obj = gen.disj()->worst_obj;
+          }
         }
         updateDisjInfo(disjInfo, num_disj, gen);
         updateCutInfo(cutInfoVec[round_ind], gen);
@@ -326,6 +339,9 @@ int main(int argc, char** argv) {
       boundInfo.vpc_obj = solver->getObjValue();
       boundInfo.all_cuts_obj = boundInfo.vpc_obj;
     }
+    boundInfoVec[round_ind].gmic_vpc_obj = boundInfo.gmic_vpc_obj;
+    boundInfoVec[round_ind].vpc_obj = boundInfo.vpc_obj;
+    boundInfoVec[round_ind].all_cuts_obj = boundInfo.all_cuts_obj;
     timer.end_timer(OverallTimeStats::VPC_APPLY_TIME);
 
     printf(
@@ -345,8 +361,9 @@ int main(int argc, char** argv) {
         || exitReason == CglVPC::ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT)
       break;
   } // loop over rounds of cuts
-  if (round_ind < num_rounds)
+  if (round_ind < num_rounds) {
     num_rounds = round_ind+1;
+  }
 
   printf(
       "\n## Finished VPC generation with %d cuts. Initial obj value: %s. Final obj value: %s. Disj lb: %s. ##\n",
@@ -374,6 +391,28 @@ int main(int argc, char** argv) {
     solver->writeMps(fileWithCuts.c_str());
   }
 #endif
+
+  if (use_temp_option(params.get(intParam::TEMP), TempOptions::PRINT_BOUND_BY_ROUND)) {
+    std::string fileWithCuts = filename_stub + "_cutrounds.csv";
+    FILE* cutrounds = fopen(fileWithCuts.c_str(), "w");
+    if (!cutrounds) {
+      error_msg(errorstring, "Unable to open file: %s.\n", fileWithCuts.c_str());
+      writeErrorToLog(errorstring, params.logfile);
+      exit(1);
+    }
+    printf("\n## Saving cut round information to file: %s. ##\n", fileWithCuts.c_str());
+    fprintf(cutrounds, "%s,", instname.c_str());
+    for (int i = 0; i < num_rounds; i++) {
+      fprintf(cutrounds, "%d,", i+1);
+    }
+    fprintf(cutrounds, "\n");
+    fprintf(cutrounds, "%s,", instname.c_str());
+    for (int i = 0; i < num_rounds; i++) {
+      fprintf(cutrounds, "%.20f,", boundInfoVec[i].all_cuts_obj);
+    }
+    fprintf(cutrounds, "\n");
+    fclose(cutrounds);
+  } // print bound by round
 
   // Do analyses in preparation for printing
   setCutInfo(cutInfo, num_rounds, cutInfoVec.data());
