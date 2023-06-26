@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage example:
-#   prepare_batch.sh /path/to/instance/list.instances /path/to/results/dir [test / preprocess / bb / bb0]
+#   prepare_batch.sh /path/to/instance/list.instances /path/to/results/dir [test / preprocess / bb / bb0 / gmic]
 
 if [ ! -z "$VPC_DIR" ]; then
   export PROJ_DIR=${VPC_DIR}
@@ -25,7 +25,11 @@ MODE=preprocess
 #MODE=bb
 #MODE=bb0
 
-export PROJ_DIR=`realpath -s ${PROJ_DIR}`
+if [ "$(uname)" == "Darwin" ]; then
+  export PROJ_DIR=`realpath ${PROJ_DIR}`
+else
+  export PROJ_DIR=`realpath -s ${PROJ_DIR}`
+fi
 export VPC_DIR=${PROJ_DIR}
 
 export OPTFILE="${VPC_DIR}/data/ip_obj.csv"
@@ -110,6 +114,12 @@ elif [ $MODE == preprocess ]; then
   PARAMS="$PARAMS --bb_strategy=536"
   PARAMS="$PARAMS --bb_timelimit=7200"
   PARAMS="$PARAMS --temp=32"
+elif [ $MODE == gmic ]; then
+  depthList=(0)
+  PARAMS="$PARAMS -t 3600"
+  PARAMS="$PARAMS --rounds=100"
+  PARAMS="$PARAMS --gomory=1"
+  PARAMS="$PARAMS --temp=16"
 elif [ $MODE == test ]; then
   depthList=(2)
 else
@@ -183,13 +193,21 @@ for d in ${depthList[*]}; do
     else
       # Finally, write command we will call to a file
       echo -n "mkdir -p ${OUT_DIR}; " >> ${JOB_LIST}
-      echo "nohup /usr/bin/time -v $EXECUTABLE -f ${FILE} --logfile=${OUT_DIR}/vpc-${MODE}.csv $SOLPARAM $PARAMS -d$d >> ${OUT_DIR}/log.out 2>&1" >> ${JOB_LIST}
+      if [ $(uname) == "Darwin" ]; then
+        echo -n "nohup /usr/bin/time " >> ${JOB_LIST}
+      else
+        echo -n "nohup /usr/bin/time -v " >> ${JOB_LIST}
+      fi
+      echo "$EXECUTABLE -f ${FILE} --logfile=${OUT_DIR}/vpc-${MODE}.csv $SOLPARAM $PARAMS -d$d >> ${OUT_DIR}/log.out 2>&1" >> ${JOB_LIST}
     fi
   done < ${INSTANCE_LIST}
 done # loop over depth list
 
-
 # Shuffle command order to not have dependency in the performance
-shuf -o ${JOB_LIST} < ${JOB_LIST}
+if [ $(uname) == "Darwin" ]; then
+  sort -R ${JOB_LIST} --output=${JOB_LIST}
+else
+  shuf -o ${JOB_LIST} < ${JOB_LIST}
+fi
 
 echo "Done preparing $JOB_LIST. Total errors: $TOTAL_ERRORS."
