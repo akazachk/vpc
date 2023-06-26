@@ -406,7 +406,12 @@ int main(int argc, char** argv) {
       fprintf(cutrounds, "%d,", i+1);
     }
     fprintf(cutrounds, "\n");
-    fprintf(cutrounds, "%s,", instname.c_str());
+    fprintf(cutrounds, "num_cuts,");
+    for (int i = 0; i < num_rounds; i++) {
+      fprintf(cutrounds, "%d,", boundInfoVec[i].num_gmic + boundInfoVec[i].num_vpc + boundInfoVec[i].num_lpc);
+    }
+    fprintf(cutrounds, "\n");
+    fprintf(cutrounds, "bound,");
     for (int i = 0; i < num_rounds; i++) {
       fprintf(cutrounds, "%.20f,", boundInfoVec[i].all_cuts_obj);
     }
