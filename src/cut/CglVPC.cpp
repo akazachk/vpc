@@ -218,6 +218,9 @@ void CglVPC::setUserTightPoints(
 } /* setUserTightPoints */
 
 void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const CglTreeInfo info) {
+  // Time starts here, and will end when finish is called
+  timer.start_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
+
   CglVPC::ExitReason status = CglVPC::ExitReason::UNKNOWN;
   if (params.get(intParam::DISJ_TERMS) == 0) {
     status = CglVPC::ExitReason::NO_DISJUNCTION_EXIT;
@@ -335,8 +338,6 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     }
   }
 
-  // Time starts here, and will end when finish is called
-  timer.start_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
   if (mode != VPCMode::CUSTOM) {
     // Get disjunctive terms and obtain their optimal bases
     // (If mode is custom, i.e., disjunction is given to us,

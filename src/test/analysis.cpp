@@ -864,12 +864,14 @@ void analyzeStrength(
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
         ", %d active GMICs", cutInfoGMICs.num_active_gmic);
     output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
-        ", %d active VPCs", cutInfoVPCs.num_active_gmic);
-    output += tmpstring;
+    if (vpcs && vpcs->sizeCuts() > 0) {
+      snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
+          ", %d active VPCs", cutInfoVPCs.num_active_gmic);
+      output += tmpstring;
+    }
     output += ")\n";
   }
-  if (!isInfinity(std::abs(boundInfo.vpc_obj))) {
+  if (vpcs && vpcs->sizeCuts() > 0 && !isInfinity(std::abs(boundInfo.vpc_obj))) {
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
         "%-*.*s%s (%d cuts", NAME_WIDTH, NAME_WIDTH, "VPCs: ",
         stringValue(boundInfo.vpc_obj, "% -*.*g",
@@ -1191,6 +1193,10 @@ void setCutInfo(SummaryCutInfo& cutInfo, const int num_rounds,
   cutInfo.numActiveFromHeur.resize(numObjTypes, 0);
   cutInfo.numFails.clear();
   cutInfo.numFails.resize(numFailTypes, 0);
+
+  if (num_rounds == 0 || oldCutInfos == NULL) {
+    return;
+  }
 
   for (int round = 0; round < num_rounds; round++) {
     cutInfo.num_cuts += oldCutInfos[round].num_cuts;

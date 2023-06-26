@@ -41,6 +41,7 @@ using namespace VPCParametersNamespace;
 
 enum OverallTimeStats {
   INIT_SOLVE_TIME,
+  GOMORY_TIME,
   VPC_GEN_TIME,
   VPC_INIT_SOLVE_TIME,
   VPC_DISJ_SETUP_TIME,
@@ -55,6 +56,7 @@ enum OverallTimeStats {
 }; /* OverallTimeStats */
 const std::vector<std::string> OverallTimeStatsName {
   "INIT_SOLVE_TIME",
+  "GOMORY_TIME",
   "VPC_GEN_TIME",
   "VPC_INIT_SOLVE_TIME",
   "VPC_DISJ_SETUP_TIME",
@@ -219,8 +221,8 @@ int main(int argc, char** argv) {
     if (num_rounds > 1) {
       printf("\n## Starting round %d/%d. ##\n", round_ind+1, num_rounds);
     }
-    timer.start_timer(OverallTimeStats::VPC_GEN_TIME);
 
+    timer.start_timer(OverallTimeStats::GOMORY_TIME);
     if (params.get(GOMORY) == -1 || params.get(GOMORY) == 1) {
       OsiCuts currGMICs;
       CglGMI GMIGen;
@@ -241,60 +243,70 @@ int main(int argc, char** argv) {
         applyCutsCustom(VPCSolver, currGMICs, params.logfile);
       }
     }
+    timer.end_timer(OverallTimeStats::GOMORY_TIME);
 
     if (disjOptions.size() > round_ind) {
       params.set(intParam::DISJ_TERMS, disjOptions[round_ind]);
     }
-    CglVPC gen(params, round_ind);
+    const bool SHOULD_GENERATE_VPCS = (params.get(intParam::DISJ_TERMS) != 0);
+    if (SHOULD_GENERATE_VPCS) {
+      timer.start_timer(OverallTimeStats::VPC_GEN_TIME);
+      CglVPC gen(params, round_ind);
 
-    // Store the initial solve time in order to set a baseline for the PRLP resolve time
-    gen.timer.add_value(
-        CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::INIT_SOLVE_TIME)],
-        timer.get_value(OverallTimeStats::INIT_SOLVE_TIME));
+      // Store the initial solve time in order to set a baseline for the PRLP resolve time
+      gen.timer.add_value(
+          CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::INIT_SOLVE_TIME)],
+          timer.get_value(OverallTimeStats::INIT_SOLVE_TIME));
 
-    // Proceed with custom disjunctions if specified; otherwise, the disjunction will be set up in the CglVPC class
-    if (params.get(MODE) != static_cast<int>(CglVPC::VPCMode::CUSTOM)) {
-      gen.generateCuts(*solver, vpcs_by_round[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
-      exitReason = gen.exitReason;
-      if (gen.disj()) {
-        num_disj++;
-        boundInfo.num_vpc += gen.num_cuts; // TODO: does this need to be in this if, and do we need to subtract initial num cuts?
-        if (boundInfo.best_disj_obj < gen.disj()->best_obj)
-          boundInfo.best_disj_obj = gen.disj()->best_obj;
-        if (boundInfo.worst_disj_obj < gen.disj()->worst_obj)
-          boundInfo.worst_disj_obj = gen.disj()->worst_obj;
+      // Proceed with custom disjunctions if specified; otherwise, the disjunction will be set up in the CglVPC class
+      if (params.get(MODE) != static_cast<int>(CglVPC::VPCMode::CUSTOM)) {
+        gen.generateCuts(*solver, vpcs_by_round[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
+        exitReason = gen.exitReason;
+        if (gen.disj()) {
+          num_disj++;
+          boundInfo.num_vpc += gen.num_cuts; // TODO: does this need to be in this if, and do we need to subtract initial num cuts?
+          if (boundInfo.best_disj_obj < gen.disj()->best_obj)
+            boundInfo.best_disj_obj = gen.disj()->best_obj;
+          if (boundInfo.worst_disj_obj < gen.disj()->worst_obj)
+            boundInfo.worst_disj_obj = gen.disj()->worst_obj;
+        }
+        updateDisjInfo(disjInfo, num_disj, gen);
+        updateCutInfo(cutInfoVec[round_ind], gen);
+      } // check if mode is _not_ CUSTOM
+      else {
+        doCustomRoundOfCuts(round_ind, vpcs_by_round[round_ind], gen, num_disj);
+      } // check if mode is CUSTOM
+
+      // Update timing from underlying generator
+      const TimeStats& vpctimer = gen.timer;
+      std::vector<CglVPC::VPCTimeStats> vpc_stats = {
+        CglVPC::VPCTimeStats::INIT_SOLVE_TIME,
+        CglVPC::VPCTimeStats::DISJ_SETUP_TIME,
+        CglVPC::VPCTimeStats::DISJ_GEN_TIME,
+        CglVPC::VPCTimeStats::PRLP_SETUP_TIME,
+        CglVPC::VPCTimeStats::PRLP_SOLVE_TIME,
+        CglVPC::VPCTimeStats::GEN_CUTS_TIME,
+      };
+      std::vector<OverallTimeStats> overall_stats = {
+        OverallTimeStats::VPC_INIT_SOLVE_TIME,
+        OverallTimeStats::VPC_DISJ_SETUP_TIME,
+        OverallTimeStats::VPC_DISJ_GEN_TIME,
+        OverallTimeStats::VPC_PRLP_SETUP_TIME,
+        OverallTimeStats::VPC_PRLP_SOLVE_TIME,
+        OverallTimeStats::VPC_GEN_CUTS_TIME
+      };
+      for (int i = 0; i < (int) vpc_stats.size(); i++) {
+        const CglVPC::VPCTimeStats stat = vpc_stats[i];
+        const OverallTimeStats overall_stat = overall_stats[i];
+        const clock_t currtimevalue = vpctimer.get_value(CglVPC::VPCTimeStatsName[static_cast<int>(stat)]);
+        timer.add_value(overall_stat, currtimevalue);
       }
-      updateDisjInfo(disjInfo, num_disj, gen);
-      updateCutInfo(cutInfoVec[round_ind], gen);
-    } // check if mode is _not_ CUSTOM
-    else {
-      doCustomRoundOfCuts(round_ind, vpcs_by_round[round_ind], gen, num_disj);
-    } // check if mode is CUSTOM
-    timer.end_timer(OverallTimeStats::VPC_GEN_TIME);
 
-    // Update timing from underlying generator
-    const TimeStats& vpctimer = gen.timer;
-    std::vector<CglVPC::VPCTimeStats> vpc_stats = {
-      CglVPC::VPCTimeStats::INIT_SOLVE_TIME,
-      CglVPC::VPCTimeStats::DISJ_SETUP_TIME,
-      CglVPC::VPCTimeStats::DISJ_GEN_TIME,
-      CglVPC::VPCTimeStats::PRLP_SETUP_TIME,
-      CglVPC::VPCTimeStats::PRLP_SOLVE_TIME,
-      CglVPC::VPCTimeStats::GEN_CUTS_TIME,
-    };
-    std::vector<OverallTimeStats> overall_stats = {
-      OverallTimeStats::VPC_INIT_SOLVE_TIME,
-      OverallTimeStats::VPC_DISJ_SETUP_TIME,
-      OverallTimeStats::VPC_DISJ_GEN_TIME,
-      OverallTimeStats::VPC_PRLP_SETUP_TIME,
-      OverallTimeStats::VPC_PRLP_SOLVE_TIME,
-      OverallTimeStats::VPC_GEN_CUTS_TIME
-    };
-    for (int i = 0; i < (int) vpc_stats.size(); i++) {
-      const CglVPC::VPCTimeStats stat = vpc_stats[i];
-      const OverallTimeStats overall_stat = overall_stats[i];
-      const clock_t currtimevalue = vpctimer.get_value(CglVPC::VPCTimeStatsName[static_cast<int>(stat)]);
-      timer.add_value(overall_stat, currtimevalue);
+      vpcs.insert(vpcs_by_round[round_ind]);
+      timer.end_timer(OverallTimeStats::VPC_GEN_TIME);
+    } // check if SHOULD_GENERATE_VPCS (num disj terms requested != 0)
+    else { // else update cutInfo with blanks
+      setCutInfo(cutInfoVec[round_ind], 0, NULL);
     }
 
     timer.start_timer(OverallTimeStats::VPC_APPLY_TIME);
@@ -316,8 +328,6 @@ int main(int argc, char** argv) {
     }
     timer.end_timer(OverallTimeStats::VPC_APPLY_TIME);
 
-    vpcs.insert(vpcs_by_round[round_ind]);
-
     printf(
         "\n## Round %d/%d: Completed round of VPC generation (exit reason: %s). # cuts generated = %d.\n",
         round_ind + 1, params.get(ROUNDS),
@@ -329,7 +339,8 @@ int main(int argc, char** argv) {
         stringValue(boundInfo.best_disj_obj, "%1.6f").c_str());
 
     // Exit early from rounds of cuts if no cuts generated or solver is not optimal
-    if (gen.num_cuts == 0 || !solver->isProvenOptimal()
+    if ((SHOULD_GENERATE_VPCS && vpcs_by_round[round_ind].sizeCuts() == 0)
+        || !solver->isProvenOptimal()
         || isInfinity(std::abs(solver->getObjValue()))
         || exitReason == CglVPC::ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT)
       break;
