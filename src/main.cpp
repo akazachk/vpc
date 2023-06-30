@@ -393,7 +393,13 @@ int main(int argc, char** argv) {
 #endif
 
   if (use_temp_option(params.get(intParam::TEMP), TempOptions::PRINT_BOUND_BY_ROUND)) {
-    std::string fileWithCuts = filename_stub + "_cutrounds.csv";
+    std::string fileWithCuts = "cutrounds.csv";
+    const std::string logname = params.get(stringParam::LOGFILE);
+    if (!logname.empty()) {
+      std::string log_dir, log_instname, log_in_file_ext;
+      parseFilename(log_dir, log_instname, log_in_file_ext, logname, params.logfile);
+      fileWithCuts = log_dir + "/" + instname + "_" + fileWithCuts;
+    }
     FILE* cutrounds = fopen(fileWithCuts.c_str(), "w");
     if (!cutrounds) {
       error_msg(errorstring, "Unable to open file: %s.\n", fileWithCuts.c_str());
