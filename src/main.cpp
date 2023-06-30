@@ -210,6 +210,7 @@ int main(int argc, char** argv) {
   std::vector<OsiCuts> vpcs_by_round(num_rounds);
   cutInfoVec.resize(num_rounds);
   boundInfoVec.resize(num_rounds);
+  std::vector<double> gmic_time_by_round(num_rounds);
   int round_ind = 0;
   int num_disj = 0;
   std::vector<int> disjOptions;
@@ -228,6 +229,7 @@ int main(int argc, char** argv) {
     boundInfoVec[round_ind].num_vpc = 0;
     boundInfoVec[round_ind].num_gmic = 0;
 
+    const double gmic_start_time = timer.get_time(OverallTimeStats::GOMORY_TIME);
     timer.start_timer(OverallTimeStats::GOMORY_TIME);
     if (params.get(GOMORY) == -1 || params.get(GOMORY) == 1) {
       OsiCuts currGMICs;
@@ -252,6 +254,8 @@ int main(int argc, char** argv) {
       }
     }
     timer.end_timer(OverallTimeStats::GOMORY_TIME);
+    const double gmic_end_time = timer.get_time(OverallTimeStats::GOMORY_TIME);
+    gmic_time_by_round[round_ind] = gmic_end_time - gmic_start_time;
 
     if (disjOptions.size() > round_ind) {
       params.set(intParam::DISJ_TERMS, disjOptions[round_ind]);
@@ -345,10 +349,11 @@ int main(int argc, char** argv) {
     timer.end_timer(OverallTimeStats::VPC_APPLY_TIME);
 
     printf(
-        "\n## Round %d/%d: Completed round of VPC generation (exit reason: %s). # cuts generated = %d.\n",
+        "\n## Round %d/%d: Completed round of VPC generation (exit reason: %s). # VPCs generated = %d. # GMICs generated = %d.\n",
         round_ind + 1, params.get(ROUNDS),
         CglVPC::ExitReasonName[static_cast<int>(exitReason)].c_str(),
-        vpcs_by_round[round_ind].sizeCuts());
+        vpcs_by_round[round_ind].sizeCuts(),
+        boundInfoVec[round_ind].num_gmic);
     fflush(stdout);
     printf("Initial obj value: %1.6f. New obj value: %s. Disj lb: %s. ##\n",
         boundInfo.lp_obj, stringValue(solver->getObjValue(), "%1.6f").c_str(),
@@ -367,8 +372,8 @@ int main(int argc, char** argv) {
   }
 
   printf(
-      "\n## Finished VPC generation with %d cuts. Initial obj value: %s. Final VPC obj value: %s. Final all cuts obj value: %s. Disj lb: %s. ##\n",
-      boundInfo.num_vpc,
+      "\n## Finished VPC generation with %d VPCs and %d GMICs. Initial obj value: %s. Final VPC obj value: %s. Final all cuts obj value: %s. Disj lb: %s. ##\n",
+      boundInfo.num_vpc, boundInfo.num_gmic,
       stringValue(boundInfo.lp_obj, "%1.6f").c_str(),
       stringValue(boundInfo.vpc_obj, "%1.6f").c_str(),
       stringValue(boundInfo.all_cuts_obj, "%1.6f").c_str(),
@@ -410,18 +415,23 @@ int main(int argc, char** argv) {
     }
     printf("\n## Saving cut round information to file: %s. ##\n", fileWithCuts.c_str());
     fprintf(cutrounds, "%s,", instname.c_str());
-    for (int i = 0; i < num_rounds; i++) {
-      fprintf(cutrounds, "%d,", i+1);
+    for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
+      fprintf(cutrounds, "%d,", round_ind+1);
     }
     fprintf(cutrounds, "\n");
     fprintf(cutrounds, "num_cuts,");
-    for (int i = 0; i < num_rounds; i++) {
-      fprintf(cutrounds, "%d,", boundInfoVec[i].num_gmic + boundInfoVec[i].num_vpc + boundInfoVec[i].num_lpc);
+    for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
+      fprintf(cutrounds, "%d,", boundInfoVec[round_ind].num_gmic + boundInfoVec[round_ind].num_vpc + boundInfoVec[round_ind].num_lpc);
     }
     fprintf(cutrounds, "\n");
     fprintf(cutrounds, "bound,");
-    for (int i = 0; i < num_rounds; i++) {
-      fprintf(cutrounds, "%.20f,", boundInfoVec[i].all_cuts_obj);
+    for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
+      fprintf(cutrounds, "%.20f,", boundInfoVec[round_ind].all_cuts_obj);
+    }
+    fprintf(cutrounds, "\n");
+    fprintf(cutrounds, "time,");
+    for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
+      fprintf(cutrounds, "%.20f,", gmic_time_by_round[round_ind]);
     }
     fprintf(cutrounds, "\n");
     fclose(cutrounds);
