@@ -356,6 +356,7 @@ int main(int argc, char** argv) {
 
     // Exit early from rounds of cuts if no cuts generated or solver is not optimal
     if ((SHOULD_GENERATE_VPCS && vpcs_by_round[round_ind].sizeCuts() == 0)
+        || (!SHOULD_GENERATE_VPCS && boundInfoVec[round_ind].num_gmic == 0)
         || !solver->isProvenOptimal()
         || isInfinity(std::abs(solver->getObjValue()))
         || exitReason == CglVPC::ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT)
@@ -366,10 +367,11 @@ int main(int argc, char** argv) {
   }
 
   printf(
-      "\n## Finished VPC generation with %d cuts. Initial obj value: %s. Final obj value: %s. Disj lb: %s. ##\n",
+      "\n## Finished VPC generation with %d cuts. Initial obj value: %s. Final VPC obj value: %s. Final all cuts obj value: %s. Disj lb: %s. ##\n",
       boundInfo.num_vpc,
       stringValue(boundInfo.lp_obj, "%1.6f").c_str(),
       stringValue(boundInfo.vpc_obj, "%1.6f").c_str(),
+      stringValue(boundInfo.all_cuts_obj, "%1.6f").c_str(),
       stringValue(boundInfo.best_disj_obj, "%1.6f").c_str());
 
   //====================================================================================================//
