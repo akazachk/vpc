@@ -403,21 +403,27 @@ int main(int argc, char** argv) {
       setCutInfo(cutInfoVec[round_ind], 0, NULL);
     }
 
-    const double vpc_apply_start_time = timer.get_total_time(OverallTimeStats::VPC_APPLY_TIME);
     timer.start_timer(OverallTimeStats::VPC_APPLY_TIME);
-    applyCutsCustom(solver, vpcs_by_round[round_ind], params.logfile);
-    const double vpc_apply_end_time = timer.get_total_time(OverallTimeStats::VPC_APPLY_TIME);
-    vpc_apply_time_by_round[round_ind] = vpc_apply_end_time - vpc_apply_start_time;
+    if (vpcs_by_round[round_ind].sizeCuts() > 0) {
+      const double vpc_apply_start_time = timer.get_total_time(OverallTimeStats::VPC_APPLY_TIME);
+      applyCutsCustom(solver, vpcs_by_round[round_ind], params.logfile);
+      const double vpc_apply_end_time = timer.get_total_time(OverallTimeStats::VPC_APPLY_TIME);
+      vpc_apply_time_by_round[round_ind] = vpc_apply_end_time - vpc_apply_start_time;
+    }
 
     if (params.get(GOMORY) > 0) { // GMICs added to solver, so VPCSolver tracks values without GMICs
       boundInfo.gmic_vpc_obj = solver->getObjValue();
-      applyCutsCustom(VPCSolver, vpcs_by_round[round_ind], params.logfile);
+      if (vpcs_by_round[round_ind].sizeCuts() > 0) {
+        applyCutsCustom(VPCSolver, vpcs_by_round[round_ind], params.logfile);
+      }
       boundInfo.vpc_obj = VPCSolver->getObjValue();
       boundInfo.all_cuts_obj = boundInfo.gmic_vpc_obj;
     }
     else if (params.get(GOMORY) < 0) {
       boundInfo.vpc_obj = solver->getObjValue();
-      applyCutsCustom(VPCSolver, vpcs_by_round[round_ind], params.logfile);
+      if (vpcs_by_round[round_ind].sizeCuts() > 0) {
+        applyCutsCustom(VPCSolver, vpcs_by_round[round_ind], params.logfile);
+      }
       boundInfo.gmic_vpc_obj = VPCSolver->getObjValue();
       boundInfo.all_cuts_obj = boundInfo.gmic_vpc_obj;
     } else {
