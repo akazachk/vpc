@@ -206,18 +206,7 @@ int main(int argc, char** argv) {
     return wrapUp(0, argc, argv);
   }
 
-  // Now do rounds of cuts, until a limit is reached (e.g., time, number failures, number cuts, or all rounds are exhausted)
-  boundInfo.num_vpc = 0, boundInfo.num_gmic = 0;
-  int num_rounds = params.get(ROUNDS);
-  std::vector<OsiCuts> vpcs_by_round(num_rounds);
-  cutInfoVec.resize(num_rounds);
-  boundInfoVec.resize(num_rounds);
-  std::vector<double> gmic_gen_time_by_round(num_rounds);
-  std::vector<double> gmic_apply_time_by_round(num_rounds);
-  std::vector<double> vpc_gen_time_by_round(num_rounds);
-  std::vector<double> vpc_apply_time_by_round(num_rounds);
-  int round_ind = 0;
-  int num_disj = 0;
+  // Process disjunction options, if different by round
   std::vector<int> disjOptions;
   if (!params.get(stringParam::DISJ_OPTIONS).empty()) {
     // TODO
@@ -225,6 +214,71 @@ int main(int argc, char** argv) {
     writeErrorToLog(errorstring, params.logfile);
     return wrapUp(1, argc, argv);
   }
+
+  // Information from each round of cuts will be saved and optionally printed
+  int num_rounds = params.get(ROUNDS); // not const in case we do not exhaust the limit
+  std::vector<OsiCuts> vpcs_by_round(num_rounds);
+  cutInfoVec.resize(num_rounds);
+  boundInfoVec.resize(num_rounds);
+  std::vector<double> gmic_gen_time_by_round(num_rounds);
+  std::vector<double> gmic_apply_time_by_round(num_rounds);
+  std::vector<double> vpc_gen_time_by_round(num_rounds);
+  std::vector<double> vpc_apply_time_by_round(num_rounds);
+
+  int round_ind = 0;
+  int num_disj = 0;
+
+  // If requested, open cutrounds_logfile file then print header and round "0" information
+  FILE* cutrounds_logfile = NULL;
+  const int NUM_CUTROUND_INFO = 1 + 3 + 2*3; // round + 3 x bound + 2 x (num cuts, gen time, apply time)
+  if (use_temp_option(params.get(intParam::TEMP), TempOptions::PRINT_BOUND_BY_ROUND)) {
+    std::string fileWithCuts = "cutrounds.csv";
+    const std::string logname = params.get(stringParam::LOGFILE);
+    if (!logname.empty()) {
+      std::string log_dir, log_instname, log_in_file_ext;
+      parseFilename(log_dir, log_instname, log_in_file_ext, logname, params.logfile);
+      fileWithCuts = log_dir + "/" + instname + "_" + fileWithCuts;
+    }
+    cutrounds_logfile = fopen(fileWithCuts.c_str(), "w");
+    if (!cutrounds_logfile) {
+      error_msg(errorstring, "Unable to open file: %s.\n", fileWithCuts.c_str());
+      writeErrorToLog(errorstring, params.logfile);
+      exit(1);
+    }
+    printf("\n## Round-by-round information will be saved to file: %s. ##\n", fileWithCuts.c_str());
+
+    int count = 0;
+    fprintf(cutrounds_logfile, "%s,", instname.c_str()); count++;
+    fprintf(cutrounds_logfile, "bound_gmic,"); count++;
+    fprintf(cutrounds_logfile, "bound_vpc,"); count++;
+    fprintf(cutrounds_logfile, "bound_all_cuts,"); count++;
+    fprintf(cutrounds_logfile, "num_gmic,"); count++;
+    fprintf(cutrounds_logfile, "gmic_gen_time,"); count++;
+    fprintf(cutrounds_logfile, "gmic_apply_time,"); count++;
+    fprintf(cutrounds_logfile, "num_vpc,"); count++;
+    fprintf(cutrounds_logfile, "vpc_gen_time,"); count++;
+    fprintf(cutrounds_logfile, "vpc_apply_time,"); count++;
+    fprintf(cutrounds_logfile, "\n");
+    assert(count == NUM_CUTROUND_INFO);
+
+    count = 0;
+    const double initSolveTime = timer.get_total_time(OverallTimeStats::INIT_SOLVE_TIME);
+    fprintf(cutrounds_logfile, "%d,", 0); count++;
+    fprintf(cutrounds_logfile, "%s,", stringValue(boundInfo.lp_obj,"%.20f").c_str()); count++;
+    fprintf(cutrounds_logfile, "%s,", stringValue(boundInfo.lp_obj,"%.20f").c_str()); count++;
+    fprintf(cutrounds_logfile, "%s,", stringValue(boundInfo.lp_obj,"%.20f").c_str()); count++;
+    fprintf(cutrounds_logfile, "%d,", 0); count++;
+    fprintf(cutrounds_logfile, "%f,", 0.); count++;
+    fprintf(cutrounds_logfile, "%f,", initSolveTime); count++;
+    fprintf(cutrounds_logfile, "%d,", 0); count++;
+    fprintf(cutrounds_logfile, "%f,", 0.); count++;
+    fprintf(cutrounds_logfile, "%f,", initSolveTime); count++;
+    fprintf(cutrounds_logfile, "\n");
+    assert(count == NUM_CUTROUND_INFO);
+  } // print header to cutrounds_logfile file
+
+  // Now do rounds of cuts, until a limit is reached (e.g., time, number failures, number cuts, or all rounds are exhausted)
+  boundInfo.num_vpc = 0, boundInfo.num_gmic = 0;
   for (round_ind = 0; round_ind < num_rounds; ++round_ind) {
     if (num_rounds > 1) {
       printf("\n## Starting round %d/%d. ##\n", round_ind+1, num_rounds);
@@ -386,6 +440,23 @@ int main(int argc, char** argv) {
         boundInfo.lp_obj, stringValue(solver->getObjValue(), "%1.6f").c_str(),
         stringValue(boundInfo.best_disj_obj, "%1.6f").c_str());
 
+    // Print information from this round of cuts
+    if (use_temp_option(params.get(intParam::TEMP), TempOptions::PRINT_BOUND_BY_ROUND)) {
+      int count = 0;
+      fprintf(cutrounds_logfile, "%d,", round_ind+1); count++;
+      fprintf(cutrounds_logfile, "%s,", stringValue(boundInfoVec[round_ind].gmic_obj,"%.20f").c_str()); count++;
+      fprintf(cutrounds_logfile, "%s,", stringValue(boundInfoVec[round_ind].vpc_obj,"%.20f").c_str()); count++;
+      fprintf(cutrounds_logfile, "%s,", stringValue(boundInfoVec[round_ind].all_cuts_obj,"%.20f").c_str()); count++;
+      fprintf(cutrounds_logfile, "%d,", boundInfoVec[round_ind].num_gmic); count++;
+      fprintf(cutrounds_logfile, "%.20f,", gmic_gen_time_by_round[round_ind]); count++;
+      fprintf(cutrounds_logfile, "%.20f,", gmic_apply_time_by_round[round_ind]); count++;
+      fprintf(cutrounds_logfile, "%d,", boundInfoVec[round_ind].num_vpc); count++;
+      fprintf(cutrounds_logfile, "%.20f,", vpc_gen_time_by_round[round_ind]); count++;
+      fprintf(cutrounds_logfile, "%.20f,", vpc_apply_time_by_round[round_ind]); count++;
+      fprintf(cutrounds_logfile, "\n");
+      assert(count == NUM_CUTROUND_INFO);
+    } // print info from this round
+
     // Exit early if reached time limit
     if (timer.reachedTimeLimit(OverallTimeStatsName[OverallTimeStats::TOTAL_TIME], params.get(TIMELIMIT))) {
       printf("\n*** INFO: Reached time limit (current time = %f, time limit = %f).\n",
@@ -434,81 +505,8 @@ int main(int argc, char** argv) {
 #endif
 
   // Print information from each round of cuts
-  if (use_temp_option(params.get(intParam::TEMP), TempOptions::PRINT_BOUND_BY_ROUND)) {
-    std::string fileWithCuts = "cutrounds.csv";
-    const std::string logname = params.get(stringParam::LOGFILE);
-    if (!logname.empty()) {
-      std::string log_dir, log_instname, log_in_file_ext;
-      parseFilename(log_dir, log_instname, log_in_file_ext, logname, params.logfile);
-      fileWithCuts = log_dir + "/" + instname + "_" + fileWithCuts;
-    }
-    FILE* cutrounds = fopen(fileWithCuts.c_str(), "w");
-    if (!cutrounds) {
-      error_msg(errorstring, "Unable to open file: %s.\n", fileWithCuts.c_str());
-      writeErrorToLog(errorstring, params.logfile);
-      exit(1);
-    }
-    printf("\n## Saving cut round information to file: %s. ##\n", fileWithCuts.c_str());
-    fprintf(cutrounds, "%s,", instname.c_str());
-    for (int round_ind = 0; round_ind <= num_rounds; round_ind++) {
-      fprintf(cutrounds, "%d,", round_ind);
-    }
-    fprintf(cutrounds, "\n");
-    fprintf(cutrounds, "bound_gmic,");
-    fprintf(cutrounds, "%.20f,", boundInfo.lp_obj);
-    for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
-      fprintf(cutrounds, "%.20f,", boundInfoVec[round_ind].gmic_obj);
-    }
-    fprintf(cutrounds, "\n");
-    fprintf(cutrounds, "bound_vpc,");
-    fprintf(cutrounds, "%.20f,", boundInfo.lp_obj);
-    for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
-      fprintf(cutrounds, "%.20f,", boundInfoVec[round_ind].vpc_obj);
-    }
-    fprintf(cutrounds, "\n");
-    fprintf(cutrounds, "bound_all_cuts,");
-    fprintf(cutrounds, "%.20f,", boundInfo.lp_obj);
-    for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
-      fprintf(cutrounds, "%.20f,", boundInfoVec[round_ind].all_cuts_obj);
-    }
-    fprintf(cutrounds, "\n");
-    fprintf(cutrounds, "num_gmic,");
-    fprintf(cutrounds, "%d,", 0);
-    for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
-      fprintf(cutrounds, "%d,", boundInfoVec[round_ind].num_gmic);
-    }
-    fprintf(cutrounds, "\n");
-    fprintf(cutrounds, "gmic_gen_time,");
-    fprintf(cutrounds, "%f,", 0.);
-    for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
-      fprintf(cutrounds, "%.20f,", gmic_gen_time_by_round[round_ind]);
-    }
-    fprintf(cutrounds, "\n");
-    fprintf(cutrounds, "gmic_apply_time,");
-    fprintf(cutrounds, "%f,", 0.);
-    for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
-      fprintf(cutrounds, "%.20f,", gmic_apply_time_by_round[round_ind]);
-    }
-    fprintf(cutrounds, "\n");
-    fprintf(cutrounds, "num_vpc,");
-    fprintf(cutrounds, "%d,", 0);
-    for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
-      fprintf(cutrounds, "%d,", boundInfoVec[round_ind].num_vpc);
-    }
-    fprintf(cutrounds, "\n");
-    fprintf(cutrounds, "vpc_gen_time,");
-    fprintf(cutrounds, "%f,", 0.);
-    for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
-      fprintf(cutrounds, "%.20f,", vpc_gen_time_by_round[round_ind]);
-    }
-    fprintf(cutrounds, "\n");
-    fprintf(cutrounds, "vpc_apply_time,");
-    fprintf(cutrounds, "%f,", 0.);
-    for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
-      fprintf(cutrounds, "%.20f,", vpc_apply_time_by_round[round_ind]);
-    }
-    fprintf(cutrounds, "\n");
-    fclose(cutrounds);
+  if (cutrounds_logfile != NULL) {
+    fclose(cutrounds_logfile);
   } // print bound by round
 
   // Do analyses in preparation for printing
