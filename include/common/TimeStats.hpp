@@ -102,6 +102,11 @@ public:
   /// Print times
   void print(FILE* logfile = stdout, const int amountToPrint = 0) const;
 
+  /// @brief Return \link TimeStats::get_total_time() timer.get_total_time(timeName) \endlink > \p max_time
+  inline bool reachedTimeLimit(const std::string& timeName, const double max_time) const {
+    return (get_total_time(timeName) > max_time);
+  } /* reachedTimeLimit */
+
 private:
   std::map<std::string, data_t, ltstr> name_to_id; ///< map from name to stat identifier TODO string key should probably be const
   std::vector<clock_t> timer_start; ///< timer start for statistic

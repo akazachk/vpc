@@ -41,7 +41,8 @@ using namespace VPCParametersNamespace;
 
 enum OverallTimeStats {
   INIT_SOLVE_TIME,
-  GOMORY_TIME,
+  GOMORY_GEN_TIME,
+  GOMORY_APPLY_TIME,
   VPC_GEN_TIME,
   VPC_INIT_SOLVE_TIME,
   VPC_DISJ_SETUP_TIME,
@@ -56,7 +57,8 @@ enum OverallTimeStats {
 }; /* OverallTimeStats */
 const std::vector<std::string> OverallTimeStatsName {
   "INIT_SOLVE_TIME",
-  "GOMORY_TIME",
+  "GOMORY_GEN_TIME",
+  "GOMORY_APPLY_TIME",
   "VPC_GEN_TIME",
   "VPC_INIT_SOLVE_TIME",
   "VPC_DISJ_SETUP_TIME",
@@ -210,7 +212,10 @@ int main(int argc, char** argv) {
   std::vector<OsiCuts> vpcs_by_round(num_rounds);
   cutInfoVec.resize(num_rounds);
   boundInfoVec.resize(num_rounds);
-  std::vector<double> gmic_time_by_round(num_rounds);
+  std::vector<double> gmic_gen_time_by_round(num_rounds);
+  std::vector<double> gmic_apply_time_by_round(num_rounds);
+  std::vector<double> vpc_gen_time_by_round(num_rounds);
+  std::vector<double> vpc_apply_time_by_round(num_rounds);
   int round_ind = 0;
   int num_disj = 0;
   std::vector<int> disjOptions;
@@ -229,9 +234,12 @@ int main(int argc, char** argv) {
     boundInfoVec[round_ind].num_vpc = 0;
     boundInfoVec[round_ind].num_gmic = 0;
 
-    const double gmic_start_time = timer.get_time(OverallTimeStats::GOMORY_TIME);
-    timer.start_timer(OverallTimeStats::GOMORY_TIME);
     if (params.get(GOMORY) == -1 || params.get(GOMORY) == 1) {
+      // Generate GMICs using CglGMI,
+      // based on solver (which contains all cuts)
+      const double gmic_gen_start_time = timer.get_total_time(OverallTimeStats::GOMORY_GEN_TIME);
+      timer.start_timer(OverallTimeStats::GOMORY_GEN_TIME);
+
       OsiCuts currGMICs;
       CglGMI GMIGen;
       // Set parameters so that many GMIs are generated
@@ -240,28 +248,41 @@ int main(int argc, char** argv) {
       //GMIGen.getParam().setMAXDYN(params.get(doubleConst::MAX_DYN));
       GMIGen.getParam().setMAXDYN(solver->getInfinity());
       GMIGen.generateCuts(*solver, currGMICs);
+
+      timer.end_timer(OverallTimeStats::GOMORY_GEN_TIME);
+      const double gmic_gen_end_time = timer.get_total_time(OverallTimeStats::GOMORY_GEN_TIME);
+      gmic_gen_time_by_round[round_ind] = gmic_gen_end_time - gmic_gen_start_time;
+
+      // Apply GMICs to solvers
+      const double gmic_apply_start_time = timer.get_total_time(OverallTimeStats::GOMORY_APPLY_TIME);
+      timer.start_timer(OverallTimeStats::GOMORY_APPLY_TIME);
+
       gmics.insert(currGMICs);
       boundInfo.num_gmic += currGMICs.sizeCuts();
       boundInfoVec[round_ind].num_gmic += currGMICs.sizeCuts();
       applyCutsCustom(GMICSolver, currGMICs, params.logfile);
       boundInfo.gmic_obj = GMICSolver->getObjValue();
       boundInfoVec[round_ind].gmic_obj = boundInfo.gmic_obj;
+      
+      // Only count first application, to solver with only GMICs, to get a sense of how a single LP relaxation is affected
+      timer.end_timer(OverallTimeStats::GOMORY_APPLY_TIME);
+      const double gmic_apply_end_time = timer.get_total_time(OverallTimeStats::GOMORY_APPLY_TIME);
+      gmic_apply_time_by_round[round_ind] = gmic_apply_end_time - gmic_apply_start_time;
+
       if (params.get(GOMORY) > 0) {
         applyCutsCustom(solver, currGMICs, params.logfile);
       }
       if (params.get(GOMORY) < 0) {
         applyCutsCustom(VPCSolver, currGMICs, params.logfile);
       }
-    }
-    timer.end_timer(OverallTimeStats::GOMORY_TIME);
-    const double gmic_end_time = timer.get_time(OverallTimeStats::GOMORY_TIME);
-    gmic_time_by_round[round_ind] = gmic_end_time - gmic_start_time;
+    } // Gomory cut generation
 
     if (disjOptions.size() > round_ind) {
       params.set(intParam::DISJ_TERMS, disjOptions[round_ind]);
     }
     const bool SHOULD_GENERATE_VPCS = (params.get(intParam::DISJ_TERMS) != 0);
     if (SHOULD_GENERATE_VPCS) {
+      const double vpc_start_time = timer.get_total_time(OverallTimeStats::VPC_GEN_TIME);
       timer.start_timer(OverallTimeStats::VPC_GEN_TIME);
       CglVPC gen(params, round_ind);
 
@@ -321,13 +342,19 @@ int main(int argc, char** argv) {
 
       vpcs.insert(vpcs_by_round[round_ind]);
       timer.end_timer(OverallTimeStats::VPC_GEN_TIME);
+      const double vpc_end_time = timer.get_total_time(OverallTimeStats::VPC_GEN_TIME);
+      vpc_gen_time_by_round[round_ind] = vpc_end_time - vpc_start_time;
     } // check if SHOULD_GENERATE_VPCS (num disj terms requested != 0)
     else { // else update cutInfo with blanks
       setCutInfo(cutInfoVec[round_ind], 0, NULL);
     }
 
+    const double vpc_apply_start_time = timer.get_total_time(OverallTimeStats::VPC_APPLY_TIME);
     timer.start_timer(OverallTimeStats::VPC_APPLY_TIME);
     applyCutsCustom(solver, vpcs_by_round[round_ind], params.logfile);
+    const double vpc_apply_end_time = timer.get_total_time(OverallTimeStats::VPC_APPLY_TIME);
+    vpc_apply_time_by_round[round_ind] = vpc_apply_end_time - vpc_apply_start_time;
+
     if (params.get(GOMORY) > 0) { // GMICs added to solver, so VPCSolver tracks values without GMICs
       boundInfo.gmic_vpc_obj = solver->getObjValue();
       applyCutsCustom(VPCSolver, vpcs_by_round[round_ind], params.logfile);
@@ -358,6 +385,13 @@ int main(int argc, char** argv) {
     printf("Initial obj value: %1.6f. New obj value: %s. Disj lb: %s. ##\n",
         boundInfo.lp_obj, stringValue(solver->getObjValue(), "%1.6f").c_str(),
         stringValue(boundInfo.best_disj_obj, "%1.6f").c_str());
+
+    // Exit early if reached time limit
+    if (timer.reachedTimeLimit(OverallTimeStatsName[OverallTimeStats::TOTAL_TIME], params.get(TIMELIMIT))) {
+      printf("\n*** INFO: Reached time limit (current time = %f, time limit = %f).\n",
+          timer.get_total_time(OverallTimeStatsName[OverallTimeStats::TOTAL_TIME]), params.get(TIMELIMIT));
+      break;
+    }
 
     // Exit early from rounds of cuts if no cuts generated or solver is not optimal
     if ((SHOULD_GENERATE_VPCS && vpcs_by_round[round_ind].sizeCuts() == 0)
@@ -399,6 +433,7 @@ int main(int argc, char** argv) {
   }
 #endif
 
+  // Print information from each round of cuts
   if (use_temp_option(params.get(intParam::TEMP), TempOptions::PRINT_BOUND_BY_ROUND)) {
     std::string fileWithCuts = "cutrounds.csv";
     const std::string logname = params.get(stringParam::LOGFILE);
@@ -415,23 +450,62 @@ int main(int argc, char** argv) {
     }
     printf("\n## Saving cut round information to file: %s. ##\n", fileWithCuts.c_str());
     fprintf(cutrounds, "%s,", instname.c_str());
-    for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
-      fprintf(cutrounds, "%d,", round_ind+1);
+    for (int round_ind = 0; round_ind <= num_rounds; round_ind++) {
+      fprintf(cutrounds, "%d,", round_ind);
     }
     fprintf(cutrounds, "\n");
-    fprintf(cutrounds, "num_cuts,");
+    fprintf(cutrounds, "bound_gmic,");
+    fprintf(cutrounds, "%.20f,", boundInfo.lp_obj);
     for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
-      fprintf(cutrounds, "%d,", boundInfoVec[round_ind].num_gmic + boundInfoVec[round_ind].num_vpc + boundInfoVec[round_ind].num_lpc);
+      fprintf(cutrounds, "%.20f,", boundInfoVec[round_ind].gmic_obj);
     }
     fprintf(cutrounds, "\n");
-    fprintf(cutrounds, "bound,");
+    fprintf(cutrounds, "bound_vpc,");
+    fprintf(cutrounds, "%.20f,", boundInfo.lp_obj);
+    for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
+      fprintf(cutrounds, "%.20f,", boundInfoVec[round_ind].vpc_obj);
+    }
+    fprintf(cutrounds, "\n");
+    fprintf(cutrounds, "bound_all_cuts,");
+    fprintf(cutrounds, "%.20f,", boundInfo.lp_obj);
     for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
       fprintf(cutrounds, "%.20f,", boundInfoVec[round_ind].all_cuts_obj);
     }
     fprintf(cutrounds, "\n");
-    fprintf(cutrounds, "time,");
+    fprintf(cutrounds, "num_gmic,");
+    fprintf(cutrounds, "%d,", 0);
     for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
-      fprintf(cutrounds, "%.20f,", gmic_time_by_round[round_ind]);
+      fprintf(cutrounds, "%d,", boundInfoVec[round_ind].num_gmic);
+    }
+    fprintf(cutrounds, "\n");
+    fprintf(cutrounds, "gmic_gen_time,");
+    fprintf(cutrounds, "%f,", 0.);
+    for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
+      fprintf(cutrounds, "%.20f,", gmic_gen_time_by_round[round_ind]);
+    }
+    fprintf(cutrounds, "\n");
+    fprintf(cutrounds, "gmic_apply_time,");
+    fprintf(cutrounds, "%f,", 0.);
+    for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
+      fprintf(cutrounds, "%.20f,", gmic_apply_time_by_round[round_ind]);
+    }
+    fprintf(cutrounds, "\n");
+    fprintf(cutrounds, "num_vpc,");
+    fprintf(cutrounds, "%d,", 0);
+    for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
+      fprintf(cutrounds, "%d,", boundInfoVec[round_ind].num_vpc);
+    }
+    fprintf(cutrounds, "\n");
+    fprintf(cutrounds, "vpc_gen_time,");
+    fprintf(cutrounds, "%f,", 0.);
+    for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
+      fprintf(cutrounds, "%.20f,", vpc_gen_time_by_round[round_ind]);
+    }
+    fprintf(cutrounds, "\n");
+    fprintf(cutrounds, "vpc_apply_time,");
+    fprintf(cutrounds, "%f,", 0.);
+    for (int round_ind = 0; round_ind < num_rounds; round_ind++) {
+      fprintf(cutrounds, "%.20f,", vpc_apply_time_by_round[round_ind]);
     }
     fprintf(cutrounds, "\n");
     fclose(cutrounds);

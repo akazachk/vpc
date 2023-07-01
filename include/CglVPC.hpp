@@ -378,12 +378,13 @@ protected:
 
   /// @brief Call reachedTimeLimit(const std::string&,const double) const
   inline bool reachedTimeLimit(const VPCTimeStats& timeName, const double max_time) const {
-    return reachedTimeLimit(VPCTimeStatsName[static_cast<int>(timeName)], max_time);
+    return timer.reachedTimeLimit(VPCTimeStatsName[static_cast<int>(timeName)], max_time);
   } /* reachedTimeLimit */
 
   /// @brief Return \link TimeStats::get_total_time() timer.get_total_time(timeName) \endlink > \p max_time
   inline bool reachedTimeLimit(const std::string& timeName, const double max_time) const {
-    return (timer.get_total_time(timeName) > max_time);
+    //return (timer.get_total_time(timeName) > max_time);
+    return timer.reachedTimeLimit(timeName, max_time);
   } /* reachedTimeLimit */
 
 //  inline bool reachedTimelimit(const std::chrono::time_point<std::chrono::high_resolution_clock>& start_chrono) const {
