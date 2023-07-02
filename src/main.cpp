@@ -76,6 +76,7 @@ VPCParameters params;
 OsiSolverInterface *solver, *origSolver;
 OsiSolverInterface* GMICSolver = NULL;
 OsiSolverInterface* VPCSolver = NULL;
+OsiSolverInterface* allCutsSolver = NULL;
 OsiCuts gmics, vpcs;
 std::string dir = "", filename_stub = "", instname = "", in_file_ext = "";
 CglVPC::ExitReason exitReason;
@@ -190,9 +191,11 @@ int main(int argc, char** argv) {
   // solver      ::  stores the cuts we actually want to "count"
   // GMICSolver  ::  only GMICs
   // VPCSolver   ::  if GMICs count, this is only VPCs; otherwise, it is both GMICs and VPCs
+  // allCutsSolver   ::  all generated cuts
   if (params.get(GOMORY) != 0) {
     GMICSolver = solver->clone();
     VPCSolver = solver->clone();
+    allCutsSolver = solver->clone();
   }
 
   // Possibly preprocess instead of doing cuts
@@ -329,9 +332,7 @@ int main(int argc, char** argv) {
       if (params.get(GOMORY) > 0) {
         applyCutsCustom(solver, currGMICs, params.logfile);
       }
-      if (params.get(GOMORY) < 0) {
-        applyCutsCustom(VPCSolver, currGMICs, params.logfile);
-      }
+      applyCutsCustom(allCutsSolver, currGMICs, params.logfile);
     } // Gomory cut generation
 
     if (disjOptions.size() > round_ind) {
@@ -406,37 +407,44 @@ int main(int argc, char** argv) {
       setCutInfo(cutInfoVec[round_ind], 0, NULL);
     }
 
+    // To track time to apply VPCs, need to be careful of which solver they are being added to
+    // If GOMORY = 0, then no GMICs generated; solver is only one that exists
+    //   (VPCSolver and allCutsSolver are *not* created; but if they were, it would hold that solver = VPCSolver = allCutsSolver)
+    // If GOMORY = 1, then solver has GMICs from this round applied already (will be identical to allCutsSolver)
+    // If GOMORY = -1, then solver has only VPCs from prior rounds (will be identical to VPCSolver)
     timer.start_timer(OverallTimeStats::VPC_APPLY_TIME);
     if (vpcs_by_round[round_ind].sizeCuts() > 0) {
-      const double vpc_apply_start_time = timer.get_total_time(OverallTimeStats::VPC_APPLY_TIME);
-      applyCutsCustom(solver, vpcs_by_round[round_ind], params.logfile);
-      const double vpc_apply_end_time = timer.get_total_time(OverallTimeStats::VPC_APPLY_TIME);
-      vpc_apply_time_by_round[round_ind] = vpc_apply_end_time - vpc_apply_start_time;
-    }
+      if (params.get(GOMORY) != 0) { // GMICs generated, so need to track VPC-only objective with VPCSolver
+        // Apply to "VPCSolver", which tracks effect of VPCs without other cuts
+        const double vpc_apply_start_time = timer.get_total_time(OverallTimeStats::VPC_APPLY_TIME);
+        applyCutsCustom(VPCSolver, vpcs_by_round[round_ind], params.logfile);
+        const double vpc_apply_end_time = timer.get_total_time(OverallTimeStats::VPC_APPLY_TIME);
+        vpc_apply_time_by_round[round_ind] = vpc_apply_end_time - vpc_apply_start_time;
 
-    if (params.get(GOMORY) > 0) { // GMICs added to solver, so VPCSolver tracks values without GMICs
-      boundInfo.gmic_vpc_obj = solver->getObjValue();
-      if (vpcs_by_round[round_ind].sizeCuts() > 0) {
-        applyCutsCustom(VPCSolver, vpcs_by_round[round_ind], params.logfile);
+        // Apply to "solver" which has either only VPCs or also GMICs depending on GOMORY parameter
+        // When GOMORY = -1, VPCSolver and solver are identical
+        applyCutsCustom(solver, vpcs_by_round[round_ind], params.logfile);
+
+        // Apply to "allCutsSolver", which has all cuts
+        // When GOMORY = 1, allCutsSolver and solver are identical
+        applyCutsCustom(allCutsSolver, vpcs_by_round[round_ind], params.logfile);
+      } else {
+        // Else, no GMICs generated; only solver needed
+        const double vpc_apply_start_time = timer.get_total_time(OverallTimeStats::VPC_APPLY_TIME);
+        applyCutsCustom(solver, vpcs_by_round[round_ind], params.logfile);
+        const double vpc_apply_end_time = timer.get_total_time(OverallTimeStats::VPC_APPLY_TIME);
+        vpc_apply_time_by_round[round_ind] = vpc_apply_end_time - vpc_apply_start_time;
       }
-      boundInfo.vpc_obj = VPCSolver->getObjValue();
-      boundInfo.all_cuts_obj = boundInfo.gmic_vpc_obj;
-    }
-    else if (params.get(GOMORY) < 0) {
-      boundInfo.vpc_obj = solver->getObjValue();
-      if (vpcs_by_round[round_ind].sizeCuts() > 0) {
-        applyCutsCustom(VPCSolver, vpcs_by_round[round_ind], params.logfile);
-      }
-      boundInfo.gmic_vpc_obj = VPCSolver->getObjValue();
-      boundInfo.all_cuts_obj = boundInfo.gmic_vpc_obj;
-    } else {
-      boundInfo.vpc_obj = solver->getObjValue();
-      boundInfo.all_cuts_obj = boundInfo.vpc_obj;
-    }
+    } // apply VPCs if any were generated
+    timer.end_timer(OverallTimeStats::VPC_APPLY_TIME);
+
+    // Update bound info
+    boundInfo.vpc_obj = (params.get(GOMORY) != 0) ? VPCSolver->getObjValue() : solver->getObjValue();
+    boundInfo.gmic_vpc_obj = (params.get(GOMORY) != 0) ? allCutsSolver->getObjValue() : solver->getObjValue();
+    boundInfo.all_cuts_obj = boundInfo.gmic_vpc_obj;
     boundInfoVec[round_ind].gmic_vpc_obj = boundInfo.gmic_vpc_obj;
     boundInfoVec[round_ind].vpc_obj = boundInfo.vpc_obj;
     boundInfoVec[round_ind].all_cuts_obj = boundInfo.all_cuts_obj;
-    timer.end_timer(OverallTimeStats::VPC_APPLY_TIME);
 
     printf(
         "\n## Round %d/%d: Completed round of VPC generation (exit reason: %s). # VPCs generated = %d. # GMICs generated = %d.\n",
@@ -524,7 +532,7 @@ int main(int argc, char** argv) {
   analyzeStrength(params, 
       params.get(GOMORY) == 0 ? NULL : GMICSolver,
       params.get(GOMORY) <= 0 ? solver : VPCSolver, 
-      params.get(GOMORY) >= 0 ? solver : VPCSolver, 
+      params.get(GOMORY) >= 0 ? solver : allCutsSolver, 
       cutInfoGMICs, cutInfo, 
       params.get(GOMORY) == 0 ? NULL : &gmics, 
       &vpcs,
@@ -778,6 +786,9 @@ int wrapUp(int retCode, int argc, char** argv) {
   }
   if (VPCSolver) {
     delete VPCSolver;
+  }
+  if (allCutsSolver) {
+    delete allCutsSolver;
   }
 
   return retCode;
