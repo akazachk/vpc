@@ -444,8 +444,9 @@ int main(int argc, char** argv) {
         vpcs_by_round[round_ind].sizeCuts(),
         boundInfoVec[round_ind].num_gmic);
     fflush(stdout);
-    printf("Initial obj value: %1.6f. New obj value: %s. Disj lb: %s. ##\n",
-        boundInfo.lp_obj, stringValue(solver->getObjValue(), "%1.6f").c_str(),
+    printf("Obj value: %s. Initial obj value: %s. Disj lb: %s. ##\n",
+        stringValue(solver->getObjValue(), "%1.6f").c_str(),
+        stringValue(boundInfo.lp_obj, "%1.6f").c_str(), 
         stringValue(boundInfo.best_disj_obj, "%1.6f").c_str());
 
     // Print information from this round of cuts
