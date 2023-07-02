@@ -303,6 +303,7 @@ int main(int argc, char** argv) {
       GMIGen.getParam().setMAX_SUPPORT_REL(0.5);
       //GMIGen.getParam().setMAXDYN(params.get(doubleConst::MAX_DYN));
       GMIGen.getParam().setMAXDYN(solver->getInfinity());
+      GMIGen.getParam().setMINVIOL(0.0);
       GMIGen.generateCuts(*solver, currGMICs);
 
       timer.end_timer(OverallTimeStats::GOMORY_GEN_TIME);
