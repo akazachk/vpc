@@ -446,17 +446,24 @@ int main(int argc, char** argv) {
     boundInfoVec[round_ind].vpc_obj = boundInfo.vpc_obj;
     boundInfoVec[round_ind].all_cuts_obj = boundInfo.all_cuts_obj;
 
+    printf("\n*** INFO:\n");
     printf(
-        "\n## Round %d/%d: Completed round of VPC generation (exit reason: %s). # VPCs generated = %d. # GMICs generated = %d.\n",
+        "Round %d/%d: Completed round of VPC generation (exit reason: %s).\n", 
         round_ind + 1, params.get(ROUNDS),
-        CglVPC::ExitReasonName[static_cast<int>(exitReason)].c_str(),
+        CglVPC::ExitReasonName[static_cast<int>(exitReason)].c_str());
+    printf(
+        "VPCs generated = %d. GMICs generated = %d.\n",
         vpcs_by_round[round_ind].sizeCuts(),
         boundInfoVec[round_ind].num_gmic);
     fflush(stdout);
-    printf("Obj value: %s. Initial obj value: %s. Disj lb: %s. ##\n",
+    printf("Obj value: %s. Initial obj value: %s. Disj lb: %s.\n", 
         stringValue(solver->getObjValue(), "%1.6f").c_str(),
         stringValue(boundInfo.lp_obj, "%1.6f").c_str(), 
         stringValue(boundInfo.best_disj_obj, "%1.6f").c_str());
+    printf("Elapsed time: %1.2f seconds. Time limit = %1.2f seconds.\n",
+        timer.get_total_time(OverallTimeStatsName[OverallTimeStats::TOTAL_TIME]),
+        params.get(TIMELIMIT));
+    printf("***\n");
 
     // Print information from this round of cuts
     if (use_temp_option(params.get(intParam::TEMP), TempOptions::PRINT_BOUND_BY_ROUND)) {
