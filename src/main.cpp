@@ -239,6 +239,7 @@ int main(int argc, char** argv) {
       parseFilename(log_dir, log_instname, log_in_file_ext, logname, params.logfile);
       fileWithCuts = log_dir + "/" + fileWithCuts + "_" + instname;
     }
+    fileWithCuts += "_d" + stringValue(params.get(intParam::DISJ_TERMS), "%d");
     fileWithCuts += ".csv";
     cutrounds_logfile = fopen(fileWithCuts.c_str(), "w");
     if (!cutrounds_logfile) {
