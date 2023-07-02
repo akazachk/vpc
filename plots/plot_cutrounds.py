@@ -5,6 +5,10 @@ import numpy as np
 import os
 import matplotlib
 
+INST_LIST = []
+# INST_LIST = ['bm23']
+# INST_LIST = ['bell5_presolved']
+
 matplotlib.use('MACOSX')
 
 scale=2
@@ -51,8 +55,8 @@ for file in os.listdir(path):
         # print(os.path.join(path, file))
         all_files.append(os.path.join(path, file))
 
-# Sort all_files lexicographically
-all_files.sort()
+# Sort all_files lexicographically, using numbers in the filename as numbers
+all_files.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
 print(all_files)
 
 # li = []
@@ -60,6 +64,16 @@ PREFIX = "cutrounds_"
 CB_color_cycle = ['#377eb8', '#ff7f00', '#4daf4a',
                   '#f781bf', '#a65628', '#984ea3',
                   '#999999', '#e41a1c', '#dede00']
+
+MARKERS = ['x', 'o', None, '*', None, None, None, None, None]
+LINESTYLE_LIST = [
+    'solid', 
+    'dashed', 
+    'dotted', 
+    'dashdot',
+    (0, (1, 10)), #'loosely dotted'
+]
+ALPHA_LIST = [1.0, 0.75, 0.5, 0.25, 0.2]
 
 def adjust_lightness(color, amount=0.5):
     """
@@ -80,9 +94,38 @@ def adjust_lightness(color, amount=0.5):
     c = colorsys.rgb_to_hls(*mc.to_rgb(c))
     return colorsys.hls_to_rgb(c[0], max(0, min(1, amount * c[1])), c[2])
 
-MARKERS = ['x', 'o', None, '*', None, None, None, None, None]
-LINESTYLE_LIST = ['solid', 'dashed', 'dotted', 'dashdot']
-ALPHA_LIST = [1.0, 0.75, 0.5, 0.25]
+def plotInstance(fig, axes, depth_index, path, prev_instance):
+    # Concatenate the legend handles and labels
+    legend_handles = []
+    legend_labels = []
+    for ax in axes:
+        legend_handles += ax.get_legend_handles_labels()[0]
+        legend_labels += ax.get_legend_handles_labels()[1]
+
+    # Add the legend
+    numitems = 2*(depth_index+1)
+    numcols = depth_index+1
+    numrows = numitems // numcols
+    # bbox_pos = (1,-0.13-0.05*numrows)
+    bbox_pos = (1,0.025)
+    # while (numcols > 5):
+    #     numcols = (numcols+1) // 2
+    #     # Move second coordinate of bbox_pos down
+    #     bbox_pos = (bbox_pos[0], bbox_pos[1]-0.05)
+    plt.legend(legend_handles, legend_labels, loc='lower right', 
+                bbox_to_anchor=bbox_pos, ncol=numcols, 
+                fontsize=5*scale)
+
+    # Add a title
+    plt.title(r"\ttfamily{"+prev_instance+r"}", fontsize=8*scale)
+
+    fig.tight_layout()  # otherwise the right y-label is slightly clipped
+
+    # Save the plot to a file with the instance name
+    # To prevent it from being blank, save it as a pdf
+    plt.savefig(path + '/' + prev_instance + ".pdf", bbox_inches='tight', pad_inches=0, dpi=300)
+
+# %%
 prev_instance = ""
 fig = None
 ax1 = None
@@ -100,8 +143,6 @@ for filename in all_files:
     if PREFIX not in instance:
         continue
 
-
-
     # Delete everything before and including "PREFIX"
     instance = instance[instance.find(PREFIX) + len(PREFIX):]
     
@@ -112,8 +153,61 @@ for filename in all_files:
     depth_stub = instance[instance.rfind("_d"):] 
     depth = int(depth_stub[2:])
     instance = instance[:instance.rfind("_d")]
+
+    # Check if instance should be processed
+    if (len(INST_LIST) > 0) and (instance not in INST_LIST):
+        continue
+
+    # Plot for this instance the LPTime across the Round columns and print the LP bound on a second axis
+    # On a third axis, which goes below the plot into the negative numbers, put a bar plot of the number of cuts added using column 'Cuts'
+    # fig, ax1 = plt.subplots()
+    if (prev_instance != instance):
+        # Save old plot if prev_instance is not empty
+        if prev_instance != "":
+            # # Concatenate the legend handles and labels
+            # legend_handles = []
+            # legend_labels = []
+            # for ax in axes:
+            #     legend_handles += ax.get_legend_handles_labels()[0]
+            #     legend_labels += ax.get_legend_handles_labels()[1]
+            
+            # # Add the legend, so that there are two rows
+            # numitems = 2*(depth_index+1)
+            # numcols = depth_index+1
+            # numrows = numitems // numcols
+            # bbox_pos = (1,-0.1-0.05*numrows)
+            # bbox_pos = (1,0.025)
+            # print("instance = {}, numitems = {:d}, numcols = {:d}, numrows = {:d}, bbox_pos = {:s}".format(prev_instance, numitems, numcols, numrows, str(bbox_pos)))
+            # # while (numcols > 5):
+            # #     numcols = (numcols+1) // 2
+            # #     # Move second coordinate of bbox_pos down by 0.13
+            # #     bbox_pos = (bbox_pos[0], bbox_pos[1]-0.13)
+            # plt.legend(legend_handles, legend_labels, 
+            #            loc='lower right', 
+            #            bbox_to_anchor=bbox_pos, 
+            #            ncol=numcols, 
+            #            fontsize=5*scale)
+            
+            # # Add a title
+            # plt.title(r"\ttfamily{"+prev_instance+r"}", fontsize=8*scale)
+
+            # fig.tight_layout()  # otherwise the right y-label is slightly clipped
+
+            # # Save the plot to a file with the instance name
+            # # To prevent it from being blank, save it as a pdf
+            # plt.savefig(path + '/' + prev_instance + ".pdf", bbox_inches='tight', pad_inches=0, dpi=300)
+            plotInstance(fig, axes, depth_index, path, prev_instance)
+            
+        prev_instance = instance
+        fig = plt.figure(figsize=(10, 6))
+        axes[0] = fig.add_subplot(111)
+        depth_index = 0
+        
+        print("")
+        print("Instance: ", path + '/' + instance)
+    else:
+        depth_index += 1
     
-    print("Instance: ", path + '/' + instance)
     print("Depth: {:d}".format(depth))
 
     # Read in the csv file; skip the last column (it is created due to comma at end of every row)
@@ -131,31 +225,6 @@ for filename in all_files:
         from IPython.display import display
         display(df.head())
 
-    # Plot for this instance the LPTime across the Round columns and print the LP bound on a second axis
-    # On a third axis, which goes below the plot into the negative numbers, put a bar plot of the number of cuts added using column 'Cuts'
-    # fig, ax1 = plt.subplots()
-    if (prev_instance != instance):
-        # Save old plot if prev_instance is not empty
-        if prev_instance != "":
-            # Add the legend
-            plt.legend(legend_handles, legend_labels, loc='lower right', bbox_to_anchor=(1,-0.13), ncol=4, fontsize=5*scale)
-            
-            # Add a title
-            plt.title(r"\ttfamily{"+prev_instance+r"}", fontsize=8*scale)
-
-            fig.tight_layout()  # otherwise the right y-label is slightly clipped
-
-            # Save the plot to a file with the instance name
-            # To prevent it from being blank, save it as a pdf
-            plt.savefig(path + '/' + prev_instance + ".pdf", bbox_inches='tight', pad_inches=0, dpi=300)
-            
-        prev_instance = instance
-        fig = plt.figure(figsize=(10, 6))
-        axes[0] = fig.add_subplot(111)
-        depth_index = 0
-    else:
-        depth_index += 1
-
     # Plot the gmic_bound on the first axis
     color_index = 0
     curr_ax = axes[0]
@@ -164,9 +233,10 @@ for filename in all_files:
     linestyle = LINESTYLE_LIST[depth_index]
     alphastyle = ALPHA_LIST[depth_index]
     
-    curr_ax.set_xlabel('Rounds of cuts', horizontalalignment='left', x=0.0)
+    # curr_ax.set_xlabel('Rounds of cuts', horizontalalignment='left', x=0.0)
+    curr_ax.set_xlabel('Rounds of cuts')
     curr_ax.set_ylabel('Bound', color='black')
-    x_ticks = df['Round'].to_numpy()+1
+    x_ticks = df['Round'].to_numpy()
     
     curr_ax.plot(x_ticks, df['bound_gmic'], color=color, label='gmic'+depth_stub, marker=marker, linestyle=linestyle, alpha=alphastyle)
     
@@ -176,6 +246,9 @@ for filename in all_files:
         color = CB_color_cycle[color_index]
         marker = MARKERS[color_index]
         curr_ax.plot(x_ticks, df['bound_vpc'], color=color, label='vpc'+depth_stub, marker=marker, linestyle=linestyle, alpha=alphastyle, markersize=4)
+    else:
+        # I do not know of another way to to take up space in the legend
+        curr_ax.plot([], [], ' ', label=" ")
 
     # curr_ax.tick_params(axis='y', labelcolor=color)
     # curr_ax.yaxis.set_major_formatter(mtick.FormatStrFormatter('%.2e'))
@@ -260,25 +333,35 @@ for filename in all_files:
 
 # %%
 ## Plot the last instance
+plotInstance(fig, axes, depth_index, path, prev_instance)
 
-# Prepare a single legend box
-# Concatenate the legend handles and labels
-legend_handles = []
-legend_labels = []
-for ax in axes:
-    legend_handles += ax.get_legend_handles_labels()[0]
-    legend_labels += ax.get_legend_handles_labels()[1]
+# # Concatenate the legend handles and labels
+# legend_handles = []
+# legend_labels = []
+# for ax in axes:
+#     legend_handles += ax.get_legend_handles_labels()[0]
+#     legend_labels += ax.get_legend_handles_labels()[1]
 
-# Add the legend
-# plt.legend(legend_handles, legend_labels, loc='lower right', bbox_to_anchor=(1,-0.13), ncol=4, fontsize=5*scale)
-plt.legend(legend_handles, legend_labels, loc='lower right', bbox_to_anchor=(1.,-0.13), ncol=5, fontsize=5*scale)
+# # Add the legend
+# numitems = 2*(depth_index+1)
+# numcols = depth_index+1
+# numrows = numitems // numcols
+# # bbox_pos = (1,-0.13-0.05*numrows)
+# bbox_pos = (1,0.025)
+# # while (numcols > 5):
+# #     numcols = (numcols+1) // 2
+# #     # Move second coordinate of bbox_pos down
+# #     bbox_pos = (bbox_pos[0], bbox_pos[1]-0.05)
+# plt.legend(legend_handles, legend_labels, loc='lower right', 
+#             bbox_to_anchor=bbox_pos, ncol=numcols, 
+#             fontsize=5*scale)
 
-# Add a title
-plt.title(r"\ttfamily{"+prev_instance+r"}", fontsize=8*scale)
+# # Add a title
+# plt.title(r"\ttfamily{"+prev_instance+r"}", fontsize=8*scale)
 
-fig.tight_layout()  # otherwise the right y-label is slightly clipped
+# fig.tight_layout()  # otherwise the right y-label is slightly clipped
 
-# Save the plot to a file with the instance name
-# To prevent it from being blank, save it as a pdf
-plt.savefig(path + '/' + prev_instance + ".pdf", bbox_inches='tight', pad_inches=0, dpi=300)
+# # Save the plot to a file with the instance name
+# # To prevent it from being blank, save it as a pdf
+# plt.savefig(path + '/' + prev_instance + ".pdf", bbox_inches='tight', pad_inches=0, dpi=300)
 # %%
