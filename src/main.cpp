@@ -232,13 +232,14 @@ int main(int argc, char** argv) {
   FILE* cutrounds_logfile = NULL;
   const int NUM_CUTROUND_INFO = 1 + 3 + 2*3; // round + 3 x bound + 2 x (num cuts, gen time, apply time)
   if (use_temp_option(params.get(intParam::TEMP), TempOptions::PRINT_BOUND_BY_ROUND)) {
-    std::string fileWithCuts = "cutrounds.csv";
+    std::string fileWithCuts = "cutrounds";
     const std::string logname = params.get(stringParam::LOGFILE);
     if (!logname.empty()) {
       std::string log_dir, log_instname, log_in_file_ext;
       parseFilename(log_dir, log_instname, log_in_file_ext, logname, params.logfile);
-      fileWithCuts = log_dir + "/" + instname + "_" + fileWithCuts;
+      fileWithCuts = log_dir + "/" + fileWithCuts + "_" + instname;
     }
+    fileWithCuts += ".csv";
     cutrounds_logfile = fopen(fileWithCuts.c_str(), "w");
     if (!cutrounds_logfile) {
       error_msg(errorstring, "Unable to open file: %s.\n", fileWithCuts.c_str());
