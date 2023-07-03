@@ -433,7 +433,7 @@ for filename in all_files:
     
     # curr_ax.set_xlabel('Rounds of cuts', horizontalalignment='left', x=0.0)
     curr_ax.set_xlabel('Rounds of cuts')
-    curr_ax.set_ylabel('Total Time for Generation + LP Resolve (s)', color='black')
+    curr_ax.set_ylabel('Time for Generation + LP Resolve per Round (s)', color='black')
     x_ticks = df['Round'].to_numpy()
     
     curr_ax.plot(x_ticks, df['gmic_gen_time'] + df['gmic_apply_time'], color=color, label='gmic'+depth_stub, marker=marker, linestyle=linestyle, alpha=alphastyle)
@@ -537,7 +537,7 @@ for filename in all_files:
     
     # curr_ax.set_xlabel('Rounds of cuts', horizontalalignment='left', x=0.0)
     curr_ax.set_xlabel('Rounds of cuts')
-    curr_ax.set_ylabel('LP Resolve Time (s)', color='black')
+    curr_ax.set_ylabel('LP Resolve Time per Round (s)', color='black')
     x_ticks = df['Round'].to_numpy()
     
     curr_ax.plot(x_ticks, df['gmic_apply_time'], color=color, label='gmic'+depth_stub, marker=marker, linestyle=linestyle, alpha=alphastyle)
