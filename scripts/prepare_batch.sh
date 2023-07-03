@@ -115,11 +115,12 @@ elif [ $MODE == preprocess ]; then
   PARAMS="$PARAMS --bb_timelimit=7200"
   PARAMS="$PARAMS --temp=32"
 elif [ $MODE == gmic ]; then
-  depthList=(0)
-  PARAMS="$PARAMS -t 3600"
-  PARAMS="$PARAMS --rounds=100"
+  depthList=(0 2 4 8)
+  PARAMS="$PARAMS --timelimit=7200"
+  PARAMS="$PARAMS --rounds=1000"
   PARAMS="$PARAMS --gomory=1"
   PARAMS="$PARAMS --temp=16"
+  PARAMS="$PARAMS -v0"
 elif [ $MODE == test ]; then
   depthList=(2)
 else
