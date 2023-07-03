@@ -60,7 +60,7 @@ for file in os.listdir(path):
 # Sort all_files lexicographically, using numbers in the filename as numbers
 def sort_key(item):
     #alpha_part = re.match(r'[a-zA-Z]+', item).group()
-    alpha_part = item[:item.rfind("_d")]-
+    alpha_part = item[:item.rfind("_d")]
     num_part = int(item[item.rfind("_d")+2:item.rfind(".csv")])
     return (alpha_part, num_part)
 all_files = sorted(all_files, key=sort_key)
