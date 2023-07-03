@@ -34,14 +34,16 @@ plt.rc("savefig", dpi=DPI)
 print("Current directory: ", os.getcwd())
 
 # Read in value of VPC_DIR from environment variable; if empty, use parent directory
-if 'VPC_DIR' not in os.environ:
-    VPC_DIR = '..'
-    print("VPC_DIR not in environment variable; using parent directory: ", os.path.abspath(VPC_DIR))
-else:
-    VPC_DIR = os.environ['VPC_DIR']
-    print("VPC_DIR set to: ", os.path.abspath(VPC_DIR))
-# path = VPC_DIR/results/2023-07-01
-path = VPC_DIR + '/results/2023-07-01'
+# if 'VPC_DIR' not in os.environ:
+#     VPC_DIR = '..'
+#     print("VPC_DIR not in environment variable; using parent directory: ", os.path.abspath(VPC_DIR))
+# else:
+#     VPC_DIR = os.environ['VPC_DIR']
+#     print("VPC_DIR set to: ", os.path.abspath(VPC_DIR))
+# # path = VPC_DIR/results/2023-07-01
+# path = VPC_DIR + '/results/2023-07-01'
+HOME_DIR = os.environ['HOME']
+path = HOME_DIR + '/results/2023-07-02/gmic'
 
 # Convert path to absolute path
 path = os.path.abspath(path)
@@ -56,7 +58,12 @@ for file in os.listdir(path):
         all_files.append(os.path.join(path, file))
 
 # Sort all_files lexicographically, using numbers in the filename as numbers
-all_files.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
+def sort_key(item):
+    #alpha_part = re.match(r'[a-zA-Z]+', item).group()
+    alpha_part = item[:item.rfind("_d")]-
+    num_part = int(item[item.rfind("_d")+2:item.rfind(".csv")])
+    return (alpha_part, num_part)
+all_files = sorted(all_files, key=sort_key)
 print(all_files)
 
 # li = []
