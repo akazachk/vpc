@@ -150,6 +150,7 @@ ax4 = None
 axes = [ax1]
 color_index = 0
 depth_index = 0
+MAX_ROUNDS = 200
 for filename in all_files:
     # The instance name is everything after "path/PREFIX" and before "_dXXX.csv" in the filename
     instance = filename
@@ -201,6 +202,10 @@ for filename in all_files:
 
     # Rename first column to 'Round'
     df.rename(columns={df.columns[0]: 'Round'}, inplace=True)
+
+    # Truncate df to MAX_ROUNDS if more were computed and MAX_ROUNDS is not empty
+    if MAX_ROUNDS != None and len(df) > MAX_ROUNDS:
+        df = df.iloc[:MAX_ROUNDS, :]
     
     # If we are in a Jupyter notebook, display the dataframe
     import sys
@@ -417,6 +422,10 @@ for filename in all_files:
     # Rename first column to 'Round'
     df.rename(columns={df.columns[0]: 'Round'}, inplace=True)
     
+    # Truncate df to MAX_ROUNDS if more were computed and MAX_ROUNDS is not empty
+    if MAX_ROUNDS != None and len(df) > MAX_ROUNDS:
+        df = df.iloc[:MAX_ROUNDS, :]
+
     # If we are in a Jupyter notebook, display the dataframe
     import sys
     if 'IPython' in sys.modules:
@@ -454,7 +463,6 @@ plotInstance(path, prev_instance, typestub, fig, axes, depth_index, legendloc, b
 # %%
 
 ### Repeat for apply time only
-### Repeat for total time
 print("\n## Plotting apply time per round ##")
 typestub = "applytime"
 legendloc = 'best'
@@ -521,6 +529,10 @@ for filename in all_files:
     # Rename first column to 'Round'
     df.rename(columns={df.columns[0]: 'Round'}, inplace=True)
     
+    # Truncate df to MAX_ROUNDS if more were computed and MAX_ROUNDS is not empty
+    if MAX_ROUNDS != None and len(df) > MAX_ROUNDS:
+        df = df.iloc[:MAX_ROUNDS, :]
+
     # If we are in a Jupyter notebook, display the dataframe
     import sys
     if 'IPython' in sys.modules:
