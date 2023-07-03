@@ -188,9 +188,9 @@ for filename in all_files:
 
     # Read in the csv file; skip the last column (it is created due to comma at end of every row)
     df = pd.read_csv(filename, engine='python')
-    
-    # Delete the last column
-    del df['Unnamed: 10']
+
+    # Delete last column (unknown name)
+    df = df.iloc[:, :-1]
 
     # Rename first column to 'Round'
     df.rename(columns={df.columns[0]: 'Round'}, inplace=True)
@@ -343,9 +343,9 @@ plotInstance(path, prev_instance, typestub, fig, axes, depth_index, legendloc, b
 # plt.savefig(path + '/' + prev_instance + ".pdf", bbox_inches='tight', pad_inches=0, dpi=300)
 # %%
 
-### Repeat for time
-print("\n## Plotting time per round ##")
-typestub = "time"
+### Repeat for total time
+print("\n## Plotting total time per round ##")
+typestub = "totaltime"
 legendloc = 'best'
 bbox_pos = None
 prev_instance = ""
@@ -404,7 +404,8 @@ for filename in all_files:
     df = pd.read_csv(filename, engine='python')
     
     # Delete the last column
-    del df['Unnamed: 10']
+    # del df['Unnamed: 10']
+    df = df.iloc[:, :-1]
 
     # Rename first column to 'Round'
     df.rename(columns={df.columns[0]: 'Round'}, inplace=True)
@@ -425,7 +426,7 @@ for filename in all_files:
     
     # curr_ax.set_xlabel('Rounds of cuts', horizontalalignment='left', x=0.0)
     curr_ax.set_xlabel('Rounds of cuts')
-    curr_ax.set_ylabel('Time (s)', color='black')
+    curr_ax.set_ylabel('Total Time for Generation + LP Resolve (s)', color='black')
     x_ticks = df['Round'].to_numpy()
     
     curr_ax.plot(x_ticks, df['gmic_gen_time'] + df['gmic_apply_time'], color=color, label='gmic'+depth_stub, marker=marker, linestyle=linestyle, alpha=alphastyle)
@@ -436,6 +437,110 @@ for filename in all_files:
         color = CB_color_cycle[color_index]
         marker = MARKERS[color_index]
         curr_ax.plot(x_ticks, df['vpc_gen_time'] + df['vpc_apply_time'], color=color, label='vpc'+depth_stub, marker=marker, linestyle=linestyle, alpha=alphastyle, markersize=4)
+    else:
+        # I do not know of another way to to take up space in the legend
+        curr_ax.plot([], [], ' ', label=" ")
+
+# Plot last instance
+plotInstance(path, prev_instance, typestub, fig, axes, depth_index, legendloc, bbox_pos)
+
+# %%
+
+### Repeat for apply time only
+### Repeat for total time
+print("\n## Plotting apply time per round ##")
+typestub = "applytime"
+legendloc = 'best'
+bbox_pos = None
+prev_instance = ""
+fig = None
+ax1 = None
+ax2 = None
+ax3 = None
+ax4 = None
+axes = [ax1]
+color_index = 0
+depth_index = 0
+for filename in all_files:
+    # The instance name is everything after "path/PREFIX" and before "_dXXX.csv" in the filename
+    instance = filename
+
+    # Check that PREFIX is in the filename
+    if PREFIX not in instance:
+        continue
+
+    # Delete everything before and including "PREFIX"
+    instance = instance[instance.find(PREFIX) + len(PREFIX):]
+    
+    # Delete everything after ".csv"
+    instance = instance[:instance.find(".csv")]
+
+    # Pull everything after the last underscore
+    depth_stub = instance[instance.rfind("_d"):] 
+    depth = int(depth_stub[2:])
+    instance = instance[:instance.rfind("_d")]
+
+    # Check if instance should be processed
+    if (len(INST_LIST) > 0) and (instance not in INST_LIST):
+        continue
+
+    # Plot for this instance the LPTime across the Round columns and print the LP bound on a second axis
+    # On a third axis, which goes below the plot into the negative numbers, put a bar plot of the number of cuts added using column 'Cuts'
+    # fig, ax1 = plt.subplots()
+    if (prev_instance != instance):
+        # Save old plot if prev_instance is not empty
+        if prev_instance != "":
+            plotInstance(path, prev_instance, typestub, fig, axes, depth_index, legendloc, bbox_pos)
+            
+        prev_instance = instance
+        fig = plt.figure(figsize=(10, 6))
+        axes[0] = fig.add_subplot(111)
+        depth_index = 0
+        
+        print("")
+        print("Instance: ", path + '/' + instance)
+    else:
+        depth_index += 1
+    
+    print("Depth: {:d}".format(depth))
+
+    # Read in the csv file; skip the last column (it is created due to comma at end of every row)
+    df = pd.read_csv(filename, engine='python')
+    
+    # Delete the last column
+    # del df['Unnamed: 10']
+    df = df.iloc[:, :-1]
+
+    # Rename first column to 'Round'
+    df.rename(columns={df.columns[0]: 'Round'}, inplace=True)
+    
+    # If we are in a Jupyter notebook, display the dataframe
+    import sys
+    if 'IPython' in sys.modules:
+        from IPython.display import display
+        display(df.head())
+
+    # Plot the gmic_bound on the first axis
+    color_index = 0
+    curr_ax = axes[0]
+    color = CB_color_cycle[color_index]
+    marker = MARKERS[color_index]
+    linestyle = LINESTYLE_LIST[depth_index]
+    alphastyle = ALPHA_LIST[depth_index]
+    
+    # curr_ax.set_xlabel('Rounds of cuts', horizontalalignment='left', x=0.0)
+    curr_ax.set_xlabel('Rounds of cuts')
+    curr_ax.set_ylabel('LP Resolve Time (s)', color='black')
+    x_ticks = df['Round'].to_numpy()
+    
+    curr_ax.plot(x_ticks, df['gmic_apply_time'], color=color, label='gmic'+depth_stub, marker=marker, linestyle=linestyle, alpha=alphastyle)
+    
+    # Plot vpc bound
+    if depth > 0:
+        color_index += 1
+        color = CB_color_cycle[color_index]
+        marker = MARKERS[color_index]
+        curr_ax.plot(x_ticks, df['vpc_apply_time'], color=color, label='vpc'+depth_stub, marker=marker, linestyle=linestyle, alpha=alphastyle, markersize=4)
     else:
         # I do not know of another way to to take up space in the legend
         curr_ax.plot([], [], ' ', label=" ")

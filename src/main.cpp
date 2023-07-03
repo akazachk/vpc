@@ -28,6 +28,7 @@
 #include "analysis.hpp" // analyzeStrength, analalyzeBB
 #include "BBHelper.hpp" // runBBTests
 #include "CglVPC.hpp"
+#include "condition_number.hpp" // compute_condition_number
 #include "CutHelper.hpp"
 #include "Disjunction.hpp" // needed to access disjunction properties
 #include "DisjunctionHelper.hpp" // for custom disjunctions
@@ -220,20 +221,29 @@ int main(int argc, char** argv) {
 
   // Information from each round of cuts will be saved and optionally printed
   int num_rounds = params.get(ROUNDS); // not const in case we do not exhaust the limit
+  const bool COMPUTE_COND_NUM = false;
   std::vector<OsiCuts> vpcs_by_round(num_rounds);
   cutInfoVec.resize(num_rounds);
   boundInfoVec.resize(num_rounds);
   std::vector<double> gmic_gen_time_by_round(num_rounds);
   std::vector<double> gmic_apply_time_by_round(num_rounds);
+  //std::vector<double> gmic_cond_num1_by_round(num_rounds);
+  std::vector<double> gmic_cond_num2_by_round;
   std::vector<double> vpc_gen_time_by_round(num_rounds);
   std::vector<double> vpc_apply_time_by_round(num_rounds);
+  //std::vector<double> vpc_cond_num1_by_round(num_rounds);
+  std::vector<double> vpc_cond_num2_by_round;
+  if (COMPUTE_COND_NUM) {
+    gmic_cond_num2_by_round.resize(num_rounds);
+    vpc_cond_num2_by_round.resize(num_rounds);
+  }
 
   int round_ind = 0;
   int num_disj = 0;
 
   // If requested, open cutrounds_logfile file then print header and round "0" information
   FILE* cutrounds_logfile = NULL;
-  const int NUM_CUTROUND_INFO = 1 + 3 + 2*3; // round + 3 x bound + 2 x (num cuts, gen time, apply time)
+  const int NUM_CUTROUND_INFO = 1 + 3 + 2*3 + 2*COMPUTE_COND_NUM; // round + 3 x bound + 2 x (num cuts, gen time, apply time) + 2 x cond_num2 when computed
   if (use_temp_option(params.get(intParam::TEMP), TempOptions::PRINT_BOUND_BY_ROUND)) {
     std::string fileWithCuts = "cutrounds";
     const std::string logname = params.get(stringParam::LOGFILE);
@@ -260,11 +270,18 @@ int main(int argc, char** argv) {
     fprintf(cutrounds_logfile, "num_gmic,"); count++;
     fprintf(cutrounds_logfile, "gmic_gen_time,"); count++;
     fprintf(cutrounds_logfile, "gmic_apply_time,"); count++;
+    //fprintf(cutrounds_logfile, "gmic_cond_num1,"); count++;
+    if (COMPUTE_COND_NUM) { fprintf(cutrounds_logfile, "gmic_cond_num2,"); count++; }
     fprintf(cutrounds_logfile, "num_vpc,"); count++;
     fprintf(cutrounds_logfile, "vpc_gen_time,"); count++;
     fprintf(cutrounds_logfile, "vpc_apply_time,"); count++;
+    //fprintf(cutrounds_logfile, "vpc_cond_num1,"); count++;
+    if (COMPUTE_COND_NUM) { fprintf(cutrounds_logfile, "vpc_cond_num2,"); count++; }
     fprintf(cutrounds_logfile, "\n");
     assert(count == NUM_CUTROUND_INFO);
+
+    //const double init_cond_num1 = compute_condition_number(solver,1);
+    const double init_cond_num2 = COMPUTE_COND_NUM ? compute_condition_number(solver,2) : 0.0;
 
     count = 0;
     const double initSolveTime = timer.get_total_time(OverallTimeStats::INIT_SOLVE_TIME);
@@ -275,9 +292,13 @@ int main(int argc, char** argv) {
     fprintf(cutrounds_logfile, "%d,", 0); count++;
     fprintf(cutrounds_logfile, "%f,", 0.); count++;
     fprintf(cutrounds_logfile, "%f,", initSolveTime); count++;
+    //fprintf(cutrounds_logfile, "%s,", stringValue(init_cond_num1, "%.20f").c_str()); count++;
+    if (COMPUTE_COND_NUM) { fprintf(cutrounds_logfile, "%s,", stringValue(init_cond_num2, "%.20f").c_str()); count++; }
     fprintf(cutrounds_logfile, "%d,", 0); count++;
     fprintf(cutrounds_logfile, "%f,", 0.); count++;
     fprintf(cutrounds_logfile, "%f,", initSolveTime); count++;
+    //fprintf(cutrounds_logfile, "%s,", stringValue(init_cond_num1, "%.20f").c_str()); count++;
+    if (COMPUTE_COND_NUM) { fprintf(cutrounds_logfile, "%s,", stringValue(init_cond_num2, "%.20f").c_str()); count++; }
     fprintf(cutrounds_logfile, "\n");
     assert(count == NUM_CUTROUND_INFO);
   } // print header to cutrounds_logfile file
@@ -314,20 +335,28 @@ int main(int argc, char** argv) {
       gmic_gen_time_by_round[round_ind] = gmic_gen_end_time - gmic_gen_start_time;
 
       // Apply GMICs to solvers
-      const double gmic_apply_start_time = timer.get_total_time(OverallTimeStats::GOMORY_APPLY_TIME);
-      timer.start_timer(OverallTimeStats::GOMORY_APPLY_TIME);
-
-      gmics.insert(currGMICs);
       boundInfo.num_gmic += currGMICs.sizeCuts();
       boundInfoVec[round_ind].num_gmic += currGMICs.sizeCuts();
+      gmics.insert(currGMICs);
+
+      // For timing, only count first application, to solver with only GMICs,
+      // to get a sense of how a single LP relaxation is affected
+      timer.start_timer(OverallTimeStats::GOMORY_APPLY_TIME);
+      const double gmic_apply_start_time = timer.get_total_time(OverallTimeStats::GOMORY_APPLY_TIME);
       applyCutsCustom(GMICSolver, currGMICs, params.logfile);
+      const double gmic_apply_end_time = timer.get_total_time(OverallTimeStats::GOMORY_APPLY_TIME);
+      timer.end_timer(OverallTimeStats::GOMORY_APPLY_TIME);
+      gmic_apply_time_by_round[round_ind] = gmic_apply_end_time - gmic_apply_start_time;
+
+      // Update bound
       boundInfo.gmic_obj = GMICSolver->getObjValue();
       boundInfoVec[round_ind].gmic_obj = boundInfo.gmic_obj;
-      
-      // Only count first application, to solver with only GMICs, to get a sense of how a single LP relaxation is affected
-      timer.end_timer(OverallTimeStats::GOMORY_APPLY_TIME);
-      const double gmic_apply_end_time = timer.get_total_time(OverallTimeStats::GOMORY_APPLY_TIME);
-      gmic_apply_time_by_round[round_ind] = gmic_apply_end_time - gmic_apply_start_time;
+
+      // Update condition numbers
+      //gmic_cond_num1_by_round[round_ind] = compute_condition_number(GMICSolver, 1);
+      if (COMPUTE_COND_NUM) {
+        gmic_cond_num2_by_round[round_ind] = compute_condition_number(GMICSolver, 2);
+      }
 
       if (params.get(GOMORY) > 0) {
         applyCutsCustom(solver, currGMICs, params.logfile);
@@ -446,6 +475,12 @@ int main(int argc, char** argv) {
     boundInfoVec[round_ind].vpc_obj = boundInfo.vpc_obj;
     boundInfoVec[round_ind].all_cuts_obj = boundInfo.all_cuts_obj;
 
+    // Update condition number for VPCs
+    //vpc_cond_num1_by_round[round_ind] = compute_condition_number((params.get(GOMORY) != 0) ? VPCSolver : solver, 1);
+    if (COMPUTE_COND_NUM) {
+      vpc_cond_num2_by_round[round_ind] = compute_condition_number((params.get(GOMORY) != 0) ? VPCSolver : solver, 2);
+    }
+
     printf("\n*** INFO:\n");
     printf(
         "Round %d/%d: Completed round of VPC generation (exit reason: %s).\n", 
@@ -475,9 +510,13 @@ int main(int argc, char** argv) {
       fprintf(cutrounds_logfile, "%d,", boundInfoVec[round_ind].num_gmic); count++;
       fprintf(cutrounds_logfile, "%.20f,", gmic_gen_time_by_round[round_ind]); count++;
       fprintf(cutrounds_logfile, "%.20f,", gmic_apply_time_by_round[round_ind]); count++;
+      //fprintf(cutrounds_logfile, "%s,", stringValue(gmic_cond_num1_by_round[round_ind], "%.20f").c_str()); count++;
+      if (COMPUTE_COND_NUM) { fprintf(cutrounds_logfile, "%s,", stringValue(gmic_cond_num2_by_round[round_ind], "%.20f").c_str()); count++; }
       fprintf(cutrounds_logfile, "%d,", boundInfoVec[round_ind].num_vpc); count++;
       fprintf(cutrounds_logfile, "%.20f,", vpc_gen_time_by_round[round_ind]); count++;
       fprintf(cutrounds_logfile, "%.20f,", vpc_apply_time_by_round[round_ind]); count++;
+      //fprintf(cutrounds_logfile, "%s,", stringValue(vpc_cond_num1_by_round[round_ind], "%.20f").c_str()); count++;
+      if (COMPUTE_COND_NUM) { fprintf(cutrounds_logfile, "%s,", stringValue(vpc_cond_num2_by_round[round_ind], "%.20f").c_str()); count++; }
       fprintf(cutrounds_logfile, "\n");
       assert(count == NUM_CUTROUND_INFO);
     } // print info from this round
