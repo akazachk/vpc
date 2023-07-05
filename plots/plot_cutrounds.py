@@ -34,16 +34,17 @@ plt.rc("savefig", dpi=DPI)
 print("Current directory: ", os.getcwd())
 
 # Read in value of VPC_DIR from environment variable; if empty, use parent directory
-# if 'VPC_DIR' not in os.environ:
-#     VPC_DIR = '..'
-#     print("VPC_DIR not in environment variable; using parent directory: ", os.path.abspath(VPC_DIR))
-# else:
-#     VPC_DIR = os.environ['VPC_DIR']
-#     print("VPC_DIR set to: ", os.path.abspath(VPC_DIR))
-# # path = VPC_DIR/results/2023-07-01
-# path = VPC_DIR + '/results/2023-07-01'
-HOME_DIR = os.environ['HOME']
-path = HOME_DIR + '/results/2023-07-02/gmic'
+if 'VPC_DIR' not in os.environ:
+    VPC_DIR = '..'
+    print("VPC_DIR not in environment variable; using parent directory: ", os.path.abspath(VPC_DIR))
+else:
+    VPC_DIR = os.environ['VPC_DIR']
+    print("VPC_DIR set to: ", os.path.abspath(VPC_DIR))
+
+# path = VPC_DIR/results/2023-07-01
+path = VPC_DIR + '/results/2023-07-02'
+# HOME_DIR = os.environ['HOME']
+# path = HOME_DIR + '/results/2023-07-02/gmic'
 
 # Convert path to absolute path
 path = os.path.abspath(path)
@@ -98,6 +99,7 @@ def adjust_lightness(color, amount=0.5):
         c = mc.cnames[color]
     except:
         c = color
+
     c = colorsys.rgb_to_hls(*mc.to_rgb(c))
     return colorsys.hls_to_rgb(c[0], max(0, min(1, amount * c[1])), c[2])
 
@@ -134,7 +136,9 @@ def plotInstance(path, prev_instance, typestub, fig, axes, depth_index, legendlo
 
     # Save the plot to a file with the instance name
     # To prevent it from being blank, save it as a pdf
-    plt.savefig(path + '/' + prev_instance + "_" + typestub + ".pdf", bbox_inches='tight', pad_inches=0, dpi=300)
+    savepath = path + '/' + prev_instance + "_" + typestub + ".pdf"
+    print("Saving plot to: ", savepath)
+    plt.savefig(savepath, bbox_inches='tight', pad_inches=0, dpi=300)
 
 # %%
 print("\n## Plotting bound per round ##")
@@ -151,6 +155,7 @@ axes = [ax1]
 color_index = 0
 depth_index = 0
 MAX_ROUNDS = 200
+MARK_TOTAL_TIME = 10. # time after which to place red box marker
 for filename in all_files:
     # The instance name is everything after "path/PREFIX" and before "_dXXX.csv" in the filename
     instance = filename
@@ -207,6 +212,14 @@ for filename in all_files:
     if MAX_ROUNDS != None and len(df) > MAX_ROUNDS:
         df = df.iloc[:MAX_ROUNDS, :]
     
+    # Add total time for GMICs column and another column for total time for VPCs
+    df['gmic_total_time'] = df['gmic_gen_time'] + df['gmic_apply_time']
+    df['vpc_total_time'] = df['vpc_gen_time'] + df['vpc_apply_time']
+
+    # Now add new column for cumulative time
+    df['gmic_cum_time'] = df['gmic_total_time'].cumsum()
+    df['vpc_cum_time'] = df['vpc_total_time'].cumsum()
+    
     # If we are in a Jupyter notebook, display the dataframe
     import sys
     if 'IPython' in sys.modules:
@@ -234,9 +247,39 @@ for filename in all_files:
         color = CB_color_cycle[color_index]
         marker = MARKERS[color_index]
         curr_ax.plot(x_ticks, df['bound_vpc'], color=color, label='vpc'+depth_stub, marker=marker, linestyle=linestyle, alpha=alphastyle, markersize=4)
+
+        # Add a red box marker at MARK_TOTAL_TIME
+        # Find the index of the row with the closest value to MARK_TOTAL_TIME
+        idx = (np.abs(df['vpc_cum_time'] - MARK_TOTAL_TIME)).idxmin()
+
+        # Add a red box marker at this index
+        curr_ax.plot(# x-axis is given by idx,
+                        [df['Round'][idx]],
+                        # y-axis is given by the bound at idx
+                        [df['bound_vpc'][idx]],
+                        linestyle='None',
+                        # Red box marker that is not filled in
+                        marker='s', markerfacecolor='red', markeredgecolor='red', markersize=10, alpha=alphastyle)
     else:
-        # I do not know of another way to to take up space in the legend
-        curr_ax.plot([], [], ' ', label=" ")
+        # Add a red box marker at MARK_TOTAL_TIME
+        # Find the index of the row with the closest value to MARK_TOTAL_TIME without going over
+        idx = (df['gmic_cum_time'] <= MARK_TOTAL_TIME).sum() - 1
+
+        # Add a red box marker at this index
+        # curr_ax.axvspan(idx, idx+1, facecolor='red', alpha=0.5)
+
+        # Add a legend entry for the red box marker, where a red box marker is the legend entry
+        curr_ax.plot(# x-axis is given by idx,
+                        [df['Round'][idx]],
+                        # y-axis is given by the bound at idx
+                        [df['bound_gmic'][idx]],
+                     # Red box marker
+                     marker='s', markerfacecolor='red', markeredgecolor='red', markersize=10, 
+                     linestyle='None',
+                     label="{:.1f} s bound".format(MARK_TOTAL_TIME))
+
+        # # I do not know of another way to to take up space in the legend
+        # curr_ax.plot([], [], ' ', label=" ")
 
     # curr_ax.tick_params(axis='y', labelcolor=color)
     # curr_ax.yaxis.set_major_formatter(mtick.FormatStrFormatter('%.2e'))
