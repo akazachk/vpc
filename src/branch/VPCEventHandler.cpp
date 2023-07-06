@@ -1584,7 +1584,7 @@ int VPCEventHandler::saveInformationFromStats() {
   // For each pruned node, to get the changes to arrive at the node, 
   // we retrieve the parent node and then branch using the parent's info
   // 2023-05-14 amk: we might not be able to compute basis since parent may be gone
-  for (int tmp_ind = 0; tmp_ind < pruned_stats.size(); tmp_ind++) {
+  for (int tmp_ind = 0; tmp_ind < (int) pruned_stats.size(); tmp_ind++) {
     const int parent_id = pruned_stats[tmp_ind].parent_id;
     const int node_id = parent_id;
     const int orig_node_id = stats[node_id].orig_id;

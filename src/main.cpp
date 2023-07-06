@@ -379,7 +379,7 @@ int main(int argc, char** argv) {
       applyCutsCustom(allCutsSolver, currGMICs, params.logfile);
     } // Gomory cut generation
 
-    if (disjOptions.size() > round_ind) {
+    if ((int) disjOptions.size() > round_ind) {
       params.set(intParam::DISJ_TERMS, disjOptions[round_ind]);
     }
     const bool SHOULD_GENERATE_VPCS = (params.get(intParam::DISJ_TERMS) != 0);
