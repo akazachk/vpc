@@ -101,6 +101,7 @@ USE_GUROBI = 1
 USE_CPLEX  = 0
 USE_CLP_SOLVER = 1
 USE_CPLEX_SOLVER = 0
+CALC_COND_NUM = 0
 
 # Concerning executable
 EXECUTABLE_STUB = vpc
@@ -134,7 +135,10 @@ SOURCES = \
 
 # For running tests (need not include these or main if releasing code to others)
 DIR_LIST += $(SRC_DIR)/test
-SOURCES += test/analysis.cpp test/BBHelper.cpp test/DisjunctionHelper.cpp test/condition_number.cpp
+SOURCES += test/analysis.cpp test/BBHelper.cpp test/DisjunctionHelper.cpp 
+ifeq ($(CALC_COND_NUM), 1)
+	SOURCES += test/condition_number.cpp
+endif
 
 ### Set build values based on user variables ###
 ifeq ($(BUILD_CONFIG),debug)
@@ -195,6 +199,9 @@ ifeq ($(COIN_VERSION),2.10)
 endif
 ifeq ($(COIN_VERSION),trunk)
   DEFS += -DCBC_VERSION_210PLUS -DCBC_TRUNK -DSAVE_NODE_INFO
+endif
+ifeq ($(CALC_COND_NUM),1)
+	DEFS += -DCALC_COND_NUM
 endif
 
 EXECUTABLE = $(OUT_DIR)/$(EXECUTABLE_STUB)

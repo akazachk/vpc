@@ -16,13 +16,19 @@
 #SBATCH --time=05:00:00             # time limit hrs:min:sec
 #SBATCH --mem-per-cpu=4G            # job memory
 ##SBATCH --array=1-659
-#SBATCH --array=1-30,32-44,46-73,75-163,165-294,296-298,301-599,601-615,617-659
+##SBATCH --array=1-30,32-44,46-73,75-163,165-268,270-294,296-298,301-307,309-365,367-595,597-599,601-615,617-659
 
-##SBATCH --mem-per-cpu=8G            # job memory
-##SBATCH --array=45,164,295,616
+#SBATCH --mem-per-cpu=8G            # job memory
+#SBATCH --array=45,164,295,616
 
-##SBATCH --mem-per-cpu=32G            # job memory
-##SBATCH --array=31,74,299,300,600
+#SBATCH --mem-per-cpu=32G            # job memory
+#SBATCH --array=31,74,299,300,600
+
+#SBATCH --mem-per-cpu=8G            # job memory
+#SBATCH --array=269,308,366,596
+
+
+
 
 #########################
 ## To run this script, call (for example)

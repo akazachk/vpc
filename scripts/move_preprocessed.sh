@@ -56,6 +56,7 @@ for STUB in ${STUBS[*]}; do
   fi
   if [ $SOLVER_TYPE = "gurobi" ]; then
     EXT="_presolved_gurobi.mst"
+    EXT="gurobi.mst"
     echo "Moving ${SOLVER_TYPE} solutions (*${EXT}*) from ${SRC_DIR}/${STUB} to ${SOL_DIR}/${STUB}"
     mv ${SRC_DIR}/${STUB}/*${EXT}* ${SOL_DIR}/${STUB}
   fi
