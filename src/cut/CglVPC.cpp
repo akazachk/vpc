@@ -1287,8 +1287,10 @@ CglVPC::ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
 
     // Try cut generation targeting points and rays
     if (status == CglVPC::ExitReason::SUCCESS_EXIT) {
+      timer.start_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::GEN_CUTS_TIME)]);
       prlp->targetStrongAndDifferentCuts(beta, cuts, origSolver, structSICs,
           VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
+      timer.end_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::GEN_CUTS_TIME)]);
       if (reachedTimeLimit(VPCTimeStats::TOTAL_TIME, params.get(TIMELIMIT))) {
         status = CglVPC::ExitReason::TIME_LIMIT_EXIT;
       } else if (reachedCutLimit()) {
