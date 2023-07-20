@@ -474,6 +474,7 @@ void CglVPC::setupAsNew() {
     this->canReplaceGivenCuts = false;
     this->cutType.resize(0);
     this->objType.resize(0);
+    this->num_rounds = 0;
   }
   this->user_objectives.resize(0);
   this->user_tight_points.resize(0);
