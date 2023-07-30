@@ -1139,11 +1139,15 @@ int VPCEventHandler::setupDisjunctiveTermFromStats(
     term.obj = stats_[orig_node_id].obj; // will be inaccurate
     term.basis = NULL;
   }
-  term.changed_var = stats_[orig_node_id].changed_var;
+  
+  // Updated variables changed at parent, if parent having orig_node_id is not root (those changes are in common_changed_var)
+  if (orig_node_id != 0) {
+    term.changed_var = stats_[orig_node_id].changed_var;
+    term.changed_bound = stats_[orig_node_id].changed_bound;
+    term.changed_value = stats_[orig_node_id].changed_value;
+  }
   term.changed_var.push_back(branching_variable);
-  term.changed_bound = stats_[orig_node_id].changed_bound;
   term.changed_bound.push_back(branching_way == 1 ? 0 : 1);
-  term.changed_value = stats_[orig_node_id].changed_value;
   term.changed_value.push_back(branching_value);
   owner->terms.push_back(term);
   this->owner->num_terms++;
