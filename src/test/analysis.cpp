@@ -860,6 +860,16 @@ void analyzeStrength(
         NUM_DIGITS_BEFORE_DEC,
         NUM_DIGITS_AFTER_DEC).c_str());
   output += tmpstring;
+  if (!isInfinity(std::abs(boundInfo.root_obj))) {
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
+        "%-*.*s%s (%d bounds changed)\n", NAME_WIDTH, NAME_WIDTH, "Root: ",
+        stringValue(boundInfo.root_obj, "% -*.*g",
+          INF,
+          NUM_DIGITS_BEFORE_DEC,
+          NUM_DIGITS_AFTER_DEC).c_str(),
+        boundInfo.num_root_bounds_changed);
+    output += tmpstring;
+  }
   if (!isInfinity(std::abs(boundInfo.gmic_obj))) {
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
         "%-*.*s%s (%d cuts", NAME_WIDTH, NAME_WIDTH, "GMICs: ",
