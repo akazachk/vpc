@@ -765,19 +765,30 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
     vpcsolver->resolve();
     if (!checkSolverOptimality(vpcsolver, false)) {
       error_msg(errorstring,
-          "Solver not proven optimal after updating bounds from root node.\n");
+          "CglVPC::setupConstraints: Solver not proven optimal after updating bounds from root node.\n");
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
     }
-  }
+
+    // For debugging purposes, verify that the stored root objective matches
+    if (num_added_ineqs == 0) {
+      if (!isVal(vpcsolver->getObjValue(), this->disjunction->root_obj)) {
+        warning_msg(errorstring,
+            "CglVPC::setupConstraints: Root objective calculated after bound changes (%f) does not match stored value in disjunction (%f), with a difference of %e.\n",
+            vpcsolver->getObjValue(), this->disjunction->root_obj, std::abs(this->disjunction->root_obj - vpcsolver->getObjValue()));
+        writeErrorToLog(errorstring, params.logfile);
+        exit(1);
+      }
+    }
+  } // compute root LP basis after changing bounds at root and adding globally valid inequalities
 
   // Save problem data for nonbasic space usage and decide on problem-specific epsilon
 #ifdef TRACE
-  printf("\n## Saving root node optimal solution for nonbasic space usage ##\n");
+  printf("\n## CglVPC::setupConstraints: Saving root node optimal solution for nonbasic space usage ##\n");
 #endif
   getProblemData(vpcsolver, this->probData);
 #ifdef TRACE
-  printf("Problem-specific epsilon set to %.10e\n", this->probData.EPS);
+  printf("CglVPC::setupConstraints: Problem-specific epsilon set to %.10e\n", this->probData.EPS);
 #endif
 
 //  /***********************************************************************************
@@ -852,7 +863,7 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
 //        params.get(FLIP_BETA) >= 0 ? 1.0 : -1.0;
     prlpData.addConstraint(point, beta, terms_added, curr_nb_obj_val);
 #ifdef TRACE
-    printf("\n## Saving integer feasible solution as term %d. ##\n", terms_added);
+    printf("\n## CglVPC::setupConstraints: Saving integer feasible solution as term %d. ##\n", terms_added);
 #endif
     calcAndFeasTerm[terms_added] = true;
 
@@ -904,7 +915,7 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
     // Set the warm start
     if (term->basis && !(tmpSolver->setWarmStart(term->basis))) {
       error_msg(errorstring,
-          "Warm start information not accepted for term %d/%d.\n",
+          "CglVPC::setupConstraints: Warm start information not accepted for term %d/%d.\n",
           tmp_ind + 1, num_normal_terms);
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
@@ -912,7 +923,7 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
 
     // Resolve and check the objective matches
 #ifdef TRACE
-    printf("\n## Solving for term %d/%d. ##\n",
+    printf("\n## CglVPC::setupConstraints: Solving for term %d/%d. ##\n",
         tmp_ind + 1, num_normal_terms);
 #endif
     tmpSolver->resolve();
@@ -931,14 +942,14 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
       // Allow it to be up to 3% off without causing an error
       if (greaterThanVal(ratio, 1.03)) {
         error_msg(errorstring,
-            "Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
+            "CglVPC::setupConstraints: Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
             tmp_ind, num_normal_terms, stringValue(term->obj, "%1.3f").c_str(),
             stringValue(tmpSolver->getObjValue(), "%1.3f").c_str());
         writeErrorToLog(errorstring, params.logfile);
         exit(1);
       } else {
         warning_msg(warnstring,
-            "Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
+            "CglVPC::setupConstraints: Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
             tmp_ind, num_normal_terms, stringValue(term->obj, "%1.3f").c_str(),
             stringValue(tmpSolver->getObjValue(), "%1.3f").c_str());
       }
@@ -946,7 +957,7 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
       std::string commonName;
       Disjunction::setCgsName(commonName, curr_num_changed_bounds, commonTermIndices,
           commonTermCoeff, commonTermRHS, false);
-      printf("Bounds changed: %s.\n", commonName.c_str());
+      printf("CglVPC::setupConstraints: Bounds changed: %s.\n", commonName.c_str());
 #endif
     } // check that objective value matches
 
@@ -1046,7 +1057,7 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
 
 #ifdef TRACE
   printf(
-      "\nFinished setting up constraints. Min obj val: Structural: %1.3e, NB: %1.3e.\n",
+      "\nCglVPC::setupConstraints: Finished setting up constraints. Min obj val: Structural: %1.3e, NB: %1.3e.\n",
       this->disjunction->best_obj, this->disjunction->best_obj - this->probData.lp_opt);
 #endif
   return CglVPC::ExitReason::SUCCESS_EXIT;
