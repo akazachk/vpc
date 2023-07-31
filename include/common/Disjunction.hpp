@@ -90,6 +90,8 @@ public:
   std::vector<int> common_changed_bound;
   /// value of changed variables at root node
   std::vector<double> common_changed_value;
+  /// objective after applying common changes at root node
+  double root_obj;
 #ifdef USE_COIN
   /// Instead of specifying bounds that are changed at the root, you can provide inequalities valid throughout the tree
   std::vector<OsiRowCut> common_ineqs;

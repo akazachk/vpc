@@ -1263,6 +1263,7 @@ int VPCEventHandler::saveInformation() {
     this->owner->common_changed_bound = this->stats_[0].changed_bound;
     this->owner->common_changed_value = this->stats_[0].changed_value;
     this->owner->common_changed_var = this->stats_[0].changed_var;
+    this->owner->root_obj = this->stats_[0].obj;
     this->owner->root.var = this->stats_[0].variable;
     this->owner->root.val = this->stats_[0].value;
   }

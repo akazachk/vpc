@@ -398,17 +398,20 @@ int main(int argc, char** argv) {
         gen.generateCuts(*solver, vpcs_by_round[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
         exitReason = gen.exitReason;
         if (gen.disj()) {
+          Disjunction* disj = gen.disj();
           num_disj++;
           boundInfo.num_vpc += gen.num_cuts; // TODO: does this need to be in this if, and do we need to subtract initial num cuts?
           boundInfoVec[round_ind].num_vpc += gen.num_cuts;
-          if (boundInfo.best_disj_obj < gen.disj()->best_obj) {
-            boundInfo.best_disj_obj = gen.disj()->best_obj;
-            boundInfoVec[round_ind].best_disj_obj = gen.disj()->best_obj;
+          if (boundInfo.best_disj_obj < disj->best_obj) {
+            boundInfo.best_disj_obj = disj->best_obj;
+            boundInfoVec[round_ind].best_disj_obj = disj->best_obj;
           }
-          if (boundInfo.worst_disj_obj < gen.disj()->worst_obj) {
-            boundInfo.worst_disj_obj = gen.disj()->worst_obj;
-            boundInfoVec[round_ind].worst_disj_obj = gen.disj()->worst_obj;
+          if (boundInfo.worst_disj_obj < disj->worst_obj) {
+            boundInfo.worst_disj_obj = disj->worst_obj;
+            boundInfoVec[round_ind].worst_disj_obj = disj->worst_obj;
           }
+          boundInfo.num_root_bounds_changed = disj->common_changed_var.size();
+          boundInfo.root_obj = disj->root_obj;
         }
         updateDisjInfo(disjInfo, num_disj, gen);
         updateCutInfo(cutInfoVec[round_ind], gen);

@@ -22,7 +22,7 @@
 using namespace VPCParametersNamespace;
 #include "utility.hpp" // isInfinity, stringValue
 
-const int countBoundInfoEntries = 11;
+const int countBoundInfoEntries = 13;
 const int countGapInfoEntries = 4;
 const int countSummaryBBInfoEntries = 4 * 2;
 const int countFullBBInfoEntries = static_cast<int>(BB_INFO_CONTENTS.size()) * 4 * 2;
@@ -105,13 +105,15 @@ void printHeader(const VPCParameters& params,
     fprintf(logfile, "%s%c", "BEST DISJ OBJ", SEP); count++; // 2
     fprintf(logfile, "%s%c", "WORST DISJ OBJ", SEP); count++; // 3
     fprintf(logfile, "%s%c", "IP OBJ", SEP); count++; // 4
-    fprintf(logfile, "%s%c", "NUM GMIC", SEP); count++; // 5
-    fprintf(logfile, "%s%c", "GMIC OBJ", SEP); count++; // 6
-    fprintf(logfile, "%s%c", "NUM L&PC", SEP); count++; // 7
-    fprintf(logfile, "%s%c", "L&PC OBJ", SEP); count++; // 8
-    fprintf(logfile, "%s%c", "NUM VPC", SEP); count++; // 9
-    fprintf(logfile, "%s%c", "VPC OBJ", SEP); count++; // 10
-    fprintf(logfile, "%s%c", "VPC+GMIC OBJ", SEP); count++; // 11
+    fprintf(logfile, "%s%c", "NUM CHANGED ROOT BOUNDS", SEP); count++; // 5
+    fprintf(logfile, "%s%c", "ROOT OBJ", SEP); count++; // 6
+    fprintf(logfile, "%s%c", "NUM GMIC", SEP); count++; // 7
+    fprintf(logfile, "%s%c", "GMIC OBJ", SEP); count++; // 8
+    fprintf(logfile, "%s%c", "NUM L&PC", SEP); count++; // 9
+    fprintf(logfile, "%s%c", "L&PC OBJ", SEP); count++; // 10
+    fprintf(logfile, "%s%c", "NUM VPC", SEP); count++; // 11
+    fprintf(logfile, "%s%c", "VPC OBJ", SEP); count++; // 12
+    fprintf(logfile, "%s%c", "VPC+GMIC OBJ", SEP); count++; // 13
     assert(count == countBoundInfoEntries);
   } // BOUND INFO
   { // GAP INFO
@@ -277,6 +279,12 @@ void printBoundAndGapInfo(const SummaryBoundInfo& boundInfo, FILE* logfile, cons
     fprintf(logfile, "%s%c", stringValue(boundInfo.worst_disj_obj, "%2.20f").c_str(), SEP); count++;
     if (!isInfinity(std::abs(boundInfo.ip_obj))) {
       fprintf(logfile, "%s%c", stringValue(boundInfo.ip_obj, "%2.20f").c_str(), SEP); count++;
+    } else {
+      fprintf(logfile, "%c", SEP); count++;
+    }
+    fprintf(logfile, "%s%c", stringValue(boundInfo.num_root_bounds_changed).c_str(), SEP); count++;
+    if (!isInfinity(std::abs(boundInfo.root_obj))) {
+      fprintf(logfile, "%s%c", stringValue(boundInfo.root_obj, "%2.20f").c_str(), SEP); count++;
     } else {
       fprintf(logfile, "%c", SEP); count++;
     }
