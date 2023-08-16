@@ -56,6 +56,7 @@ enum OverallTimeStats {
   VPC_GEN_CUTS_TIME,
   VPC_APPLY_TIME,
   BB_TIME,
+  TOTAL_APPLY_TIME,
   TOTAL_TIME,
   NUM_TIME_STATS
 }; /* OverallTimeStats */
@@ -72,17 +73,24 @@ const std::vector<std::string> OverallTimeStatsName {
   "VPC_GEN_CUTS_TIME",
   "VPC_APPLY_TIME",
   "BB_TIME",
+  "TOTAL_APPLY_TIME",
   "TOTAL_TIME"
 };
+assert( OverallTimeStatsName.size() == OverallTimeStats::NUM_TIME_STATS );
 
 // Main file variables
 VPCParameters params;
-OsiSolverInterface *solver, *origSolver;
-OsiSolverInterface* GMICSolver = NULL;
-OsiSolverInterface* VPCSolver = NULL;
-OsiSolverInterface* allCutsSolver = NULL;
+
+OsiSolverInterface *solver;               ///< stores the cuts we actually want to "count"
+OsiSolverInterface *origSolver;           ///< original solver in case we wish to come back to it later
+OsiSolverInterface* GMICSolver = NULL;    ///< only GMICs
+OsiSolverInterface* VPCSolver = NULL;     ///< if GMICs count, this is only VPCs; otherwise, it is both GMICs and mycuts
+OsiSolverInterface* allCutsSolver = NULL; ///< all generated cuts
+
 OsiCuts gmics, vpcs;
+
 std::string dir = "", filename_stub = "", instname = "", in_file_ext = "";
+
 CglVPC::ExitReason exitReason;
 TimeStats timer;
 std::time_t start_time_t, end_time_t;
@@ -316,6 +324,7 @@ int main(int argc, char** argv) {
     assert(count == NUM_CUTROUND_INFO);
   } // print header to cutrounds_logfile file
 
+  //====================================================================================================//
   // Now do rounds of cuts, until a limit is reached (e.g., time, number failures, number cuts, or all rounds are exhausted)
   boundInfo.num_vpc = 0, boundInfo.num_gmic = 0;
   for (round_ind = 0; round_ind < num_rounds; ++round_ind) {
@@ -459,12 +468,14 @@ int main(int argc, char** argv) {
     //   (VPCSolver and allCutsSolver are *not* created; but if they were, it would hold that solver = VPCSolver = allCutsSolver)
     // If GOMORY = 1, then solver has GMICs from this round applied already (will be identical to allCutsSolver)
     // If GOMORY = -1, then solver has only VPCs from prior rounds (will be identical to VPCSolver)
-    timer.start_timer(OverallTimeStats::VPC_APPLY_TIME);
+    timer.start_timer(OverallTimeStats::TOTAL_APPLY_TIME);
     if (vpcs_by_round[round_ind].sizeCuts() > 0) {
       if (params.get(GOMORY) != 0) { // GMICs generated, so need to track VPC-only objective with VPCSolver
         // Apply to "VPCSolver", which tracks effect of VPCs without other cuts
         const double vpc_apply_start_time = timer.get_total_time(OverallTimeStats::VPC_APPLY_TIME);
+        timer.start_timer(OverallTimeStats::VPC_APPLY_TIME);
         applyCutsCustom(VPCSolver, vpcs_by_round[round_ind], params.logfile);
+        timer.end_timer(OverallTimeStats::VPC_APPLY_TIME);
         const double vpc_apply_end_time = timer.get_total_time(OverallTimeStats::VPC_APPLY_TIME);
         vpc_apply_time_by_round[round_ind] = vpc_apply_end_time - vpc_apply_start_time;
 
@@ -478,12 +489,14 @@ int main(int argc, char** argv) {
       } else {
         // Else, no GMICs generated; only solver needed
         const double vpc_apply_start_time = timer.get_total_time(OverallTimeStats::VPC_APPLY_TIME);
+        timer.start_timer(OverallTimeStats::VPC_APPLY_TIME);
         applyCutsCustom(solver, vpcs_by_round[round_ind], params.logfile);
+        timer.end_timer(OverallTimeStats::VPC_APPLY_TIME);
         const double vpc_apply_end_time = timer.get_total_time(OverallTimeStats::VPC_APPLY_TIME);
         vpc_apply_time_by_round[round_ind] = vpc_apply_end_time - vpc_apply_start_time;
       }
     } // apply VPCs if any were generated
-    timer.end_timer(OverallTimeStats::VPC_APPLY_TIME);
+    timer.end_timer(OverallTimeStats::TOTAL_APPLY_TIME);
 
     // Update bound info
     boundInfo.vpc_obj = (params.get(GOMORY) != 0) ? VPCSolver->getObjValue() : solver->getObjValue();
@@ -597,6 +610,7 @@ int main(int argc, char** argv) {
     fclose(cutrounds_logfile);
   } // print bound by round
 
+  //====================================================================================================//
   // Do analyses in preparation for printing
   setCutInfo(cutInfo, num_rounds, cutInfoVec.data());
   analyzeStrength(params, 
@@ -608,6 +622,9 @@ int main(int argc, char** argv) {
       &vpcs,
       boundInfo, cut_output);
   analyzeBB(params, info_nocuts, info_mycuts, info_allcuts, bb_output);
+  
+  //====================================================================================================//
+  // Finish up
   return wrapUp(0, argc, argv);
 } /* main */
 
