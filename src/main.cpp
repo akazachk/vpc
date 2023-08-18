@@ -75,8 +75,7 @@ const std::vector<std::string> OverallTimeStatsName {
   "BB_TIME",
   "TOTAL_APPLY_TIME",
   "TOTAL_TIME"
-};
-assert( OverallTimeStatsName.size() == OverallTimeStats::NUM_TIME_STATS );
+}; /* OverallTimeStatsName */
 
 // Main file variables
 VPCParameters params;
@@ -148,6 +147,7 @@ int main(int argc, char** argv) {
   // Do this early in your program's initialization
   std::signal(SIGABRT, signal_handler_with_error_msg);
   std::signal(SIGSEGV, signal_handler_with_error_msg);
+  assert( OverallTimeStatsName.size() == OverallTimeStats::NUM_TIME_STATS );
 
   //====================================================================================================//
   // Set up timing
