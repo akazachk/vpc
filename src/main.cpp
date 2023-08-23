@@ -200,10 +200,11 @@ int main(int argc, char** argv) {
 
   // Also save copies for calculating other objective values
   // We only need these if cuts other than VPCs are generated
-  // solver      ::  stores the cuts we actually want to "count"
-  // GMICSolver  ::  only GMICs
-  // VPCSolver   ::  if GMICs count, this is only VPCs; otherwise, it is both GMICs and VPCs
-  // allCutsSolver   ::  all generated cuts
+  // The "solver" is the one used for generating cuts for each round
+  // solver        ::  stores the cuts we actually want to "count"
+  // GMICSolver    ::  only GMICs
+  // VPCSolver     ::  if GMICs count, this is only VPCs; otherwise, it is both GMICs and VPCs
+  // allCutsSolver ::  all generated cuts
   if (params.get(GOMORY) != 0) {
     GMICSolver = solver->clone();
     VPCSolver = solver->clone();
@@ -468,6 +469,7 @@ int main(int argc, char** argv) {
     //   (VPCSolver and allCutsSolver are *not* created; but if they were, it would hold that solver = VPCSolver = allCutsSolver)
     // If GOMORY = 1, then solver has GMICs from this round applied already (will be identical to allCutsSolver)
     // If GOMORY = -1, then solver has only VPCs from prior rounds (will be identical to VPCSolver)
+    // Recall that "solver" is the one used for generating cuts for each round
     timer.start_timer(OverallTimeStats::TOTAL_APPLY_TIME);
     if (vpcs_by_round[round_ind].sizeCuts() > 0) {
       if (params.get(GOMORY) != 0) { // GMICs generated, so need to track VPC-only objective with VPCSolver
