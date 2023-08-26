@@ -772,14 +772,43 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
 
     // For debugging purposes, verify that the stored root objective matches
     if (num_added_ineqs == 0) {
-      if (!isVal(vpcsolver->getObjValue(), this->disjunction->root_obj)) {
-        warning_msg(errorstring,
-            "CglVPC::setupConstraints: Root objective calculated after bound changes (%f) does not match stored value in disjunction (%f), with a difference of %e.\n",
-            vpcsolver->getObjValue(), this->disjunction->root_obj, std::abs(this->disjunction->root_obj - vpcsolver->getObjValue()));
-        writeErrorToLog(errorstring, params.logfile);
-        exit(1);
+      const double newval = vpcsolver->getObjValue();
+      const double savedval = this->disjunction->root_obj;
+      const double epsilon = params.get(doubleConst::DIFFEPS);
+      if (!isVal(newval, savedval, epsilon)) {
+        vpcsolver->resolve();
       }
-    }
+      if (!isVal(newval, savedval, epsilon)) {
+        double ratio = 1.;
+        if (isZero(newval, epsilon) && isZero(savedval, epsilon)) {
+          // nothing to do, keep ratio = 1.
+          ratio = 1.;
+        }
+        else if (isZero(newval, epsilon) || isZero(savedval, epsilon)) {
+          // ratio is 1 + abs(diff between values, since one of these values is zero)
+          ratio = 1. + std::abs(newval - savedval);
+        }
+        else {
+          ratio = newval / savedval;
+          if (ratio < 1.) {
+            ratio = 1. / ratio;
+          }
+        }
+
+        // Allow it to be up to 3% off without causing an error
+        if (greaterThanVal(ratio, 1.03)) {
+          error_msg(errorstring,
+              "CglVPC::setupConstraints: Root objective calculated after bound changes (%f) does not match stored value in disjunction (%f), with a difference of %e.\n",
+            vpcsolver->getObjValue(), this->disjunction->root_obj, std::abs(this->disjunction->root_obj - vpcsolver->getObjValue()));
+          writeErrorToLog(errorstring, params.logfile);
+          exit(1);
+        } else {
+          warning_msg(warnstring,
+              "CglVPC::setupConstraints: Root objective calculated after bound changes (%f) does not match stored value in disjunction (%f), with a difference of %e.\n",
+            vpcsolver->getObjValue(), this->disjunction->root_obj, std::abs(this->disjunction->root_obj - vpcsolver->getObjValue()));
+        }
+      } // check root objective value matches
+    } // check if any inequalities have been added to the root node through the disjunction
   } // compute root LP basis after changing bounds at root and adding globally valid inequalities
 
   // Save problem data for nonbasic space usage and decide on problem-specific epsilon
