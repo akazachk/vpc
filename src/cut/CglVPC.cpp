@@ -965,14 +965,29 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
     // Check objective value against what is stored (if it is finite)
     if (term->is_feasible && !isInfinity(term->obj)) {
       // Sometimes we run into a few issues getting the ``right'' value
-      if (!isVal(termSolver->getObjValue(), term->obj, params.get(doubleConst::DIFFEPS))) {
+      const double newval = termSolver->getObjValue();
+      const double savedval = term->obj;
+      const double epsilon = params.get(doubleConst::DIFFEPS);
+      if (!isVal(newval, savedval, epsilon)) {
         termSolver->resolve();
       }
-      if (!isVal(termSolver->getObjValue(), term->obj, params.get(doubleConst::DIFFEPS))) {
-        double ratio = termSolver->getObjValue() / term->obj;
-        if (ratio < 1.) {
-          ratio = 1. / ratio;
+      if (!isVal(newval, savedval, epsilon)) {
+        double ratio = 1.;
+        if (isZero(newval, epsilon) && isZero(savedval, epsilon)) {
+          // nothing to do, keep ratio = 1.
+          ratio = 1.;
         }
+        else if (isZero(newval, epsilon) || isZero(savedval, epsilon)) {
+          // ratio is 1 + abs(diff between values, since one of these values is zero)
+          ratio = 1. + std::abs(newval - savedval);
+        }
+        else {
+          ratio = newval / savedval;
+          if (ratio < 1.) {
+            ratio = 1. / ratio;
+          }
+        }
+
         // Allow it to be up to 3% off without causing an error
         if (greaterThanVal(ratio, 1.03)) {
           error_msg(errorstring,
