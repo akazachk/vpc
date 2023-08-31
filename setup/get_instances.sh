@@ -22,35 +22,47 @@ else
   DATA_DIR="${1}"
 fi
 
+SKIP_DOWNLOAD=0
+
 echo "Instances will be downloaded to $DATA_DIR"
 
 START_DIR=$PWD
+mkdir -p ${DATA_DIR}
 cd $DATA_DIR
 
 INSTANCES=miplib2017
 echo "Downloading ${INSTANCES}"
-wget -O ${INSTANCES}.zip 'https://miplib.zib.de/downloads/collection.zip'
+if [ ${SKIP_DOWNLOAD} != 1 ]; then
+  wget -O ${INSTANCES}.zip 'https://miplib.zib.de/downloads/collection.zip'
+fi
 mkdir -p ${DATA_DIR}/${INSTANCES}
 unzip -q ${INSTANCES}.zip -d ${DATA_DIR}/${INSTANCES}
 mv ${DATA_DIR}/${INSTANCES}/revised-submissions/*/instances/*.mps.gz ${DATA_DIR}/${INSTANCES}
+rm -r ${DATA_DIR}/${INSTANCES}/revised-submissions
 #mv ${DATA_DIR}/${INSTANCES}/mas74.mps.gz ${DATA_DIR}/miplib2017/mas074.mps.gz
 #mv ${DATA_DIR}/${INSTANCES}/mas76.mps.gz ${DATA_DIR}/miplib2017/mas076.mps.gz
 
 # In MIPLIB 2010, unzipping will create desired directory
 INSTANCES=miplib2010
 echo "Downloading ${INSTANCES}"
-wget -o ${INSTANCES}.zip 'https://miplib2010.zib.de/download/miplib2010-1.1.3-benchmark.zip'
+if [ ${SKIP_DOWNLOAD} != 1 ]; then
+  wget -o ${INSTANCES}.zip 'https://miplib2010.zib.de/download/miplib2010-1.1.3-benchmark.zip'
+fi
 unzip -q ${INSTANCES}.zip -d ${DATA_DIR}
 
 INSTANCES=miplib2003
 echo "Downloading ${INSTANCES}"
-wget https://miplib2010.zib.de/miplib2003/download/miplib2003.tar
+if [ ${SKIP_DOWNLOAD} != 1 ]; then
+  wget https://miplib2010.zib.de/miplib2003/download/miplib2003.tar
+fi
 mkdir -p ${DATA_DIR}/${INSTANCES}
 tar -xf ${INSTANCES}.tar --directory ${DATA_DIR}/${INSTANCES}
 
 INSTANCES=miplib3
 echo "Downloading ${INSTANCES}"
-wget https://miplib2010.zib.de/miplib3/miplib3.tar.gz
+if [ ${SKIP_DOWNLOAD} != 1 ]; then
+  wget https://miplib2010.zib.de/miplib3/miplib3.tar.gz
+fi
 tar -xf ${INSTANCES}.tar.gz --directory ${DATA_DIR}
 rm ${DATA_DIR}/${INSTANCES}/miplib.cat
 rm ${DATA_DIR}/${INSTANCES}/mps_format
@@ -62,7 +74,9 @@ cd ${DATA_DIR}
 
 INSTANCES=miplib2
 echo "Downloading ${INSTANCES}"
-wget -O ${INSTANCES}.tar.gz 'https://miplib2010.zib.de/miplib2/miplib.tar.gz'
+if [ ${SKIP_DOWNLOAD} != 1 ]; then
+  wget -O ${INSTANCES}.tar.gz 'https://miplib2010.zib.de/miplib2/miplib.tar.gz'
+fi
 mkdir ${DATA_DIR}/${INSTANCES}
 tar -xf ${INSTANCES}.tar.gz --directory ${DATA_DIR}/${INSTANCES}
 mv ${DATA_DIR}/${INSTANCES}/miplib/* ${DATA_DIR}/${INSTANCES}
@@ -82,7 +96,9 @@ cd ${DATA_DIR}
 
 INSTANCES=coral
 echo "Downloading ${INSTANCES}"
-wget -O ${INSTANCES}.tar https://coral.ise.lehigh.edu/wp-content/uploads/mip-instances/instances/ALL_INSTANCE.tar
+if [ ${SKIP_DOWNLOAD} != 1 ]; then
+  wget -O ${INSTANCES}.tar https://coral.ise.lehigh.edu/wp-content/uploads/mip-instances/instances/ALL_INSTANCE.tar
+fi
 mkdir -p ${DATA_DIR}/${INSTANCES}
 tar -xf ${INSTANCES}.tar --directory ${DATA_DIR}/${INSTANCES}
 mv ${INSTANCES}/mcf2.mps.bz2 ${INSTANCES}/danoint.mps.bz2
