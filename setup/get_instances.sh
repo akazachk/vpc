@@ -23,6 +23,9 @@ else
 fi
 
 SKIP_DOWNLOAD=0
+if [ $2 == 1 ]; then
+  SKIP_DOWNLOAD=1
+fi
 
 echo "Instances will be downloaded to $DATA_DIR"
 
@@ -36,6 +39,7 @@ if [ ${SKIP_DOWNLOAD} != 1 ]; then
   wget -O ${INSTANCES}.zip 'https://miplib.zib.de/downloads/collection.zip'
 fi
 mkdir -p ${DATA_DIR}/${INSTANCES}
+echo "Unpacking ${INSTANCES}"
 unzip -q ${INSTANCES}.zip -d ${DATA_DIR}/${INSTANCES}
 mv ${DATA_DIR}/${INSTANCES}/revised-submissions/*/instances/*.mps.gz ${DATA_DIR}/${INSTANCES}
 rm -r ${DATA_DIR}/${INSTANCES}/revised-submissions
@@ -46,9 +50,12 @@ rm -r ${DATA_DIR}/${INSTANCES}/revised-submissions
 INSTANCES=miplib2010
 echo "Downloading ${INSTANCES}"
 if [ ${SKIP_DOWNLOAD} != 1 ]; then
-  wget -o ${INSTANCES}.zip 'https://miplib2010.zib.de/download/miplib2010-1.1.3-benchmark.zip'
+  wget -O ${INSTANCES}.zip 'https://miplib2010.zib.de/download/miplib2010-1.1.3-benchmark.zip'
 fi
-unzip -q ${INSTANCES}.zip -d ${DATA_DIR}
+echo "Unpacking ${INSTANCES}"
+unzip -q ${INSTANCES}.zip *.mps.gz -d ${DATA_DIR}/${INSTANCES}
+mv ${INSTANCES}/*/instances/${INSTANCES}/*.mps.gz ${INSTANCES}
+rm -r ${INSTANCES}/miplib2010-*
 
 INSTANCES=miplib2003
 echo "Downloading ${INSTANCES}"
@@ -56,6 +63,7 @@ if [ ${SKIP_DOWNLOAD} != 1 ]; then
   wget https://miplib2010.zib.de/miplib2003/download/miplib2003.tar
 fi
 mkdir -p ${DATA_DIR}/${INSTANCES}
+echo "Unpacking ${INSTANCES}"
 tar -xf ${INSTANCES}.tar --directory ${DATA_DIR}/${INSTANCES}
 
 INSTANCES=miplib3
@@ -63,6 +71,7 @@ echo "Downloading ${INSTANCES}"
 if [ ${SKIP_DOWNLOAD} != 1 ]; then
   wget https://miplib2010.zib.de/miplib3/miplib3.tar.gz
 fi
+echo "Unpacking ${INSTANCES}"
 tar -xf ${INSTANCES}.tar.gz --directory ${DATA_DIR}
 rm ${DATA_DIR}/${INSTANCES}/miplib.cat
 rm ${DATA_DIR}/${INSTANCES}/mps_format
@@ -78,6 +87,7 @@ if [ ${SKIP_DOWNLOAD} != 1 ]; then
   wget -O ${INSTANCES}.tar.gz 'https://miplib2010.zib.de/miplib2/miplib.tar.gz'
 fi
 mkdir ${DATA_DIR}/${INSTANCES}
+echo "Unpacking ${INSTANCES}"
 tar -xf ${INSTANCES}.tar.gz --directory ${DATA_DIR}/${INSTANCES}
 mv ${DATA_DIR}/${INSTANCES}/miplib/* ${DATA_DIR}/${INSTANCES}
 rm ${DATA_DIR}/${INSTANCES}/miplib.cat
@@ -100,6 +110,7 @@ if [ ${SKIP_DOWNLOAD} != 1 ]; then
   wget -O ${INSTANCES}.tar https://coral.ise.lehigh.edu/wp-content/uploads/mip-instances/instances/ALL_INSTANCE.tar
 fi
 mkdir -p ${DATA_DIR}/${INSTANCES}
+echo "Unpacking ${INSTANCES}"
 tar -xf ${INSTANCES}.tar --directory ${DATA_DIR}/${INSTANCES}
 mv ${INSTANCES}/mcf2.mps.bz2 ${INSTANCES}/danoint.mps.bz2
 
