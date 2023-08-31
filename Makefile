@@ -64,8 +64,30 @@ endif
 
 ifeq ($(USER),akazachkov)
 	ifeq ($(UNAME),Linux)
+	  not_hpg =
 		ifeq ($(HOSTNAME),ISE-D41L3Q3)
-			# w401
+			not_hpg = true
+		endif
+		ifeq ($(HOSTNAME),rupert1)
+			not_hpg = true
+		endif
+		ifeq ($(HOSTNAME),rupert2)
+			not_hpg = true
+		endif
+		ifeq ($(HOSTNAME),rupert3)
+			not_hpg = true
+		endif
+		ifeq ($(HOSTNAME),rupert4)
+			not_hpg = true
+		endif
+		ifeq ($(HOSTNAME),rupert5)
+			not_hpg = true
+		endif
+		ifeq ($(HOSTNAME),rupert6)
+			not_hpg = true
+		endif
+
+		ifdef not_hpg
 			GUROBI_LINK = gurobi100
 			GUROBI_DIR = ${GUROBI_HOME}
 			CPLEX_DIR = ${CPLEX_HOME}
