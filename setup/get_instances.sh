@@ -1,22 +1,27 @@
 #!/usr/bin/env bash
 
-if [ -z "$VPC_DIR" ]
-then
-  if [ ! -z "${REPOS_DIR}" ]
-  then
-    echo "Please define VPC_DIR (the root vpc dir, possibly ${REPOS_DIR}/vpc):"
-  else
-    echo "Please define VPC_DIR (the root vpc dir):"
-  fi
-  read VPC_DIR
+if [ -z $1 ]; then
   if [ -z "$VPC_DIR" ]
-    then echo "Need to define VPC_DIR. Exiting."
-    exit
+  then
+    if [ ! -z "${REPOS_DIR}" ]
+    then
+      echo "Please define VPC_DIR (the root vpc dir, possibly ${REPOS_DIR}/vpc):"
+    else
+      echo "Please define VPC_DIR (the root vpc dir):"
+    fi
+    read VPC_DIR
+    if [ -z "$VPC_DIR" ]
+      then echo "Need to define VPC_DIR. Exiting."
+      exit
+    fi
   fi
-fi
-DATA_DIR="${VPC_DIR}/data/instances/original"
+  DATA_DIR="${VPC_DIR}/data/instances/original"
 
-echo "VPC_DIR is set to $VPC_DIR"
+  echo "VPC_DIR is set to $VPC_DIR"
+else
+  DATA_DIR="${1}"
+fi
+
 echo "Instances will be downloaded to $DATA_DIR"
 
 START_DIR=$PWD
