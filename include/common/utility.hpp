@@ -363,3 +363,14 @@ bool variableBoundsContained(const OsiSolverInterface* const solver1,
 
 /// @brief create a mutable solver interface
 std::shared_ptr<SolverInterface> getSolver(const OsiSolverInterface* const si, FILE* logfile = NULL);
+
+/// @brief Find the indices of elements in vector1 that are not in vector2
+std::vector<int> findIndicesOfDifference(std::vector<int> vector1, std::vector<int> vector2);
+
+/// @brief Return message if condition is not true
+void verify(bool condition, const std::string& msg);
+
+/// @brief Template function to flatten a 2D vector of any type
+template <typename T>
+std::vector<T> flatten2DVector(const std::vector<std::vector<T>>& twoDVector);
+

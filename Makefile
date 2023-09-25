@@ -25,12 +25,12 @@ RM = rm -f
 BUILD_CONFIG = unit_test
 BUILD_CONFIG = release
 BUILD_CONFIG = debug
-UNIT_TEST_FILE = TestCompleteDisjunction.cpp
+UNIT_TEST_FILE = TestVPCEventHandler.cpp
 
 ### Variables user should set ###
 PROJ_DIR=${PWD}
-COIN_VERSION = master
-COIN_OR = /Users/sean/coin-or
+COIN_VERSION = trunk
+COIN_OR = $(PROJ_DIR)/lib/Cbc-$(COIN_VERSION)
 GUROBI_DIR = /Library/gurobi912
 GUROBI_LINK="gurobi91"
 
@@ -101,12 +101,14 @@ USE_CPLEX_SOLVER = 0
 # Concerning executable
 ifneq ($(BUILD_CONFIG),unit_test)
 	EXECUTABLE_STUB = vpc
+	SOURCES = main.cpp
 	MAIN_SRC = main.cpp
 endif
 # can make this take an argument for which unit test to build
 ifeq ($(BUILD_CONFIG),unit_test)
 	EXECUTABLE_STUB = UnitTest
 	SOURCES = test/$(UNIT_TEST_FILE)
+	MAIN_SRC = test/$(UNIT_TEST_FILE)
 endif
 SRC_DIR = src
 DIR_LIST = $(SRC_DIR) $(SRC_DIR)/branch $(SRC_DIR)/cut $(SRC_DIR)/disjunction $(SRC_DIR)/utility
@@ -116,7 +118,7 @@ VPC_VERSION = $(shell git log -1 --pretty=format:"%H")
 VPC_CBC_VERSION = $(shell git -C ${COIN_OR}/Cbc log -1 --pretty=format:"%H")
 VPC_CLP_VERSION = $(shell git -C ${COIN_OR}/Clp log -1 --pretty=format:"%H")
 
-SOURCES = \
+SOURCES += \
 		branch/CbcBranchStrongDecision.cpp \
 		branch/CbcCompareBFS.cpp \
 		branch/OsiChooseStrongCustom.cpp \
@@ -203,7 +205,7 @@ endif
 ifeq ($(COIN_VERSION),2.10)
   DEFS += -DCBC_VERSION_210PLUS -DSAVE_NODE_INFO
 endif
-ifeq ($(COIN_VERSION),master)
+ifeq ($(COIN_VERSION),trunk)
   DEFS += -DCBC_VERSION_210PLUS -DCBC_TRUNK -DSAVE_NODE_INFO
 endif
 
@@ -255,15 +257,15 @@ endif
 # Set up COIN-OR stuff
 ifeq ($(USE_COIN),1)
 	# If not defined for the environment, define CBC / BCP here
-	ifneq ($(release),debug)
-		CBC = $(COIN_OR)/dist
+	ifneq ($(BUILD_CONFIG),release)
+		CBC = $(COIN_OR)/buildg
 	endif
 	ifeq ($(BUILD_CONFIG),release)
-		CBC = $(COIN_OR)/dist
+		CBC = $(COIN_OR)/build
 	endif
 	CBClib = $(CBC)/lib
 	# When switching from svn to coinbrew, the new include directory is coin-or not coin
-	ifeq ($(COIN_VERSION),master)
+	ifeq ($(COIN_VERSION),trunk)
 		CBCinc = $(CBC)/include/coin-or
   else
 		CBCinc = $(CBC)/include/coin

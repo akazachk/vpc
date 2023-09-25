@@ -619,3 +619,47 @@ std::shared_ptr<SolverInterface> getSolver(const OsiSolverInterface* const si, F
   solver->markHotStart();
   return solver;
 }
+
+/// @brief Find the indices of elements in vector1 that are not in vector2
+std::vector<int> findIndicesOfDifference(std::vector<int> vector1, std::vector<int> vector2) {
+  // Map element values to their indices in vector2
+  std::unordered_map<int, int> indexMap;
+  // Store indices of elements in vector1 not found in vector2
+  std::vector<int> indices;
+
+  // Populate the indexMap with elements from vector2
+  for (int i = 0; i < vector2.size(); ++i) {
+    indexMap[vector2[i]] = i;
+  }
+
+  // Iterate through vector1 and check if each element exists in vector2
+  for (int i = 0; i < vector1.size(); ++i) {
+    auto it = indexMap.find(vector1[i]);
+    if (it == indexMap.end()) {
+      // Element from vector1 not found in vector2
+      indices.push_back(i);
+    }
+  }
+
+  return indices;
+}
+
+/// @brief Return message if condition is not true
+void verify(bool condition, const std::string& msg) {
+  if (!condition) {
+    std::cerr << msg << std::endl;
+    assert(false);  // cause failure with a stack trace
+  }
+}
+
+/// @brief Template function to flatten a 2D vector of any type
+template <typename T>
+std::vector<T> flatten2DVector(const std::vector<std::vector<T>>& twoDVector) {
+  std::vector<T> oneDVector;
+  for (const std::vector<T>& row : twoDVector) {
+    for (const T& element : row) {
+      oneDVector.push_back(element);
+    }
+  }
+  return oneDVector;
+}

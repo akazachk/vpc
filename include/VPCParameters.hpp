@@ -62,6 +62,7 @@ enum intParam {
   PREPROCESS, ///< 0: off, 1: on (with solver), 2: on (solver + custom cleaning process)
   PRLP_FLIP_BETA, ///< controls rhs in nb space, -1: do not cut away LP opt, 0: cut away LP opt, 1: both
   ROUNDS, ///< number of VPC rounds to do
+  SAVE_FULL_TREE, ///< 0: no - only save feasible leaves, 1: yes - save all leaves
   STRENGTHEN, ///< 0: no, 1: yes, when possible, 2: same as 1 plus add GMICs to strengthen each disjunctive term
   TEMP, ///< useful for various temporary parameter changes; see corresponding enum
   // Objective options
@@ -520,6 +521,9 @@ struct VPCParameters {
     {intParam::ROUNDS,
         IntParameter(intParam::ROUNDS, "ROUNDS",
             1, 0, std::numeric_limits<int>::max())},
+    {intParam::SAVE_FULL_TREE,
+     IntParameter(intParam::SAVE_FULL_TREE, "SAVE_FULL_TREE",
+                  0, 0, 1)},
     {intParam::PRLP_FLIP_BETA,
         IntParameter(intParam::PRLP_FLIP_BETA, "PRLP_FLIP_BETA",
             0, -1, 1)},
