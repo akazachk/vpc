@@ -7,6 +7,7 @@
  */
 #pragma once
 
+#include <set>
 #include <string>
 #include <vector>
 #include <memory> // unique_ptr
@@ -201,6 +202,7 @@ protected:
   PruneNodeOption pruneNode_ = PruneNodeOption::NO; ///< reason a node is pruned
   bool reachedEnd_ = false; ///< are we done?
   bool foundSolution_ = false; ///< was an integer-feasible solution found?
+  std::set<int> checked_nodes_; ///< nodes we have already checked for strong branching fixes
   ///@}
 
   ///@{
@@ -245,10 +247,15 @@ protected:
   void createStrongBranchingTerms(
       std::vector<int> child_pre_branch_var, std::vector<int> child_pre_branch_bound,
       std::vector<double> child_pre_branch_val, const SolverInterface* const tmpSolver,
-      std::vector<int> parent_pre_branch_var = std::vector<int>(),
-      std::vector<int> parent_pre_branch_bound = std::vector<int>(),
-      std::vector<double> parent_pre_branch_val = std::vector<double>(),
-      int parent_branch_var = -1, int parent_branch_bound = 0, double parent_branch_val = 0.0);
+      std::vector<int> parent_var = std::vector<int>(),
+      std::vector<int> parent_bound = std::vector<int>(),
+      std::vector<double> parent_val = std::vector<double>());
+
+  /// @brief Create disjunctive terms pruned from strong branching between node
+  // <node_id> and the root node
+  void recursivelyCreateStrongBranchingTerms(
+    int node_id, std::vector<int> common_fixed_var, std::vector<int> common_fixed_bound,
+    std::vector<double> common_fixed_value, const SolverInterface* const tmpSolverBase);
 
   /// @brief Save node information (including those pruned) before we reach endSearch_
   int saveInformationWithPrunes();

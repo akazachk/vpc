@@ -370,7 +370,35 @@ std::vector<int> findIndicesOfDifference(std::vector<int> vector1, std::vector<i
 /// @brief Return message if condition is not true
 void verify(bool condition, const std::string& msg);
 
-/// @brief Template function to flatten a 2D vector of any type
-template <typename T>
-std::vector<T> flatten2DVector(const std::vector<std::vector<T>>& twoDVector);
+/// @brief add a variable bound to the solver
+void addVarBound(OsiSolverInterface* solver, const int col, const int bound, const double val);
 
+/// @brief add a variable bound to the solver and augment the corresponding vectors
+void addVarBound(OsiSolverInterface* solver, const int col, const int bound,
+                 const double val, std::vector<int>& fixed_var,
+                 std::vector<int>& fixed_bound, std::vector<double>& fixed_value);
+
+
+/// @brief Check that the bounds encoded in fixed_var, fixed_bound, and fixed_value
+/// are consistent with the expectations on the solver
+void checkBounds(const OsiSolverInterface* const solver, const std::vector<int>& fixed_var,
+                 const std::vector<int>& fixed_bound, const std::vector<double>& fixed_value,
+                 bool isTrue=true);
+
+/// @brief check that the column and bound are appropriate for the solver
+void checkColumnAndBound(const OsiSolverInterface* const solver, const int col,
+                         const int bound);
+
+/// @brief Template function to select the elements with indices in \p indices from \p vec
+template <typename T>
+inline std::vector<T> subselectVector(const std::vector<T>& vec, const std::vector<int>& indices){
+  std::vector<T> selectedElements;
+  for (int idx : indices) {
+    if (idx >= 0 && idx < vec.size()) {
+      selectedElements.push_back(vec[idx]);
+    } else {
+      std::cerr << "Index " << idx << " is out of bounds." << std::endl;
+    }
+  }
+  return selectedElements;
+}
