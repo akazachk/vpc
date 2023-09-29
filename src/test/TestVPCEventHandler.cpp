@@ -38,7 +38,7 @@ TEST_CASE("Test saveInformation", "[VPCEventHandler::saveInformation]") {
   si.initialSolve();
   solver = const_cast<SolverInterface*>(dynamic_cast<const SolverInterface*>(&si));
 
-  SECTION( "Test without strong branching terms" ) {
+  SECTION( "Test without strong branching or pruned terms" ) {
 
     // make disjunction
     PartialBBDisjunction disj = PartialBBDisjunction(vpc_params);
@@ -102,7 +102,69 @@ TEST_CASE("Test saveInformation", "[VPCEventHandler::saveInformation]") {
     REQUIRE(disj.integer_sol.size() == 0);
     REQUIRE(disj.integer_obj > 1e300);
   }
-  // need to check best and worst objective values
+
+  // load a different problem to test pruned terms
+  si.readMps("../test/bm23.mps");
+  si.initialSolve();
+  solver = const_cast<SolverInterface*>(dynamic_cast<const SolverInterface*>(&si));
+
+  // create 64 terms so we get a couple of pruned ones
+  vpc_params.set(VPCParametersNamespace::DISJ_TERMS, 64);
+
+  SECTION( "Test with pruned terms and strong branching terms" ) {
+
+    // make sure to save the full tree
+    vpc_params.set(VPCParametersNamespace::SAVE_FULL_TREE, 1);
+
+    // make disjunction
+    PartialBBDisjunction disj = PartialBBDisjunction(vpc_params);
+    disj.prepareDisjunction(solver);
+
+    // 2 pruned, 64 feasible leaves, and then however many more for strong branching
+    REQUIRE(disj.num_terms >= 66);
+    REQUIRE(disj.terms.size() >= 66);
+
+    // check that we have no common terms anymore
+    REQUIRE(disj.common_changed_var.size() == 0);
+    REQUIRE(disj.common_changed_bound.size() == 0);
+    REQUIRE(disj.common_changed_value.size() == 0);
+
+    // check the first two terms come from pruned nodes
+    std::vector<std::vector<int> > var = {
+        {7, 10, 11, 12, 13, 15, 16, 17, 21, 22},
+        {2, 3, 6, 7, 8, 10, 11, 12, 13, 14, 16, 17, 21, 22, 24}
+    };
+    std::vector<std::vector<int> > bound = {
+        {1, 1, 1, 1, 1, 1, 0, 1, 1, 1},
+        {0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0}
+    };
+    std::vector<std::vector<double> > value = {
+        {0, 0, 0, 0, 0, 0, 1, 0, 0, 0},
+        {1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1}
+    };
+    for (int i = 0; i < 2; i++) {
+      REQUIRE(disj.terms[i].changed_var == var[i]);
+      REQUIRE(disj.terms[i].changed_bound == bound[i]);
+      REQUIRE(disj.terms[i].changed_value == value[i]);
+    }
+
+    // make sure we have no repeated terms
+    for (int i = 0; i < disj.terms.size(); i++) {
+      for (int j = i+1; j < disj.terms.size(); j++) {
+        // if the same variables are changed, make sure they had different bounds or values
+        if (disj.terms[i].changed_var == disj.terms[j].changed_var){
+          REQUIRE((disj.terms[i].changed_bound != disj.terms[j].changed_bound ||
+                   disj.terms[i].changed_value != disj.terms[j].changed_value));
+        }
+      }
+    }
+
+    // check misc
+    REQUIRE(disj.common_ineqs.size() == 0);
+    REQUIRE(disj.integer_sol.size() == 0);
+    REQUIRE(disj.integer_obj > 1e300);
+  }
+
   // need to test that we still get the same cuts afterwards
 }
 

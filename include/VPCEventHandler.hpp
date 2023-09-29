@@ -238,10 +238,10 @@ protected:
 
   /// @brief Creates a disjunctive term in a generalized enough manner to allow for pruned terms
   bool setupDisjunctiveTerm(
-      const int branching_variable, const int branching_bound,
-      const double branching_value, const SolverInterface* const tmpSolverParent,
-      std::vector<int> fixed_var, std::vector<int> fixed_bound,
-      std::vector<double> fixed_val, const int orig_node_id = -1);
+      const SolverInterface* const tmpSolverParent, const std::vector<int>& term_var,
+      const std::vector<int>& term_bound, const std::vector<double>& term_val,
+      const int branching_variable = -1, const int branching_bound = -1,
+      const double branching_value = -1, const int orig_node_id = -1);
 
   /// @brief Create disjunctive terms due to strong branching on the child node
   void createStrongBranchingTerms(
@@ -254,8 +254,9 @@ protected:
   /// @brief Create disjunctive terms pruned from strong branching between node
   // <node_id> and the root node
   void recursivelyCreateStrongBranchingTerms(
-    int node_id, std::vector<int> common_fixed_var, std::vector<int> common_fixed_bound,
-    std::vector<double> common_fixed_value, const SolverInterface* const tmpSolverBase);
+    const int node_id, const std::vector<int>& common_var,
+    const std::vector<int>& common_bound, const std::vector<double>& commo_value,
+    const SolverInterface* const tmpSolverBase);
 
   /// @brief Save node information (including those pruned) before we reach endSearch_
   int saveInformationWithPrunes();
