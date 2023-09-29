@@ -7,12 +7,14 @@
  */
 #pragma once
 
+#include <set>
 #include <string>
 #include <vector>
 #include <memory> // unique_ptr
 
 class PartialBBDisjunction;
 class OsiCuts;
+#include "Disjunction.hpp"
 #include "SolverInterface.hpp"
 
 #ifdef USE_CBC
@@ -200,6 +202,7 @@ protected:
   PruneNodeOption pruneNode_ = PruneNodeOption::NO; ///< reason a node is pruned
   bool reachedEnd_ = false; ///< are we done?
   bool foundSolution_ = false; ///< was an integer-feasible solution found?
+  std::set<int> checked_nodes_; ///< nodes we have already checked for strong branching fixes
   ///@}
 
   ///@{
@@ -207,6 +210,9 @@ protected:
 
   /// @brief Copy our stuff
   void initialize(const VPCEventHandler* const rhs);
+
+  /// @brief Update the dual bound of the disjunction if the term worsens it
+  void updateDualBound(const int orig_node_id, const DisjunctiveTerm& term);
 
   /// @brief Solve for a disjunctive term
   bool setupDisjunctiveTerm(const int node_id, const int branching_variable,
@@ -217,11 +223,44 @@ protected:
       std::vector<std::vector<double> >& commonTermCoeff,
       std::vector<double>& commonTermRHS);
 
+  /// @brief Set the warm start information for the parent node
+  void setWarmStart(SolverInterface* tmpSolverBase, CoinWarmStartBasis* parent_basis,
+                    int tmp_ind, int node_id, const int curr_num_changed_bounds = 0,
+                    const std::vector<std::vector<int> >& commonTermIndices = std::vector<std::vector<int> >(),
+                    const std::vector<std::vector<double> >& commonTermCoeff = std::vector<std::vector<double> >(),
+                    const std::vector<double>& commonTermRHS = std::vector<double>());
+
   /// @brief Clear saved information and free memory
   void clearInformation();
 
   /// @brief Save node information before we reach endSearch_
   int saveInformation();
+
+  /// @brief Creates a disjunctive term in a generalized enough manner to allow for pruned terms
+  bool setupDisjunctiveTerm(
+      const SolverInterface* const tmpSolverParent, const std::vector<int>& term_var,
+      const std::vector<int>& term_bound, const std::vector<double>& term_val,
+      const int branching_variable = -1, const int branching_bound = -1,
+      const double branching_value = -1, const int orig_node_id = -1);
+
+  /// @brief Create disjunctive terms due to strong branching on the child node
+  void createStrongBranchingTerms(
+      std::vector<int> child_pre_branch_var, std::vector<int> child_pre_branch_bound,
+      std::vector<double> child_pre_branch_val, const SolverInterface* const tmpSolver,
+      std::vector<int> parent_var = std::vector<int>(),
+      std::vector<int> parent_bound = std::vector<int>(),
+      std::vector<double> parent_val = std::vector<double>());
+
+  /// @brief Create disjunctive terms pruned from strong branching between node
+  // <node_id> and the root node
+  void recursivelyCreateStrongBranchingTerms(
+    const int node_id, const std::vector<int>& common_var,
+    const std::vector<int>& common_bound, const std::vector<double>& commo_value,
+    const SolverInterface* const tmpSolverBase);
+
+  /// @brief Save node information (including those pruned) before we reach endSearch_
+  int saveInformationWithPrunes();
+
   //@}
 };
 /* VPCEventHandler definition */

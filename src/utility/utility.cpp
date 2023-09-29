@@ -619,3 +619,125 @@ std::shared_ptr<SolverInterface> getSolver(const OsiSolverInterface* const si, F
   solver->markHotStart();
   return solver;
 }
+
+/// @brief Find the indices of elements in vector1 that are not in vector2
+std::vector<int> findIndicesOfDifference(std::vector<int> vector1, std::vector<int> vector2) {
+  // Map element values to their indices in vector2
+  std::unordered_map<int, int> indexMap;
+  // Store indices of elements in vector1 not found in vector2
+  std::vector<int> indices;
+
+  // Populate the indexMap with elements from vector2
+  for (int i = 0; i < vector2.size(); ++i) {
+    indexMap[vector2[i]] = i;
+  }
+
+  // Iterate through vector1 and check if each element exists in vector2
+  for (int i = 0; i < vector1.size(); ++i) {
+    auto it = indexMap.find(vector1[i]);
+    if (it == indexMap.end()) {
+      // Element from vector1 not found in vector2
+      indices.push_back(i);
+    }
+  }
+
+  return indices;
+}
+
+/// @brief Return message if condition is not true
+void verify(bool condition, const std::string& msg) {
+  if (!condition) {
+    std::cerr << msg << std::endl;
+    assert(false);  // cause failure with a stack trace
+  }
+}
+
+/**
+ * @details Set the <bound> of <col> to <val> in <solver>.
+ *
+ * @param solver The solver to modify.
+ * @param col The column to bound.
+ * @param bound The bound to set. 0 is lower bound, 1 is upper bound.
+ * @param val The value to set the bound to.
+ *
+ * @return void
+ */
+void addVarBound(OsiSolverInterface* solver, const int col, const int bound, const double val){
+  checkColumnAndBound(solver, col, bound);
+  if (bound <= 0) {
+    solver->setColLower(col, val);
+  } else {
+    solver->setColUpper(col, val);
+  }
+}
+
+/**
+ * @details Set the <bound> of <col> to <val> in <solver>. Additionally, append
+ * the variable, bound, and value to the end of the respective vectors.
+ *
+ * @param solver The solver to modify.
+ * @param col The column to bound.
+ * @param bound The bound to set. 0 is lower bound, 1 is upper bound.
+ * @param val The value to set the bound to.
+ *
+ * @return void
+ */
+void addVarBound(OsiSolverInterface* solver, const int col, const int bound,
+                 const double val, std::vector<int>& fixed_var,
+                 std::vector<int>& fixed_bound, std::vector<double>& fixed_value){
+  addVarBound(solver, col, bound, val);
+  fixed_var.push_back(col);
+  fixed_bound.push_back(bound);
+  fixed_value.push_back(val);
+}
+
+/**
+ * @details Check that the bounds encoded in fixed_var, fixed_bound, and fixed_value
+ * exist in solver if isTrue is true. Otherwise, they should not exist
+ *
+ * @param solver The solver to check.
+ * @param fixed_var The variables to check.
+ * @param fixed_bound The bounds to check.
+ * @param fixed_value The values to check.
+ * @param isTrue Whether the bounds should be exist in the solver already or not
+ *
+ */
+void checkBounds(const OsiSolverInterface* const solver, const std::vector<int>& fixed_var,
+                 const std::vector<int>& fixed_bound, const std::vector<double>& fixed_value,
+                 bool isTrue){
+
+  verify((fixed_var.size() == fixed_bound.size()) && (fixed_bound.size() == fixed_value.size()),
+         "fixed_var, fixed_bound, and fixed_value must be the same size.");
+
+  for (int idx = 0; idx < fixed_var.size(); ++idx) {
+    const int col = fixed_var[idx];
+    const int bound = fixed_bound[idx];
+    const double val = fixed_value[idx];
+
+    checkColumnAndBound(solver, col, bound);
+    if (bound <= 0) {
+      verify((solver->getColLower()[col] == val) == isTrue,
+             "The branching decisions in fixed_var, fixed_bound, and fixed_value "
+             "are inconsistent with the expectations on the solver.");
+    } else {
+      verify((solver->getColUpper()[col] == val) == isTrue,
+             "The branching decisions in fixed_var, fixed_bound, and fixed_value "
+             "are inconsistent with the expectations on the solver.");
+    }
+  }
+}
+
+/**
+ * @details Check that the bound is either lower (0) or upper (1) and that the
+ * column is required to be integer
+ *
+ * @param solver The solver to check
+ * @param col The column to check
+ * @param bound The bound to check
+ */
+void checkColumnAndBound(const OsiSolverInterface* const solver, const int col,
+                         const int bound){
+  verify(bound == 0 || bound == 1, "bound must be 0 or 1.");
+  verify(0 <= col && col < solver->getNumCols(), "col must be a valid column index.");
+  verify(solver->isInteger(col), "col must be an integer variable.");
+}

@@ -167,9 +167,7 @@ void setPrunedNodeStatistics(NodeStatistics& stats,
   stats.found_integer_solution = solution_is_found || prune_by_integrality;
 
   stats.obj = obj;
-  if (prune_by_integrality) {
-    changedBounds(stats, model->solver(), originalLB, originalUB);
-  }
+  changedBounds(stats, model->solver(), originalLB, originalUB);
 
   stats.status = "unknown";
   if (pruneReason == VPCEventHandler::PruneNodeOption::PRUNE_BY_INFEASIBILITY) {
@@ -467,7 +465,9 @@ VPCEventHandler::event(CbcEvent whichEvent) {
     // Check if we are done
     if (numLeafNodes_ >= maxNumLeafNodes_ || model_->getCurrentSeconds() >= maxTime_) {
       // Save information
-      const int status = saveInformation();
+      const int status = owner->params.get(SAVE_FULL_TREE) ?
+          saveInformationWithPrunes() : saveInformation();
+
       if (status == 0) {
 #ifdef TRACE
       printf(
@@ -1065,6 +1065,7 @@ void VPCEventHandler::initialize(const VPCEventHandler* const source) {
     this->pruneNode_ = source->pruneNode_;
     this->reachedEnd_ = source->reachedEnd_;
     this->foundSolution_ = source->foundSolution_;
+    this->checked_nodes_ = source->checked_nodes_;
   } else {
     this->owner = NULL;
     this->maxNumLeafNodes_ = 0;
@@ -1089,8 +1090,48 @@ void VPCEventHandler::initialize(const VPCEventHandler* const source) {
     this->pruneNode_ = PruneNodeOption::NO;
     this->reachedEnd_ = false;
     this->foundSolution_ = false;
+    this->checked_nodes_ = std::set<int>();
   }
 } /* initialize */
+
+
+/**
+ * Update the dual bound of the disjunction if the term worsens it
+ *
+ * @return void
+ */
+void VPCEventHandler::updateDualBound(const int orig_node_id,
+                                      const DisjunctiveTerm& term){
+  // Update the root node information
+  // First, identify if this node is on the down or up part of the root split
+  // stats_[0].way tells us which is the first child of the root node
+  // The other node with 0 as a parent is therefore the second child
+  bool is_down = false, is_up = false;
+  int curr_id = orig_node_id;
+  const int way = stats_[0].way;
+  while (!is_down && !is_up) {
+    if (stats_[curr_id].parent_id == -1) {
+      if (curr_id == 0) { // check if this is the first child of the root
+        if (way <= 0)
+          is_down = true;
+        else
+          is_up = true;
+      } else { // if not the first child, then it is the second child
+        if (way <= 0)
+          is_up = true;
+        else
+          is_down = true;
+      }
+    } else {
+      curr_id = stats_[curr_id].parent_id;
+    }
+  }
+  // Now update the bound if possible
+  double& bound = is_down ? this->owner->root.boundD : this->owner->root.boundU;
+  if (lessThanVal(term.obj, bound)) {
+    bound = term.obj;
+  }
+}
 
 bool VPCEventHandler::setupDisjunctiveTerm(const int node_id,
     const int branching_variable, const int branching_way,
@@ -1131,35 +1172,7 @@ bool VPCEventHandler::setupDisjunctiveTerm(const int node_id,
     owner->terms.push_back(term);
     isFeasible = true;
 
-    // Update the root node information
-    // First, identify if this node is on the down or up part of the root split
-    // stats_[0].way tells us which is the first child of the root node
-    // The other node with 0 as a parent is therefore the second child
-    bool is_down = false, is_up = false;
-    int curr_id = orig_node_id;
-    const int way = stats_[0].way;
-    while (!is_down && !is_up) {
-      if (stats_[curr_id].parent_id == -1) {
-        if (curr_id == 0) { // check if this is the first child of the root
-          if (way <= 0)
-            is_down = true;
-          else
-            is_up = true;
-        } else { // if not the first child, then it is the second child
-          if (way <= 0)
-            is_up = true;
-          else
-            is_down = true;
-        }
-      } else {
-        curr_id = stats_[curr_id].parent_id;
-      }
-    }
-    // Now update the bound if possible
-    double& bound = is_down ? this->owner->root.boundD : this->owner->root.boundU;
-    if (lessThanVal(term.obj, bound)) {
-      bound = term.obj;
-    }
+    updateDualBound(orig_node_id, term);
   } else {
     this->numLeafNodes_--;
   }
@@ -1167,6 +1180,84 @@ bool VPCEventHandler::setupDisjunctiveTerm(const int node_id,
     delete tmpSolver;
   return isFeasible;
 } /* setupDisjunctiveTerm */
+
+/**
+ * Set the warm start information for the parent node
+ *
+ * @param solver: the solver to set the warm start information for
+ * @param basis: the warm start information to set
+ * @param tmp_ind: the index of the parent node amongst all parent nodes being iterated over
+ * @return void
+ */
+void VPCEventHandler::setWarmStart(
+    SolverInterface* solver, CoinWarmStartBasis* basis, int tmp_ind, int node_id,
+    const int curr_num_changed_bounds, const std::vector<std::vector<int> >& commonTermIndices,
+    const std::vector<std::vector<double> >& commonTermCoeff, const std::vector<double>& commonTermRHS){
+
+  // Set the parent node warm start
+  if (!(solver->setWarmStart(basis))) {
+    error_msg(errorstring,
+              "Warm start information not accepted for parent node %d.\n", tmp_ind);
+    writeErrorToLog(errorstring, owner->params.logfile);
+    exit(1);
+  }
+
+  // Resolve
+#ifdef TRACE
+  printf("\n## Solving for parent node %d/%d. ##\n", tmp_ind + 1, numNodesOnTree_);
+#endif
+  solver->resolve();
+  if (!checkSolverOptimality(solver, false)) {
+    error_msg(errorstring, "Solver not proven optimal for node %d.\n",
+              node_id);
+    writeErrorToLog(errorstring, owner->params.logfile);
+    exit(1);
+  }
+  // Sometimes we run into a few issues getting the "right" value
+  double ratio = solver->getObjValue() / stats_[node_id].obj;
+  if (ratio < 1.) {
+    ratio = 1. / ratio;
+  }
+  if (greaterThanVal(ratio, 1.03)) {
+    solver->resolve();
+    ratio = solver->getObjValue() / stats_[node_id].obj;
+    if (ratio < 1.) {
+      ratio = 1. / ratio;
+    }
+  }
+
+#ifdef TRACE
+  double curr_nb_obj_val = solver->getObjValue() - originalSolver_->getObjValue();
+    printf("DEBUG: Node: %d .......... Obj val: %.3f .......... NB obj val: %.3f\n", node_id,
+        solver->getObjValue(), curr_nb_obj_val);
+    printNodeStatistics(stats_[node_id], true);
+#endif
+  if (!isVal(solver->getObjValue(), stats_[node_id].obj,
+             owner->params.get(doubleConst::DIFFEPS))) {
+#ifdef TRACE
+    std::string commonName;
+      Disjunction::setCgsName(commonName, curr_num_changed_bounds, commonTermIndices,
+          commonTermCoeff, commonTermRHS, false);
+      printf("Bounds changed: %s.\n", commonName.c_str());
+#endif
+    // Allow it to be up to 3% off without causing an error
+    if (greaterThanVal(ratio, 1.03)) {
+      error_msg(errorstring,
+                "Objective at parent node %d/%d (node id %d) is incorrect. During BB, it was %s, now it is %s.\n",
+                tmp_ind + 1, this->numNodesOnTree_, node_id,
+                stringValue(stats_[node_id].obj, "%1.3f").c_str(),
+                stringValue(solver->getObjValue(), "%1.3f").c_str());
+      writeErrorToLog(errorstring, owner->params.logfile);
+      exit(1);
+    } else {
+      warning_msg(warnstring,
+                  "Objective at parent node %d/%d (node id %d) is somewhat incorrect. During BB, it was %s, now it is %s.\n",
+                  tmp_ind + 1, this->numNodesOnTree_, node_id,
+                  stringValue(stats_[node_id].obj, "%1.3f").c_str(),
+                  stringValue(solver->getObjValue(), "%1.3f").c_str());
+    }
+  } // check that the parent node objective matches
+}
 
 /** 
  * Reset before saveInformation
@@ -1233,6 +1324,8 @@ int VPCEventHandler::saveInformation() {
     finalNodeIndices_.push_back(stats_[nodeInfo->nodeNumber()].id);
 
     const int node_id = stats_[nodeInfo->nodeNumber()].id;
+    // the node's id the first time we saw it (this differs from node_id if one
+    // branching direction of the node has already been explored)
     const int orig_node_id = stats_[node_id].orig_id;
 
     SolverInterface* tmpSolverBase =
@@ -1273,69 +1366,10 @@ int VPCEventHandler::saveInformation() {
       }
     }
 
-    // Set the parent node warm start
-    if (!(tmpSolverBase->setWarmStart(parent_basis))) {
-      error_msg(errorstring,
-          "Warm start information not accepted for parent node %d.\n", tmp_ind);
-      writeErrorToLog(errorstring, owner->params.logfile);
-      exit(1);
-    }
-
-    // Resolve
-#ifdef TRACE
-    printf("\n## Solving for parent node %d/%d. ##\n", tmp_ind + 1, numNodesOnTree_);
-#endif
-    tmpSolverBase->resolve();
-    if (!checkSolverOptimality(tmpSolverBase, false)) {
-      error_msg(errorstring, "Solver not proven optimal for node %d.\n",
-          node_id);
-      writeErrorToLog(errorstring, owner->params.logfile);
-      exit(1);
-    }
-    // Sometimes we run into a few issues getting the "right" value
-    double ratio = tmpSolverBase->getObjValue() / stats_[node_id].obj;
-    if (ratio < 1.) {
-      ratio = 1. / ratio;
-    }
-    if (greaterThanVal(ratio, 1.03)) {
-      tmpSolverBase->resolve();
-      ratio = tmpSolverBase->getObjValue() / stats_[node_id].obj;
-      if (ratio < 1.) {
-        ratio = 1. / ratio;
-      }
-    }
-
-#ifdef TRACE
-    double curr_nb_obj_val = tmpSolverBase->getObjValue() - originalSolver_->getObjValue();
-    printf("DEBUG: Node: %d .......... Obj val: %.3f .......... NB obj val: %.3f\n", node_id,
-        tmpSolverBase->getObjValue(), curr_nb_obj_val);
-    printNodeStatistics(stats_[node_id], true);
-#endif
-    if (!isVal(tmpSolverBase->getObjValue(), stats_[node_id].obj,
-        owner->params.get(doubleConst::DIFFEPS))) {
-#ifdef TRACE
-      std::string commonName;
-      Disjunction::setCgsName(commonName, curr_num_changed_bounds, commonTermIndices,
-          commonTermCoeff, commonTermRHS, false);
-      printf("Bounds changed: %s.\n", commonName.c_str());
-#endif
-      // Allow it to be up to 3% off without causing an error
-      if (greaterThanVal(ratio, 1.03)) {
-        error_msg(errorstring,
-            "Objective at parent node %d/%d (node id %d) is incorrect. During BB, it was %s, now it is %s.\n",
-            tmp_ind + 1, this->numNodesOnTree_, node_id,
-            stringValue(stats_[node_id].obj, "%1.3f").c_str(),
-            stringValue(tmpSolverBase->getObjValue(), "%1.3f").c_str());
-        writeErrorToLog(errorstring, owner->params.logfile);
-        exit(1);
-      } else {
-        warning_msg(warnstring,
-            "Objective at parent node %d/%d (node id %d) is somewhat incorrect. During BB, it was %s, now it is %s.\n",
-            tmp_ind + 1, this->numNodesOnTree_, node_id,
-            stringValue(stats_[node_id].obj, "%1.3f").c_str(),
-            stringValue(tmpSolverBase->getObjValue(), "%1.3f").c_str());
-      }
-    } // check that the parent node objective matches
+    // Set the parent node warm start and make sure we're kosher
+    // start from the root node LP relaxation optimal basis to speed things up
+    setWarmStart(tmpSolverBase, parent_basis, tmp_ind, node_id, curr_num_changed_bounds,
+                 commonTermIndices, commonTermCoeff, commonTermRHS);
 
     // Now we check the branch or branches left for this node
     bool hasFeasibleChild = false;
@@ -1403,3 +1437,408 @@ int VPCEventHandler::saveInformation() {
   }
   return status;
 } /* saveInformation */
+
+/**
+ * @details Creates a disjunctive term in a generalized enough manner to allow
+ * for pruned terms
+ *
+ * @param tmpSolverParent: the solver with the parent node's bounds already applied
+ * @param term_var: the indices of variables with tightened bounds in tmpSolverParent
+ * @param term_bound: the updated bounds for the variables already tightened in tmpSolverParent
+ * @param term_val: the values that have already been applied to the tightened variables' bounds
+ * @param branching_variable: the index of the variable that was branched on.
+ * If -1, then the term did not have a branching decision made (i.e. was pruned)
+ * @param branching_bound: the bound that was changed on the branching variable
+ * @param branching_value: the value that the branching variable was set to
+ * @param orig_node_id: the id of this term's parent node the first time the parent was processed
+ *
+ * @return whether or not the term represents a feasible leaf node
+ */
+bool VPCEventHandler::setupDisjunctiveTerm(
+    const SolverInterface* const tmpSolverParent, const std::vector<int>& term_var,
+    const std::vector<int>& term_bound, const std::vector<double>& term_val,
+    const int branching_variable, const int branching_bound,
+    const double branching_value, const int orig_node_id) {
+
+  // we assume tmpSolverParent already has the term_ variable bounds applied
+  checkBounds(tmpSolverParent, term_var, term_bound, term_val);
+  verify(-1 <= orig_node_id && orig_node_id < static_cast<int>(stats_.size()),
+         "node_id must be -1 if not in stats_.");
+  if (branching_variable >= 0) {
+    checkColumnAndBound(tmpSolverParent, branching_variable, branching_bound);
+  }
+
+  // no nodes in stats have id's < 0 - negative number means pruned node
+  bool wasPruned = orig_node_id < 0;
+
+  // represents whether or not the node was unpruned (i.e. leaf node) and ended up being feasible
+  bool unprunedAndFeasible = false;  
+  
+  // create a copy of the solver so we can add the branching decision and recover the basis
+  SolverInterface* tmpSolverNode =
+      dynamic_cast<SolverInterface*>(tmpSolverParent->clone());
+  if (branching_variable >= 0){
+    addVarBound(tmpSolverNode, branching_variable, branching_bound, branching_value);
+  }
+  tmpSolverNode->resolve();
+  enableFactorization(tmpSolverNode, owner->params.get(doubleParam::EPS)); // this may change the solution slightly
+
+  // leave creating term outside of feasibility checks so all get created
+  if (!wasPruned){
+    // if the node represents a leaf and is feasible
+    if (checkSolverOptimality(tmpSolverNode, true)){
+      unprunedAndFeasible = true;
+    } else {
+      this->numLeafNodes_--;
+    }
+  }
+  
+  // create the term
+  this->owner->num_terms++;
+  DisjunctiveTerm term;
+  // todo: check what happens when passing an infeasible term
+  term.basis = dynamic_cast<CoinWarmStartBasis*>(tmpSolverNode->getWarmStart());
+  term.obj = tmpSolverNode->getObjValue();
+  term.feasible = wasPruned ? tmpSolverNode->isProvenOptimal() : unprunedAndFeasible;
+  term.pruned = wasPruned;
+  term.changed_var = term_var;
+  term.changed_bound = term_bound;
+  term.changed_value = term_val;
+  if (branching_variable >= 0){
+    term.changed_var.push_back(branching_variable);
+    term.changed_bound.push_back(branching_bound);
+    term.changed_value.push_back(branching_value);
+  }
+  owner->terms.push_back(term);
+
+  // if this was a feasible leaf, update the dual bound
+  if (unprunedAndFeasible){
+    updateDualBound(orig_node_id, term);
+  }
+
+  // delete the solver
+  delete tmpSolverNode;
+
+  return unprunedAndFeasible;
+} /* setupDisjunctiveTerm */
+
+/**
+ * @details Given the bounds tightened at the child node that occurred due to strong
+ * branching, complete the corresponding subtree rooted at the parent node, and
+ * create the disjunctive terms for all leaves that are not the child node.
+ *
+ * @param child_exclusive_var: the indices of variables with bounds tightened by
+ * strong branching at the child node
+ * @param child_exclusive_bound: the bounds tightened by strong branching at the
+ * child node
+ * @param child_exclusive_val: the values that variables with bounds tightened by
+ * strong branching at the child node are bound by
+ * @param tmpSolver: a solver with the parent node's bounds already applied
+ * @param parent_var: the indices of variables with bounds tightened at the
+ * parent node
+ * @param parent_bound: the bounds tightened at the parent node
+ * @param parent_val: the values that variables with bounds tightened at the
+ * parent node are bound by
+ *
+ * @return void
+ */
+void VPCEventHandler::createStrongBranchingTerms(
+    std::vector<int> child_exclusive_var, std::vector<int> child_exclusive_bound,
+    std::vector<double> child_exclusive_val, const SolverInterface* const tmpSolver,
+    std::vector<int> parent_var, std::vector<int> parent_bound,
+    std::vector<double> parent_val){
+
+  // we assume tmpSolver already has the parent_ variable bounds applied
+  checkBounds(tmpSolver, parent_var, parent_bound, parent_val);
+  // we assume tmpSolver should not have any of the bounds exclusive to the child node applied
+  checkBounds(tmpSolver, child_exclusive_var, child_exclusive_bound,
+              child_exclusive_val, false);
+
+  // create a solver to track the parent node of each infeasible term we create
+  SolverInterface* tmpSolverParent =
+      dynamic_cast<SolverInterface*>(tmpSolver->clone());
+
+  // create the nodes that were ignored between parent and child due to strong branching
+  for (int idx = 0; idx < child_exclusive_var.size(); idx++) {
+    // flip the branching decision to get the parameters for creating the pruned term
+    int bound = child_exclusive_bound[idx] == 0 ? 1 : 0;
+    double val = child_exclusive_val[idx] + (child_exclusive_bound[idx] == 0 ? -1 : 1);
+    // create the disjunctive term for the node pruned by strong branching
+    setupDisjunctiveTerm(tmpSolverParent, parent_var, parent_bound, parent_val,
+                         child_exclusive_var[idx], bound, val);
+    // augment the solver and common branching decisions for the next term
+    addVarBound(tmpSolverParent, child_exclusive_var[idx], child_exclusive_bound[idx],
+                child_exclusive_val[idx], parent_var, parent_bound, parent_val);
+  }
+  delete tmpSolverParent;
+}
+
+/**
+ * @details Recursively find the variable bounds tightened by strong branching between
+ * node <node_id> and the root node, and create the corresponding disjunctive terms
+ *
+ * @param node_id: the id of the node to start from
+ * @param common_var: the variables with bounds tightened at the root node
+ * @param common_bound: the bounds tightened at the root node
+ * @param common_value: the values that variables are bound by at the root node
+ * @param tmpSolverBase: the solver to use to create the disjunctive terms. It
+ * is assumed to have the common_ variable bounds applied
+ *
+ * @return void
+ */
+void VPCEventHandler::recursivelyCreateStrongBranchingTerms(
+    const int node_id, const std::vector<int>& common_var,
+    const std::vector<int>& common_bound, const std::vector<double>& common_value,
+    const SolverInterface* const tmpSolverBase){
+
+  // we assume tmpSolverBase already has the common_ variable bounds applied
+  checkBounds(tmpSolverBase, common_var, common_bound, common_value);
+  verify(0 <= node_id && node_id < stats_.size(), "node_id must be in stats_.");
+
+  // declare variables
+  int parent_id = stats_[node_id].parent_id;
+
+  // if the node has a parent and has not already been checked
+  if (parent_id >= 0 && checked_nodes_.find(node_id) == checked_nodes_.end()){
+
+    // recurse on the parent node
+    recursivelyCreateStrongBranchingTerms(parent_id, common_var, common_bound,
+                                          common_value, tmpSolverBase);
+
+    // if the node has more tightened bounds relative to its parent than just its parent's branching choice
+    if (stats_[node_id].changed_var.size() > stats_[parent_id].changed_var.size() + 1){
+      SolverInterface* tmpSolver = dynamic_cast<SolverInterface*>(tmpSolverBase->clone());
+
+      // create vectors to hold the terms tightened bounds
+      std::vector<int> term_bound = common_bound;
+      std::vector<double> term_value = common_value;
+      std::vector<int> term_var = common_var;
+
+      // augment term_x and the solver with parent's bounds prior to when it branched
+      for (int idx = 0; idx < stats_[parent_id].changed_var.size(); idx++){
+        addVarBound(tmpSolver, stats_[parent_id].changed_var[idx],
+                    stats_[parent_id].changed_bound[idx], stats_[parent_id].changed_value[idx],
+                    term_var, term_bound, term_value);
+      }
+
+      // add parent's bound from branching to term_x and the solver
+      addVarBound(tmpSolver, stats_[parent_id].variable, stats_[parent_id].way <= 0 ? 1 : 0,
+                  stats_[parent_id].way <= 0 ? stats_[node_id].ub : stats_[node_id].lb,
+                  term_var, term_bound, term_value);
+
+      // determine which bounds were set by strong branching on the current node
+      std::vector<int> differing_indices =
+          findIndicesOfDifference(stats_[node_id].changed_var, term_var);
+      std::vector<int> child_exclusive_var =
+          subselectVector(stats_[node_id].changed_var, differing_indices);
+      std::vector<int> child_exclusive_bound =
+          subselectVector(stats_[node_id].changed_bound, differing_indices);
+      std::vector<double> child_exclusive_val =
+          subselectVector(stats_[node_id].changed_value, differing_indices);
+
+      // create disjunctive terms for those found infeasible by strong branching at current node
+      createStrongBranchingTerms(child_exclusive_var, child_exclusive_bound,
+                                 child_exclusive_val, tmpSolver, term_var,
+                                 term_bound, term_value);
+    }
+
+    // add the current node to the set of checked nodes
+    checked_nodes_.insert(node_id);
+  }
+}
+
+/**
+ * @details Save all relevant information before it gets deleted by BB finishing
+ * This version of saveInformation also keeps information related to pruned nodes
+ * (including variable fixes made by strong branching)
+ *
+ * @return status: 0 if everything is okay, otherwise 1 (e.g., if all but one of the terms is infeasible)
+ */
+int VPCEventHandler::saveInformationWithPrunes() {
+  int status = 0;
+  const bool hitTimeLimit = model_->getCurrentSeconds() >= maxTime_;
+  const bool hitHardNodeLimit = false;
+  //const bool hitHardNodeLimit = model_->getNodeCount2() > maxNumLeafNodes_ * 10;
+
+  clearInformation();
+  this->owner->data.num_nodes_on_tree = this->getNumNodesOnTree();
+  this->owner->data.num_partial_bb_nodes = model_->getNodeCount(); // save number of nodes looked at
+  this->owner->data.num_pruned_nodes = this->getPrunedStatsVector().size() - this->isIntegerSolutionFound();
+  this->owner->data.num_fixed_vars = model_->strongInfo()[1]; // number fixed during b&b
+
+  // Save variables with bounds that were changed at the root
+  // don't save as common to disjunction and instead prepend to each disjunctive term
+  std::vector<int> common_bound;
+  std::vector<double> common_value;
+  std::vector<int> common_var;
+  if (this->stats_.size() > 0) {
+    common_bound = this->stats_[0].changed_bound;
+    common_value = this->stats_[0].changed_value;
+    common_var = this->stats_[0].changed_var;
+    this->owner->root.var = this->stats_[0].variable;
+    this->owner->root.val = this->stats_[0].value;
+  }
+
+  // create a solver to represent the original LP relaxation
+  SolverInterface* tmpSolverRoot =
+      dynamic_cast<SolverInterface*>(originalSolver_->clone());
+  setLPSolverParameters(tmpSolverRoot, owner->params.get(VERBOSITY), owner->params.get(TIMELIMIT));
+  CoinWarmStartBasis* original_basis = dynamic_cast<CoinWarmStartBasis*>(originalSolver_->getWarmStart());
+  setWarmStart(tmpSolverRoot, original_basis, 0, 0);
+
+  // add disjunctive terms for the pruned branching decisions found at the root
+  createStrongBranchingTerms(common_var, common_bound, common_value, tmpSolverRoot);
+
+  // add disjunctive terms for the nodes pruned by branch and bound
+  for (int node_idx = 0; node_idx < pruned_stats_.size(); node_idx++){
+
+    // create a new solver
+    SolverInterface* tmpSolverPruned = dynamic_cast<SolverInterface*>(originalSolver_->clone());
+    setWarmStart(tmpSolverPruned, original_basis, 0, 0);
+
+    // add the bounds for the pruned node
+    const int curr_num_changed_bounds = pruned_stats_[node_idx].changed_var.size();
+    std::vector<int> term_bound = common_bound;
+    std::vector<double> term_value = common_value;
+    std::vector<int> term_var = common_var;
+    for (int i = 0; i < curr_num_changed_bounds; i++) {
+      addVarBound(tmpSolverPruned, pruned_stats_[node_idx].changed_var[i],
+                  pruned_stats_[node_idx].changed_bound[i],
+                  pruned_stats_[node_idx].changed_value[i], term_var,
+                  term_bound, term_value);
+    }
+
+    // create the term
+    setupDisjunctiveTerm(tmpSolverPruned, term_var, term_bound, term_value);
+  }
+
+  // If an integer solution was found, save it
+  if (isIntegerSolutionFound()) {
+    this->owner->num_terms++;
+    this->owner->integer_sol = savedSolution_;
+    std::string feasname = "feasSol0";
+    Disjunction::setCgsName(this->owner->name, feasname);
+  }
+
+  // For each node on the tree, use the warm start basis and branching directions
+  // to create the corresponding disjunctive term
+  for (int tmp_ind = 0; tmp_ind < numNodesOnTree_; tmp_ind++) {
+    // Exit early if needed
+    if (!hitTimeLimit && !hitHardNodeLimit
+        && (this->owner->num_terms + 2 * (numNodesOnTree_ - tmp_ind) <= 0.5 * maxNumLeafNodes_)) {
+      status = 1;
+      break;
+    }
+
+    // create a new copy of the solver for the term/s we're about to create
+    SolverInterface* tmpSolverBase = dynamic_cast<SolverInterface*>(originalSolver_->clone());
+    setLPSolverParameters(tmpSolverBase, owner->params.get(VERBOSITY), owner->params.get(TIMELIMIT));
+
+    // get this node's (the parent of disjunctive term/s about to be made) final basis
+    CoinWarmStartBasis* parent_basis = dynamic_cast<CoinWarmStartBasis*>(original_basis->clone());
+    CbcNode* node = model_->tree()->nodePointer(tmp_ind);
+    CbcNodeInfo* nodeInfo = node->nodeInfo();
+    nodeInfo->buildRowBasis(*parent_basis);
+    finalNodeIndices_.push_back(stats_[nodeInfo->nodeNumber()].id);
+
+    // the node's id the first time we saw it (this differs from node_id if one
+    // branching direction of the node has already been explored)
+    const int node_id = stats_[nodeInfo->nodeNumber()].id;
+    const int orig_node_id = stats_[node_id].orig_id;
+
+    // we have the basis - now just need to recreate the bounds
+    // Change bounds in the solver for the root node variable fixes
+    const int init_num_changed_bounds = common_var.size();
+    for (int i = 0; i < init_num_changed_bounds; i++) {
+      addVarBound(tmpSolverBase, common_var[i], common_bound[i],
+                  common_value[i]);
+    }
+
+    // find and create any disjunctive terms pruned due to strong branching between
+    // the root and the nodes we're about to create disjunctive terms for
+    recursivelyCreateStrongBranchingTerms(node_id, common_var, common_bound,
+                                          common_value, tmpSolverBase);
+
+    // Change bounds in the solver for variable bounds tightened between the root
+    // node and this node's children (i.e. the nodes for the terms we're about to create)
+    const int curr_num_changed_bounds =
+        (orig_node_id == 0) ? 0 : stats_[orig_node_id].changed_var.size();
+    std::vector<int> term_bound = common_bound;
+    std::vector<double> term_value = common_value;
+    std::vector<int> term_var = common_var;
+    for (int i = 0; i < curr_num_changed_bounds; i++) {
+      addVarBound(tmpSolverBase, stats_[orig_node_id].changed_var[i],
+                  stats_[orig_node_id].changed_bound[i],
+                  stats_[orig_node_id].changed_value[i], term_var,
+                  term_bound, term_value);
+    }
+
+    // set the warm start and make some checks to ensure we're kosher
+    // tmpSolverBase should now have bounds such that parent_basis is optimal for it
+    setWarmStart(tmpSolverBase, parent_basis, tmp_ind, node_id);
+
+    // Now we check the branch or branches left for this node
+    bool hasFeasibleChild = false;
+    const int branching_index = stats_[node_id].branch_index;
+    const int branching_variable = stats_[node_id].variable;
+    int branching_way = stats_[node_id].way;
+    double branching_value = (branching_way <= 0) ? stats_[node_id].ub : stats_[node_id].lb;
+
+#ifdef TRACE
+    printf("\n## Solving first child of parent %d/%d for term %d. ##\n",
+        tmp_ind + 1, this->numNodesOnTree_, this->owner->num_terms);
+#endif
+    hasFeasibleChild = setupDisjunctiveTerm(
+        tmpSolverBase, term_var, term_bound, term_value,
+        branching_variable, branching_way == 1 ? 0 : 1, branching_value, node_id);
+
+    // Check if we exit early
+    if (!hitTimeLimit && !hitHardNodeLimit
+        && (this->owner->num_terms + 2 * (numNodesOnTree_ - tmp_ind) - 1 <= 0.5 * maxNumLeafNodes_)) {
+      status = 1;
+    }
+
+    if (status == 0 && branching_index == 0) { // should we compute a second branch?
+#ifdef TRACE
+      printf("\n## Solving second child of parent %d/%d for term %d. ##\n",
+          tmp_ind + 1, this->numNodesOnTree_, this->owner->num_terms);
+#endif
+      branching_way = (stats_[node_id].way <= 0) ? 1 : 0;
+      branching_value = (branching_way <= 0) ? branching_value - 1 : branching_value + 1;
+      const bool childIsFeasible = setupDisjunctiveTerm(
+          tmpSolverBase, term_var, term_bound, term_value,
+          branching_variable, branching_way == 1 ? 0 : 1, branching_value, node_id);
+      hasFeasibleChild = hasFeasibleChild || childIsFeasible;
+    } // end second branch computation
+
+    if (hasFeasibleChild) {
+      if (stats_[node_id].depth + 1 < owner->data.min_node_depth) {
+        owner->data.min_node_depth = stats_[node_id].depth + 1;
+      }
+      if (stats_[node_id].depth + 1 > owner->data.max_node_depth) {
+        owner->data.max_node_depth = stats_[node_id].depth + 1;
+      }
+    }
+
+    if (tmpSolverBase)
+      delete tmpSolverBase;
+    if (parent_basis)
+      delete parent_basis;
+  } // loop over num nodes on tree // DONE
+
+  if (original_basis) {
+    delete original_basis;
+  }
+
+  // If number of real (feasible) terms is too few, we should keep going, unless we have been branching for too long
+  if (status == 0 && !hitTimeLimit && !hitHardNodeLimit && this->owner->num_terms <= 0.5 * maxNumLeafNodes_) {
+    status = 1;
+#ifdef TRACE
+    warning_msg(warnstring,
+          "Save information exiting with status %d because number of feasible terms is calulated to be %d "
+          "(whereas requested was %d).#\n",
+          status, this->owner->num_terms, maxNumLeafNodes_);
+#endif
+  }
+  return status;
+} /* saveInformationWithPrunes */

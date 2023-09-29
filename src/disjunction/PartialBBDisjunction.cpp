@@ -254,15 +254,17 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
     }
   } // exit out early if cbc_model status is 0 or insufficiently many disjunctive terms
 
-  // Make sure that the right number of terms has been saved
-  if ((num_terms != eventHandler->getNumLeafNodes())
-      || (num_terms != static_cast<int>(terms.size() + eventHandler->isIntegerSolutionFound()))) {
-    error_msg(errstr,
-        "Number of terms does not match: num terms = %d, num leaf nodes = %d, num bases = %d, found_integer_sol = %d\n",
-        num_terms, eventHandler->getNumLeafNodes(), static_cast<int>(terms.size()),
-        eventHandler->isIntegerSolutionFound());
-    writeErrorToLog(errstr, params.logfile);
-    exit(1);
+  // Make sure that the right number of terms has been saved - ignore if we are saving the full tree
+  if (!params.get(intParam::SAVE_FULL_TREE)){
+    if ((num_terms != eventHandler->getNumLeafNodes()) || (num_terms !=
+        static_cast<int>(terms.size() + eventHandler->isIntegerSolutionFound()))){
+      error_msg(errstr,
+                "Number of terms does not match: num terms = %d, num leaf nodes = %d, num bases = %d, found_integer_sol = %d\n",
+                num_terms, eventHandler->getNumLeafNodes(), static_cast<int>(terms.size()),
+                eventHandler->isIntegerSolutionFound());
+      writeErrorToLog(errstr, params.logfile);
+      exit(1);
+    }
   }
 
 #ifdef TRACE
