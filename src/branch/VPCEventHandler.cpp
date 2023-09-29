@@ -1499,7 +1499,8 @@ bool VPCEventHandler::setupDisjunctiveTerm(
   // todo: check what happens when passing an infeasible term
   term.basis = dynamic_cast<CoinWarmStartBasis*>(tmpSolverNode->getWarmStart());
   term.obj = tmpSolverNode->getObjValue();
-  term.feasible = tmpSolverNode->isProvenOptimal();
+  term.feasible = wasPruned ? tmpSolverNode->isProvenOptimal() : unprunedAndFeasible;
+  term.pruned = wasPruned;
   term.changed_var = term_var;
   term.changed_bound = term_bound;
   term.changed_value = term_val;

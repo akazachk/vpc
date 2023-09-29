@@ -18,6 +18,7 @@
 #include "OsiCuts.hpp" // OsiCuts
 
 // project modules
+#include "CglVPC.hpp" // CglVPC
 #include "Disjunction.hpp" // DisjExitReason
 #include "PartialBBDisjunction.hpp" // PartialBBDisjunction
 #include "SolverInterface.hpp" // SolverInterface
@@ -91,10 +92,12 @@ TEST_CASE("Test saveInformation", "[VPCEventHandler::saveInformation]") {
     std::vector<std::vector<double> > value = {
         {1}, {0, 1, 0}, {0, 1, 1}, {0, 0, 0}, {0, 0, 1, 1}, {0, 1, 0, 0, 0}, {0, 1, 0, 0, 1}
     };
+    std::vector<bool> pruned = {true, false, false, true, true, false, false};
     for (int i = 0; i < disj.num_terms; i++) {
       REQUIRE(disj.terms[i].changed_var == var[i]);
       REQUIRE(disj.terms[i].changed_bound == bound[i]);
       REQUIRE(disj.terms[i].changed_value == value[i]);
+      REQUIRE(disj.terms[i].pruned == pruned[i]);
     }
 
     // check misc
@@ -112,6 +115,8 @@ TEST_CASE("Test saveInformation", "[VPCEventHandler::saveInformation]") {
   vpc_params.set(VPCParametersNamespace::DISJ_TERMS, 64);
 
   SECTION( "Test with pruned terms and strong branching terms" ) {
+
+    int unpruned = 0;
 
     // make sure to save the full tree
     vpc_params.set(VPCParametersNamespace::SAVE_FULL_TREE, 1);
@@ -157,7 +162,14 @@ TEST_CASE("Test saveInformation", "[VPCEventHandler::saveInformation]") {
                    disj.terms[i].changed_value != disj.terms[j].changed_value));
         }
       }
+      // also keep a counter of how many terms made it through without pruning - should match terms parameter
+      if (!disj.terms[i].pruned){
+        unpruned++;
+      }
     }
+
+    // should have 64 unpruned terms
+    REQUIRE(unpruned == 64);
 
     // check misc
     REQUIRE(disj.common_ineqs.size() == 0);
@@ -165,7 +177,50 @@ TEST_CASE("Test saveInformation", "[VPCEventHandler::saveInformation]") {
     REQUIRE(disj.integer_obj > 1e300);
   }
 
-  // need to test that we still get the same cuts afterwards
+  // make sure that we see the same number of cuts and bound improvement regardless of saving the full tree
+  SECTION( "Test integrations" ) {
+
+    // create parameters
+    VPCParametersNamespace::VPCParameters partial_disj_params = vpc_params;
+    VPCParametersNamespace::VPCParameters full_disj_params = vpc_params;
+    full_disj_params.set(VPCParametersNamespace::SAVE_FULL_TREE, 1);
+
+    // create containers for cuts
+    OsiCuts partial_tree_vpcs;
+    OsiCuts full_tree_vpcs;
+
+    // clone solvers
+    SolverInterface* partial_tree_solver =
+      dynamic_cast<SolverInterface*>(solver->clone());
+    SolverInterface* full_tree_solver =
+      dynamic_cast<SolverInterface*>(solver->clone());
+
+    // create cut generators
+    CglVPC partial_gen = CglVPC(partial_disj_params);
+    CglVPC full_gen = CglVPC(full_disj_params);
+
+    // make cuts
+    partial_gen.generateCuts(*partial_tree_solver, partial_tree_vpcs);
+    full_gen.generateCuts(*full_tree_solver, full_tree_vpcs);
+
+    // apply cuts
+    partial_tree_solver->applyCuts(partial_tree_vpcs);
+    full_tree_solver->applyCuts(full_tree_vpcs);
+
+    // resolve
+    partial_tree_solver->resolve();
+    full_tree_solver->resolve();
+
+    // now make our checks
+    // check that the full tree disjunction has more terms
+    REQUIRE(full_gen.disj()->num_terms > partial_gen.disj()->num_terms);
+
+    // check that we have the same number of cuts
+    REQUIRE(partial_tree_vpcs.sizeCuts() == full_tree_vpcs.sizeCuts());
+
+    // check that we have the same bound improvement
+    REQUIRE(isVal(partial_tree_solver->getObjValue(), full_tree_solver->getObjValue()));
+  }
 }
 
 

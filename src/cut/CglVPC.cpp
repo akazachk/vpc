@@ -878,8 +878,8 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
     DisjunctiveTerm* term = &(this->disjunction->terms[tmp_ind]);
     terms_added++;
 
-    if (!term->feasible){
-      continue; // skip infeasible terms
+    if (!term->feasible || term->pruned){
+      continue; // skip infeasible leaves or terms that were pruned for any reason
     }
 
     SolverInterface* tmpSolver = dynamic_cast<SolverInterface*>(vpcsolver->clone());
