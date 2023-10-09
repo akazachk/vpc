@@ -238,9 +238,14 @@ class GurobiUserCutCallback : public GRBCallback {
 #ifdef SAVE_CUT_ROUNDS
           {
             printf("*** INFO: Root pass %03ld: Obj value = %.6f\n", this->info.root_passes, objValue);
+            const std::string logname = params.get(stringParam::LOGFILE);
+            std::string fileWithCuts = "cutrounds.csv";
             std::string dir, instname, in_file_ext;
-            parseFilename(dir, instname, in_file_ext, params.get(stringParam::LOGFILE), params.logfile);
-            FILE* cutrounds = fopen("cutrounds.csv", "a");
+            if (!logname.empty()) {
+              parseFilename(dir, instname, in_file_ext, logname, params.logfile);
+              fileWithCuts = dir + "/" + instname + "_" + fileWithCuts;
+            }
+            FILE* cutrounds = fopen(fileWithCuts.c_str(), "a");
             if (this->info.root_passes == 1) {
               parseFilename(dir, instname, in_file_ext, params.get(stringParam::FILENAME), params.logfile);
               fprintf(cutrounds, "\n%s,", instname.c_str());

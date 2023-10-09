@@ -36,7 +36,7 @@ class DisjunctiveTerm {
 public:
   double obj = std::numeric_limits<double>::max(); ///< objective value
   std::vector<int> changed_var; ///< list of indices of variables with changed bounds
-  std::vector<int> changed_bound; ///< for each var in #changed_var, which bound was changaed: <= 0: lower bound, 1: upper bound
+  std::vector<int> changed_bound; ///< for each var in #changed_var, which bound was changed: <= 0: lower bound, 1: upper bound
   std::vector<double> changed_value; ///< new value of the variable
   bool is_feasible; ///< whether the term is feasible
   std::string type; ///< whether the term was pruned, a compliment to tightening, or a leaf
@@ -74,8 +74,8 @@ class Disjunction {
 public:
   /// @name Required members
   ///@{
-  int num_terms; ///< number
-  std::vector<DisjunctiveTerm> terms; ///< optimal bases of parents of each of the disjunctive terms
+  int num_terms; ///< number of terms in disjunction (some may be infeasible)
+  std::vector<DisjunctiveTerm> terms; ///< information about disjunctive terms, including optimal bases of each feasible term when available
   ///@}
 
   /// @name Optional members
@@ -92,6 +92,8 @@ public:
   std::vector<int> common_changed_bound;
   /// value of changed variables at root node
   std::vector<double> common_changed_value;
+  /// objective after applying common changes at root node
+  double root_obj;
 #ifdef USE_COIN
   /// Instead of specifying bounds that are changed at the root, you can provide inequalities valid throughout the tree
   std::vector<OsiRowCut> common_ineqs;

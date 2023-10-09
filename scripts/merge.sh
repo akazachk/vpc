@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Arguments: results directory, run type (test, bb, bb0, or preprocess), [optional: batch mode flag (0 or 1)]
+# Arguments: results directory, run type (test, bb, bb0, gmic, or preprocess), [optional: batch mode flag (0 or 1)]
 # Example: ./merge.sh ${VPC_DIR}/scripts/results_test test 1
 #
 # The first argument is the (full) directory containing the results or batch folders containing results

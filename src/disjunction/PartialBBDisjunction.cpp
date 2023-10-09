@@ -199,6 +199,15 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
     writeErrorToLog(errstr, params.logfile);
     exit(1);
   }
+
+#ifdef TRACE
+  std::vector<NodeStatistics> stats = eventHandler->getStatsVector();
+  printNodeStatistics(stats, false);
+  if (eventHandler->getPrunedStatsVector().size() > 0) {
+    printf("\n");
+    printNodeStatistics(eventHandler->getPrunedStatsVector(), false);
+  }
+#endif
   
 #ifdef TRACE
   const int TEMP_VAL = params.get(intParam::TEMP);
@@ -254,8 +263,9 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
     }
   } // exit out early if cbc_model status is 0 or insufficiently many disjunctive terms
 
-  // Make sure that the right number of terms has been saved - ignore if we are saving the full tree
-  if (!params.get(intParam::SAVE_FULL_TREE)){
+  // Make sure that the right number of terms has been saved - skip if we're saving
+  // pruned terms because we don't know how many terms to expect from fixes between branching
+  if (!params.get(intParam::PARTIAL_BB_KEEP_PRUNED_NODES)){
     if ((num_terms != eventHandler->getNumLeafNodes()) || (num_terms !=
         static_cast<int>(terms.size() + eventHandler->isIntegerSolutionFound()))){
       error_msg(errstr,
@@ -266,15 +276,6 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
       exit(1);
     }
   }
-
-#ifdef TRACE
-  std::vector<NodeStatistics> stats = eventHandler->getStatsVector();
-  printNodeStatistics(stats, false);
-  if (eventHandler->getPrunedStatsVector().size() > 0) {
-    printf("\n");
-    printNodeStatistics(eventHandler->getPrunedStatsVector(), false);
-  }
-#endif
 
   if (BBSolver && !cbc_model->modelOwnsSolver()) { delete BBSolver; }
   if (cbc_model) { delete cbc_model; }

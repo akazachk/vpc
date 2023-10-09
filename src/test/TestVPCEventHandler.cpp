@@ -66,7 +66,7 @@ TEST_CASE("Test saveInformation", "[VPCEventHandler::saveInformation]") {
   SECTION( "Test with strong branching terms" ) {
 
     // make sure to save the full tree
-    vpc_params.set(VPCParametersNamespace::SAVE_FULL_TREE, 1);
+    vpc_params.set(VPCParametersNamespace::PARTIAL_BB_KEEP_PRUNED_NODES, 1);
 
     // make disjunction
     PartialBBDisjunction disj = PartialBBDisjunction(vpc_params);
@@ -119,7 +119,7 @@ TEST_CASE("Test saveInformation", "[VPCEventHandler::saveInformation]") {
   SECTION( "Test with pruned terms and strong branching terms" ) {
 
     // make sure to save the full tree
-    vpc_params.set(VPCParametersNamespace::SAVE_FULL_TREE, 1);
+    vpc_params.set(VPCParametersNamespace::PARTIAL_BB_KEEP_PRUNED_NODES, 1);
 
     // make disjunction
     PartialBBDisjunction disj = PartialBBDisjunction(vpc_params);
@@ -189,7 +189,7 @@ TEST_CASE("Test saveInformation", "[VPCEventHandler::saveInformation]") {
     // create parameters
     VPCParametersNamespace::VPCParameters partial_disj_params = vpc_params;
     VPCParametersNamespace::VPCParameters full_disj_params = vpc_params;
-    full_disj_params.set(VPCParametersNamespace::SAVE_FULL_TREE, 1);
+    full_disj_params.set(VPCParametersNamespace::PARTIAL_BB_KEEP_PRUNED_NODES, 1);
 
     // create containers for cuts
     OsiCuts partial_tree_vpcs;

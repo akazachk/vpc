@@ -218,6 +218,9 @@ void CglVPC::setUserTightPoints(
 } /* setUserTightPoints */
 
 void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const CglTreeInfo info) {
+  // Time starts here, and will end when finish is called
+  timer.start_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
+
   CglVPC::ExitReason status = CglVPC::ExitReason::UNKNOWN;
   if (params.get(intParam::DISJ_TERMS) == 0) {
     status = CglVPC::ExitReason::NO_DISJUNCTION_EXIT;
@@ -335,8 +338,6 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     }
   }
 
-  // Time starts here, and will end when finish is called
-  timer.start_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
   if (mode != VPCMode::CUSTOM) {
     // Get disjunctive terms and obtain their optimal bases
     // (If mode is custom, i.e., disjunction is given to us,
@@ -473,6 +474,7 @@ void CglVPC::setupAsNew() {
     this->canReplaceGivenCuts = false;
     this->cutType.resize(0);
     this->objType.resize(0);
+    this->num_rounds = 0;
   }
   this->user_objectives.resize(0);
   this->user_tight_points.resize(0);
@@ -763,19 +765,59 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
     vpcsolver->resolve();
     if (!checkSolverOptimality(vpcsolver, false)) {
       error_msg(errorstring,
-          "Solver not proven optimal after updating bounds from root node.\n");
+          "CglVPC::setupConstraints: Solver not proven optimal after updating bounds from root node.\n");
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
     }
-  }
+
+    // For debugging purposes, verify that the stored root objective matches
+    if (num_added_ineqs == 0) {
+      const double newval = vpcsolver->getObjValue();
+      const double savedval = this->disjunction->root_obj;
+      const double epsilon = params.get(doubleConst::DIFFEPS);
+      if (!isVal(newval, savedval, epsilon)) {
+        vpcsolver->resolve();
+      }
+      if (!isVal(newval, savedval, epsilon)) {
+        double ratio = 1.;
+        if (isZero(newval, epsilon) && isZero(savedval, epsilon)) {
+          // nothing to do, keep ratio = 1.
+          ratio = 1.;
+        }
+        else if (isZero(newval, epsilon) || isZero(savedval, epsilon)) {
+          // ratio is 1 + abs(diff between values, since one of these values is zero)
+          ratio = 1. + std::abs(newval - savedval);
+        }
+        else {
+          ratio = newval / savedval;
+          if (ratio < 1.) {
+            ratio = 1. / ratio;
+          }
+        }
+
+        // Allow it to be up to 3% off without causing an error
+        if (greaterThanVal(ratio, 1.03)) {
+          error_msg(errorstring,
+              "CglVPC::setupConstraints: Root objective calculated after bound changes (%f) does not match stored value in disjunction (%f), with a difference of %e.\n",
+            vpcsolver->getObjValue(), this->disjunction->root_obj, std::abs(this->disjunction->root_obj - vpcsolver->getObjValue()));
+          writeErrorToLog(errorstring, params.logfile);
+          exit(1);
+        } else {
+          warning_msg(warnstring,
+              "CglVPC::setupConstraints: Root objective calculated after bound changes (%f) does not match stored value in disjunction (%f), with a difference of %e.\n",
+            vpcsolver->getObjValue(), this->disjunction->root_obj, std::abs(this->disjunction->root_obj - vpcsolver->getObjValue()));
+        }
+      } // check root objective value matches
+    } // check if any inequalities have been added to the root node through the disjunction
+  } // compute root LP basis after changing bounds at root and adding globally valid inequalities
 
   // Save problem data for nonbasic space usage and decide on problem-specific epsilon
 #ifdef TRACE
-  printf("\n## Saving root node optimal solution for nonbasic space usage ##\n");
+  printf("\n## CglVPC::setupConstraints: Saving root node optimal solution for nonbasic space usage ##\n");
 #endif
   getProblemData(vpcsolver, this->probData);
 #ifdef TRACE
-  printf("Problem-specific epsilon set to %.10e\n", this->probData.EPS);
+  printf("CglVPC::setupConstraints: Problem-specific epsilon set to %.10e\n", this->probData.EPS);
 #endif
 
 //  /***********************************************************************************
@@ -822,11 +864,10 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
   /***********************************************************************************
    * Get bases and generate VPCs
    ***********************************************************************************/
-  const int num_disj_terms = this->disjunction->num_terms;
+  //const int num_disj_terms = this->disjunction->num_terms; // may be different from terms.size() due to integer-feasible terms?
   const int dim = vpcsolver->getNumCols(); // NB: treating fixed vars as at bound
 
   int terms_added = -1;
-  std::vector<bool> calcAndFeasTerm(num_disj_terms);
 
   // Start with the integer-feasible solution
   if (!(this->disjunction->integer_sol.empty())) {
@@ -850,9 +891,9 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
 //        params.get(FLIP_BETA) >= 0 ? 1.0 : -1.0;
     prlpData.addConstraint(point, beta, terms_added, curr_nb_obj_val);
 #ifdef TRACE
-    printf("\n## Saving integer feasible solution as term %d. ##\n", terms_added);
+    printf("\n## CglVPC::setupConstraints: Saving integer feasible solution as term %d. ##\n", terms_added);
 #endif
-    calcAndFeasTerm[terms_added] = true;
+    //term->is_feasible = true;
 
     // Update disjunctive bound info
     // This is here rather than in the Disjunction class,
@@ -872,12 +913,12 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
     DisjunctiveTerm* term = &(this->disjunction->terms[tmp_ind]);
     terms_added++;
 
-    if (!term->is_feasible){
-      continue; // skip infeasible terms
+    if (!term->is_feasible) {
+      continue;
     }
 
-    SolverInterface* tmpSolver = dynamic_cast<SolverInterface*>(vpcsolver->clone());
-    tmpSolver->disableFactorization();
+    SolverInterface* termSolver = dynamic_cast<SolverInterface*>(vpcsolver->clone());
+    termSolver->disableFactorization();
 
     // Change bounds in the solver
     const int curr_num_changed_bounds = term->changed_var.size();
@@ -892,22 +933,22 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
       commonTermCoeff[i].resize(1, coeff);
       commonTermRHS[i] = coeff * val;
       if (term->changed_bound[i] <= 0) {
-        tmpSolver->setColLower(col, val);
+        termSolver->setColLower(col, val);
       } else {
-        tmpSolver->setColUpper(col, val);
+        termSolver->setColUpper(col, val);
       }
     }
 
     const int curr_num_added_ineqs = term->ineqs.size();
     for (int i = 0; i < curr_num_added_ineqs; i++) {
       OsiRowCut* currCut = &term->ineqs[i];
-      tmpSolver->applyRowCuts(1, currCut); // hopefully this works
+      termSolver->applyRowCuts(1, currCut); // hopefully this works
     }
 
     // Set the warm start
-    if (term->basis && !(tmpSolver->setWarmStart(term->basis))) {
+    if (term->basis && !(termSolver->setWarmStart(term->basis))) {
       error_msg(errorstring,
-          "Warm start information not accepted for term %d/%d.\n",
+          "CglVPC::setupConstraints: Warm start information not accepted for term %d/%d.\n",
           tmp_ind + 1, num_normal_terms);
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
@@ -915,60 +956,78 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
 
     // Resolve and check the objective matches
 #ifdef TRACE
-    printf("\n## Solving for term %d/%d. ##\n",
+    printf("\n## CglVPC::setupConstraints: Solving for term %d/%d. ##\n",
         tmp_ind + 1, num_normal_terms);
 #endif
-    tmpSolver->resolve();
-    calcAndFeasTerm[terms_added] = checkSolverOptimality(tmpSolver, true);
-    //enableFactorization(tmpSolver, params.get(doubleParam::EPS)); // this may change the solution slightly
+    termSolver->resolve();
+    term->is_feasible = checkSolverOptimality(termSolver, true);
+    //enableFactorization(termSolver, params.get(doubleParam::EPS)); // this may change the solution slightly
 
-    // Sometimes we run into a few issues getting the ``right'' value
-    if (!isVal(tmpSolver->getObjValue(), term->obj, params.get(doubleConst::DIFFEPS))) {
-      tmpSolver->resolve();
-    }
-    if (!isVal(tmpSolver->getObjValue(), term->obj, params.get(doubleConst::DIFFEPS))) {
-      double ratio = tmpSolver->getObjValue() / term->obj;
-      if (ratio < 1.) {
-        ratio = 1. / ratio;
+    // Check objective value against what is stored (if it is finite)
+    if (term->is_feasible && !isInfinity(term->obj)) {
+      // Sometimes we run into a few issues getting the ``right'' value
+      const double newval = termSolver->getObjValue();
+      const double savedval = term->obj;
+      const double epsilon = params.get(doubleConst::DIFFEPS);
+      if (!isVal(newval, savedval, epsilon)) {
+        termSolver->resolve();
       }
-      // Allow it to be up to 3% off without causing an error
-      if (greaterThanVal(ratio, 1.03)) {
-        error_msg(errorstring,
-            "Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
-            tmp_ind + 1, num_normal_terms, stringValue(term->obj, "%1.3f").c_str(),
-            stringValue(tmpSolver->getObjValue(), "%1.3f").c_str());
-        writeErrorToLog(errorstring, params.logfile);
-        exit(1);
-      } else {
-        warning_msg(warnstring,
-            "Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
-            tmp_ind + 1, num_normal_terms, stringValue(term->obj, "%1.3f").c_str(),
-            stringValue(tmpSolver->getObjValue(), "%1.3f").c_str());
-      }
+      if (!isVal(newval, savedval, epsilon)) {
+        double ratio = 1.;
+        if (isZero(newval, epsilon) && isZero(savedval, epsilon)) {
+          // nothing to do, keep ratio = 1.
+          ratio = 1.;
+        }
+        else if (isZero(newval, epsilon) || isZero(savedval, epsilon)) {
+          // ratio is 1 + abs(diff between values, since one of these values is zero)
+          ratio = 1. + std::abs(newval - savedval);
+        }
+        else {
+          ratio = newval / savedval;
+          if (ratio < 1.) {
+            ratio = 1. / ratio;
+          }
+        }
+
+        // Allow it to be up to 3% off without causing an error
+        if (greaterThanVal(ratio, 1.03)) {
+          error_msg(errorstring,
+              "CglVPC::setupConstraints: Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
+              tmp_ind, num_normal_terms, stringValue(term->obj, "%1.3f").c_str(),
+              stringValue(termSolver->getObjValue(), "%1.3f").c_str());
+          writeErrorToLog(errorstring, params.logfile);
+          exit(1);
+        } else {
+          warning_msg(warnstring,
+              "CglVPC::setupConstraints: Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
+              tmp_ind, num_normal_terms, stringValue(term->obj, "%1.3f").c_str(),
+              stringValue(termSolver->getObjValue(), "%1.3f").c_str());
+        }
 #ifdef TRACE
-      std::string commonName;
-      Disjunction::setCgsName(commonName, curr_num_changed_bounds, commonTermIndices,
-          commonTermCoeff, commonTermRHS, false);
-      printf("Bounds changed: %s.\n", commonName.c_str());
+        std::string commonName;
+        Disjunction::setCgsName(commonName, curr_num_changed_bounds, commonTermIndices,
+            commonTermCoeff, commonTermRHS, false);
+        printf("CglVPC::setupConstraints: Bounds changed: %s.\n", commonName.c_str());
 #endif
-    } // check that objective value matches
+      } // check that objective value matches
+    }
 
     // Possibly strengthen the term
-    if (calcAndFeasTerm[terms_added] && params.get(intParam::STRENGTHEN) == 2) {
+    if (term->is_feasible && params.get(intParam::STRENGTHEN) == 2) {
     // Add Gomory cuts on disjunctive term and resolve
       OsiCuts GMICs;
       CglGMI GMIGen;
-      GMIGen.generateCuts(*tmpSolver, GMICs);
-      tmpSolver->applyCuts(GMICs);
-      tmpSolver->resolve();
-      calcAndFeasTerm[terms_added] = checkSolverOptimality(tmpSolver, true);
+      GMIGen.generateCuts(*termSolver, GMICs);
+      termSolver->applyCuts(GMICs);
+      termSolver->resolve();
+      term->is_feasible = checkSolverOptimality(termSolver, true);
     }
-    if (calcAndFeasTerm[terms_added]) {
+    if (term->is_feasible) {
       // Update disjunctive bound info
       // This is here rather than in the Disjunction class,
       // because it is unclear whether, in that class,
       // the user computes with the variables changed at the root
-      this->disjunction->updateObjValue(tmpSolver->getObjValue());
+      this->disjunction->updateObjValue(termSolver->getObjValue());
 
       timer.register_name(CglVPC::time_T1 + std::to_string(terms_added));
       timer.register_name(CglVPC::time_T2 + std::to_string(terms_added));
@@ -978,18 +1037,18 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
         timer.start_timer(CglVPC::time_T1 + std::to_string(terms_added));
 
         // Get cobasis information and PR collection
-        enableFactorization(tmpSolver, probData.EPS);
+        enableFactorization(termSolver, probData.EPS);
         ProblemData tmpData;
-        getProblemData(tmpSolver, tmpData, &probData, false);
-        genDepth1PRCollection(vpcsolver, tmpSolver,
+        getProblemData(termSolver, tmpData, &probData, false);
+        genDepth1PRCollection(vpcsolver, termSolver,
             probData, tmpData, terms_added);
 
         timer.end_timer(CglVPC::time_T1 + "TOTAL");
         timer.end_timer(CglVPC::time_T1 + std::to_string(terms_added));
       }
     } // compute PR collection if the disj term is feasible
-    if (tmpSolver) {
-      delete tmpSolver;
+    if (termSolver) {
+      delete termSolver;
     }
   } // end loop over nodes on tree
 
@@ -1049,7 +1108,7 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
 
 #ifdef TRACE
   printf(
-      "\nFinished setting up constraints. Min obj val: Structural: %1.3e, NB: %1.3e.\n",
+      "\nCglVPC::setupConstraints: Finished setting up constraints. Min obj val: Structural: %1.3e, NB: %1.3e.\n",
       this->disjunction->best_obj, this->disjunction->best_obj - this->probData.lp_opt);
 #endif
   return CglVPC::ExitReason::SUCCESS_EXIT;
@@ -1291,8 +1350,10 @@ CglVPC::ExitReason CglVPC::tryObjectives(OsiCuts& cuts,
 
     // Try cut generation targeting points and rays
     if (status == CglVPC::ExitReason::SUCCESS_EXIT) {
+      timer.start_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::GEN_CUTS_TIME)]);
       prlp->targetStrongAndDifferentCuts(beta, cuts, origSolver, structSICs,
           VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
+      timer.end_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::GEN_CUTS_TIME)]);
       if (reachedTimeLimit(VPCTimeStats::TOTAL_TIME, params.get(TIMELIMIT))) {
         status = CglVPC::ExitReason::TIME_LIMIT_EXIT;
       } else if (reachedCutLimit()) {

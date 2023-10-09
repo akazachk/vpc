@@ -59,10 +59,10 @@ enum intParam {
   /// \li node comparison decision => ones digit: 0: default: 1: bfs, 2: depth, 3: estimate, 4: objective
   PARTIAL_BB_STRATEGY,
   PARTIAL_BB_NUM_STRONG, ///< -1: num cols, -2: sqrt(num cols), >= 0: that many
+  PARTIAL_BB_KEEP_PRUNED_NODES, ///< whether to keep pruned nodes in the partial b&b tree
   PREPROCESS, ///< 0: off, 1: on (with solver), 2: on (solver + custom cleaning process)
   PRLP_FLIP_BETA, ///< controls rhs in nb space, -1: do not cut away LP opt, 0: cut away LP opt, 1: both
   ROUNDS, ///< number of VPC rounds to do
-  SAVE_FULL_TREE, ///< 0: no - only save feasible leaves, 1: yes - save all leaves
   STRENGTHEN, ///< 0: no, 1: yes, when possible, 2: same as 1 plus add GMICs to strengthen each disjunctive term
   TEMP, ///< useful for various temporary parameter changes; see corresponding enum
   // Objective options
@@ -166,7 +166,8 @@ enum class doubleConst {
 enum class TempOptions {
   NONE = 0, ///< default
   CHECK_CUTS_AGAINST_BB_OPT = ENUM_OPTION_3, ///< if integer optimal solution is available, check if it violates any cuts
-  CALC_NUM_GOMORY_ROUNDS_TO_MATCH = ENUM_OPTION_4, ///< calculate number of rounds of GMICs needed to get same bound as obtained by our cuts
+  //CALC_NUM_GOMORY_ROUNDS_TO_MATCH = ENUM_OPTION_4, ///< calculate number of rounds of GMICs needed to get same bound as obtained by our cuts
+  PRINT_BOUND_BY_ROUND = ENUM_OPTION_4, ///< print bound after each round of cuts to file
   SAVE_IP_OPT = ENUM_OPTION_5, ///< save IP optimum solution
   // Options for generating tikz string (if negative, then print nodes without the LP value at the node)
   GEN_TIKZ_STRING = ENUM_OPTION_10, ///< generate code for printing (partial) b&b tree in tikz format
@@ -521,9 +522,6 @@ struct VPCParameters {
     {intParam::ROUNDS,
         IntParameter(intParam::ROUNDS, "ROUNDS",
             1, 0, std::numeric_limits<int>::max())},
-    {intParam::SAVE_FULL_TREE,
-     IntParameter(intParam::SAVE_FULL_TREE, "SAVE_FULL_TREE",
-                  0, 0, 1)},
     {intParam::PRLP_FLIP_BETA,
         IntParameter(intParam::PRLP_FLIP_BETA, "PRLP_FLIP_BETA",
             0, -1, 1)},
@@ -533,6 +531,9 @@ struct VPCParameters {
     {intParam::PARTIAL_BB_NUM_STRONG,
         IntParameter(intParam::PARTIAL_BB_NUM_STRONG, "PARTIAL_BB_NUM_STRONG",
             5, std::numeric_limits<int>::min(), std::numeric_limits<int>::max())},
+    {intParam::PARTIAL_BB_KEEP_PRUNED_NODES,
+        IntParameter(intParam::PARTIAL_BB_KEEP_PRUNED_NODES, "PARTIAL_BB_KEEP_PRUNED_NODES",
+            0, 0, 1)},
     /// PARTIAL_BB_STRATEGY: 004 => default variable decision, default branch decision, objective-based node comparison
     {intParam::PARTIAL_BB_STRATEGY,
         IntParameter(intParam::PARTIAL_BB_STRATEGY, "PARTIAL_BB_STRATEGY",

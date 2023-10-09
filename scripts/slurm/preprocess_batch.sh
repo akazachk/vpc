@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --account=akazachkov
-#SBATCH --job-name=preprocess
+#SBATCH --job-name=slurm_preprocess
 #SBATCH --time=03:00:00             # time limit hrs:min:sec
 #SBATCH --mem-per-cpu=1G            # job memory
 #SBATCH --ntasks=1                  # run a single task
@@ -19,7 +19,7 @@ INSTANCE_FILE=${TYPE}.instances
 INSTANCE_FILE=small_original.instances
 export VPC_DIR="${REPOS_DIR}/vpc"
 RESULTS_DIR=${VPC_DIR}/results
-RESULTS_DIR="/blue/akazachkov/vpc/2021-02-24"
+RESULTS_DIR="/blue/akazachkov/vpc/2022-11-01/"
 
 # Set mode if given
 if [ ! -z $1 ]

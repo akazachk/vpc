@@ -31,13 +31,15 @@ If using Gurobi, make sure that the same compiler is used when running [`install
 
 4. *Branch-and-bound code*: The VPC code relies on [Cbc](https://github.com/coin-or/Cbc), which is installed via the [`setup/install_coin.sh`](setup/install_coin.sh) script. The script requires you to have `wget`. See also some additional [Cbc comments](#cbc-comments) below.
 
-5. *Cbc dependencies*: For Cbc, you may need `gfortran`, `pkg-conf`, `LAPACK`, and `BLAS`. It may also be necessary to use `--with-cplex=false` as an option in the `coinbrew` commands, if [Osi](https://github.com/coin-or/Osi)'s configure script detects the CPLEX library through `CPXgetstat` but the CPLEX include directory is not found (see https://github.com/coin-or/coinbrew/issues/49).
+5. *COIN-OR*: For Cbc, ensure that you have compiled with `SAVE_NODE_INFO` defined using `ADD_CXXFLAGS="-DSAVE_NODE_INFO"`. You may need `gfortran`, `pkg-conf`, `LAPACK`, and `BLAS`. It may also be necessary to use `--with-cplex=false` as an option in the `coinbrew` commands, if [Osi](https://github.com/coin-or/Osi)'s configure script detects the CPLEX library through `CPXgetstat` but the CPLEX include directory is not found (see https://github.com/coin-or/coinbrew/issues/49).
 
 6. *Environment variables*: There shoud be an environment variable `VPC_DIR` pointing to the local repository location, or this variable can be defined in each of the scripts: [`setup/install_coin.sh`](setup/install_coin.sh), [`test/run_test.sh`](test/run_test.sh), and others.
 
 7. *Git*: The [`Makefile`](Makefile) assumes that `git` is at least version 2, to use the `-C` option to get the version of `Cbc` and `Clp`.
 
-8. *Optional*: There are some optional libraries, such as `libbz2-dev`, that are linked to in [`Makefile`](Makefile). If these are missing, _remove the corresponding linking in the Makefile_.
+8. *Other*: You will need `zlib1g-dev` and `libreadline-dev`.
+
+9. *Optional*: There are some optional libraries, such as `libbz2-dev`, that are linked to in [`Makefile`](Makefile). If these are missing, _remove the corresponding linking in the Makefile_.
 
 ## Execution
 
@@ -113,6 +115,7 @@ There are many things left to be implemented in the future:
 2. Objective functions based on intermediate nodes of the partial branch-and-bound tree, to cut off points other than the LP optimum.
 3. Dynamic disjunctions, in which cutting and branching are alternated.
 4. Strengthening cuts -- see the related [MIP 2021 talk](https://www.youtube.com/watch?v=axqaOED4CXQ).
+5. Reduced dependence on Cbc; e.g., introduce compatibility with [HiGHS](https://highs.dev) and/or [SCIP](https://scipopt.org).
 
 ## Contact Information
 [Aleksandr M. Kazachkov](https://akazachk.github.io),

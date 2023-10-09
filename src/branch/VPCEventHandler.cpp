@@ -468,7 +468,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
     // Check if we are done
     if (numLeafNodes_ >= maxNumLeafNodes_ || model_->getCurrentSeconds() >= maxTime_) {
       // Save information
-      const int status = owner->params.get(SAVE_FULL_TREE) ?
+      const int status = owner->params.get(PARTIAL_BB_KEEP_PRUNED_NODES) ?
           saveInformationWithPrunes() : saveInformation();
 
       if (status == 0) {
@@ -1294,6 +1294,7 @@ int VPCEventHandler::saveInformation() {
     this->owner->common_changed_bound = this->stats_[0].changed_bound;
     this->owner->common_changed_value = this->stats_[0].changed_value;
     this->owner->common_changed_var = this->stats_[0].changed_var;
+    this->owner->root_obj = this->stats_[0].obj;
     this->owner->root.var = this->stats_[0].variable;
     this->owner->root.val = this->stats_[0].value;
   }
@@ -1351,19 +1352,19 @@ int VPCEventHandler::saveInformation() {
       }
     }
 
-    // Now the parent changed node bounds
-    const int curr_num_changed_bounds =
+    // Collect and apply the parent changed node bounds
+    const int parent_num_changed_bounds =
         (orig_node_id == 0) ? 0 : stats_[orig_node_id].changed_var.size();
-    std::vector < std::vector<int> > commonTermIndices(curr_num_changed_bounds);
-    std::vector < std::vector<double> > commonTermCoeff(curr_num_changed_bounds);
-    std::vector<double> commonTermRHS(curr_num_changed_bounds);
-    for (int i = 0; i < curr_num_changed_bounds; i++) {
+    std::vector < std::vector<int> > parentTermIndices(parent_num_changed_bounds);
+    std::vector < std::vector<double> > parentTermCoeff(parent_num_changed_bounds);
+    std::vector<double> parentTermRHS(parent_num_changed_bounds);
+    for (int i = 0; i < parent_num_changed_bounds; i++) {
       const int col = stats_[orig_node_id].changed_var[i];
       const double coeff = (stats_[orig_node_id].changed_bound[i] <= 0) ? 1. : -1.;
       const double val = stats_[orig_node_id].changed_value[i];
-      commonTermIndices[i].resize(1, col);
-      commonTermCoeff[i].resize(1, coeff);
-      commonTermRHS[i] = coeff * val;
+      parentTermIndices[i].resize(1, col);
+      parentTermCoeff[i].resize(1, coeff);
+      parentTermRHS[i] = coeff * val;
       if (stats_[orig_node_id].changed_bound[i] <= 0) {
         tmpSolverBase->setColLower(col, val);
       } else {
@@ -1373,8 +1374,8 @@ int VPCEventHandler::saveInformation() {
 
     // Set the parent node warm start and make sure we're kosher
     // start from the root node LP relaxation optimal basis to speed things up
-    setWarmStart(tmpSolverBase, parent_basis, tmp_ind, node_id, curr_num_changed_bounds,
-                 commonTermIndices, commonTermCoeff, commonTermRHS);
+    setWarmStart(tmpSolverBase, parent_basis, tmp_ind, node_id, parent_num_changed_bounds,
+                 parentTermIndices, parentTermCoeff, parentTermRHS);
 
     // Now we check the branch or branches left for this node
     bool hasFeasibleChild = false;
@@ -1388,8 +1389,8 @@ int VPCEventHandler::saveInformation() {
         tmp_ind + 1, this->numNodesOnTree_, this->owner->num_terms);
 #endif
     hasFeasibleChild = setupDisjunctiveTerm(node_id, branching_variable,
-        branching_way, branching_value, tmpSolverBase, curr_num_changed_bounds,
-        commonTermIndices, commonTermCoeff, commonTermRHS);
+        branching_way, branching_value, tmpSolverBase, parent_num_changed_bounds,
+        parentTermIndices, parentTermCoeff, parentTermRHS);
 
     // Check if we exit early
     if (!hitTimeLimit && !hitHardNodeLimit 
@@ -1406,8 +1407,8 @@ int VPCEventHandler::saveInformation() {
       branching_value =
           (branching_way <= 0) ? branching_value - 1 : branching_value + 1;
       const bool childIsFeasible = setupDisjunctiveTerm(node_id, branching_variable, branching_way,
-              branching_value, tmpSolverBase, curr_num_changed_bounds,
-              commonTermIndices, commonTermCoeff, commonTermRHS);
+              branching_value, tmpSolverBase, parent_num_changed_bounds,
+              parentTermIndices, parentTermCoeff, parentTermRHS);
       hasFeasibleChild = hasFeasibleChild || childIsFeasible;
     } // end second branch computation
 
@@ -1757,6 +1758,7 @@ int VPCEventHandler::saveInformationWithPrunes() {
     common_bound = this->stats_[0].changed_bound;
     common_value = this->stats_[0].changed_value;
     common_var = this->stats_[0].changed_var;
+    this->owner->root_obj = this->stats_[0].obj;
     this->owner->root.var = this->stats_[0].variable;
     this->owner->root.val = this->stats_[0].value;
   }

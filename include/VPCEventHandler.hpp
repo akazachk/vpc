@@ -267,7 +267,6 @@ protected:
 
   /// @brief check if the disjunction represents the leaves of a full binary tree
   bool isFullBinaryTree();
-
   //@}
 };
 /* VPCEventHandler definition */

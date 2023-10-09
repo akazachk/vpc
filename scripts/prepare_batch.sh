@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage example:
-#   prepare_batch.sh /path/to/instance/list.instances /path/to/results/dir [test / preprocess / bb / bb0]
+#   prepare_batch.sh /path/to/instance/list.instances /path/to/results/dir [test / preprocess / bb / bb0 / gmic]
 
 if [ ! -z "$VPC_DIR" ]; then
   export PROJ_DIR=${VPC_DIR}
@@ -25,18 +25,24 @@ MODE=preprocess
 #MODE=bb
 #MODE=bb0
 
-export PROJ_DIR=`realpath -s ${PROJ_DIR}`
+if [ "$(uname)" == "Darwin" ]; then
+  export PROJ_DIR=`realpath ${PROJ_DIR}`
+else
+  export PROJ_DIR=`realpath -s ${PROJ_DIR}`
+fi
 export VPC_DIR=${PROJ_DIR}
 
-export INSTANCE_DIR=${PROJ_DIR}/data/instances
 export OPTFILE="${VPC_DIR}/data/ip_obj.csv"
-export RESULTS_DIR=${PROJ_DIR}/results
 export SCRIPT_DIR=${PROJ_DIR}/scripts
+
+export INSTANCE_DIR=${PROJ_DIR}/data/instances
+export RESULTS_DIR=${PROJ_DIR}/results
 export SOL_DIR=${PROJ_DIR}/data/solutions
 
-export LOCAL_DIR=/blue/akazachkov/$USER
-export INSTANCE_DIR=${LOCAL_DIR}/instances/vpc
+export LOCAL_DIR=${HOME}
+export INSTANCE_DIR=${LOCAL_DIR}/instances
 export RESULTS_DIR=${LOCAL_DIR}/results
+export SOL_DIR=${INSTANCE_DIR}/solutions
 
 EXECUTABLE="${PROJ_DIR}/Release/vpc"
 
@@ -59,13 +65,16 @@ fi
 JOB_LIST="job_list_${MODE}.txt"
 
 # Set parameters
+# --bb_mode={0,1,10,11,100,...,111}
+#        Which branch-and-bound experiments to run (ones = no cuts, tens = vpcs, hundreds = gmics).
 PARAMS=" --optfile=${OPTFILE}"
 if [ $MODE == bb ]; then
   depthList=(2 4 8 16 32 64)
   PARAMS="$PARAMS -t 3600"
   PARAMS="$PARAMS --rounds=1"
-  PARAMS="$PARAMS --bb_runs=1"
   PARAMS="$PARAMS --bb_mode=10"
+  #PARAMS="$PARAMS --bb_runs=1"
+  PARAMS="$PARAMS --bb_runs=7"
   PARAMS="$PARAMS --bb_timelimit=3600"
   PARAMS="$PARAMS --use_all_ones=1"
   PARAMS="$PARAMS --use_iter_bilinear=1"
@@ -81,6 +90,20 @@ elif [ $MODE == bb0 ]; then
   PARAMS="$PARAMS --bb_runs=7"
   PARAMS="$PARAMS --bb_mode=001"
   PARAMS="$PARAMS --bb_timelimit=3600"
+elif [ $MODE == bb0bb ]; then
+  depthList=(2 4 8 16 32 64)
+  PARAMS="$PARAMS -t 3600"
+  PARAMS="$PARAMS --rounds=1"
+  PARAMS="$PARAMS --bb_runs=7"
+  PARAMS="$PARAMS --bb_mode=11"
+  PARAMS="$PARAMS --bb_timelimit=3600"
+  PARAMS="$PARAMS --use_all_ones=1"
+  PARAMS="$PARAMS --use_iter_bilinear=1"
+  PARAMS="$PARAMS --use_disj_lb=1"
+  PARAMS="$PARAMS --use_tight_points=0"
+  PARAMS="$PARAMS --use_tight_rays=0"
+  PARAMS="$PARAMS --use_unit_vectors=0"
+  PARAMS="$PARAMS --gomory=-1"
 elif [ $MODE == preprocess ]; then
   depthList=(0)
   PARAMS="$PARAMS -t 7200"
@@ -91,6 +114,13 @@ elif [ $MODE == preprocess ]; then
   PARAMS="$PARAMS --bb_strategy=536"
   PARAMS="$PARAMS --bb_timelimit=7200"
   PARAMS="$PARAMS --temp=32"
+elif [ $MODE == gmic ]; then
+  depthList=(0 2 4 8)
+  PARAMS="$PARAMS --timelimit=7200"
+  PARAMS="$PARAMS --rounds=1000"
+  PARAMS="$PARAMS --gomory=1"
+  PARAMS="$PARAMS --temp=16"
+  PARAMS="$PARAMS -v0"
 elif [ $MODE == test ]; then
   depthList=(2)
 else
@@ -164,9 +194,21 @@ for d in ${depthList[*]}; do
     else
       # Finally, write command we will call to a file
       echo -n "mkdir -p ${OUT_DIR}; " >> ${JOB_LIST}
-      echo "nohup /usr/bin/time -v $EXECUTABLE -f ${FILE} --logfile=${OUT_DIR}/vpc-${MODE}.csv $SOLPARAM $PARAMS -d$d >> ${OUT_DIR}/log.out 2>&1" >> ${JOB_LIST}
+      if [ $(uname) == "Darwin" ]; then
+        echo -n "nohup /usr/bin/time " >> ${JOB_LIST}
+      else
+        echo -n "nohup /usr/bin/time -v " >> ${JOB_LIST}
+      fi
+      echo "$EXECUTABLE -f ${FILE} --logfile=${OUT_DIR}/vpc-${MODE}.csv $SOLPARAM $PARAMS -d$d >> ${OUT_DIR}/log.out 2>&1" >> ${JOB_LIST}
     fi
   done < ${INSTANCE_LIST}
 done # loop over depth list
+
+# Shuffle command order to not have dependency in the performance
+if [ $(uname) == "Darwin" ]; then
+  sort -R ${JOB_LIST} --output=${JOB_LIST}
+else
+  shuf -o ${JOB_LIST} < ${JOB_LIST}
+fi
 
 echo "Done preparing $JOB_LIST. Total errors: $TOTAL_ERRORS."

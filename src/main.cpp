@@ -39,35 +39,64 @@ using namespace VPCParametersNamespace;
 #include "TimeStats.hpp"
 #include "utility.hpp"
 
+#ifdef CALC_COND_NUM
+#include "condition_number.hpp" // compute_condition_number
+#endif
+
 enum OverallTimeStats {
   INIT_SOLVE_TIME,
+  GOMORY_GEN_TIME,
+  GOMORY_APPLY_TIME,
   VPC_GEN_TIME,
+  VPC_INIT_SOLVE_TIME,
+  VPC_DISJ_SETUP_TIME,
+  VPC_DISJ_GEN_TIME,
+  VPC_PRLP_SETUP_TIME,
+  VPC_PRLP_SOLVE_TIME,
+  VPC_GEN_CUTS_TIME,
   VPC_APPLY_TIME,
   BB_TIME,
+  TOTAL_APPLY_TIME,
   TOTAL_TIME,
   NUM_TIME_STATS
 }; /* OverallTimeStats */
 const std::vector<std::string> OverallTimeStatsName {
   "INIT_SOLVE_TIME",
+  "GOMORY_GEN_TIME",
+  "GOMORY_APPLY_TIME",
   "VPC_GEN_TIME",
+  "VPC_INIT_SOLVE_TIME",
+  "VPC_DISJ_SETUP_TIME",
+  "VPC_DISJ_GEN_TIME",
+  "VPC_PRLP_SETUP_TIME",
+  "VPC_PRLP_SOLVE_TIME",
+  "VPC_GEN_CUTS_TIME",
   "VPC_APPLY_TIME",
   "BB_TIME",
+  "TOTAL_APPLY_TIME",
   "TOTAL_TIME"
-};
+}; /* OverallTimeStatsName */
 
 // Main file variables
 VPCParameters params;
-OsiSolverInterface *solver, *origSolver;
-OsiSolverInterface* GMICSolver = NULL;
-OsiSolverInterface* VPCSolver = NULL;
+
+OsiSolverInterface *solver;               ///< stores the cuts we actually want to "count"
+OsiSolverInterface *origSolver;           ///< original solver in case we wish to come back to it later
+OsiSolverInterface* GMICSolver = NULL;    ///< only GMICs
+OsiSolverInterface* VPCSolver = NULL;     ///< if GMICs count, this is only VPCs; otherwise, it is both GMICs and mycuts
+OsiSolverInterface* allCutsSolver = NULL; ///< all generated cuts
+
 OsiCuts gmics, vpcs;
+
 std::string dir = "", filename_stub = "", instname = "", in_file_ext = "";
+
 CglVPC::ExitReason exitReason;
 TimeStats timer;
 std::time_t start_time_t, end_time_t;
 char start_time_string[25];
 
 SummaryBoundInfo boundInfo;
+std::vector<SummaryBoundInfo> boundInfoVec;
 SummaryBBInfo info_nocuts, info_mycuts, info_allcuts;
 SummaryDisjunctionInfo disjInfo;
 std::vector<SummaryCutInfo> cutInfoVec;
@@ -118,6 +147,7 @@ int main(int argc, char** argv) {
   // Do this early in your program's initialization
   std::signal(SIGABRT, signal_handler_with_error_msg);
   std::signal(SIGSEGV, signal_handler_with_error_msg);
+  assert( OverallTimeStatsName.size() == OverallTimeStats::NUM_TIME_STATS );
 
   //====================================================================================================//
   // Set up timing
@@ -170,12 +200,15 @@ int main(int argc, char** argv) {
 
   // Also save copies for calculating other objective values
   // We only need these if cuts other than VPCs are generated
-  // solver      ::  stores the cuts we actually want to "count"
-  // GMICSolver  ::  only GMICs
-  // VPCSolver   ::  if GMICs count, this is only VPCs; otherwise, it is both GMICs and VPCs
+  // The "solver" is the one used for generating cuts for each round
+  // solver        ::  stores the cuts we actually want to "count"
+  // GMICSolver    ::  only GMICs
+  // VPCSolver     ::  if GMICs count, this is only VPCs; otherwise, it is both GMICs and VPCs
+  // allCutsSolver ::  all generated cuts
   if (params.get(GOMORY) != 0) {
     GMICSolver = solver->clone();
     VPCSolver = solver->clone();
+    allCutsSolver = solver->clone();
   }
 
   // Possibly preprocess instead of doing cuts
@@ -189,13 +222,7 @@ int main(int argc, char** argv) {
     return wrapUp(0, argc, argv);
   }
 
-  // Now do rounds of cuts, until a limit is reached (e.g., time, number failures, number cuts, or all rounds are exhausted)
-  boundInfo.num_vpc = 0, boundInfo.num_gmic = 0;
-  int num_rounds = params.get(ROUNDS);
-  std::vector<OsiCuts> vpcs_by_round(num_rounds);
-  cutInfoVec.resize(num_rounds);
-  int round_ind = 0;
-  int num_disj = 0;
+  // Process disjunction options, if different by round
   std::vector<int> disjOptions;
   if (!params.get(stringParam::DISJ_OPTIONS).empty()) {
     // TODO
@@ -203,13 +230,119 @@ int main(int argc, char** argv) {
     writeErrorToLog(errorstring, params.logfile);
     return wrapUp(1, argc, argv);
   }
+
+  // Information from each round of cuts will be saved and optionally printed
+  int num_rounds = params.get(ROUNDS); // not const in case we do not exhaust the limit
+#ifndef CALC_COND_NUM
+  const bool COMPUTE_COND_NUM = false;
+#else
+  const bool COMPUTE_COND_NUM = false;
+#endif
+  std::vector<OsiCuts> vpcs_by_round(num_rounds);
+  cutInfoVec.resize(num_rounds);
+  boundInfoVec.resize(num_rounds);
+  std::vector<double> gmic_gen_time_by_round(num_rounds);
+  std::vector<double> gmic_apply_time_by_round(num_rounds);
+  //std::vector<double> gmic_cond_num1_by_round(num_rounds);
+  std::vector<double> gmic_cond_num2_by_round;
+  std::vector<double> vpc_gen_time_by_round(num_rounds);
+  std::vector<double> vpc_apply_time_by_round(num_rounds);
+  //std::vector<double> vpc_cond_num1_by_round(num_rounds);
+  std::vector<double> vpc_cond_num2_by_round;
+  if (COMPUTE_COND_NUM) {
+    gmic_cond_num2_by_round.resize(num_rounds);
+    vpc_cond_num2_by_round.resize(num_rounds);
+  }
+
+  int round_ind = 0;
+  int num_disj = 0;
+
+  // If requested, open cutrounds_logfile file then print header and round "0" information
+  FILE* cutrounds_logfile = NULL;
+  const int NUM_CUTROUND_INFO = 1 + 3 + 2*3 + 2*COMPUTE_COND_NUM; // round + 3 x bound + 2 x (num cuts, gen time, apply time) + 2 x cond_num2 when computed
+  if (use_temp_option(params.get(intParam::TEMP), TempOptions::PRINT_BOUND_BY_ROUND)) {
+    std::string fileWithCuts = "cutrounds";
+    const std::string logname = params.get(stringParam::LOGFILE);
+    if (!logname.empty()) {
+      std::string log_dir, log_instname, log_in_file_ext;
+      parseFilename(log_dir, log_instname, log_in_file_ext, logname, params.logfile);
+      fileWithCuts = log_dir + "/" + fileWithCuts + "_" + instname;
+    }
+    fileWithCuts += "_d" + stringValue(params.get(intParam::DISJ_TERMS), "%d");
+    fileWithCuts += ".csv";
+    cutrounds_logfile = fopen(fileWithCuts.c_str(), "w");
+    if (!cutrounds_logfile) {
+      error_msg(errorstring, "Unable to open file: %s.\n", fileWithCuts.c_str());
+      writeErrorToLog(errorstring, params.logfile);
+      exit(1);
+    }
+    printf("\n## Round-by-round information will be saved to file: %s. ##\n", fileWithCuts.c_str());
+
+    int count = 0;
+    fprintf(cutrounds_logfile, "%s,", instname.c_str()); count++;
+    fprintf(cutrounds_logfile, "bound_gmic,"); count++;
+    fprintf(cutrounds_logfile, "bound_vpc,"); count++;
+    fprintf(cutrounds_logfile, "bound_all_cuts,"); count++;
+    fprintf(cutrounds_logfile, "num_gmic,"); count++;
+    fprintf(cutrounds_logfile, "gmic_gen_time,"); count++;
+    fprintf(cutrounds_logfile, "gmic_apply_time,"); count++;
+    //fprintf(cutrounds_logfile, "gmic_cond_num1,"); count++;
+    if (COMPUTE_COND_NUM) { fprintf(cutrounds_logfile, "gmic_cond_num2,"); count++; }
+    fprintf(cutrounds_logfile, "num_vpc,"); count++;
+    fprintf(cutrounds_logfile, "vpc_gen_time,"); count++;
+    fprintf(cutrounds_logfile, "vpc_apply_time,"); count++;
+    //fprintf(cutrounds_logfile, "vpc_cond_num1,"); count++;
+    if (COMPUTE_COND_NUM) { fprintf(cutrounds_logfile, "vpc_cond_num2,"); count++; }
+    fprintf(cutrounds_logfile, "\n");
+    assert(count == NUM_CUTROUND_INFO);
+
+    //const double init_cond_num1 = compute_condition_number(solver,1);
+#ifdef CALC_COND_NUM
+    const double init_cond_num2 = COMPUTE_COND_NUM ? compute_condition_number(solver,2) : 0.0;
+#endif
+
+    count = 0;
+    const double initSolveTime = timer.get_total_time(OverallTimeStats::INIT_SOLVE_TIME);
+    fprintf(cutrounds_logfile, "%d,", 0); count++;
+    fprintf(cutrounds_logfile, "%s,", stringValue(boundInfo.lp_obj,"%.20f").c_str()); count++;
+    fprintf(cutrounds_logfile, "%s,", stringValue(boundInfo.lp_obj,"%.20f").c_str()); count++;
+    fprintf(cutrounds_logfile, "%s,", stringValue(boundInfo.lp_obj,"%.20f").c_str()); count++;
+    fprintf(cutrounds_logfile, "%d,", 0); count++;
+    fprintf(cutrounds_logfile, "%f,", 0.); count++;
+    fprintf(cutrounds_logfile, "%f,", initSolveTime); count++;
+    //fprintf(cutrounds_logfile, "%s,", stringValue(init_cond_num1, "%.20f").c_str()); count++;
+#ifdef CALC_COND_NUM
+    if (COMPUTE_COND_NUM) { fprintf(cutrounds_logfile, "%s,", stringValue(init_cond_num2, "%.20f").c_str()); count++; }
+#endif
+    fprintf(cutrounds_logfile, "%d,", 0); count++;
+    fprintf(cutrounds_logfile, "%f,", 0.); count++;
+    fprintf(cutrounds_logfile, "%f,", initSolveTime); count++;
+#ifdef CALC_COND_NUM
+    //fprintf(cutrounds_logfile, "%s,", stringValue(init_cond_num1, "%.20f").c_str()); count++;
+    if (COMPUTE_COND_NUM) { fprintf(cutrounds_logfile, "%s,", stringValue(init_cond_num2, "%.20f").c_str()); count++; }
+#endif
+    fprintf(cutrounds_logfile, "\n");
+    assert(count == NUM_CUTROUND_INFO);
+  } // print header to cutrounds_logfile file
+
+  //====================================================================================================//
+  // Now do rounds of cuts, until a limit is reached (e.g., time, number failures, number cuts, or all rounds are exhausted)
+  boundInfo.num_vpc = 0, boundInfo.num_gmic = 0;
   for (round_ind = 0; round_ind < num_rounds; ++round_ind) {
     if (num_rounds > 1) {
       printf("\n## Starting round %d/%d. ##\n", round_ind+1, num_rounds);
     }
-    timer.start_timer(OverallTimeStats::VPC_GEN_TIME);
+
+    boundInfoVec[round_ind].lp_obj = solver->getObjValue();
+    boundInfoVec[round_ind].num_vpc = 0;
+    boundInfoVec[round_ind].num_gmic = 0;
 
     if (params.get(GOMORY) == -1 || params.get(GOMORY) == 1) {
+      // Generate GMICs using CglGMI,
+      // based on solver (which contains all cuts)
+      const double gmic_gen_start_time = timer.get_total_time(OverallTimeStats::GOMORY_GEN_TIME);
+      timer.start_timer(OverallTimeStats::GOMORY_GEN_TIME);
+
       OsiCuts currGMICs;
       CglGMI GMIGen;
       // Set parameters so that many GMIs are generated
@@ -217,94 +350,241 @@ int main(int argc, char** argv) {
       GMIGen.getParam().setMAX_SUPPORT_REL(0.5);
       //GMIGen.getParam().setMAXDYN(params.get(doubleConst::MAX_DYN));
       GMIGen.getParam().setMAXDYN(solver->getInfinity());
+      GMIGen.getParam().setMINVIOL(0.0);
       GMIGen.generateCuts(*solver, currGMICs);
-      gmics.insert(currGMICs);
+
+      timer.end_timer(OverallTimeStats::GOMORY_GEN_TIME);
+      const double gmic_gen_end_time = timer.get_total_time(OverallTimeStats::GOMORY_GEN_TIME);
+      gmic_gen_time_by_round[round_ind] = gmic_gen_end_time - gmic_gen_start_time;
+
+      // Apply GMICs to solvers
       boundInfo.num_gmic += currGMICs.sizeCuts();
+      boundInfoVec[round_ind].num_gmic += currGMICs.sizeCuts();
+      gmics.insert(currGMICs);
+
+      // For timing, only count first application, to solver with only GMICs,
+      // to get a sense of how a single LP relaxation is affected
+      timer.start_timer(OverallTimeStats::GOMORY_APPLY_TIME);
+      const double gmic_apply_start_time = timer.get_total_time(OverallTimeStats::GOMORY_APPLY_TIME);
       applyCutsCustom(GMICSolver, currGMICs, params.logfile);
+      const double gmic_apply_end_time = timer.get_total_time(OverallTimeStats::GOMORY_APPLY_TIME);
+      timer.end_timer(OverallTimeStats::GOMORY_APPLY_TIME);
+      gmic_apply_time_by_round[round_ind] = gmic_apply_end_time - gmic_apply_start_time;
+
+      // Update bound
       boundInfo.gmic_obj = GMICSolver->getObjValue();
+      boundInfoVec[round_ind].gmic_obj = boundInfo.gmic_obj;
+
+      // Update condition numbers
+#ifdef CALC_COND_NUM
+      //gmic_cond_num1_by_round[round_ind] = compute_condition_number(GMICSolver, 1);
+      if (COMPUTE_COND_NUM) {
+        gmic_cond_num2_by_round[round_ind] = compute_condition_number(GMICSolver, 2);
+      }
+#endif
+
       if (params.get(GOMORY) > 0) {
         applyCutsCustom(solver, currGMICs, params.logfile);
       }
-      if (params.get(GOMORY) < 0) {
-        applyCutsCustom(VPCSolver, currGMICs, params.logfile);
-      }
-    }
+      applyCutsCustom(allCutsSolver, currGMICs, params.logfile);
+    } // Gomory cut generation
 
-    if (disjOptions.size() > round_ind) {
+    if ((int) disjOptions.size() > round_ind) {
       params.set(intParam::DISJ_TERMS, disjOptions[round_ind]);
     }
-    CglVPC gen(params, round_ind);
+    const bool SHOULD_GENERATE_VPCS = (params.get(intParam::DISJ_TERMS) != 0);
+    if (SHOULD_GENERATE_VPCS) {
+      const double vpc_start_time = timer.get_total_time(OverallTimeStats::VPC_GEN_TIME);
+      timer.start_timer(OverallTimeStats::VPC_GEN_TIME);
+      CglVPC gen(params, round_ind);
 
-    // Store the initial solve time in order to set a baseline for the PRLP resolve time
-    gen.timer.add_value(
-        CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::INIT_SOLVE_TIME)],
-        timer.get_value(OverallTimeStats::INIT_SOLVE_TIME));
+      // Store the initial solve time in order to set a baseline for the PRLP resolve time
+      gen.timer.add_value(
+          CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::INIT_SOLVE_TIME)],
+          timer.get_value(OverallTimeStats::INIT_SOLVE_TIME));
 
-    // Proceed with custom disjunctions if specified; otherwise, the disjunction will be set up in the CglVPC class
-    if (params.get(MODE) != static_cast<int>(CglVPC::VPCMode::CUSTOM)) {
-      gen.generateCuts(*solver, vpcs_by_round[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
-      exitReason = gen.exitReason;
-      if (gen.disj()) {
-        num_disj++;
-        boundInfo.num_vpc += gen.num_cuts; // TODO: does this need to be in this if, and do we need to subtract initial num cuts?
-        if (boundInfo.best_disj_obj < gen.disj()->best_obj)
-          boundInfo.best_disj_obj = gen.disj()->best_obj;
-        if (boundInfo.worst_disj_obj < gen.disj()->worst_obj)
-          boundInfo.worst_disj_obj = gen.disj()->worst_obj;
+      // Proceed with custom disjunctions if specified; otherwise, the disjunction will be set up in the CglVPC class
+      if (params.get(MODE) != static_cast<int>(CglVPC::VPCMode::CUSTOM)) {
+        gen.generateCuts(*solver, vpcs_by_round[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
+        exitReason = gen.exitReason;
+        if (gen.disj()) {
+          Disjunction* disj = gen.disj();
+          num_disj++;
+          boundInfo.num_vpc += gen.num_cuts; // TODO: does this need to be in this if, and do we need to subtract initial num cuts?
+          boundInfoVec[round_ind].num_vpc += gen.num_cuts;
+          if (boundInfo.best_disj_obj < disj->best_obj) {
+            boundInfo.best_disj_obj = disj->best_obj;
+            boundInfoVec[round_ind].best_disj_obj = disj->best_obj;
+          }
+          if (boundInfo.worst_disj_obj < disj->worst_obj) {
+            boundInfo.worst_disj_obj = disj->worst_obj;
+            boundInfoVec[round_ind].worst_disj_obj = disj->worst_obj;
+          }
+          boundInfo.num_root_bounds_changed = disj->common_changed_var.size();
+          boundInfo.root_obj = disj->root_obj;
+        }
+        updateDisjInfo(disjInfo, num_disj, gen);
+        updateCutInfo(cutInfoVec[round_ind], gen);
+      } // check if mode is _not_ CUSTOM
+      else {
+        doCustomRoundOfCuts(round_ind, vpcs_by_round[round_ind], gen, num_disj);
+      } // check if mode is CUSTOM
+
+      // Update timing from underlying generator
+      const TimeStats& vpctimer = gen.timer;
+      std::vector<CglVPC::VPCTimeStats> vpc_stats = {
+        CglVPC::VPCTimeStats::INIT_SOLVE_TIME,
+        CglVPC::VPCTimeStats::DISJ_SETUP_TIME,
+        CglVPC::VPCTimeStats::DISJ_GEN_TIME,
+        CglVPC::VPCTimeStats::PRLP_SETUP_TIME,
+        CglVPC::VPCTimeStats::PRLP_SOLVE_TIME,
+        CglVPC::VPCTimeStats::GEN_CUTS_TIME,
+      };
+      std::vector<OverallTimeStats> overall_stats = {
+        OverallTimeStats::VPC_INIT_SOLVE_TIME,
+        OverallTimeStats::VPC_DISJ_SETUP_TIME,
+        OverallTimeStats::VPC_DISJ_GEN_TIME,
+        OverallTimeStats::VPC_PRLP_SETUP_TIME,
+        OverallTimeStats::VPC_PRLP_SOLVE_TIME,
+        OverallTimeStats::VPC_GEN_CUTS_TIME
+      };
+      for (int i = 0; i < (int) vpc_stats.size(); i++) {
+        const CglVPC::VPCTimeStats stat = vpc_stats[i];
+        const OverallTimeStats overall_stat = overall_stats[i];
+        const clock_t currtimevalue = vpctimer.get_value(CglVPC::VPCTimeStatsName[static_cast<int>(stat)]);
+        timer.add_value(overall_stat, currtimevalue);
       }
-      updateDisjInfo(disjInfo, num_disj, gen);
-      updateCutInfo(cutInfoVec[round_ind], gen);
-    } // check if mode is _not_ CUSTOM
-    else {
-      doCustomRoundOfCuts(round_ind, vpcs_by_round[round_ind], gen, num_disj);
-    } // check if mode is CUSTOM
-    timer.end_timer(OverallTimeStats::VPC_GEN_TIME);
 
-    timer.start_timer(OverallTimeStats::VPC_APPLY_TIME);
-    applyCutsCustom(solver, vpcs_by_round[round_ind], params.logfile);
-    if (params.get(GOMORY) > 0) { // GMICs added to solver, so VPCSolver tracks values without GMICs
-      boundInfo.gmic_vpc_obj = solver->getObjValue();
-      applyCutsCustom(VPCSolver, vpcs_by_round[round_ind], params.logfile);
-      boundInfo.vpc_obj = VPCSolver->getObjValue();
-      boundInfo.all_cuts_obj = boundInfo.gmic_vpc_obj;
+      vpcs.insert(vpcs_by_round[round_ind]);
+      timer.end_timer(OverallTimeStats::VPC_GEN_TIME);
+      const double vpc_end_time = timer.get_total_time(OverallTimeStats::VPC_GEN_TIME);
+      vpc_gen_time_by_round[round_ind] = vpc_end_time - vpc_start_time;
+    } // check if SHOULD_GENERATE_VPCS (num disj terms requested != 0)
+    else { // else update cutInfo with blanks
+      setCutInfo(cutInfoVec[round_ind], 0, NULL);
     }
-    else if (params.get(GOMORY) < 0) {
-      boundInfo.vpc_obj = solver->getObjValue();
-      applyCutsCustom(VPCSolver, vpcs_by_round[round_ind], params.logfile);
-      boundInfo.gmic_vpc_obj = VPCSolver->getObjValue();
-      boundInfo.all_cuts_obj = boundInfo.gmic_vpc_obj;
-    } else {
-      boundInfo.vpc_obj = solver->getObjValue();
-      boundInfo.all_cuts_obj = boundInfo.vpc_obj;
+
+    // To track time to apply VPCs, need to be careful of which solver they are being added to
+    // If GOMORY = 0, then no GMICs generated; solver is only one that exists
+    //   (VPCSolver and allCutsSolver are *not* created; but if they were, it would hold that solver = VPCSolver = allCutsSolver)
+    // If GOMORY = 1, then solver has GMICs from this round applied already (will be identical to allCutsSolver)
+    // If GOMORY = -1, then solver has only VPCs from prior rounds (will be identical to VPCSolver)
+    // Recall that "solver" is the one used for generating cuts for each round
+    timer.start_timer(OverallTimeStats::TOTAL_APPLY_TIME);
+    if (vpcs_by_round[round_ind].sizeCuts() > 0) {
+      if (params.get(GOMORY) != 0) { // GMICs generated, so need to track VPC-only objective with VPCSolver
+        // Apply to "VPCSolver", which tracks effect of VPCs without other cuts
+        const double vpc_apply_start_time = timer.get_total_time(OverallTimeStats::VPC_APPLY_TIME);
+        timer.start_timer(OverallTimeStats::VPC_APPLY_TIME);
+        applyCutsCustom(VPCSolver, vpcs_by_round[round_ind], params.logfile);
+        timer.end_timer(OverallTimeStats::VPC_APPLY_TIME);
+        const double vpc_apply_end_time = timer.get_total_time(OverallTimeStats::VPC_APPLY_TIME);
+        vpc_apply_time_by_round[round_ind] = vpc_apply_end_time - vpc_apply_start_time;
+
+        // Apply to "solver" which has either only VPCs or also GMICs depending on GOMORY parameter
+        // When GOMORY = -1, VPCSolver and solver are identical
+        applyCutsCustom(solver, vpcs_by_round[round_ind], params.logfile);
+
+        // Apply to "allCutsSolver", which has all cuts
+        // When GOMORY = 1, allCutsSolver and solver are identical
+        applyCutsCustom(allCutsSolver, vpcs_by_round[round_ind], params.logfile);
+      } else {
+        // Else, no GMICs generated; only solver needed
+        const double vpc_apply_start_time = timer.get_total_time(OverallTimeStats::VPC_APPLY_TIME);
+        timer.start_timer(OverallTimeStats::VPC_APPLY_TIME);
+        applyCutsCustom(solver, vpcs_by_round[round_ind], params.logfile);
+        timer.end_timer(OverallTimeStats::VPC_APPLY_TIME);
+        const double vpc_apply_end_time = timer.get_total_time(OverallTimeStats::VPC_APPLY_TIME);
+        vpc_apply_time_by_round[round_ind] = vpc_apply_end_time - vpc_apply_start_time;
+      }
+    } // apply VPCs if any were generated
+    timer.end_timer(OverallTimeStats::TOTAL_APPLY_TIME);
+
+    // Update bound info
+    boundInfo.vpc_obj = (params.get(GOMORY) != 0) ? VPCSolver->getObjValue() : solver->getObjValue();
+    boundInfo.gmic_vpc_obj = (params.get(GOMORY) != 0) ? allCutsSolver->getObjValue() : solver->getObjValue();
+    boundInfo.all_cuts_obj = boundInfo.gmic_vpc_obj;
+    boundInfoVec[round_ind].gmic_vpc_obj = boundInfo.gmic_vpc_obj;
+    boundInfoVec[round_ind].vpc_obj = boundInfo.vpc_obj;
+    boundInfoVec[round_ind].all_cuts_obj = boundInfo.all_cuts_obj;
+
+    // Update condition number for VPCs
+#ifdef CALC_COND_NUM
+    //vpc_cond_num1_by_round[round_ind] = compute_condition_number((params.get(GOMORY) != 0) ? VPCSolver : solver, 1);
+    if (COMPUTE_COND_NUM) {
+      vpc_cond_num2_by_round[round_ind] = compute_condition_number((params.get(GOMORY) != 0) ? VPCSolver : solver, 2);
     }
-    timer.end_timer(OverallTimeStats::VPC_APPLY_TIME);
+#endif
 
-    vpcs.insert(vpcs_by_round[round_ind]);
-
+    printf("\n*** INFO:\n");
     printf(
-        "\n## Round %d/%d: Completed round of VPC generation (exit reason: %s). # cuts generated = %d.\n",
+        "Round %d/%d: Completed round of VPC generation (exit reason: %s).\n", 
         round_ind + 1, params.get(ROUNDS),
-        CglVPC::ExitReasonName[static_cast<int>(exitReason)].c_str(),
-        vpcs_by_round[round_ind].sizeCuts());
+        CglVPC::ExitReasonName[static_cast<int>(exitReason)].c_str());
+    printf(
+        "VPCs generated = %d. GMICs generated = %d.\n",
+        vpcs_by_round[round_ind].sizeCuts(),
+        boundInfoVec[round_ind].num_gmic);
     fflush(stdout);
-    printf("Initial obj value: %1.6f. New obj value: %s. Disj lb: %s. ##\n",
-        boundInfo.lp_obj, stringValue(solver->getObjValue(), "%1.6f").c_str(),
+    printf("Obj value: %s. Initial obj value: %s. Disj lb: %s.\n", 
+        stringValue(solver->getObjValue(), "%1.6f").c_str(),
+        stringValue(boundInfo.lp_obj, "%1.6f").c_str(), 
         stringValue(boundInfo.best_disj_obj, "%1.6f").c_str());
+    printf("Elapsed time: %1.2f seconds. Time limit = %1.2f seconds.\n",
+        timer.get_total_time(OverallTimeStatsName[OverallTimeStats::TOTAL_TIME]),
+        params.get(TIMELIMIT));
+    printf("***\n");
+
+    // Print information from this round of cuts
+    if (use_temp_option(params.get(intParam::TEMP), TempOptions::PRINT_BOUND_BY_ROUND)) {
+      int count = 0;
+      fprintf(cutrounds_logfile, "%d,", round_ind+1); count++;
+      fprintf(cutrounds_logfile, "%s,", stringValue(boundInfoVec[round_ind].gmic_obj,"%.20f").c_str()); count++;
+      fprintf(cutrounds_logfile, "%s,", stringValue(boundInfoVec[round_ind].vpc_obj,"%.20f").c_str()); count++;
+      fprintf(cutrounds_logfile, "%s,", stringValue(boundInfoVec[round_ind].all_cuts_obj,"%.20f").c_str()); count++;
+      fprintf(cutrounds_logfile, "%d,", boundInfoVec[round_ind].num_gmic); count++;
+      fprintf(cutrounds_logfile, "%.20f,", gmic_gen_time_by_round[round_ind]); count++;
+      fprintf(cutrounds_logfile, "%.20f,", gmic_apply_time_by_round[round_ind]); count++;
+#ifdef CALC_COND_NUM
+      //fprintf(cutrounds_logfile, "%s,", stringValue(gmic_cond_num1_by_round[round_ind], "%.20f").c_str()); count++;
+      if (COMPUTE_COND_NUM) { fprintf(cutrounds_logfile, "%s,", stringValue(gmic_cond_num2_by_round[round_ind], "%.20f").c_str()); count++; }
+#endif
+      fprintf(cutrounds_logfile, "%d,", boundInfoVec[round_ind].num_vpc); count++;
+      fprintf(cutrounds_logfile, "%.20f,", vpc_gen_time_by_round[round_ind]); count++;
+      fprintf(cutrounds_logfile, "%.20f,", vpc_apply_time_by_round[round_ind]); count++;
+#ifdef CALC_COND_NUM
+      //fprintf(cutrounds_logfile, "%s,", stringValue(vpc_cond_num1_by_round[round_ind], "%.20f").c_str()); count++;
+      if (COMPUTE_COND_NUM) { fprintf(cutrounds_logfile, "%s,", stringValue(vpc_cond_num2_by_round[round_ind], "%.20f").c_str()); count++; }
+#endif
+      fprintf(cutrounds_logfile, "\n");
+      assert(count == NUM_CUTROUND_INFO);
+    } // print info from this round
+
+    // Exit early if reached time limit
+    if (timer.reachedTimeLimit(OverallTimeStatsName[OverallTimeStats::TOTAL_TIME], params.get(TIMELIMIT))) {
+      printf("\n*** INFO: Reached time limit (current time = %f, time limit = %f).\n",
+          timer.get_total_time(OverallTimeStatsName[OverallTimeStats::TOTAL_TIME]), params.get(TIMELIMIT));
+      break;
+    }
 
     // Exit early from rounds of cuts if no cuts generated or solver is not optimal
-    if (gen.num_cuts == 0 || !solver->isProvenOptimal()
+    if ((SHOULD_GENERATE_VPCS && vpcs_by_round[round_ind].sizeCuts() == 0)
+        || (!SHOULD_GENERATE_VPCS && boundInfoVec[round_ind].num_gmic == 0)
+        || !solver->isProvenOptimal()
         || isInfinity(std::abs(solver->getObjValue()))
         || exitReason == CglVPC::ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT)
       break;
   } // loop over rounds of cuts
-  if (round_ind < num_rounds)
+  if (round_ind < num_rounds) {
     num_rounds = round_ind+1;
+  }
 
   printf(
-      "\n## Finished VPC generation with %d cuts. Initial obj value: %s. Final obj value: %s. Disj lb: %s. ##\n",
-      boundInfo.num_vpc,
+      "\n## Finished VPC generation with %d VPCs and %d GMICs. Initial obj value: %s. Final VPC obj value: %s. Final all cuts obj value: %s. Disj lb: %s. ##\n",
+      boundInfo.num_vpc, boundInfo.num_gmic,
       stringValue(boundInfo.lp_obj, "%1.6f").c_str(),
       stringValue(boundInfo.vpc_obj, "%1.6f").c_str(),
+      stringValue(boundInfo.all_cuts_obj, "%1.6f").c_str(),
       stringValue(boundInfo.best_disj_obj, "%1.6f").c_str());
 
   //====================================================================================================//
@@ -327,17 +607,26 @@ int main(int argc, char** argv) {
   }
 #endif
 
+  // Print information from each round of cuts
+  if (cutrounds_logfile != NULL) {
+    fclose(cutrounds_logfile);
+  } // print bound by round
+
+  //====================================================================================================//
   // Do analyses in preparation for printing
   setCutInfo(cutInfo, num_rounds, cutInfoVec.data());
   analyzeStrength(params, 
       params.get(GOMORY) == 0 ? NULL : GMICSolver,
       params.get(GOMORY) <= 0 ? solver : VPCSolver, 
-      params.get(GOMORY) >= 0 ? solver : VPCSolver, 
+      params.get(GOMORY) >= 0 ? solver : allCutsSolver, 
       cutInfoGMICs, cutInfo, 
       params.get(GOMORY) == 0 ? NULL : &gmics, 
       &vpcs,
       boundInfo, cut_output);
   analyzeBB(params, info_nocuts, info_mycuts, info_allcuts, bb_output);
+  
+  //====================================================================================================//
+  // Finish up
   return wrapUp(0, argc, argv);
 } /* main */
 
@@ -587,6 +876,9 @@ int wrapUp(int retCode, int argc, char** argv) {
   if (VPCSolver) {
     delete VPCSolver;
   }
+  if (allCutsSolver) {
+    delete allCutsSolver;
+  }
 
   return retCode;
 } /* wrapUp */
@@ -718,11 +1010,11 @@ int processArgs(int argc, char** argv) {
       {"optfile",               required_argument, 0, 'o'},
       {"partial_bb_strategy",   required_argument, 0, 's'},
       {"partial_bb_num_strong", required_argument, 0, 'S'},
+      {"partial_bb_keep_pruned",required_argument, 0, 'S'*'1'},
       {"partial_bb_timelimit",  required_argument, 0, 'T'},
       {"preprocess",            required_argument, 0, 'p'*'1'},
       {"rounds",                required_argument, 0, 'r'},
       {"prlp_timelimit",        required_argument, 0, 'R'},
-      {"save_full_tree",        required_argument, 0, 'F'},
       {"solfile",               required_argument, 0, 's'*'1'},
       {"temp",                  required_argument, 0, 't'*'1'},
       {"tikz",                  required_argument, 0, 't'*'2'},
@@ -1016,16 +1308,6 @@ int processArgs(int argc, char** argv) {
                   params.set(stringParam::FILENAME, optarg);
                   break;
                 }
-      case 'F': {
-                  int val;
-                  intParam param = intParam::SAVE_FULL_TREE;
-                  if (!parseInt(optarg, val)) {
-                    error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
-                    exit(1);
-                  }
-                  params.set(param, val);
-                  break;
-      }
       case 'g': {
                   int val;
                   intParam param = intParam::GOMORY;
@@ -1081,6 +1363,16 @@ int processArgs(int argc, char** argv) {
       case 'S': {
                   int val;
                   intParam param = intParam::PARTIAL_BB_NUM_STRONG;
+                  if (!parseInt(optarg, val)) {
+                    error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                    exit(1);
+                  }
+                  params.set(param, val);
+                  break;
+                }
+      case 'S'*'1': {
+                  int val;
+                  intParam param = intParam::PARTIAL_BB_KEEP_PRUNED_NODES;
                   if (!parseInt(optarg, val)) {
                     error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
                     exit(1);

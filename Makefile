@@ -7,6 +7,7 @@
 #   make --warn-undefined-variables
 ### Shell type ###
 # REMEMBER: use hard tabs only in a makefile
+HOSTNAME := $(shell hostname)
 UNAME := $(shell uname)
 ifeq ($(UNAME),Linux)
   CC     = g++
@@ -30,9 +31,14 @@ UNIT_TEST_FILE = TestVPCEventHandler.cpp
 ### Variables user should set ###
 PROJ_DIR=${PWD}
 COIN_VERSION = trunk
-COIN_OR = $(PROJ_DIR)/lib/Cbc-$(COIN_VERSION)
 GUROBI_DIR = /Library/gurobi912
 GUROBI_LINK="gurobi91"
+ifeq (${COIN_OR_HOME},)
+	COIN_OR = $(PROJ_DIR)/lib/Cbc-$(COIN_VERSION)
+else
+	COIN_OR = ${COIN_OR_HOME}
+endif
+#COIN_OR = ${REPOS_DIR}/coin-or/Cbc-trunk_test
 
 ifeq ($(USER),otherperson)
   #COIN_OR = enter/dir/here
@@ -58,13 +64,42 @@ ifeq ($(USER),kazaalek)
 endif
 
 ifeq ($(USER),akazachkov)
-	# HiPerGator
-  ifeq ($(UNAME),Linux)
-	  COIN_OR = ${HOME}/repos/coin-or/Cbc-$(COIN_VERSION)
-    GUROBI_LINK = gurobi95
-    GUROBI_DIR = ${GUROBI_LOCAL}
-		CPLEX_DIR = ${CPLEX_HOME}
-		CONDA_LIB = ${HOME}/.conda/envs/vpc/lib
+	ifeq ($(UNAME),Linux)
+	  not_hpg =
+		ifeq ($(HOSTNAME),ISE-D41L3Q3)
+			not_hpg = true
+		endif
+		ifeq ($(HOSTNAME),rupert1)
+			not_hpg = true
+		endif
+		ifeq ($(HOSTNAME),rupert2)
+			not_hpg = true
+		endif
+		ifeq ($(HOSTNAME),rupert3)
+			not_hpg = true
+		endif
+		ifeq ($(HOSTNAME),rupert4)
+			not_hpg = true
+		endif
+		ifeq ($(HOSTNAME),rupert5)
+			not_hpg = true
+		endif
+		ifeq ($(HOSTNAME),rupert6)
+			not_hpg = true
+		endif
+
+		ifdef not_hpg
+			GUROBI_LINK = gurobi100
+			GUROBI_DIR = ${GUROBI_HOME}
+			CPLEX_DIR = ${CPLEX_HOME}
+		else
+			# HiPerGator
+			COIN_OR = ${HOME}/repos/coin-or/Cbc-$(COIN_VERSION)
+			GUROBI_LINK = gurobi95
+			GUROBI_DIR = ${GUROBI_LOCAL}
+			CPLEX_DIR = ${CPLEX_HOME}
+			CONDA_LIB = ${HOME}/.conda/envs/vpc/lib
+		endif
 	endif
 	# MacStudio
   ifeq ($(UNAME),Darwin)
@@ -97,6 +132,7 @@ USE_GUROBI = 0
 USE_CPLEX  = 0
 USE_CLP_SOLVER = 1
 USE_CPLEX_SOLVER = 0
+CALC_COND_NUM = 0
 
 # Concerning executable
 ifneq ($(BUILD_CONFIG),unit_test)
@@ -139,7 +175,10 @@ SOURCES += \
 
 # For running tests (need not include these or main if releasing code to others)
 DIR_LIST += $(SRC_DIR)/test
-SOURCES += test/analysis.cpp test/BBHelper.cpp test/DisjunctionHelper.cpp
+SOURCES += test/analysis.cpp test/BBHelper.cpp test/DisjunctionHelper.cpp 
+ifeq ($(CALC_COND_NUM), 1)
+	SOURCES += test/condition_number.cpp
+endif
 
 ### Set build values based on user variables ###
 ifneq ($(BUILD_CONFIG),release)
@@ -205,6 +244,9 @@ ifeq ($(COIN_VERSION),2.10)
 endif
 ifeq ($(COIN_VERSION),trunk)
   DEFS += -DCBC_VERSION_210PLUS -DCBC_TRUNK -DSAVE_NODE_INFO
+endif
+ifeq ($(CALC_COND_NUM),1)
+	DEFS += -DCALC_COND_NUM
 endif
 
 EXECUTABLE = $(OUT_DIR)/$(EXECUTABLE_STUB)

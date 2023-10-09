@@ -47,7 +47,7 @@ void setCompNBCoorPoint(CoinPackedVector& vec, double& objViolation,
   // We will not add the tiny indices + values until the end, when we check if they are necessary
   std::vector<int> tinyIndex;
   std::vector<double> tinyElem;
-  double tinyObjOffset = 0.; // how much c . p changes when tiny values are ignored
+  // double tinyObjOffset = 0.; // how much c . p changes when tiny values are ignored
   double nonTinyObj = 0.;
 
   // All coefficients are going to be nonnegative, since we work in the complemented NB space
@@ -91,7 +91,7 @@ void setCompNBCoorPoint(CoinPackedVector& vec, double& objViolation,
     else if (!isZero(newVal * nonBasicReducedCost[i], params.get(EPS))) {
       tinyIndex.push_back(i);
       tinyElem.push_back(newVal);
-      tinyObjOffset += newVal * nonBasicReducedCost[i];
+      // tinyObjOffset += newVal * nonBasicReducedCost[i];
     } // tiny
   } // end iterating over nonbasic elements from original basis
 
@@ -207,7 +207,7 @@ void setCompNBCoorRay(CoinPackedVector& vec, const double* ray, double& objViola
   // We will not add the tiny indices + values until the end, when we check if they are necessary
   std::vector<int> tinyIndex;
   std::vector<double> tinyElem;
-  double tinyObjOffset = 0.; // how much c . r changes when tiny values are ignored
+  // double tinyObjOffset = 0.; // how much c . r changes when tiny values are ignored
   double nonTinyObj = 0.;
 
   // We loop through the *originally* non-basic variables (at v) to get their ray components
@@ -256,7 +256,7 @@ void setCompNBCoorRay(CoinPackedVector& vec, const double* ray, double& objViola
       else if (!isZero(rayVal * nonBasicReducedCost[c], params.get(doubleConst::RAYEPS))) {
         tinyIndex.push_back(c);
         tinyElem.push_back(rayVal);
-        tinyObjOffset += rayVal * nonBasicReducedCost[c];
+        // tinyObjOffset += rayVal * nonBasicReducedCost[c];
       } // tiny
       /*
       else {
@@ -426,11 +426,11 @@ void setCompNBCoor(
   double nonTinyObj = 0.;
   std::vector<int> tinyIndex;
   std::vector<double> tinyElem;
-  double tinyObjOffset = 0.; // how much c . p changes when tiny values stop being ignored
+  // double tinyObjOffset = 0.; // how much c . p changes when tiny values stop being ignored
 #ifdef TRACE
   std::vector<int> superTinyIndex;
   std::vector<double> superTinyElem;
-  double superTinyObjOffset = 0.;
+  // double superTinyObjOffset = 0.;
 #endif
 
   // All coefficients are going to be nonnegative, since we work in the complemented NB space
@@ -480,13 +480,13 @@ void setCompNBCoor(
     else if (!isZero(newVal * nonBasicReducedCost[i], params.get(EPS))) {
       tinyIndex.push_back(i);
       tinyElem.push_back(newVal);
-      tinyObjOffset += newVal * nonBasicReducedCost[i];
+      // tinyObjOffset += newVal * nonBasicReducedCost[i];
     } // tiny
 #ifdef TRACE
     else if (!isZero(newVal * nonBasicReducedCost[i], 0.0)) {
       superTinyIndex.push_back(i);
       superTinyElem.push_back(newVal);
-      superTinyObjOffset += newVal * nonBasicReducedCost[i];
+      // superTinyObjOffset += newVal * nonBasicReducedCost[i];
     } // super-tiny
 #endif
   } // end iterating over nonbasic elements from original basis

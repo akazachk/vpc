@@ -22,7 +22,7 @@
 using namespace VPCParametersNamespace;
 #include "utility.hpp" // isInfinity, stringValue
 
-const int countBoundInfoEntries = 11;
+const int countBoundInfoEntries = 13;
 const int countGapInfoEntries = 4;
 const int countSummaryBBInfoEntries = 4 * 2;
 const int countFullBBInfoEntries = static_cast<int>(BB_INFO_CONTENTS.size()) * 4 * 2;
@@ -105,13 +105,15 @@ void printHeader(const VPCParameters& params,
     fprintf(logfile, "%s%c", "BEST DISJ OBJ", SEP); count++; // 2
     fprintf(logfile, "%s%c", "WORST DISJ OBJ", SEP); count++; // 3
     fprintf(logfile, "%s%c", "IP OBJ", SEP); count++; // 4
-    fprintf(logfile, "%s%c", "NUM GMIC", SEP); count++; // 5
-    fprintf(logfile, "%s%c", "GMIC OBJ", SEP); count++; // 6
-    fprintf(logfile, "%s%c", "NUM L&PC", SEP); count++; // 7
-    fprintf(logfile, "%s%c", "L&PC OBJ", SEP); count++; // 8
-    fprintf(logfile, "%s%c", "NUM VPC", SEP); count++; // 9
-    fprintf(logfile, "%s%c", "VPC OBJ", SEP); count++; // 10
-    fprintf(logfile, "%s%c", "VPC+GMIC OBJ", SEP); count++; // 11
+    fprintf(logfile, "%s%c", "NUM CHANGED ROOT BOUNDS", SEP); count++; // 5
+    fprintf(logfile, "%s%c", "ROOT OBJ", SEP); count++; // 6
+    fprintf(logfile, "%s%c", "NUM GMIC", SEP); count++; // 7
+    fprintf(logfile, "%s%c", "GMIC OBJ", SEP); count++; // 8
+    fprintf(logfile, "%s%c", "NUM L&PC", SEP); count++; // 9
+    fprintf(logfile, "%s%c", "L&PC OBJ", SEP); count++; // 10
+    fprintf(logfile, "%s%c", "NUM VPC", SEP); count++; // 11
+    fprintf(logfile, "%s%c", "VPC OBJ", SEP); count++; // 12
+    fprintf(logfile, "%s%c", "VPC+GMIC OBJ", SEP); count++; // 13
     assert(count == countBoundInfoEntries);
   } // BOUND INFO
   { // GAP INFO
@@ -277,6 +279,12 @@ void printBoundAndGapInfo(const SummaryBoundInfo& boundInfo, FILE* logfile, cons
     fprintf(logfile, "%s%c", stringValue(boundInfo.worst_disj_obj, "%2.20f").c_str(), SEP); count++;
     if (!isInfinity(std::abs(boundInfo.ip_obj))) {
       fprintf(logfile, "%s%c", stringValue(boundInfo.ip_obj, "%2.20f").c_str(), SEP); count++;
+    } else {
+      fprintf(logfile, "%c", SEP); count++;
+    }
+    fprintf(logfile, "%s%c", stringValue(boundInfo.num_root_bounds_changed).c_str(), SEP); count++;
+    if (!isInfinity(std::abs(boundInfo.root_obj))) {
+      fprintf(logfile, "%s%c", stringValue(boundInfo.root_obj, "%2.20f").c_str(), SEP); count++;
     } else {
       fprintf(logfile, "%c", SEP); count++;
     }
@@ -852,6 +860,16 @@ void analyzeStrength(
         NUM_DIGITS_BEFORE_DEC,
         NUM_DIGITS_AFTER_DEC).c_str());
   output += tmpstring;
+  if (!isInfinity(std::abs(boundInfo.root_obj))) {
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
+        "%-*.*s%s (%d bounds changed)\n", NAME_WIDTH, NAME_WIDTH, "Root: ",
+        stringValue(boundInfo.root_obj, "% -*.*g",
+          INF,
+          NUM_DIGITS_BEFORE_DEC,
+          NUM_DIGITS_AFTER_DEC).c_str(),
+        boundInfo.num_root_bounds_changed);
+    output += tmpstring;
+  }
   if (!isInfinity(std::abs(boundInfo.gmic_obj))) {
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
         "%-*.*s%s (%d cuts", NAME_WIDTH, NAME_WIDTH, "GMICs: ",
@@ -864,12 +882,14 @@ void analyzeStrength(
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
         ", %d active GMICs", cutInfoGMICs.num_active_gmic);
     output += tmpstring;
-    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
-        ", %d active VPCs", cutInfoVPCs.num_active_gmic);
-    output += tmpstring;
+    if (vpcs && vpcs->sizeCuts() > 0) {
+      snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
+          ", %d active VPCs", cutInfoVPCs.num_active_gmic);
+      output += tmpstring;
+    }
     output += ")\n";
   }
-  if (!isInfinity(std::abs(boundInfo.vpc_obj))) {
+  if (vpcs && vpcs->sizeCuts() > 0 && !isInfinity(std::abs(boundInfo.vpc_obj))) {
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
         "%-*.*s%s (%d cuts", NAME_WIDTH, NAME_WIDTH, "VPCs: ",
         stringValue(boundInfo.vpc_obj, "% -*.*g",
@@ -1195,6 +1215,10 @@ void setCutInfo(SummaryCutInfo& cutInfo, const int num_rounds,
   cutInfo.numActiveFromHeur.resize(numObjTypes, 0);
   cutInfo.numFails.clear();
   cutInfo.numFails.resize(numFailTypes, 0);
+
+  if (num_rounds == 0 || oldCutInfos == NULL) {
+    return;
+  }
 
   for (int round = 0; round < num_rounds; round++) {
     cutInfo.num_cuts += oldCutInfos[round].num_cuts;

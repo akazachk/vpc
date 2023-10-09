@@ -31,13 +31,14 @@ struct SummaryBoundInfo {
   double lp_obj = std::numeric_limits<double>::max();
   double best_disj_obj = std::numeric_limits<double>::lowest();
   double worst_disj_obj = std::numeric_limits<double>::lowest();
+  double root_obj = std::numeric_limits<double>::lowest();
   double ip_obj = std::numeric_limits<double>::max();
   double gmic_obj = std::numeric_limits<double>::max();
   double lpc_obj = std::numeric_limits<double>::max();
   double vpc_obj = std::numeric_limits<double>::max();
   double gmic_vpc_obj = std::numeric_limits<double>::max();
   double all_cuts_obj = std::numeric_limits<double>::max();
-  int num_gmic = 0, num_lpc = 0, num_vpc = 0;
+  int num_root_bounds_changed = 0, num_gmic = 0, num_lpc = 0, num_vpc = 0;
 }; /* SummaryBoundInfo */
 
 /// @brief Summary statistics for the disjunction generated
