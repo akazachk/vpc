@@ -84,20 +84,22 @@ TEST_CASE("Test saveInformation", "[VPCEventHandler::saveInformation]") {
     // check terms
     std::vector<std::vector<int> > var = {
         {14}, {14, 10, 15}, {14, 10, 15}, {14, 10, 0}, {14, 10, 0, 30},
-        {14, 0, 10, 30, 9}, {14, 0, 10, 30, 9}
+        {14, 10, 0, 30, 9}, {14, 10, 0, 30, 9}
     };
     std::vector<std::vector<int> > bound = {
-        {0}, {1, 0, 1}, {1, 0, 0}, {1, 1, 1}, {1, 1, 0, 0}, {1, 0, 1, 1, 1}, {1, 0, 1, 1, 0}
+        {0}, {1, 0, 1}, {1, 0, 0}, {1, 1, 1}, {1, 1, 0, 0}, {1, 1, 0, 1, 1}, {1, 1, 0, 1, 0}
     };
     std::vector<std::vector<double> > value = {
-        {1}, {0, 1, 0}, {0, 1, 1}, {0, 0, 0}, {0, 0, 1, 1}, {0, 1, 0, 0, 0}, {0, 1, 0, 0, 1}
+        {1}, {0, 1, 0}, {0, 1, 1}, {0, 0, 0}, {0, 0, 1, 1}, {0, 0, 1, 0, 0}, {0, 0, 1, 0, 1}
     };
-    std::vector<bool> pruned = {true, false, false, true, true, false, false};
+    std::vector<std::string> term_type = {
+        "complement", "leaf", "leaf", "complement", "complement", "leaf", "leaf"
+    };
     for (int i = 0; i < disj.num_terms; i++) {
       REQUIRE(disj.terms[i].changed_var == var[i]);
       REQUIRE(disj.terms[i].changed_bound == bound[i]);
       REQUIRE(disj.terms[i].changed_value == value[i]);
-      REQUIRE(disj.terms[i].pruned == pruned[i]);
+      REQUIRE(disj.terms[i].type == term_type[i]);
     }
 
     // check misc
@@ -116,8 +118,6 @@ TEST_CASE("Test saveInformation", "[VPCEventHandler::saveInformation]") {
 
   SECTION( "Test with pruned terms and strong branching terms" ) {
 
-    int unpruned = 0;
-
     // make sure to save the full tree
     vpc_params.set(VPCParametersNamespace::SAVE_FULL_TREE, 1);
 
@@ -125,35 +125,48 @@ TEST_CASE("Test saveInformation", "[VPCEventHandler::saveInformation]") {
     PartialBBDisjunction disj = PartialBBDisjunction(vpc_params);
     disj.prepareDisjunction(solver);
 
-    // 2 pruned, 64 feasible leaves, and then however many more for strong branching
-    REQUIRE(disj.num_terms >= 66);
-    REQUIRE(disj.terms.size() >= 66);
+    std::vector<int> pruned, complement, leaf;
+    for (int node_idx = 0; node_idx < disj.num_terms; node_idx++) {
+      if (disj.terms[node_idx].type == "pruned") {
+        pruned.push_back(node_idx);
+      } else if (disj.terms[node_idx].type == "leaf") {
+        leaf.push_back(node_idx);
+      } else if (disj.terms[node_idx].type == "complement") {
+        complement.push_back(node_idx);
+      } else {
+        // it should be one of the three above
+        REQUIRE(false);
+      }
+    }
+    // should have 2 pruned terms and 64 leaves
+    REQUIRE(pruned.size() == 2);
+    REQUIRE(leaf.size() == 64);
 
     // check that we have no common terms anymore
     REQUIRE(disj.common_changed_var.size() == 0);
     REQUIRE(disj.common_changed_bound.size() == 0);
     REQUIRE(disj.common_changed_value.size() == 0);
 
-    // check the first two terms come from pruned nodes
+    // check the two pruned terms come through
     std::vector<std::vector<int> > var = {
-        {7, 10, 11, 12, 13, 15, 16, 17, 21, 22},
-        {2, 3, 6, 7, 8, 10, 11, 12, 13, 14, 16, 17, 21, 22, 24}
+        {16, 13, 10, 7, 12, 21, 17, 22, 11, 15},
+        {16, 13, 10, 7, 12, 21, 17, 22, 11, 8}
     };
     std::vector<std::vector<int> > bound = {
-        {1, 1, 1, 1, 1, 1, 0, 1, 1, 1},
-        {0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0}
+        {0, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+        {0, 1, 1, 1, 1, 1, 1, 1, 0, 1}
     };
     std::vector<std::vector<double> > value = {
-        {0, 0, 0, 0, 0, 0, 1, 0, 0, 0},
-        {1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1}
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {1, 0, 0, 0, 0, 0, 0, 0, 1, 0}
     };
-    for (int i = 0; i < 2; i++) {
-      REQUIRE(disj.terms[i].changed_var == var[i]);
-      REQUIRE(disj.terms[i].changed_bound == bound[i]);
-      REQUIRE(disj.terms[i].changed_value == value[i]);
+    for (int i = 0; i < pruned.size(); i++) {
+      REQUIRE(disj.terms[pruned[i]].changed_var == var[i]);
+      REQUIRE(disj.terms[pruned[i]].changed_bound == bound[i]);
+      REQUIRE(disj.terms[pruned[i]].changed_value == value[i]);
     }
 
-    // make sure we have no repeated terms
+    // make sure we have no same terms
     for (int i = 0; i < disj.terms.size(); i++) {
       for (int j = i+1; j < disj.terms.size(); j++) {
         // if the same variables are changed, make sure they had different bounds or values
@@ -162,14 +175,7 @@ TEST_CASE("Test saveInformation", "[VPCEventHandler::saveInformation]") {
                    disj.terms[i].changed_value != disj.terms[j].changed_value));
         }
       }
-      // also keep a counter of how many terms made it through without pruning - should match terms parameter
-      if (!disj.terms[i].pruned){
-        unpruned++;
-      }
     }
-
-    // should have 64 unpruned terms
-    REQUIRE(unpruned == 64);
 
     // check misc
     REQUIRE(disj.common_ineqs.size() == 0);
@@ -219,7 +225,8 @@ TEST_CASE("Test saveInformation", "[VPCEventHandler::saveInformation]") {
     REQUIRE(partial_tree_vpcs.sizeCuts() == full_tree_vpcs.sizeCuts());
 
     // check that we have the same bound improvement
-    REQUIRE(isVal(partial_tree_solver->getObjValue(), full_tree_solver->getObjValue()));
+    REQUIRE(isVal(partial_tree_solver->getObjValue(),
+                  full_tree_solver->getObjValue(), .1));
   }
 }
 

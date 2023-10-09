@@ -38,8 +38,8 @@ public:
   std::vector<int> changed_var; ///< list of indices of variables with changed bounds
   std::vector<int> changed_bound; ///< for each var in #changed_var, which bound was changaed: <= 0: lower bound, 1: upper bound
   std::vector<double> changed_value; ///< new value of the variable
-  bool feasible; ///< whether the term is feasible
-  bool pruned; ///< whether the term was pruned
+  bool is_feasible; ///< whether the term is feasible
+  std::string type; ///< whether the term was pruned, a compliment to tightening, or a leaf
   std::string name; ///< written out form of the disjunctive constraint applied to this term
 #ifdef USE_COIN
   CoinWarmStart* basis = NULL; ///< optional: saved basis for this term (to enable quick warm start)

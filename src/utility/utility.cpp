@@ -741,3 +741,35 @@ void checkColumnAndBound(const OsiSolverInterface* const solver, const int col,
   verify(0 <= col && col < solver->getNumCols(), "col must be a valid column index.");
   verify(solver->isInteger(col), "col must be an integer variable.");
 }
+
+/**
+ * @details sort the encoding of branching decisions by the variable index
+ *
+ * @param vars the indices of variables branched on
+ * @param bounds the directions of branching that occurred
+ * @param vals the values that variables were branched on
+ * @return void
+ */
+void sortBranchingDecisions(std::vector<int>& vars, std::vector<int>& bounds,
+                            std::vector<double>& vals){
+
+  // Create a vector of tuples to store the original values and their indices
+  std::vector<std::tuple<int, int, double>> combined;
+
+  // Fill the combined vector with tuples of vars and their corresponding bounds and vals
+  for (size_t i = 0; i < vars.size(); i++) {
+    combined.emplace_back(vars[i], bounds[i], vals[i]);
+  }
+
+  // Sort the combined vector by the first element (the vars)
+  std::sort(combined.begin(), combined.end(), [](const auto& a, const auto& b) {
+    return std::get<0>(a) < std::get<0>(b);
+  });
+
+  // Extract the sorted values into the original vectors
+  for (size_t i = 0; i < vars.size(); ++i) {
+    vars[i] = std::get<0>(combined[i]);
+    bounds[i] = std::get<1>(combined[i]);
+    vals[i] = std::get<2>(combined[i]);
+  }
+}

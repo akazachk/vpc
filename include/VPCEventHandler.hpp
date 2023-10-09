@@ -203,6 +203,7 @@ protected:
   bool reachedEnd_ = false; ///< are we done?
   bool foundSolution_ = false; ///< was an integer-feasible solution found?
   std::set<int> checked_nodes_; ///< nodes we have already checked for strong branching fixes
+  std::set<int> sorted_nodes_; ///< nodes we have already sorted the branching decisions for
   ///@}
 
   ///@{
@@ -236,12 +237,15 @@ protected:
   /// @brief Save node information before we reach endSearch_
   int saveInformation();
 
+  /// @brief reorder the branching decisions leading to each node in the tree in the order that they occurred
+  void sortBranchingDecisions(const int node_id);
+
   /// @brief Creates a disjunctive term in a generalized enough manner to allow for pruned terms
   bool setupDisjunctiveTerm(
       const SolverInterface* const tmpSolverParent, const std::vector<int>& term_var,
       const std::vector<int>& term_bound, const std::vector<double>& term_val,
-      const int branching_variable = -1, const int branching_bound = -1,
-      const double branching_value = -1, const int orig_node_id = -1);
+      const int branching_variable, const int branching_bound, const double branching_value,
+      const std::string& term_type, const int orig_node_id = -1);
 
   /// @brief Create disjunctive terms due to strong branching on the child node
   void createStrongBranchingTerms(
@@ -260,6 +264,9 @@ protected:
 
   /// @brief Save node information (including those pruned) before we reach endSearch_
   int saveInformationWithPrunes();
+
+  /// @brief check if the disjunction represents the leaves of a full binary tree
+  bool isFullBinaryTree();
 
   //@}
 };

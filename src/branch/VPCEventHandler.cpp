@@ -9,6 +9,7 @@
 #include "PartialBBDisjunction.hpp"
 #include "SolverHelper.hpp"
 #include "utility.hpp"
+#include <algorithm> // for std::find
 #include <memory> // unique_ptr, make_unique (C++14)
 
 #include <OsiAuxInfo.hpp> // solver characteristics OsiBab
@@ -167,7 +168,9 @@ void setPrunedNodeStatistics(NodeStatistics& stats,
   stats.found_integer_solution = solution_is_found || prune_by_integrality;
 
   stats.obj = obj;
-  changedBounds(stats, model->solver(), originalLB, originalUB);
+  if (prune_by_integrality) {
+    changedBounds(stats, model->solver(), originalLB, originalUB);
+  }
 
   stats.status = "unknown";
   if (pruneReason == VPCEventHandler::PruneNodeOption::PRUNE_BY_INFEASIBILITY) {
@@ -1066,6 +1069,7 @@ void VPCEventHandler::initialize(const VPCEventHandler* const source) {
     this->reachedEnd_ = source->reachedEnd_;
     this->foundSolution_ = source->foundSolution_;
     this->checked_nodes_ = source->checked_nodes_;
+    this->sorted_nodes_ = source->sorted_nodes_;
   } else {
     this->owner = NULL;
     this->maxNumLeafNodes_ = 0;
@@ -1091,6 +1095,7 @@ void VPCEventHandler::initialize(const VPCEventHandler* const source) {
     this->reachedEnd_ = false;
     this->foundSolution_ = false;
     this->checked_nodes_ = std::set<int>();
+    this->sorted_nodes_ = std::set<int>();
   }
 } /* initialize */
 
@@ -1439,6 +1444,74 @@ int VPCEventHandler::saveInformation() {
 } /* saveInformation */
 
 /**
+ * @details reorder the branching decisions leading to each node in the tree in
+ * the order that they occurred
+ */
+void VPCEventHandler::sortBranchingDecisions(const int node_id) {
+
+  verify(0 <= node_id && node_id < stats_.size(), "node_id must be in stats_.");
+
+  // declare variables - need orig_id's for the branching decisions
+  int orig_node_id = stats_[node_id].orig_id;
+  // both siblings have same parent so querying with orig_id is fine
+  // we sometimes get the wrong node for parent id if we use node_id
+  int parent_id = stats_[orig_node_id].parent_id;
+  int orig_parent_id = stats_[parent_id].orig_id;
+
+  // if the node has not already been checked
+  if (sorted_nodes_.find(orig_node_id) == sorted_nodes_.end()) {
+
+    // if the unchecked node has a parent that isn't a root child, recurse to it
+    if (orig_parent_id > 0){
+      sortBranchingDecisions(parent_id);
+    }
+
+    // start with the branching decisions decided before the parent node branched
+    std::vector<int> parent_var;
+    std::vector<int> parent_bound;
+    std::vector<double> parent_value;
+    // ignore the branching decisions prior to branching on children of root since
+    // they're stored in common_x
+    if (orig_parent_id > 0){
+      parent_var = stats_[orig_parent_id].changed_var;
+      parent_bound = stats_[orig_parent_id].changed_bound;
+      parent_value = stats_[orig_parent_id].changed_value;
+    }
+
+    // follow up with parent branching choice
+    int bound = stats_[parent_id].way == 1 ? 0 : 1;
+    double val = bound == 0 ? stats_[parent_id].lb : stats_[parent_id].ub;
+    parent_var.push_back(stats_[parent_id].variable);
+    parent_bound.push_back(bound);
+    parent_value.push_back(val);
+
+    // end with bound tightening that occurred at this node prior to branching
+    std::vector<int> differing_indices =
+        findIndicesOfDifference(stats_[orig_node_id].changed_var, parent_var);
+    std::vector<int> node_exclusive_var =
+        subselectVector(stats_[orig_node_id].changed_var, differing_indices);
+    std::vector<int> node_exclusive_bound =
+        subselectVector(stats_[orig_node_id].changed_bound, differing_indices);
+    std::vector<double> node_exclusive_val =
+        subselectVector(stats_[orig_node_id].changed_value, differing_indices);
+
+    // update the stats_ with the sorted branching decisions
+    stats_[orig_node_id].changed_var = parent_var;
+    stats_[orig_node_id].changed_bound = parent_bound;
+    stats_[orig_node_id].changed_value = parent_value;
+    stats_[orig_node_id].changed_var.insert(stats_[orig_node_id].changed_var.end(),
+                                            node_exclusive_var.begin(), node_exclusive_var.end());
+    stats_[orig_node_id].changed_bound.insert(stats_[orig_node_id].changed_bound.end(),
+                                              node_exclusive_bound.begin(), node_exclusive_bound.end());
+    stats_[orig_node_id].changed_value.insert(stats_[orig_node_id].changed_value.end(),
+                                              node_exclusive_val.begin(), node_exclusive_val.end());
+  }
+
+  // mark this node as checked
+  sorted_nodes_.insert(orig_node_id);
+} /* orderBranchingDecisions */
+
+/**
  * @details Creates a disjunctive term in a generalized enough manner to allow
  * for pruned terms
  *
@@ -1450,6 +1523,8 @@ int VPCEventHandler::saveInformation() {
  * If -1, then the term did not have a branching decision made (i.e. was pruned)
  * @param branching_bound: the bound that was changed on the branching variable
  * @param branching_value: the value that the branching variable was set to
+ * @param term_type: Whether or not this term represents a node "pruned" by branch
+ * and bound, a "complement" to a tightened variable between branching, or a "leaf"
  * @param orig_node_id: the id of this term's parent node the first time the parent was processed
  *
  * @return whether or not the term represents a feasible leaf node
@@ -1457,22 +1532,20 @@ int VPCEventHandler::saveInformation() {
 bool VPCEventHandler::setupDisjunctiveTerm(
     const SolverInterface* const tmpSolverParent, const std::vector<int>& term_var,
     const std::vector<int>& term_bound, const std::vector<double>& term_val,
-    const int branching_variable, const int branching_bound,
-    const double branching_value, const int orig_node_id) {
+    const int branching_variable, const int branching_bound, const double branching_value,
+    const std::string& term_type, const int orig_node_id) {
 
   // we assume tmpSolverParent already has the term_ variable bounds applied
   checkBounds(tmpSolverParent, term_var, term_bound, term_val);
   verify(-1 <= orig_node_id && orig_node_id < static_cast<int>(stats_.size()),
          "node_id must be -1 if not in stats_.");
+  verify(term_type == "pruned" || term_type == "complement" || term_type == "leaf",
+         "term_type must be pruned, complement, or leaf.");
+  verify((0 <= orig_node_id) == (term_type == "leaf"),
+         "orig_node_id must be nonnegative if and only if term_type is leaf.");
   if (branching_variable >= 0) {
     checkColumnAndBound(tmpSolverParent, branching_variable, branching_bound);
   }
-
-  // no nodes in stats have id's < 0 - negative number means pruned node
-  bool wasPruned = orig_node_id < 0;
-
-  // represents whether or not the node was unpruned (i.e. leaf node) and ended up being feasible
-  bool unprunedAndFeasible = false;  
   
   // create a copy of the solver so we can add the branching decision and recover the basis
   SolverInterface* tmpSolverNode =
@@ -1483,43 +1556,43 @@ bool VPCEventHandler::setupDisjunctiveTerm(
   tmpSolverNode->resolve();
   enableFactorization(tmpSolverNode, owner->params.get(doubleParam::EPS)); // this may change the solution slightly
 
-  // leave creating term outside of feasibility checks so all get created
-  if (!wasPruned){
-    // if the node represents a leaf and is feasible
-    if (checkSolverOptimality(tmpSolverNode, true)){
-      unprunedAndFeasible = true;
-    } else {
-      this->numLeafNodes_--;
-    }
-  }
-  
   // create the term
   this->owner->num_terms++;
   DisjunctiveTerm term;
-  // todo: check what happens when passing an infeasible term
   term.basis = dynamic_cast<CoinWarmStartBasis*>(tmpSolverNode->getWarmStart());
   term.obj = tmpSolverNode->getObjValue();
-  term.feasible = wasPruned ? tmpSolverNode->isProvenOptimal() : unprunedAndFeasible;
-  term.pruned = wasPruned;
+  term.is_feasible = checkSolverOptimality(tmpSolverNode, true);
+  if (not term.is_feasible){
+    // todo: check what happens when passing an infeasible term
+    printf("hello\n");
+  }
+  term.type = term_type;
   term.changed_var = term_var;
   term.changed_bound = term_bound;
   term.changed_value = term_val;
-  if (branching_variable >= 0){
-    term.changed_var.push_back(branching_variable);
-    term.changed_bound.push_back(branching_bound);
-    term.changed_value.push_back(branching_value);
-  }
-  owner->terms.push_back(term);
+  term.changed_var.push_back(branching_variable);
+  term.changed_bound.push_back(branching_bound);
+  term.changed_value.push_back(branching_value);
 
-  // if this was a feasible leaf, update the dual bound
-  if (unprunedAndFeasible){
-    updateDualBound(orig_node_id, term);
-  }
+  // add the term
+  owner->terms.push_back(term);
 
   // delete the solver
   delete tmpSolverNode;
 
-  return unprunedAndFeasible;
+  if (term.type == "leaf"){
+    if (term.is_feasible){
+      // if this was a feasible leaf, update the dual bound
+      updateDualBound(orig_node_id, term);
+      return true;
+    } else {
+      // decrement the number of leaf nodes if the leaf was infeasible
+      this->numLeafNodes_--;
+    }
+  }
+
+  // return whether or not this was a feasible leaf
+  return false;
 } /* setupDisjunctiveTerm */
 
 /**
@@ -1565,7 +1638,7 @@ void VPCEventHandler::createStrongBranchingTerms(
     double val = child_exclusive_val[idx] + (child_exclusive_bound[idx] == 0 ? -1 : 1);
     // create the disjunctive term for the node pruned by strong branching
     setupDisjunctiveTerm(tmpSolverParent, parent_var, parent_bound, parent_val,
-                         child_exclusive_var[idx], bound, val);
+                         child_exclusive_var[idx], bound, val, "complement");
     // augment the solver and common branching decisions for the next term
     addVarBound(tmpSolverParent, child_exclusive_var[idx], child_exclusive_bound[idx],
                 child_exclusive_val[idx], parent_var, parent_bound, parent_val);
@@ -1595,18 +1668,23 @@ void VPCEventHandler::recursivelyCreateStrongBranchingTerms(
   checkBounds(tmpSolverBase, common_var, common_bound, common_value);
   verify(0 <= node_id && node_id < stats_.size(), "node_id must be in stats_.");
 
-  // declare variables
+  // declare variables - need orig_id's for the branching decisions
   int parent_id = stats_[node_id].parent_id;
+  int orig_parent_id = stats_[parent_id].orig_id;
+  int orig_node_id = stats_[node_id].orig_id;
 
   // if the node has a parent and has not already been checked
-  if (parent_id >= 0 && checked_nodes_.find(node_id) == checked_nodes_.end()){
+  if (parent_id >= 0 && checked_nodes_.find(orig_node_id) == checked_nodes_.end()){
 
     // recurse on the parent node
     recursivelyCreateStrongBranchingTerms(parent_id, common_var, common_bound,
                                           common_value, tmpSolverBase);
 
-    // if the node has more tightened bounds relative to its parent than just its parent's branching choice
-    if (stats_[node_id].changed_var.size() > stats_[parent_id].changed_var.size() + 1){
+    // if the node has more tightened bounds relative to its parent than just its parent's branching choice.
+    // first condition needs to ignore child's of root node bounds b/c it includes root node fixes
+    // which are excluded from all other nodes and accounted for in common_x vectors
+    if ((stats_[orig_node_id].changed_var.size() > 1 && orig_parent_id == 0) ||
+        (stats_[orig_node_id].changed_var.size() > stats_[orig_parent_id].changed_var.size() + 1)){
       SolverInterface* tmpSolver = dynamic_cast<SolverInterface*>(tmpSolverBase->clone());
 
       // create vectors to hold the terms tightened bounds
@@ -1615,26 +1693,30 @@ void VPCEventHandler::recursivelyCreateStrongBranchingTerms(
       std::vector<int> term_var = common_var;
 
       // augment term_x and the solver with parent's bounds prior to when it branched
-      for (int idx = 0; idx < stats_[parent_id].changed_var.size(); idx++){
-        addVarBound(tmpSolver, stats_[parent_id].changed_var[idx],
-                    stats_[parent_id].changed_bound[idx], stats_[parent_id].changed_value[idx],
-                    term_var, term_bound, term_value);
+      // again skip children of root b/c they include root node fixes which were captured in common_x
+      if (orig_parent_id > 0){
+        for (int idx = 0; idx < stats_[orig_parent_id].changed_var.size(); idx++){
+          addVarBound(tmpSolver, stats_[orig_parent_id].changed_var[idx],
+                      stats_[orig_parent_id].changed_bound[idx],
+                      stats_[orig_parent_id].changed_value[idx],
+                      term_var, term_bound, term_value);
+        }
       }
 
       // add parent's bound from branching to term_x and the solver
       addVarBound(tmpSolver, stats_[parent_id].variable, stats_[parent_id].way <= 0 ? 1 : 0,
-                  stats_[parent_id].way <= 0 ? stats_[node_id].ub : stats_[node_id].lb,
+                  stats_[parent_id].way <= 0 ? stats_[parent_id].ub : stats_[parent_id].lb,
                   term_var, term_bound, term_value);
 
       // determine which bounds were set by strong branching on the current node
       std::vector<int> differing_indices =
-          findIndicesOfDifference(stats_[node_id].changed_var, term_var);
+          findIndicesOfDifference(stats_[orig_node_id].changed_var, term_var);
       std::vector<int> child_exclusive_var =
-          subselectVector(stats_[node_id].changed_var, differing_indices);
+          subselectVector(stats_[orig_node_id].changed_var, differing_indices);
       std::vector<int> child_exclusive_bound =
-          subselectVector(stats_[node_id].changed_bound, differing_indices);
+          subselectVector(stats_[orig_node_id].changed_bound, differing_indices);
       std::vector<double> child_exclusive_val =
-          subselectVector(stats_[node_id].changed_value, differing_indices);
+          subselectVector(stats_[orig_node_id].changed_value, differing_indices);
 
       // create disjunctive terms for those found infeasible by strong branching at current node
       createStrongBranchingTerms(child_exclusive_var, child_exclusive_bound,
@@ -1643,7 +1725,7 @@ void VPCEventHandler::recursivelyCreateStrongBranchingTerms(
     }
 
     // add the current node to the set of checked nodes
-    checked_nodes_.insert(node_id);
+    checked_nodes_.insert(orig_node_id);
   }
 }
 
@@ -1690,27 +1772,53 @@ int VPCEventHandler::saveInformationWithPrunes() {
   createStrongBranchingTerms(common_var, common_bound, common_value, tmpSolverRoot);
 
   // add disjunctive terms for the nodes pruned by branch and bound
-  for (int node_idx = 0; node_idx < pruned_stats_.size(); node_idx++){
+  for (int tmp_ind = 0; tmp_ind < (int) pruned_stats_.size(); tmp_ind++) {
 
-    // create a new solver
+    // create a new solver (solve from LP optimal basis since parent basis may be gone)
     SolverInterface* tmpSolverPruned = dynamic_cast<SolverInterface*>(originalSolver_->clone());
     setWarmStart(tmpSolverPruned, original_basis, 0, 0);
 
-    // add the bounds for the pruned node
-    const int curr_num_changed_bounds = pruned_stats_[node_idx].changed_var.size();
+    // Change bounds in the solver for the root node variable fixes
+    const int init_num_changed_bounds = common_var.size();
+    for (int i = 0; i < init_num_changed_bounds; i++) {
+      addVarBound(tmpSolverPruned, common_var[i], common_bound[i], common_value[i]);
+    }
+
+    // For safety, rebuild the term from parent's information
+    const int parent_id = pruned_stats_[tmp_ind].parent_id;
+    const int node_id = parent_id;
+    const int orig_node_id = stats_[node_id].orig_id;
+    const int branching_variable = stats_[node_id].variable;
+    const int branching_way = (stats_[node_id].way == 1);
+    const double branching_value = (branching_way <= 0) ?
+        stats_[node_id].ub : stats_[node_id].lb;
+
+    // order branching decisions leading to node so they're ordered in disjunctive terms
+    sortBranchingDecisions(node_id);
+
+    // find and create any disjunctive terms pruned due to strong branching between
+    // the root and the node we're about to create a disjunctive term for
+    recursivelyCreateStrongBranchingTerms(node_id, common_var, common_bound,
+                                          common_value, tmpSolverPruned);
+
+    // Collect the parent changed node bounds
+    const int curr_num_changed_bounds =
+        (orig_node_id == 0) ? 0 : stats_[orig_node_id].changed_var.size();
     std::vector<int> term_bound = common_bound;
     std::vector<double> term_value = common_value;
     std::vector<int> term_var = common_var;
     for (int i = 0; i < curr_num_changed_bounds; i++) {
-      addVarBound(tmpSolverPruned, pruned_stats_[node_idx].changed_var[i],
-                  pruned_stats_[node_idx].changed_bound[i],
-                  pruned_stats_[node_idx].changed_value[i], term_var,
+      addVarBound(tmpSolverPruned, stats_[orig_node_id].changed_var[i],
+                  stats_[orig_node_id].changed_bound[i],
+                  stats_[orig_node_id].changed_value[i], term_var,
                   term_bound, term_value);
-    }
+    } // loop over changed bounds
 
     // create the term
-    setupDisjunctiveTerm(tmpSolverPruned, term_var, term_bound, term_value);
-  }
+    setupDisjunctiveTerm(tmpSolverPruned, term_var, term_bound, term_value,
+                         branching_variable, branching_way == 1 ? 0 : 1,
+                         branching_value, "pruned");
+  } // loop over pruned nodes
 
   // If an integer solution was found, save it
   if (isIntegerSolutionFound()) {
@@ -1741,8 +1849,8 @@ int VPCEventHandler::saveInformationWithPrunes() {
     nodeInfo->buildRowBasis(*parent_basis);
     finalNodeIndices_.push_back(stats_[nodeInfo->nodeNumber()].id);
 
-    // the node's id the first time we saw it (this differs from node_id if one
-    // branching direction of the node has already been explored)
+    // orig_node_id is node's id the first time we saw it (this differs from
+    // node_id if one branching direction of the node has already been explored)
     const int node_id = stats_[nodeInfo->nodeNumber()].id;
     const int orig_node_id = stats_[node_id].orig_id;
 
@@ -1753,6 +1861,9 @@ int VPCEventHandler::saveInformationWithPrunes() {
       addVarBound(tmpSolverBase, common_var[i], common_bound[i],
                   common_value[i]);
     }
+
+    // order branching decisions leading to node so they're ordered in disjunctive terms
+    sortBranchingDecisions(node_id);
 
     // find and create any disjunctive terms pruned due to strong branching between
     // the root and the nodes we're about to create disjunctive terms for
@@ -1789,8 +1900,8 @@ int VPCEventHandler::saveInformationWithPrunes() {
         tmp_ind + 1, this->numNodesOnTree_, this->owner->num_terms);
 #endif
     hasFeasibleChild = setupDisjunctiveTerm(
-        tmpSolverBase, term_var, term_bound, term_value,
-        branching_variable, branching_way == 1 ? 0 : 1, branching_value, node_id);
+        tmpSolverBase, term_var, term_bound, term_value, branching_variable,
+        branching_way == 1 ? 0 : 1, branching_value, "leaf", node_id);
 
     // Check if we exit early
     if (!hitTimeLimit && !hitHardNodeLimit
@@ -1806,8 +1917,8 @@ int VPCEventHandler::saveInformationWithPrunes() {
       branching_way = (stats_[node_id].way <= 0) ? 1 : 0;
       branching_value = (branching_way <= 0) ? branching_value - 1 : branching_value + 1;
       const bool childIsFeasible = setupDisjunctiveTerm(
-          tmpSolverBase, term_var, term_bound, term_value,
-          branching_variable, branching_way == 1 ? 0 : 1, branching_value, node_id);
+          tmpSolverBase, term_var, term_bound, term_value, branching_variable,
+          branching_way == 1 ? 0 : 1, branching_value, "leaf", node_id);
       hasFeasibleChild = hasFeasibleChild || childIsFeasible;
     } // end second branch computation
 
@@ -1840,5 +1951,115 @@ int VPCEventHandler::saveInformationWithPrunes() {
           status, this->owner->num_terms, maxNumLeafNodes_);
 #endif
   }
+  // validate the disjunction represents a full binary tree
+  isFullBinaryTree();
   return status;
 } /* saveInformationWithPrunes */
+
+/**
+ * @details check if the disjunction represents the leaves of a full binary tree.
+ * This function assumes that the branching decisions in each disjunctive term
+ * are sorted in the order they occurred.
+ *
+ * @return true if the tree of the disjunction is complete, false otherwise
+ */
+bool VPCEventHandler::isFullBinaryTree(){
+
+  std::vector<DisjunctiveTerm> terms = owner->terms;
+
+  // check that term does not contain term2
+  // we can get away with just checking for ancestral relationship because it
+  // isn't possible to end up with the same branching decisions just in different order
+  for (const DisjunctiveTerm& term : terms){
+    for (const DisjunctiveTerm& term2 : terms){
+
+      // term can only contain term2 if term2 is at least as deep in the tree
+      if (&term != &term2 && term.changed_var.size() <= term2.changed_var.size()){
+
+        // make sure that term is not an ancestor of term2 by checking they branch
+        // on different variables or at least in different directions
+        verify(!std::equal(term2.changed_var.begin(), term2.changed_var.begin() +
+                           term.changed_var.size(), term.changed_var.begin()) ||
+               !std::equal(term2.changed_bound.begin(), term2.changed_bound.begin() +
+                           term.changed_bound.size(), term.changed_bound.begin()),
+               "the LP relaxation of term contains the LP relaxation of term2");
+      }
+    }
+  }
+
+  // get the maximum depth
+  int max_depth = 0;
+  for (DisjunctiveTerm term : terms){
+    max_depth = term.changed_var.size() > max_depth ? term.changed_var.size() : max_depth;
+  }
+
+  // check each leaf has a sibling
+  for (int depth = max_depth; depth > 0; depth--){
+
+    // get the terms at this depth
+    std::vector<DisjunctiveTerm> depth_terms;
+    for (DisjunctiveTerm term : terms){
+      if (term.changed_var.size() == depth){
+        depth_terms.push_back(term);
+      }
+    }
+
+    // keep a running list of paired terms
+    std::set<const DisjunctiveTerm*> paired_terms;
+
+    // find a sibling for each term
+    for (const DisjunctiveTerm& term : depth_terms){
+
+      // Check if the term was found to be another's sibling earlier
+      if (paired_terms.find(&term) != paired_terms.end()){
+        continue;
+      }
+
+      // check term against all other terms at this depth
+      for (const DisjunctiveTerm& term2 : depth_terms){
+        std::vector<int> differing_idx;
+        
+        // we can only be siblings if we share the same variables that were
+        // branched on and we're not the same term
+        if (term.changed_var == term2.changed_var && &term != &term2){
+          
+          // record branching directions we differ on
+          for (int i = 0; i < depth; i++) {
+            if (term.changed_bound[i] != term2.changed_bound[i]) {
+              differing_idx.push_back(i);
+            }
+          }
+        }
+
+        // if we differ by only the last branching decision, we're siblings
+        if (differing_idx.size() == 1 && differing_idx[0] == depth - 1){
+          // check that we have the reciprocal branching decision
+          double expected_val = term.changed_value[differing_idx[0]] +
+              (term.changed_bound[differing_idx[0]] == 0 ? -1 : 1);
+          verify(term2.changed_value[differing_idx[0]] == expected_val,
+                 "term2 branch value doesnt meet expectation");
+
+          // record siblings
+          paired_terms.insert(&term);
+          paired_terms.insert(&term2);
+
+          // create a parent node to leave in the next level above
+          DisjunctiveTerm parent_term = term;
+          parent_term.changed_var.erase(parent_term.changed_var.begin() + differing_idx[0]);
+          parent_term.changed_bound.erase(parent_term.changed_bound.begin() + differing_idx[0]);
+          parent_term.changed_value.erase(parent_term.changed_value.begin() + differing_idx[0]);
+          parent_term.type = "parent";
+          terms.push_back(parent_term);
+          break;
+        }
+      }
+
+      // if we didn't find a sibling, the disjunction is not complete
+      if (paired_terms.find(&term) == paired_terms.end()){
+        verify(false, "Disjunction does not represent a full binary tree.");
+      }
+      
+    } // find a sibling for each term
+  }
+}
+

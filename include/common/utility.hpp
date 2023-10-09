@@ -402,3 +402,7 @@ inline std::vector<T> subselectVector(const std::vector<T>& vec, const std::vect
   }
   return selectedElements;
 }
+
+/// @brief sort the encoding of branching decisions by the variable index
+void sortBranchingDecisions(std::vector<int>& vars, std::vector<int>& bounds,
+                            std::vector<double>& vals);

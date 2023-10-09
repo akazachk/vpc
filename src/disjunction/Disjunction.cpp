@@ -49,8 +49,8 @@ void DisjunctiveTerm::initialize(const DisjunctiveTerm* const source) {
     changed_var = source->changed_var;
     changed_bound = source->changed_bound;
     changed_value = source->changed_value;
-    feasible = source->feasible;
-    pruned = source->pruned;
+    is_feasible = source->is_feasible;
+    type = source->type;
     name = source->name;
 #ifdef USE_COIN
     basis = source->basis->clone();
@@ -62,8 +62,8 @@ void DisjunctiveTerm::initialize(const DisjunctiveTerm* const source) {
     changed_var.resize(0);
     changed_bound.resize(0);
     changed_value.resize(0);
-    feasible = true;
-    pruned = false;
+    is_feasible = true;
+    type = "";
     name = "";
 #ifdef USE_COIN
     ineqs.resize(0);
