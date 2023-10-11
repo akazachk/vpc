@@ -913,7 +913,7 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
     DisjunctiveTerm* term = &(this->disjunction->terms[tmp_ind]);
     terms_added++;
 
-    if (!term->is_feasible) {
+    if (!term->is_feasible && !params.get(intParam::RECYCLED_DISJUNCTION)) {
       continue;
     }
 
@@ -964,7 +964,8 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
     //enableFactorization(termSolver, params.get(doubleParam::EPS)); // this may change the solution slightly
 
     // Check objective value against what is stored (if it is finite)
-    if (term->is_feasible && !isInfinity(term->obj)) {
+    // this value isn't going to make sense if we recycle the disjunction
+    if (term->is_feasible && !isInfinity(term->obj) && !params.get(intParam::RECYCLED_DISJUNCTION)) {
       // Sometimes we run into a few issues getting the ``right'' value
       const double newval = termSolver->getObjValue();
       const double savedval = term->obj;
