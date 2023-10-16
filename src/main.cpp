@@ -99,7 +99,7 @@ SummaryBoundInfo boundInfo;
 std::vector<SummaryBoundInfo> boundInfoVec;
 SummaryBBInfo info_nocuts, info_mycuts, info_allcuts;
 SummaryDisjunctionInfo disjInfo;
-std::vector<SummaryCutInfo> cutInfoVec;
+std::vector<SummaryCutInfo> cutInfoVec, cutInfoGMICVec;
 SummaryCutInfo cutInfo, cutInfoGMICs;
 
 // For output
@@ -240,6 +240,7 @@ int main(int argc, char** argv) {
 #endif
   std::vector<OsiCuts> vpcs_by_round(num_rounds);
   cutInfoVec.resize(num_rounds);
+  cutInfoGMICVec.resize(num_rounds);
   boundInfoVec.resize(num_rounds);
   std::vector<double> gmic_gen_time_by_round(num_rounds);
   std::vector<double> gmic_apply_time_by_round(num_rounds);
@@ -259,7 +260,7 @@ int main(int argc, char** argv) {
 
   // If requested, open cutrounds_logfile file then print header and round "0" information
   FILE* cutrounds_logfile = NULL;
-  const int NUM_CUTROUND_INFO = 1 + 3 + 2*3 + 2*COMPUTE_COND_NUM; // round + 3 x bound + 2 x (num cuts, gen time, apply time) + 2 x cond_num2 when computed
+  const int NUM_CUTROUND_INFO = 1 + 3 + 2*6 + 2*COMPUTE_COND_NUM; // round + 3 x bound + 2 x (num cuts, 3xdensity, gen time, apply time) + 2 x cond_num2 when computed
   if (use_temp_option(params.get(intParam::TEMP), TempOptions::PRINT_BOUND_BY_ROUND)) {
     std::string fileWithCuts = "cutrounds";
     const std::string logname = params.get(stringParam::LOGFILE);
@@ -284,11 +285,17 @@ int main(int argc, char** argv) {
     fprintf(cutrounds_logfile, "bound_vpc,"); count++;
     fprintf(cutrounds_logfile, "bound_all_cuts,"); count++;
     fprintf(cutrounds_logfile, "num_gmic,"); count++;
+    fprintf(cutrounds_logfile, "min_density_gmic,"); count++;
+    fprintf(cutrounds_logfile, "max_density_gmic,"); count++;
+    fprintf(cutrounds_logfile, "avg_density_gmic,"); count++;
     fprintf(cutrounds_logfile, "gmic_gen_time,"); count++;
     fprintf(cutrounds_logfile, "gmic_apply_time,"); count++;
     //fprintf(cutrounds_logfile, "gmic_cond_num1,"); count++;
     if (COMPUTE_COND_NUM) { fprintf(cutrounds_logfile, "gmic_cond_num2,"); count++; }
     fprintf(cutrounds_logfile, "num_vpc,"); count++;
+    fprintf(cutrounds_logfile, "min_density_vpc,"); count++;
+    fprintf(cutrounds_logfile, "max_density_vpc,"); count++;
+    fprintf(cutrounds_logfile, "avg_density_vpc,"); count++;
     fprintf(cutrounds_logfile, "vpc_gen_time,"); count++;
     fprintf(cutrounds_logfile, "vpc_apply_time,"); count++;
     //fprintf(cutrounds_logfile, "vpc_cond_num1,"); count++;
@@ -308,6 +315,9 @@ int main(int argc, char** argv) {
     fprintf(cutrounds_logfile, "%s,", stringValue(boundInfo.lp_obj,"%.20f").c_str()); count++;
     fprintf(cutrounds_logfile, "%s,", stringValue(boundInfo.lp_obj,"%.20f").c_str()); count++;
     fprintf(cutrounds_logfile, "%d,", 0); count++;
+    fprintf(cutrounds_logfile, "%f,", 0.); count++; // min density
+    fprintf(cutrounds_logfile, "%f,", 0.); count++; // max density
+    fprintf(cutrounds_logfile, "%f,", 0.); count++; // avg density
     fprintf(cutrounds_logfile, "%f,", 0.); count++;
     fprintf(cutrounds_logfile, "%f,", initSolveTime); count++;
     //fprintf(cutrounds_logfile, "%s,", stringValue(init_cond_num1, "%.20f").c_str()); count++;
@@ -315,6 +325,9 @@ int main(int argc, char** argv) {
     if (COMPUTE_COND_NUM) { fprintf(cutrounds_logfile, "%s,", stringValue(init_cond_num2, "%.20f").c_str()); count++; }
 #endif
     fprintf(cutrounds_logfile, "%d,", 0); count++;
+    fprintf(cutrounds_logfile, "%f,", 0.); count++; // min density
+    fprintf(cutrounds_logfile, "%f,", 0.); count++; // max density
+    fprintf(cutrounds_logfile, "%f,", 0.); count++; // avg density
     fprintf(cutrounds_logfile, "%f,", 0.); count++;
     fprintf(cutrounds_logfile, "%f,", initSolveTime); count++;
 #ifdef CALC_COND_NUM
@@ -387,6 +400,8 @@ int main(int argc, char** argv) {
         applyCutsCustom(solver, currGMICs, params.logfile);
       }
       applyCutsCustom(allCutsSolver, currGMICs, params.logfile);
+
+      updateGMICInfo(cutInfoGMICVec[round_ind], &currGMICs, params.get(EPS) / 2.);
     } // Gomory cut generation
 
     if ((int) disjOptions.size() > round_ind) {
@@ -424,7 +439,7 @@ int main(int argc, char** argv) {
           boundInfo.root_obj = disj->root_obj;
         }
         updateDisjInfo(disjInfo, num_disj, gen);
-        updateCutInfo(cutInfoVec[round_ind], gen);
+        updateCutInfo(cutInfoVec[round_ind], gen, &vpcs_by_round[round_ind], params.get(EPS) / 2.);
       } // check if mode is _not_ CUSTOM
       else {
         doCustomRoundOfCuts(round_ind, vpcs_by_round[round_ind], gen, num_disj);
@@ -543,6 +558,33 @@ int main(int argc, char** argv) {
       fprintf(cutrounds_logfile, "%s,", stringValue(boundInfoVec[round_ind].vpc_obj,"%.20f").c_str()); count++;
       fprintf(cutrounds_logfile, "%s,", stringValue(boundInfoVec[round_ind].all_cuts_obj,"%.20f").c_str()); count++;
       fprintf(cutrounds_logfile, "%d,", boundInfoVec[round_ind].num_gmic); count++;
+      fprintf(cutrounds_logfile, "%s,", 
+        stringValue(
+          (boundInfoVec[round_ind].num_gmic > 0)
+            ? 100. * cutInfoGMICVec[round_ind].min_support / solver->getNumCols()
+            : 0.,
+          "%.6f",
+          1e100
+        ).c_str()
+      ); count++;
+      fprintf(cutrounds_logfile, "%s,", 
+        stringValue(
+          (boundInfoVec[round_ind].num_gmic > 0)
+            ? 100. * cutInfoGMICVec[round_ind].max_support / solver->getNumCols()
+            : 0.,
+          "%.6f",
+          1e100
+        ).c_str()
+      ); count++;
+      fprintf(cutrounds_logfile, "%s,", 
+        stringValue(
+          (boundInfoVec[round_ind].num_gmic > 0)
+            ? 100. * cutInfoGMICVec[round_ind].avg_support / solver->getNumCols()
+            : 0.,
+          "%.6f",
+          1e100
+        ).c_str()
+      ); count++;
       fprintf(cutrounds_logfile, "%.20f,", gmic_gen_time_by_round[round_ind]); count++;
       fprintf(cutrounds_logfile, "%.20f,", gmic_apply_time_by_round[round_ind]); count++;
 #ifdef CALC_COND_NUM
@@ -550,6 +592,33 @@ int main(int argc, char** argv) {
       if (COMPUTE_COND_NUM) { fprintf(cutrounds_logfile, "%s,", stringValue(gmic_cond_num2_by_round[round_ind], "%.20f").c_str()); count++; }
 #endif
       fprintf(cutrounds_logfile, "%d,", boundInfoVec[round_ind].num_vpc); count++;
+      fprintf(cutrounds_logfile, "%s,", 
+        stringValue(
+          (boundInfoVec[round_ind].num_vpc > 0)
+            ? 100. * cutInfoVec[round_ind].min_support / solver->getNumCols()
+            : 0.,
+          "%.6f",
+          1e100
+        ).c_str()
+      ); count++;
+      fprintf(cutrounds_logfile, "%s,", 
+        stringValue(
+          (boundInfoVec[round_ind].num_vpc > 0)
+            ? 100. * cutInfoVec[round_ind].max_support / solver->getNumCols()
+            : 0.,
+          "%.6f",
+          1e100
+        ).c_str()
+      ); count++;
+      fprintf(cutrounds_logfile, "%s,", 
+        stringValue(
+          (boundInfoVec[round_ind].num_vpc > 0)
+            ? 100. * cutInfoVec[round_ind].avg_support / solver->getNumCols()
+            : 0.,
+          "%.6f",
+          1e100
+        ).c_str()
+      ); count++;
       fprintf(cutrounds_logfile, "%.20f,", vpc_gen_time_by_round[round_ind]); count++;
       fprintf(cutrounds_logfile, "%.20f,", vpc_apply_time_by_round[round_ind]); count++;
 #ifdef CALC_COND_NUM
@@ -924,7 +993,7 @@ void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_dis
     } // iterate over columns and add optimality cut if needed
     exitReason = CglVPC::ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT;
     boundInfo.num_vpc += gen.num_cuts;
-    updateCutInfo(cutInfoVec[round_ind], gen);
+    updateCutInfo(cutInfoVec[round_ind], gen, &vpcs, params.get(EPS) / 2.);
   } // check if integer-optimal solution
   else if (setDisjExitReason == CglVPC::ExitReason::SUCCESS_EXIT && numDisj > 0) {
     const int cutLimit = std::ceil(
@@ -948,7 +1017,7 @@ void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_dis
       if (boundInfo.worst_disj_obj < gen.disj()->worst_obj)
         boundInfo.worst_disj_obj = gen.disj()->worst_obj;
       updateDisjInfo(disjInfo, num_disj, gen);
-      updateCutInfo(cutInfoVec[round_ind], gen);
+      updateCutInfo(cutInfoVec[round_ind], gen, &vpcs, params.get(EPS) / 2.);
     }
     gen.setupRepeatedUse(false);
   }  // if successful generation of disjunction, generate cuts

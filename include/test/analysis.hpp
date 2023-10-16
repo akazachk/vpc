@@ -102,7 +102,7 @@ void printCutInfo(const SummaryCutInfo& cutInfoGMICs,
     const SummaryCutInfo& cutInfo, FILE* logfile, const char SEP = ',');
 
 /// @brief Check cut density and update min/max support in \p cutInfo
-int checkCutDensity(SummaryCutInfo& cutInfo,
+int checkCutDensity(//SummaryCutInfo& cutInfo,
     const OsiRowCut* const cut, const double EPS = 1e-14);
 
 /// @brief Check cut activity in solver and report cut density
@@ -129,7 +129,9 @@ double getNumGomoryRounds(const VPCParametersNamespace::VPCParameters& params,
 /// @brief Update average number of terms, density, rows, cols, points, rays, and partial tree information if applicable
 void updateDisjInfo(SummaryDisjunctionInfo& disjInfo, const int num_disj, const CglVPC& gen);
 /// @brief Add to cut information after a round, such as number of cuts, objectives, failures, etc.
-void updateCutInfo(SummaryCutInfo& cutInfo, const CglVPC& gen);
+void updateGMICInfo(SummaryCutInfo& cutInfo, const OsiCuts* cuts, const double EPS = 1e-14);
+/// @brief Add to cut information after a round, such as number of cuts, objectives, failures, etc.
+void updateCutInfo(SummaryCutInfo& cutInfo, const CglVPC& gen, const OsiCuts* cuts = NULL, const double EPS = 1e-14);
 /// @brief Use this to merge cut info from multiple rounds
 void setCutInfo(SummaryCutInfo& cutInfo, const int num_rounds, const SummaryCutInfo* const oldCutInfos);
 
