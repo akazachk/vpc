@@ -79,7 +79,8 @@ public:
   enum class CutType {
     ONE_SIDED_CUT,  ///< cuts from disjunctions in which one side is empty
     OPTIMALITY_CUT, ///< objective cut added when optimal solution is found
-    VPC,            ///< generic vpcs
+    VPC,            ///< generic VPCs
+    GMIC,           ///< generic GMICs
     NUM_CUT_TYPES   ///< number of cut types
   }; /* CutType */
 

@@ -76,7 +76,7 @@ const std::vector<std::string> CglVPC::VPCTimeStatsName {
   "GEN_CUTS_TIME"
 }; /* VPCTimeStatsName */
 const std::vector<std::string> CglVPC::CutTypeName {
-  "ONE_SIDED_CUT", "OPTIMALITY_CUT", "VPC"
+  "ONE_SIDED_CUT", "OPTIMALITY_CUT", "VPC", "GMIC"
 }; /* CutTypeName */
 const std::vector<std::string> CglVPC::ObjectiveTypeName {
   "DUMMY_OBJ",
