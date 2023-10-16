@@ -750,7 +750,7 @@ void printCutInfo(const SummaryCutInfo& cutInfoGMICs,
 } /* printCutInfo */
 
 /// @details Gets cut support size 
-int checkCutDensity(
+int getCutSupport(
     // /// [in,out] Where to save min and max support
     // SummaryCutInfo& cutInfo,
     /// [in] Row that we want to check
@@ -765,7 +765,7 @@ int checkCutDensity(
     }
   }
   return num_elem;
-} // checkCutDensity
+} // getCutSupport
 
 /// @brief Find active cuts, and also report density of cuts
 bool checkCutActivity(
@@ -815,7 +815,7 @@ void analyzeStrength(
       if (checkCutActivity(solver_all, cut)) {
         cutInfoVPCs.num_active_all++;
       }
-      const int curr_support = checkCutDensity(cut, params.get(EPS) / 2.);
+      const int curr_support = getCutSupport(cut, params.get(EPS) / 2.);
       total_support += curr_support;
       if (curr_support < cutInfoVPCs.min_support) {
         cutInfoVPCs.min_support = curr_support;
@@ -841,7 +841,7 @@ void analyzeStrength(
       if (checkCutActivity(solver_all, cut)) {
         cutInfoGMICs.num_active_all++;
       }
-      const int curr_support = checkCutDensity(cut, params.get(EPS) / 2.);
+      const int curr_support = getCutSupport(cut, params.get(EPS) / 2.);
       total_support += curr_support;
       if (curr_support < cutInfoGMICs.min_support) {
         cutInfoVPCs.min_support = curr_support;
@@ -1163,7 +1163,7 @@ void updateGMICInfo(
     int total_support = 0;
     for (int cut_ind = 0; cut_ind < cuts->sizeCuts(); cut_ind++) {
       const OsiRowCut* const cut = cuts->rowCutPtr(cut_ind);
-      const int curr_support = checkCutDensity(cut, EPS);
+      const int curr_support = getCutSupport(cut, EPS);
 
       total_support += curr_support;
       if (curr_support < cutInfo.min_support) {
@@ -1175,7 +1175,7 @@ void updateGMICInfo(
     }
     cutInfo.avg_support = (cutInfo.avg_support * old_num_cuts + 1. * total_support) / (old_num_cuts + cuts->sizeCuts());
   }
-} /* updateCutInfo (within one round) */
+} /* updateGMICInfo (within one round) */
 
 /**
  * @details Use this to add to cutInfo (but within one round,
@@ -1256,7 +1256,7 @@ void updateCutInfo(
     int total_support = 0;
     for (int cut_ind = start_ind; cut_ind < cuts->sizeCuts(); cut_ind++) {
       const OsiRowCut* const cut = cuts->rowCutPtr(cut_ind);
-      const int curr_support = checkCutDensity(cut, EPS);
+      const int curr_support = getCutSupport(cut, EPS);
 
       total_support += curr_support;
       if (curr_support < cutInfo.min_support) {

@@ -102,8 +102,9 @@ void printCutInfo(const SummaryCutInfo& cutInfoGMICs,
     const SummaryCutInfo& cutInfo, FILE* logfile, const char SEP = ',');
 
 /// @brief Check cut density and update min/max support in \p cutInfo
-int checkCutDensity(//SummaryCutInfo& cutInfo,
-    const OsiRowCut* const cut, const double EPS = 1e-14);
+int getCutSupport(
+    const OsiRowCut* const cut,
+    const double EPS = 1e-14);
 
 /// @brief Check cut activity in solver and report cut density
 bool checkCutActivity(
