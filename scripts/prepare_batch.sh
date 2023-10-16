@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage example:
-#   prepare_batch.sh /path/to/instance/list.instances /path/to/results/dir [test / preprocess / bb / bb0 / gmic]
+#   prepare_batch.sh /path/to/instance/list.instances /path/to/results/dir [test / preprocess / bb / bb0 / gmic / rounds]
 
 if [ ! -z "$VPC_DIR" ]; then
   export PROJ_DIR=${VPC_DIR}
@@ -115,10 +115,17 @@ elif [ $MODE == preprocess ]; then
   PARAMS="$PARAMS --bb_timelimit=7200"
   PARAMS="$PARAMS --temp=32"
 elif [ $MODE == gmic ]; then
-  depthList=(0 2 4 8)
-  PARAMS="$PARAMS --timelimit=7200"
-  PARAMS="$PARAMS --rounds=1000"
+  depthList=(0)
+  PARAMS="$PARAMS --timelimit=1800"
+  PARAMS="$PARAMS --rounds=100"
   PARAMS="$PARAMS --gomory=1"
+  PARAMS="$PARAMS --temp=16"
+  PARAMS="$PARAMS -v0"
+elif [ $MODE == rounds ]; then
+  depthList=(2 8 32)
+  PARAMS="$PARAMS --timelimit=1800"
+  PARAMS="$PARAMS --rounds=100"
+  PARAMS="$PARAMS --gomory=-1"
   PARAMS="$PARAMS --temp=16"
   PARAMS="$PARAMS -v0"
 elif [ $MODE == test ]; then
@@ -147,12 +154,17 @@ TOTAL_ERRORS=0
 for d in ${depthList[*]}; do
   echo "Depth $d"
   while read line; do
-    TASK_ID=$((TASK_ID+1))
-
     # Skip empty lines
     if [ -z "$line" ]; then
       continue
     fi
+
+    # Skip lines that begin with "#"
+    if [ ${line:0:1} == '#' ]; then
+      continue
+    fi
+
+    TASK_ID=$((TASK_ID+1))
 
     # Prepare out directory, based on current date
     CASE_NUM=`printf %0${NUM_DIGITS}d $TASK_ID`
