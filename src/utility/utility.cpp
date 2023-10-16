@@ -773,3 +773,85 @@ void sortBranchingDecisions(std::vector<int>& vars, std::vector<int>& bounds,
     vals[i] = std::get<2>(combined[i]);
   }
 }
+
+/**
+ * @details Check if the objective function is minimization. If not, negate it.
+ *
+ * @param solver the solver to check
+ */
+void ensureMinimizationObjective(SolverInterface* solver){
+  if (solver->getObjSense() < 1e-3) {
+    printf(
+        "\n## Detected maximization problem. Negating objective function to make it minimization. ##\n");
+    solver->setObjSense(1.0);
+    const double* obj = solver->getObjCoefficients();
+    for (int col = 0; col < solver->getNumCols(); col++) {
+      solver->setObjCoeff(col, -1. * obj[col]);
+    }
+    double objOffset = 0.;
+    solver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
+    if (objOffset != 0.) {
+      solver->setDblParam(OsiDblParam::OsiObjOffset, -1. * objOffset);
+    }
+  }
+}
+
+/** check if sol is feasible for solver */
+bool isFeasible(
+    /// [in] problem
+    const OsiSolverInterface& solver,
+    /// [in] solution
+    const std::vector<double>& sol) {
+
+  // get bounds and constraint coefficients
+  const double* rowLower = solver.getRowLower();
+  const double* rowUpper = solver.getRowUpper();
+  const double* colLower = solver.getColLower();
+  const double* colUpper = solver.getColUpper();
+  const CoinPackedMatrix* mat = solver.getMatrixByRow();
+  const int* cols = mat->getIndices();
+  const double* elem = mat->getElements();
+
+  // check dimensions match
+  verify(sol.size() == solver.getNumCols(), "solution has wrong dimension");
+
+  // make sure constraints are valid
+  for (int row = 0; row < solver.getNumRows(); row++) {
+    double sum = 0.0;
+    const int start = mat->getVectorFirst(row);
+    const int end = mat->getVectorLast(row);
+    for (int ind = start; ind < end; ind++) {
+      const double j = cols[ind];
+      const double el = elem[ind];
+      sum += el * sol[j];
+    }
+    if (lessThanVal(sum, rowLower[row]) || greaterThanVal(sum, rowUpper[row])) {
+      return false;
+    }
+  }
+
+  // make sure variables are valid
+  for (int col = 0; col < solver.getNumCols(); col++) {
+    if (lessThanVal(sol[col], colLower[col]) || greaterThanVal(sol[col], colUpper[col])) {
+      return false;
+    }
+    if (solver.isInteger(col) && !isInteger(sol[col])) {
+      return false;
+    }
+  }
+  return true;
+} /* isFeasible */
+
+/** check if a value is an integer */
+bool isInteger(double val){
+  return isZero(min(val - std::floor(val), std::ceil(val) - val));
+}
+
+/** take a min of two values */
+double min(double a, double b){
+  if (a < b){
+    return a;
+  } else {
+    return b;
+  }
+}

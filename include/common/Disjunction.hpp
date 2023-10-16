@@ -134,9 +134,7 @@ public:
     const bool shouldChangeBounds,
     const double DIFFEPS,
     FILE* logfile,
-    bool enforceSameObjective=true,
-    bool failOnInoptimalTermSolver=true,
-    bool resolve=true) const;
+    const bool parameterized=false) const;
 #else
   void getSolverForTerm(const int term_ind) const;
 #endif

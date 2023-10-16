@@ -406,3 +406,19 @@ inline std::vector<T> subselectVector(const std::vector<T>& vec, const std::vect
 /// @brief sort the encoding of branching decisions by the variable index
 void sortBranchingDecisions(std::vector<int>& vars, std::vector<int>& bounds,
                             std::vector<double>& vals);
+
+/// @brief Check if the objective function is minimization. If not, negate it.
+void ensureMinimizationObjective(SolverInterface* solver);
+
+/** check if sol is feasible for solver */
+bool isFeasible(
+    /// [in] problem
+    const OsiSolverInterface& solver,
+    /// [in] solution
+    const std::vector<double>& sol);
+
+/** check if a value is an integer */
+bool isInteger(double val);
+
+/** take a min of two values */
+double min(double a, double b);

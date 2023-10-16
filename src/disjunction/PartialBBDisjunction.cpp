@@ -282,6 +282,67 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
   return DisjExitReason::SUCCESS_EXIT;
 } /* prepareDisjunction */
 
+/**
+ * @details Create a new disjunction that parameterizes the curren with the given solver.
+ * This updates in each term the optimal basis and objective value, as well as
+ * the dual bounds and integer feasible solution in the disjunction.
+ *
+ * @param solver to update the disjunction with
+ */
+PartialBBDisjunction PartialBBDisjunction::parameterize(const OsiSolverInterface* const solver) const {
+
+  verify(this->common_changed_var.size() == 0 && this->common_changed_bound.size() == 0
+         && this->common_changed_value.size() == 0 && this->common_ineqs.size() == 0,
+         "Cannot parameterize a disjunction that has common terms or inequalities.");
+
+  // get a copy of the solver
+  SolverInterface* si = dynamic_cast<SolverInterface*>(solver->clone());
+  ensureMinimizationObjective(si); // minimize to keep meaning of disjunctive terms consistent
+  si->resolve();
+  verify(checkSolverOptimality(si, true), "solver must be feasible");
+
+  // create an empty disjunction
+  PartialBBDisjunction disj = PartialBBDisjunction(this->params);
+
+  // update the root LP relaxation
+  disj.root_obj = si->getObjValue();
+
+  // update the integer feasible solution if possible
+  if (this->integer_sol.size() > 0 && isFeasible(*si, this->integer_sol)){
+    disj.integer_sol = this->integer_sol;
+    double obj = 0;
+    for (int i = 0; i < si->getNumCols(); i++) {
+      obj += si->getObjCoefficients()[i] * this->integer_sol[i];
+    }
+    disj.integer_obj = obj;
+  }
+
+  // parameterize each term
+  for (int term_idx = 0; term_idx < this->num_terms; term_idx++){
+
+    // get the solver
+    OsiSolverInterface* termSolver;
+    this->getSolverForTerm(termSolver, term_idx, si, false, .001, NULL, true);
+    enableFactorization(termSolver, params.get(doubleParam::EPS));
+
+    // get the term
+    DisjunctiveTerm term = this->terms[term_idx];
+
+    // update the necessary parts of the term
+    term.obj = termSolver->getObjValue();
+    term.basis = dynamic_cast<CoinWarmStartBasis*>(termSolver->getWarmStart());
+    term.is_feasible = checkSolverOptimality(termSolver, true);
+
+    // update the necessary disjunction metadata
+    disj.updateObjValue(term.obj);
+    disj.terms.push_back(term);
+    disj.num_terms++;
+  }
+
+  // return the parameterized disjunction
+  return disj;
+}
+
 //<--***************** PROTECTED **********************-->
 
 /**

@@ -118,6 +118,9 @@ public:
   /// @brief Prepare a new disjunction
   virtual DisjExitReason prepareDisjunction(const OsiSolverInterface* const si);
 
+  /// @brief Create a new disjunction that parameterizes the curren with the given solver.
+  PartialBBDisjunction parameterize(const OsiSolverInterface* const solver) const;
+
 protected:
   /// @brief Initialize values of class members
   void initialize(

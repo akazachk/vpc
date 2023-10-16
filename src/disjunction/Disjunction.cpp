@@ -138,7 +138,6 @@ void Disjunction::setupAsNew() {
 
 #ifdef USE_COIN
 /// Retrieve solver set up for disjunctive term (user responsibility to free this solver)
-/// enforceSameObjective and failOnInoptimalTermSolver false are intended for parameterizing VPC's
 void Disjunction::getSolverForTerm(
     /// [out] solver that is created by this method, corresponding to the specified disjunctive term
     OsiSolverInterface*& termSolver,
@@ -152,12 +151,8 @@ void Disjunction::getSolverForTerm(
     const double DIFFEPS,
     /// [in] logfile for error printing
     FILE* logfile,
-    /// [in] whether or not we require the term objective to match its original objective value
-    bool enforceSameObjective,
-    /// [in] whether or not we terminate if the term solver is infeasible
-    bool failOnInoptimalTermSolver,
-    /// [in] whether or not to resolve the solver after setting the basis
-    bool resolve) const {
+    /// [in] whether or not this term is a parameterization of the original disjunctive term
+    bool parameterized) const {
   termSolver = solver->clone();
   const DisjunctiveTerm* const term = &(this->terms[term_ind]);
 
@@ -209,64 +204,58 @@ void Disjunction::getSolverForTerm(
 #ifdef TRACE
   printf("\n## Solving for term %d/%d. ##\n", term_ind+1, this->num_terms);
 #endif
-  bool calcAndFeasTerm = true;
-  // flag here b/c sometimes we just want to analyze a solver without needing to know if its feasible
-  if (resolve) {
-    termSolver->resolve();
-    calcAndFeasTerm = checkSolverOptimality(termSolver, true);
+  termSolver->resolve();
+  bool calcAndFeasTerm = checkSolverOptimality(termSolver, true);
 
-    // flag here to not delete so we can analyze it - do I need this one?
-    if (!calcAndFeasTerm && failOnInoptimalTermSolver) {
+  // Sometimes we run into a few issues getting the ``right'' value
+  // flag here b/c if we parameterize the LP, the objective is likely to change
+  if (!parameterized) {
+    if (!calcAndFeasTerm) {
       printf("\n## Term %d/%d is not proven optimal. Exiting from this term. ##\n", term_ind+1, this->num_terms);
       delete termSolver;
       return;
     }
-
-    // Sometimes we run into a few issues getting the ``right'' value
-    // flag here b/c if we parameterize the LP, the objective is likely to change
-    if (enforceSameObjective){
-      if (!isVal(termSolver->getObjValue(), term->obj, DIFFEPS)) {
-        termSolver->resolve();
-      }
-      if (!isVal(termSolver->getObjValue(), term->obj, DIFFEPS)) {
-        double ratio = termSolver->getObjValue() / term->obj;
-        if (ratio < 1.) {
-          ratio = 1. / ratio;
-        }
-        // Allow it to be up to 3% off without causing an error
-        if (greaterThanVal(ratio, 1.03)) {
-          error_msg(errorstring,
-              "Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
-              term_ind+1, this->num_terms, stringValue(term->obj, "%1.3f").c_str(),
-              stringValue(termSolver->getObjValue(), "%1.3f").c_str());
-          writeErrorToLog(errorstring, logfile);
-          exit(1);
-        } else {
-          warning_msg(warnstring,
-              "Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
-              term_ind+1, this->num_terms, stringValue(term->obj, "%1.3f").c_str(),
-              stringValue(termSolver->getObjValue(), "%1.3f").c_str());
-        }
-  #ifdef TRACE
-        std::string commonName;
-        const int curr_num_changed_bounds = term->changed_var.size();
-        std::vector < std::vector<int> > termIndices(curr_num_changed_bounds);
-        std::vector < std::vector<double> > termCoeff(curr_num_changed_bounds);
-        std::vector<double> termRHS(curr_num_changed_bounds);
-        for (int i = 0; i < curr_num_changed_bounds; i++) {
-          const int col = term->changed_var[i];
-          const double coeff = (term->changed_bound[i] <= 0) ? 1. : -1.;
-          const double val = term->changed_value[i];
-          termIndices[i].resize(1, col);
-          termCoeff[i].resize(1, coeff);
-          termRHS[i] = coeff * val;
-        }
-        Disjunction::setCgsName(commonName, curr_num_changed_bounds, termIndices,
-            termCoeff, termRHS, false);
-        printf("Bounds changed: %s.\n", commonName.c_str());
-  #endif
-      } // check that objective value matches
+    if (!isVal(termSolver->getObjValue(), term->obj, DIFFEPS)) {
+      termSolver->resolve();
     }
+    if (!isVal(termSolver->getObjValue(), term->obj, DIFFEPS)) {
+      double ratio = termSolver->getObjValue() / term->obj;
+      if (ratio < 1.) {
+        ratio = 1. / ratio;
+      }
+      // Allow it to be up to 3% off without causing an error
+      if (greaterThanVal(ratio, 1.03)) {
+        error_msg(errorstring,
+            "Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
+            term_ind+1, this->num_terms, stringValue(term->obj, "%1.3f").c_str(),
+            stringValue(termSolver->getObjValue(), "%1.3f").c_str());
+        writeErrorToLog(errorstring, logfile);
+        exit(1);
+      } else {
+        warning_msg(warnstring,
+            "Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
+            term_ind+1, this->num_terms, stringValue(term->obj, "%1.3f").c_str(),
+            stringValue(termSolver->getObjValue(), "%1.3f").c_str());
+      }
+#ifdef TRACE
+      std::string commonName;
+      const int curr_num_changed_bounds = term->changed_var.size();
+      std::vector < std::vector<int> > termIndices(curr_num_changed_bounds);
+      std::vector < std::vector<double> > termCoeff(curr_num_changed_bounds);
+      std::vector<double> termRHS(curr_num_changed_bounds);
+      for (int i = 0; i < curr_num_changed_bounds; i++) {
+        const int col = term->changed_var[i];
+        const double coeff = (term->changed_bound[i] <= 0) ? 1. : -1.;
+        const double val = term->changed_value[i];
+        termIndices[i].resize(1, col);
+        termCoeff[i].resize(1, coeff);
+        termRHS[i] = coeff * val;
+      }
+      Disjunction::setCgsName(commonName, curr_num_changed_bounds, termIndices,
+          termCoeff, termRHS, false);
+      printf("Bounds changed: %s.\n", commonName.c_str());
+#endif
+    } // check that objective value matches
   }
 } /* getSolverForTerm */
 #else
