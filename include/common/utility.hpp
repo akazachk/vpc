@@ -422,3 +422,6 @@ bool isInteger(double val);
 
 /** take a min of two values */
 double min(double a, double b);
+
+/** take a max of two values */
+double max(double a, double b);

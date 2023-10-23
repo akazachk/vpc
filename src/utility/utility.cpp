@@ -855,3 +855,12 @@ double min(double a, double b){
     return b;
   }
 }
+
+/** take a max of two values */
+double max(double a, double b){
+  if (a > b){
+    return a;
+  } else {
+    return b;
+  }
+}
