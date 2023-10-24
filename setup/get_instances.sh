@@ -23,8 +23,10 @@ else
 fi
 
 SKIP_DOWNLOAD=0
-if [ $2 == 1 ]; then
-  SKIP_DOWNLOAD=1
+if [ ! -z $2 ]; then
+  if [ $2 == 1 ]; then
+    SKIP_DOWNLOAD=1
+  fi
 fi
 
 echo "Instances will be downloaded to $DATA_DIR"
