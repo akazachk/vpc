@@ -158,6 +158,10 @@ public:
 
     /// Get index of variable in NBVarIndex, and -1 if it is basic
     int getVarNBIndex(const int var) const {
+      if (var >= (int) rowOfVar.size()) {
+        return -1;
+      }
+
       if (rowOfVar[var] <= -1) {
         return -1 * (1 + rowOfVar[var]);
       } else {
