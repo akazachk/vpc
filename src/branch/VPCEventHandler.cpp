@@ -1300,7 +1300,7 @@ int VPCEventHandler::saveInformation() {
   }
 
   // If an integer solution was found, save it
-  if (isIntegerSolutionFound()) {
+  if (isIntegerSolutionFound()) { // todo: abstract for adding all integer solutions
     // 2017-08-11: Only one integer-feasible solution needs to be kept (the best one),
     // So we drop old code that would prune integer feasible solutions that are above cutoff
     this->owner->num_terms++;
@@ -1453,11 +1453,13 @@ void VPCEventHandler::sortBranchingDecisions(const int node_id) {
   verify(0 <= node_id && node_id < stats_.size(), "node_id must be in stats_.");
 
   // declare variables - need orig_id's for the branching decisions
-  int orig_node_id = stats_[node_id].orig_id;
+  int orig_node_id = stats_[node_id].orig_id; // to get tightenings at this node
   // both siblings have same parent so querying with orig_id is fine
-  // we sometimes get the wrong node for parent id if we use node_id
-  int parent_id = stats_[orig_node_id].parent_id;
-  int orig_parent_id = stats_[parent_id].orig_id;
+  // we sometimes get the wrong node for parent id if we use node_id because parent_id
+  // reflects the state of the parent node when this node was created and the parent may
+  // have been branched on already leading to a wrong id for our purposes
+  int parent_id = stats_[orig_node_id].parent_id; // to get parent branching decision
+  int orig_parent_id = stats_[parent_id].orig_id; // to get tightenings at the parent
 
   // if the node has not already been checked
   if (sorted_nodes_.find(orig_node_id) == sorted_nodes_.end()) {
@@ -1670,9 +1672,13 @@ void VPCEventHandler::recursivelyCreateStrongBranchingTerms(
   verify(0 <= node_id && node_id < stats_.size(), "node_id must be in stats_.");
 
   // declare variables - need orig_id's for the branching decisions
-  int parent_id = stats_[node_id].parent_id;
-  int orig_parent_id = stats_[parent_id].orig_id;
-  int orig_node_id = stats_[node_id].orig_id;
+  int orig_node_id = stats_[node_id].orig_id; // to get tightenings at this node
+  // both siblings have same parent so querying with orig_id is fine
+  // we sometimes get the wrong node for parent id if we use node_id because parent_id
+  // reflects the state of the parent node when this node was created and the parent may
+  // have been branched on already leading to a wrong id for our purposes
+  int parent_id = stats_[orig_node_id].parent_id; // to get parent branching decision
+  int orig_parent_id = stats_[parent_id].orig_id; // to get tightenings at the parent
 
   // if the node has a parent and has not already been checked
   if (parent_id >= 0 && checked_nodes_.find(orig_node_id) == checked_nodes_.end()){
@@ -1787,6 +1793,7 @@ int VPCEventHandler::saveInformationWithPrunes() {
     }
 
     // For safety, rebuild the term from parent's information
+    // do I need to fix the id usage here too?
     const int parent_id = pruned_stats_[tmp_ind].parent_id;
     const int node_id = parent_id;
     const int orig_node_id = stats_[node_id].orig_id;

@@ -715,12 +715,13 @@ void checkBounds(const OsiSolverInterface* const solver, const std::vector<int>&
     const double val = fixed_value[idx];
 
     checkColumnAndBound(solver, col, bound);
+    // checking for satisfaction and not equality because general integers may be branched on multiple times
     if (bound <= 0) {
-      verify((solver->getColLower()[col] == val) == isTrue,
+      verify((solver->getColLower()[col] >= val) == isTrue,
              "The branching decisions in fixed_var, fixed_bound, and fixed_value "
              "are inconsistent with the expectations on the solver.");
     } else {
-      verify((solver->getColUpper()[col] == val) == isTrue,
+      verify((solver->getColUpper()[col] <= val) == isTrue,
              "The branching decisions in fixed_var, fixed_bound, and fixed_value "
              "are inconsistent with the expectations on the solver.");
     }
