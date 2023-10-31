@@ -1497,7 +1497,7 @@ void VPCEventHandler::sortBranchingDecisions(const int node_id) {
   // reflects the state of the parent node when this node was created and the parent may
   // have been branched on already leading to a wrong id for our purposes
   int parent_id = stats_[orig_node_id].parent_id; // to get parent branching decision
-  int orig_parent_id = stats_[parent_id].orig_id; // to get tightenings at the parent
+  int orig_parent_id = parent_id >= 0 ? stats_[parent_id].orig_id : -1; // to get tightenings at the parent
 
   // if the node has not already been checked
   if (sorted_nodes_.find(orig_node_id) == sorted_nodes_.end()) {
@@ -1520,11 +1520,13 @@ void VPCEventHandler::sortBranchingDecisions(const int node_id) {
     }
 
     // follow up with parent branching choice
-    int bound = stats_[parent_id].way == 1 ? 0 : 1;
-    double val = bound == 0 ? stats_[parent_id].lb : stats_[parent_id].ub;
-    parent_var.push_back(stats_[parent_id].variable);
-    parent_bound.push_back(bound);
-    parent_value.push_back(val);
+    if (orig_parent_id >= 0){
+      int bound = stats_[parent_id].way == 1 ? 0 : 1;
+      double val = bound == 0 ? stats_[parent_id].lb : stats_[parent_id].ub;
+      parent_var.push_back(stats_[parent_id].variable);
+      parent_bound.push_back(bound);
+      parent_value.push_back(val);
+    }
 
     // end with bound tightening that occurred at this node prior to branching
     std::vector<int> differing_indices =
