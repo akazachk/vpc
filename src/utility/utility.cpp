@@ -734,7 +734,7 @@ void checkBounds(const OsiSolverInterface* const solver, const std::vector<int>&
  *
  * @param solver The solver to check
  * @param col The column to check
- * @param bound The bound to check
+ * @param bound The bound to check (0 for lower (up branch) and 1 for upper (down branch))
  */
 void checkColumnAndBound(const OsiSolverInterface* const solver, const int col,
                          const int bound){

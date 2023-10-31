@@ -1445,6 +1445,44 @@ int VPCEventHandler::saveInformation() {
 } /* saveInformation */
 
 /**
+ * @details drop all tightened bounds occurring on continuous variables. We can't
+ * create disjunctive terms for these variables since we assume disjunctive
+ * constraints are placed on integer variables.
+ */
+void VPCEventHandler::removeContinuousVariableTightenedBounds(std::vector<NodeStatistics>& stat_vec){
+
+  // iterate over each node to remove tightened continuous bounds from our disjunction
+  for (int stat_idx = 0; stat_idx < stat_vec.size(); stat_idx++){
+
+    int branch_var = stat_vec[stat_idx].variable;
+    verify(branch_var < 0 || originalSolver_->isInteger(branch_var),
+           "Branch variables must be integer if provided.");
+
+    // new vectors to store the tightened bounds
+    std::vector<int> var;
+    std::vector<int> bound;
+    std::vector<double> value;
+
+    // iterate over tightened variables
+    for (int var_idx = 0; var_idx < stat_vec[stat_idx].changed_var.size(); var_idx++){
+
+      // only keep tightened variables that are integer
+      if (originalSolver_->isInteger(stat_vec[stat_idx].changed_var[var_idx])){
+        var.push_back(stat_vec[stat_idx].changed_var[var_idx]);
+        bound.push_back(stat_vec[stat_idx].changed_bound[var_idx]);
+        value.push_back(stat_vec[stat_idx].changed_value[var_idx]);
+      }
+    }
+
+    // update the stat_vec with the tightened bounds
+    stat_vec[stat_idx].changed_var = var;
+    stat_vec[stat_idx].changed_bound = bound;
+    stat_vec[stat_idx].changed_value = value;
+  }
+} /* removeContinuousVariableTightenedBounds */
+
+
+/**
  * @details reorder the branching decisions leading to each node in the tree in
  * the order that they occurred
  */
@@ -1754,6 +1792,10 @@ int VPCEventHandler::saveInformationWithPrunes() {
   this->owner->data.num_partial_bb_nodes = model_->getNodeCount(); // save number of nodes looked at
   this->owner->data.num_pruned_nodes = this->getPrunedStatsVector().size() - this->isIntegerSolutionFound();
   this->owner->data.num_fixed_vars = model_->strongInfo()[1]; // number fixed during b&b
+
+  // clear out tightened bounds on continuous variables since we can't create terms with them
+  removeContinuousVariableTightenedBounds(stats_);
+  removeContinuousVariableTightenedBounds(pruned_stats_);
 
   // Save variables with bounds that were changed at the root
   // don't save as common to disjunction and instead prepend to each disjunctive term

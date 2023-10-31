@@ -237,6 +237,9 @@ protected:
   /// @brief Save node information before we reach endSearch_
   int saveInformation();
 
+  /// @brief drop all tightened bounds occurring on continuous variables.
+  void removeContinuousVariableTightenedBounds(std::vector<NodeStatistics>& stat_vec);
+
   /// @brief reorder the branching decisions leading to each node in the tree in the order that they occurred
   void sortBranchingDecisions(const int node_id);
 

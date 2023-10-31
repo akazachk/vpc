@@ -230,4 +230,32 @@ TEST_CASE("Test saveInformation", "[VPCEventHandler::saveInformation]") {
   }
 }
 
+// --------------------- test current behavior remains -------------------------
+TEST_CASE("Test removeContinuousVariableTightenedBounds",
+          "[VPCEventHandler::removeContinuousVariableTightenedBounds]") {
 
+  // parameters
+  VPCParametersNamespace::VPCParameters vpc_params;
+  vpc_params.set(VPCParametersNamespace::DISJ_TERMS, 2);
+  vpc_params.set(VPCParametersNamespace::MODE, 0);  // partial BB tree
+  vpc_params.set(VPCParametersNamespace::PARTIAL_BB_KEEP_PRUNED_NODES, 1);  // save full tree
+
+  // solver
+  OsiClpSolverInterface si;
+  SolverInterface* solver;
+  si.readMps("../test/dcmulti_7.mps");
+  si.initialSolve();
+  solver = const_cast<SolverInterface*>(dynamic_cast<const SolverInterface*>(&si));
+
+  // make disjunction
+  PartialBBDisjunction disj = PartialBBDisjunction(vpc_params);
+  disj.prepareDisjunction(solver);
+
+  // ensure all bounds tightened by the disjunctive term belong to integer variables
+  // this would fail without calling removeContinuousVariableTightenedBounds
+  for (const DisjunctiveTerm& term : disj.terms) {
+    for (const int& v : term.changed_var) {
+      REQUIRE(si.isInteger(v));
+    }
+  }
+}

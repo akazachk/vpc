@@ -26,7 +26,7 @@ RM = rm -f
 BUILD_CONFIG = unit_test
 BUILD_CONFIG = release
 BUILD_CONFIG = debug
-UNIT_TEST_FILE = TestPartialBBDisjunction.cpp
+UNIT_TEST_FILE = TestVPCEventHandler.cpp
 
 ### Variables user should set ###
 PROJ_DIR=${PWD}
