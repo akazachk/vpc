@@ -339,6 +339,9 @@ PartialBBDisjunction PartialBBDisjunction::parameterize(const OsiSolverInterface
     disj.num_terms++;
   }
 
+  verify(lessThanVal(si->getObjValue(), disj.best_obj, -1e-7),
+         "Since we minimize, disjunctive dual bound should not be less than LP relaxation objective value.");
+
   // return the parameterized disjunction
   return disj;
 }
