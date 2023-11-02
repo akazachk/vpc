@@ -323,15 +323,15 @@ PartialBBDisjunction PartialBBDisjunction::parameterize(const OsiSolverInterface
     // get the solver
     OsiSolverInterface* termSolver;
     this->getSolverForTerm(termSolver, term_idx, si, false, .001, NULL, true);
-    enableFactorization(termSolver, params.get(doubleParam::EPS));
 
     // get the term
     DisjunctiveTerm term = this->terms[term_idx];
 
     // update the necessary parts of the term
-    term.obj = termSolver->getObjValue();
-    term.basis = dynamic_cast<CoinWarmStartBasis*>(termSolver->getWarmStart());
     term.is_feasible = checkSolverOptimality(termSolver, true);
+    term.obj = term.is_feasible ? termSolver->getObjValue() : std::numeric_limits<double>::max();
+    enableFactorization(termSolver, params.get(doubleParam::EPS));
+    term.basis = dynamic_cast<CoinWarmStartBasis*>(termSolver->getWarmStart());
 
     // update the necessary disjunction metadata
     disj.updateObjValue(term.obj);
