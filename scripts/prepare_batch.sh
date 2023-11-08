@@ -2,6 +2,8 @@
 # Usage example:
 #   prepare_batch.sh /path/to/instance/list.instances /path/to/results/dir [test / preprocess / bb / bb0 / gmic / rounds]
 
+# Attempt to read VPC_DIR/PROJ_DIR values from environment
+# These will be used to set paths of other variables
 if [ ! -z "$VPC_DIR" ]; then
   export PROJ_DIR=${VPC_DIR}
 fi
@@ -20,36 +22,55 @@ then
   fi
 fi
 
-SILENT=1
-MODE=preprocess
-#MODE=bb
-#MODE=bb0
+# Script options 
+# (mode overwritten by third command line argument)
+SILENT=1 # set to 0 to print more as the file is being created
+MODE=preprocess # options include preprocess, bb, bb0, gmic, rounds
 
+# Directory options
+DEFAULT_DIRS=1     # Set to 0 for custom directories (which you will need to input below)
+SAVE_TO_HOME_DIR=1 # SAVE_TO_HOME_DIR = 0: results and instances are relative to ${PROJ_DIR}; = 1: relative to ${HOME}
+
+# Change PROJ_DIR to be full path
 if [ "$(uname)" == "Darwin" ]; then
   export PROJ_DIR=`realpath ${PROJ_DIR}`
 else
   export PROJ_DIR=`realpath -s ${PROJ_DIR}`
 fi
-export VPC_DIR=${PROJ_DIR}
+export VPC_DIR=${PROJ_DIR} # For portability to other projects, in which PROJ_DIR and VPC_DIR might be different
 
-export OPTFILE="${VPC_DIR}/data/ip_obj.csv"
-export SCRIPT_DIR=${PROJ_DIR}/scripts
-
-export INSTANCE_DIR=${PROJ_DIR}/data/instances
+# Results will be sent to ${RESULTS_DIR}/[date]/[mode]/[instance #]
+# Overwritten with second command line argument
 export RESULTS_DIR=${PROJ_DIR}/results
-export SOL_DIR=${PROJ_DIR}/data/solutions
 
-export LOCAL_DIR=${HOME}
+# Set relative path for results/instances
+if [ ${SAVE_TO_HOME_DIR} == 1 ]; then
+  export LOCAL_DIR = ${HOME}
+else
+  export LOCAL_DIR = ${PROJ_DIR}/data
+fi
+
+# File with IP objective values 
+export OPTFILE="${VPC_DIR}/data/ip_obj.csv"
+
+# Directory with instances (instance list will provide relative paths from this directory)
 export INSTANCE_DIR=${LOCAL_DIR}/instances
-export RESULTS_DIR=${LOCAL_DIR}/results
-export SOL_DIR=${INSTANCE_DIR}/solutions
 
+# Where to find (or save) IP solutions
+export SOL_DIR=${LOCAL_DIR}/solutions
+
+# Executable
 EXECUTABLE="${PROJ_DIR}/Release/vpc"
 
+# Directory with instance lists for default instances
+# Overwritten by first command line argument
+export INSTANCE_LIST_DIR=${PROJ_DIR}/data/experiments
 if [ $MODE == preprocess ]; then
-  INSTANCE_LIST=${SCRIPT_DIR}/original.instances
+  INSTANCE_LIST=${INSTANCE_LIST_DIR}/original.instances
+elif [ $MODE == gmic ]; then
+  INSTANCE_LIST=${INSTANCE_LIST_DIR}/gmic.instances
 else
-  INSTANCE_LIST=${SCRIPT_DIR}/presolved.instances
+  INSTANCE_LIST=${INSTANCE_LIST_DIR}/presolved.instances
 fi
 
 # Accept user options for instance list, results directory, and mode
