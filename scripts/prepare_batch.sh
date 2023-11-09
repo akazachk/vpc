@@ -41,30 +41,59 @@ export VPC_DIR=${PROJ_DIR} # For portability to other projects, in which PROJ_DI
 
 # Results will be sent to ${RESULTS_DIR}/[date]/[mode]/[instance #]
 # Overwritten with second command line argument
-export RESULTS_DIR=${PROJ_DIR}/results
+if [ ${DEFAULT_DIRS} == 1 ]; then
+  export RESULTS_DIR=${PROJ_DIR}/results
+else
+  # *** Replace with custom dir below
+  export RESULTS_DIR=${PROJ_DIR}/results
+fi
 
 # Set relative path for results/instances
-if [ ${SAVE_TO_HOME_DIR} == 1 ]; then
-  export LOCAL_DIR = ${HOME}
+if [ ${DEFAULT_DIRS} == 1 ]; then
+  if [ ${SAVE_TO_HOME_DIR} == 1 ]; then
+    export LOCAL_DIR=${HOME}
+  else
+    export LOCAL_DIR=${PROJ_DIR}/data
+  fi
 else
-  export LOCAL_DIR = ${PROJ_DIR}/data
+  # *** Replace with custom dir below
+  export LOCAL_DIR=${HOME}
 fi
 
 # File with IP objective values 
-export OPTFILE="${VPC_DIR}/data/ip_obj.csv"
+if [ ${DEFAULT_DIRS} == 1 ]; then
+  export OPTFILE="${VPC_DIR}/data/ip_obj.csv"
+else
+  # *** Replace with custom dir below
+  export OPTFILE="${VPC_DIR}/data/ip_obj.csv"
+fi
 
 # Directory with instances (instance list will provide relative paths from this directory)
-export INSTANCE_DIR=${LOCAL_DIR}/instances
+if [ ${DEFAULT_DIRS} == 1 ]; then
+  export INSTANCE_DIR=${LOCAL_DIR}/instances
+else
+  # *** Replace with custom dir below
+  export INSTANCE_DIR=${LOCAL_DIR}/instances
+fi
 
 # Where to find (or save) IP solutions
-export SOL_DIR=${LOCAL_DIR}/solutions
-
-# Executable
-EXECUTABLE="${PROJ_DIR}/Release/vpc"
+if [ ${DEFAULT_DIRS} == 1 ]; then
+  export SOL_DIR=${LOCAL_DIR}/solutions
+else
+  # *** Replace with custom dir below
+  export SOL_DIR=${LOCAL_DIR}/solutions
+fi
 
 # Directory with instance lists for default instances
 # Overwritten by first command line argument
-export INSTANCE_LIST_DIR=${PROJ_DIR}/data/experiments
+if [ ${DEFAULT_DIRS} == 1 ]; then
+  export INSTANCE_LIST_DIR=${PROJ_DIR}/data/experiments
+else
+  # *** Replace with custom dir below
+  export INSTANCE_LIST_DIR=${PROJ_DIR}/data/experiments
+fi
+
+# Set default instance lists
 if [ $MODE == preprocess ]; then
   INSTANCE_LIST=${INSTANCE_LIST_DIR}/original.instances
 elif [ $MODE == gmic ]; then
@@ -72,6 +101,9 @@ elif [ $MODE == gmic ]; then
 else
   INSTANCE_LIST=${INSTANCE_LIST_DIR}/presolved.instances
 fi
+
+# Executable
+EXECUTABLE="${PROJ_DIR}/Release/vpc"
 
 # Accept user options for instance list, results directory, and mode
 if [ ! -z $1 ]; then
@@ -83,6 +115,8 @@ fi
 if [ ! -z $3 ]; then
   MODE=$3
 fi
+
+# JOB_LIST is where commands to be run will be saved (in current directory)
 JOB_LIST="job_list_${MODE}.txt"
 
 # Set parameters
@@ -149,10 +183,10 @@ elif [ $MODE == rounds ]; then
   PARAMS="$PARAMS --gomory=-1"
   PARAMS="$PARAMS --temp=16"
   PARAMS="$PARAMS -v0"
-elif [ $MODE == test ]; then
+elif [ $MODE == "test" ]; then
   depthList=(2)
 else
-  echo "*** ERROR: Option $MODE not recognized"
+  echo "*** ERROR: Option ${MODE} not recognized"
   exit
 fi
 
@@ -187,7 +221,7 @@ for d in ${depthList[*]}; do
 
     TASK_ID=$((TASK_ID+1))
 
-    # Prepare out directory, based on current date
+    # Prepare OUT_DIR (output directory) based on current date
     CASE_NUM=`printf %0${NUM_DIGITS}d $TASK_ID`
     STUB=`date +%F`
     OUT_DIR=${RESULTS_DIR}/$STUB/${MODE}/${CASE_NUM}
