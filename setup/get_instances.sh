@@ -68,15 +68,26 @@ fi
 if [ "$SETS" == "all" ] || [ "$SETS" == "miplib2010" ]; then
   # In MIPLIB 2010, unzipping will create desired directory
   INSTANCES=miplib2010
+  TYPE=complete
   echo ""
   echo "Processing ${INSTANCES}"
   if [ ${SKIP_DOWNLOAD} != 1 ]; then
-    $DEBUG wget -O ${DATA_DIR}/${INSTANCES}.zip 'https://miplib2010.zib.de/download/miplib2010-1.1.3-benchmark.zip'
+    if [ ${TYPE} == "complete" ]; then
+      $DEBUG wget -O ${DATA_DIR}/${INSTANCES}.zip 'https://miplib2010.zib.de/download/miplib2010-complete.zip'
+    else
+      $DEBUG wget -O ${DATA_DIR}/${INSTANCES}.zip 'https://miplib2010.zib.de/download/miplib2010-1.1.3-benchmark.zip'
+    fi
   fi
   echo "Unpacking ${INSTANCES}"
   $DEBUG unzip -q ${DATA_DIR}/${INSTANCES}.zip *.mps.gz -d ${DATA_DIR}/${INSTANCES}
-  $DEBUG mv ${DATA_DIR}/${INSTANCES}/*/instances/${INSTANCES}/*.mps.gz ${DATA_DIR}/${INSTANCES}
-  $DEBUG rm -r ${DATA_DIR}/${INSTANCES}/miplib2010-*
+  if [ ${TYPE} == "complete" ]; then
+    $DEBUG mv ${DATA_DIR}/${INSTANCES}/${INSTANCES}/*.mps.gz ${DATA_DIR}/${INSTANCES}
+    $DEBUG rm -r ${DATA_DIR}/${INSTANCES}/miplib2010
+  else
+    # Did not test below
+    $DEBUG mv ${DATA_DIR}/${INSTANCES}/*/instances/${INSTANCES}/*.mps.gz ${DATA_DIR}/${INSTANCES}
+    $DEBUG rm -r ${DATA_DIR}/${INSTANCES}/miplib2010-*
+  fi
 fi
 
 if [ "$SETS" == "all" ] || [ "$SETS" == "miplib2003" ]; then
@@ -147,6 +158,27 @@ if [ "$SETS" == "all" ] || [ "$SETS" == "coral" ]; then
   echo "Unpacking ${INSTANCES}"
   $DEBUG tar -xf ${DATA_DIR}/${INSTANCES}.tar --directory ${DATA_DIR}/${INSTANCES}
   $DEBUG mv ${DATA_DIR}/${INSTANCES}/mcf2.mps.bz2 ${DATA_DIR}/${INSTANCES}/danoint.mps.bz2
+fi
+
+if [ "$SETS" == "all" ] || [ "$SETS" == "neos" ]; then
+  INSTANCES=neos
+  echo ""
+  echo "Processing ${INSTANCES}"
+  if [ -z "$VPC_DIR" ]
+  then
+    if [ ! -z "${REPOS_DIR}" ]
+    then
+      echo "Please define VPC_DIR (the root vpc dir, possibly ${REPOS_DIR}/vpc):"
+    else
+      echo "Please define VPC_DIR (the root vpc dir):"
+    fi
+    read VPC_DIR
+    if [ -z "$VPC_DIR" ]
+      then echo "Need to define VPC_DIR. Exiting."
+      exit
+    fi
+  fi
+  $DEBUG cp -r ${VPC_DIR}/data/instances/original/neos ${DATA_DIR}/${INSTANCES}
 fi
 
 echo "Finished downloading instances to $DATA_DIR"
