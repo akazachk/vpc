@@ -1457,6 +1457,14 @@ int VPCEventHandler::saveInformation() {
     delete original_basis;
   }
 
+  // Add disjunctive terms for the pruned nodes
+  const int num_pruned = pruned_stats_.size();
+  for (int i = 0; i < num_pruned; i++) {
+    // For each pruned node, trace its path from the root using the stats_ vector to identify the set of bounds that were changed
+    // Then, set up the disjunctive term
+    const int node_id = pruned_stats_[i].id;
+  }
+
   // If number of real (feasible) terms is too few, we should keep going, unless we have been branching for too long
   if (status == 0 && !hitTimeLimit && !hitHardNodeLimit && this->owner->num_terms <= 0.5 * maxNumLeafNodes_) {
     status = 1;

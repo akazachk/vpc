@@ -85,7 +85,7 @@ INSTANCE_DIR=${LOCAL_DIR}/instances/vpc
 # Where scripts are located
 SCRIPT_DIR=${PROJ_DIR}/scripts
 # Where instance list is located
-INSTANCE_FILE=${SCRIPT_DIR}/${TYPE}.instances
+INSTANCE_FILE="${PROJ_DIR}/experiments/${TYPE}.test"
 # Where to put log files
 RESULTS_DIR=${LOCAL_DIR}/results
 STUB=`date +%F`
