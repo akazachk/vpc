@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage example:
-#   prepare_batch.sh /path/to/instance/list.instances /path/to/results/dir [test / preprocess / bb / bb0 / gmic / rounds]
+#   prepare_batch.sh /path/to/instance/list.test /path/to/results/dir [test / preprocess / bb / bb0 / gmic / rounds]
 
 # Attempt to read VPC_DIR/PROJ_DIR values from environment
 # These will be used to set paths of other variables
@@ -95,11 +95,11 @@ fi
 
 # Set default instance lists
 if [ $MODE == preprocess ]; then
-  INSTANCE_LIST=${INSTANCE_LIST_DIR}/original.instances
+  INSTANCE_LIST="${INSTANCE_LIST_DIR}/original.test"
 elif [ $MODE == gmic ]; then
-  INSTANCE_LIST=${INSTANCE_LIST_DIR}/gmic.instances
+  INSTANCE_LIST="${INSTANCE_LIST_DIR}/gmic.test"
 else
-  INSTANCE_LIST=${INSTANCE_LIST_DIR}/presolved.instances
+  INSTANCE_LIST="${INSTANCE_LIST_DIR}/presolved.test"
 fi
 
 # Executable
