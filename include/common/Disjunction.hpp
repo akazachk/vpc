@@ -155,3 +155,34 @@ protected:
   /// @brief Initialize class members (copy from \p source if provided)
   void initialize(const Disjunction* const source = NULL);
 }; /* Disjunction */
+
+/// @brief Set of disjunctions to test
+class DisjunctionSet {
+  public:
+  /// @name Required members
+  ///@{
+    std::vector<DisjunctionSet> disjunctions; ///< disjunctions to test
+  ///@}
+
+  /// @brief Default constructor
+  DisjunctionSet();
+
+  /// @brief Copy constructor
+  DisjunctionSet(const DisjunctionSet& source);
+
+  /// @brief Destructor
+  virtual ~DisjunctionSet();
+
+  /// @brief Assignment operator
+  DisjunctionSet& operator=(const DisjunctionSet& source);
+
+  /// @brief Clone
+  virtual DisjunctionSet* clone() const;
+
+  /// @brief For clearing things and setting up the disjunction as new
+  virtual void setupAsNew();
+
+  protected:
+  /// @brief Initialize class members (copy from \p source if provided)
+  void initialize(const DisjunctionSet* const source = NULL);  
+}; /* DisjunctionSet */
