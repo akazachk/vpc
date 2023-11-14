@@ -1096,6 +1096,7 @@ int processArgs(int argc, char** argv) {
       {"partial_bb_keep_pruned",required_argument, 0, 'S'*'1'},
       {"partial_bb_timelimit",  required_argument, 0, 'T'},
       {"preprocess",            required_argument, 0, 'p'*'1'},
+      {"random_seed",           required_argument, 0, 'r'*'1'},
       {"rounds",                required_argument, 0, 'r'},
       {"prlp_timelimit",        required_argument, 0, 'R'},
       {"solfile",               required_argument, 0, 's'*'1'},
@@ -1528,6 +1529,16 @@ int processArgs(int argc, char** argv) {
                    params.set(param, val);
                    break;
                  }
+      case 'r'*'1': {
+                      int val;
+                      intParam param = intParam::RANDOM_SEED;
+                      if (!parseInt(optarg, val)) {
+                        error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                        exit(1);
+                      }
+                      params.set(param, val);
+                      break;
+                    }
       case 't'*'1': {
                       int val;
                       intParam param = intParam::TEMP;
