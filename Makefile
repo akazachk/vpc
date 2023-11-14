@@ -9,13 +9,17 @@
 # REMEMBER: use hard tabs only in a makefile
 HOSTNAME := $(shell hostname)
 UNAME := $(shell uname)
+ARCH := $(shell uname -m)
+ifeq ($(ARCH),x86_64)
+	ARCH=x86-64
+endif
 ifeq ($(UNAME),Linux)
   CC     = g++
-  SYSTEM = x86-64_linux
+  SYSTEM = ${ARCH}_linux
 endif
 ifeq ($(UNAME),Darwin)
   CC     = clang++
-  SYSTEM = x86-64_osx
+  SYSTEM = ${ARCH}_osx
 endif
 RM = rm -f
 
@@ -127,8 +131,8 @@ endif
 USE_COIN   = 1
 USE_CLP    = 1
 USE_CBC    = 1
-USE_GUROBI = 0
-USE_CPLEX  = 0
+USE_GUROBI = 1
+USE_CPLEX  = 1
 USE_CLP_SOLVER = 1
 USE_CPLEX_SOLVER = 0
 CALC_COND_NUM = 0

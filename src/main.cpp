@@ -95,6 +95,9 @@ TimeStats timer;
 std::time_t start_time_t, end_time_t;
 char start_time_string[25];
 
+const int HOST_NAME_MAX = 1024;
+char hostname[HOST_NAME_MAX];
+
 SummaryBoundInfo boundInfo;
 std::vector<SummaryBoundInfo> boundInfoVec;
 SummaryBBInfo info_nocuts, info_mycuts, info_allcuts;
@@ -718,6 +721,16 @@ int startUp(int argc, char** argv) {
   snprintf(start_time_string, sizeof(start_time_string) / sizeof(char), "%s", asctime(start_timeinfo));
   printf("Start time: %s\n", start_time_string);
 
+  // Get host name
+  {
+    const int status = gethostname(hostname, HOST_NAME_MAX);
+    if (status)
+    {
+      perror("gethostname");
+      return EXIT_FAILURE;
+    }
+  }
+
   /*
   printf("\n## Version Information ##\n");
 #ifdef VPC_VERSION
@@ -863,7 +876,8 @@ int wrapUp(int retCode, int argc, char** argv) {
 #else
     fprintf(logfile, ",");
 #endif
-
+    // Data corresponding to "countExtraInfoEntries"
+    fprintf(logfile, "%s,", hostname);
     fprintf(logfile, "%s,", CglVPC::ExitReasonName[exitReasonInt].c_str());
     fprintf(logfile, "%s,", end_time_string);
     fprintf(logfile, "%.f,", difftime(end_time_t, start_time_t));
