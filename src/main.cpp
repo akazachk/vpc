@@ -1370,7 +1370,7 @@ int processArgs(int argc, char** argv) {
                   params.set(param, val);
                   break;
                 }
-      case 'S'*'1': {
+      case 'F': {
                   int val;
                   intParam param = intParam::PARTIAL_BB_KEEP_PRUNED_NODES;
                   if (!parseInt(optarg, val)) {

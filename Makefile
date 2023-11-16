@@ -31,8 +31,8 @@ UNIT_TEST_FILE = TestVPCEventHandler.cpp
 ### Variables user should set ###
 PROJ_DIR=${PWD}
 COIN_VERSION = trunk
-GUROBI_DIR = /Library/gurobi912
-GUROBI_LINK="gurobi91"
+GUROBI_DIR = /Library/gurobi1003
+GUROBI_LINK="gurobi100"
 ifeq (${COIN_OR_HOME},)
 	COIN_OR = $(PROJ_DIR)/lib/Cbc-$(COIN_VERSION)
 else
@@ -128,7 +128,7 @@ endif
 USE_COIN   = 1
 USE_CLP    = 1
 USE_CBC    = 1
-USE_GUROBI = 0
+USE_GUROBI = 1
 USE_CPLEX  = 0
 USE_CLP_SOLVER = 1
 USE_CPLEX_SOLVER = 0
@@ -222,13 +222,14 @@ endif
 ifeq ($(USE_CBC),1)
   DEFS += -DUSE_CBC
   DEFS += -DVPC_CBC_VERSION="\#${VPC_CBC_VERSION}"
-  SOURCES += test/CbcHelper.cpp
+  SOURCES += test/CbcHelper.cpp \
+      test/CglStoredVpc.cpp
 endif
 ifeq ($(USE_GUROBI),1)
   DEFS += -DUSE_GUROBI
   SOURCES += test/GurobiHelper.cpp
-  GUROBI_INC="${GUROBI_DIR}/mac64/include"
-  GUROBI_LIB="${GUROBI_DIR}/mac64/lib"
+  GUROBI_INC="${GUROBI_DIR}/macos_universal2/include"
+  GUROBI_LIB="${GUROBI_DIR}/macos_universal2/lib"
 endif
 ifeq ($(USE_CPLEX),1)
   DEFS += -DIL_STD -DUSE_CPLEX

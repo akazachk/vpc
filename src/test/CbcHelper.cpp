@@ -25,6 +25,9 @@ using namespace VPCParametersNamespace;
 
 // General strategy
 #include <CbcStrategy.hpp>
+
+// Cut Store
+#include "CglStoredVpc.hpp" // CglStoredVpc
 #endif // USE_CBC
 
 #ifdef USE_CBC
@@ -316,8 +319,19 @@ void doBranchAndBoundWithUserCutsCbc(
       model.getNumCols(), objOffset, cuts, addAsLazy);
 
   // Apply cuts
+  CglStoredVpc store;
   if (cuts) {
+    // if cuts are on, make sure vpcs are used as a cut generator instead of just being appended to the model
+    // sometimes vpcs don't play nicely with default cuts and we want to give CBC a means of handling that
+    if (!use_bb_option(strategy, BB_Strategy_Options::all_cuts_off) &
+        use_bb_option(strategy, BB_Strategy_Options::presolve_off)){
+      for (int i = 0; i < cuts->sizeRowCuts(); i++) {
+        store.addCut(cuts->rowCut(i));
+      }
+      model.addCutGenerator(&store, 1, "StoredVPCs");
+    } else {
     model.solver()->applyCuts(*cuts);
+    }
     //applyCutsCustom(model.solver(), *cuts);
   }
 
