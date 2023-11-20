@@ -1026,7 +1026,8 @@ void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_dis
           currCut.setRow(1, &col, &el, false);
           gen.addCut(currCut, vpcs,
               CglVPC::CutType::OPTIMALITY_CUT,
-              CglVPC::ObjectiveType::ONE_SIDED);
+              CglVPC::ObjectiveType::ONE_SIDED,
+              0);
         }
       }
     } // iterate over columns and add optimality cut if needed

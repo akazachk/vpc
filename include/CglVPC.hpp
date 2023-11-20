@@ -279,8 +279,8 @@ public:
   /// Specify a #disjunctionSet to use and whether the CglVPC class #ownsDisjunction (and is responsible for freeing memory)
   void setDisjunctionSet(DisjunctionSet* const sourceDisjSet, int ownIt = -1);
 
-  /// Return #prlpData 
-  inline const PRLPData& getPRLPData() const { return this->prlpData; }
+  /// Return #prlpDataVec
+  inline const std::vector<PRLPData>& getPRLPData() const { return this->prlpDataVec; }
   /// Return #prlp
   inline const PRLP* const getPRLP() const { return this->prlp; }
 
@@ -363,7 +363,7 @@ protected:
   std::vector<std::vector<double> > user_tight_points; ///< User can provide points that PRLP will attempt to find cuts with small distance to, where the points are in the original (structural) space
   Disjunction* disjunction = NULL; ///< Pointer to Disjunction used for this round of cuts
   DisjunctionSet* disjunctionSet = NULL; ///< Pointer to DisjunctionSet used for this round of cuts (supercedes #disjunction)
-  PRLPData prlpData; ///< PRLPData for this round of cuts
+  std::vector<PRLPData> prlpDataVec; ///< PRLPData for this round of cuts
 
   /// @brief Clear old information before another round of cuts
   void setupAsNew();
@@ -377,19 +377,33 @@ protected:
       const bool enable_factorization = true);
 
   /// @brief Incorporate root information into solver
-  CglVPC::ExitReason initializeSolverWithRootChanges(const Disjunction* const disj, const int currDisjID, OsiSolverInterface* const vpcsolver, OsiCuts& cuts);
+  CglVPC::ExitReason initializeSolverWithRootChanges(
+      const Disjunction* const disj,
+      const int currDisjID,
+      OsiSolverInterface* const vpcsolver,
+      OsiCuts& cuts);
 
   /// @brief Do everything necessary (after #initializeSolverWithRootChanges) to set up PRLP constraints
-  CglVPC::ExitReason setupConstraints(const Disjunction* const disj, const int currDisjID, OsiSolverInterface* const vpcsolver, OsiCuts& cuts);
+  CglVPC::ExitReason setupConstraints(
+      const Disjunction* const disj,
+      const int currDisjID,
+      OsiSolverInterface* const vpcsolver,
+      PRLPData& prlpData,
+      OsiCuts& cuts);
 
   /// @brief Get basis cone for each disjunctive term
   void genDepth1PRCollection(const OsiSolverInterface* const vpcsolver,
-      const OsiSolverInterface* const tmpSolver, const ProblemData& origProbData,
-      const ProblemData& tmpProbData, const int term_ind);
+      const OsiSolverInterface* const tmpSolver, PRLPData& prlpData,
+      const ProblemData& origProbData, const ProblemData& tmpProbData, const int term_ind);
 
   /// @brief Try objectives in nonbasic space or structural space, as desired
-  CglVPC::ExitReason tryObjectives(OsiCuts& cuts,
-      const OsiSolverInterface* const origSolver, const OsiCuts* const structSICs);
+  CglVPC::ExitReason tryObjectives(
+      OsiCuts& cuts,
+      const OsiSolverInterface* const origSolver,
+      const Disjunction* const disj,
+      const int currDisjID,
+      const PRLPData& currPRLPData,
+      const OsiCuts* const structSICs);
 
   /// @brief Return #num_cuts >= getCutLimit()
   inline bool reachedCutLimit() const {

@@ -415,6 +415,21 @@ void DisjunctionSet::setupAsNew() {
   this->disjunctions.resize(0);
 } /* setupAsNew */
 
+#ifdef USE_COIN
+DisjExitReason DisjunctionSet::prepareDisjunction(const OsiSolverInterface* const si) {
+
+} /* prepareDisjunction */
+#endif // USE_COIN
+
+void DisjunctionSet::updateObjValue(const double objVal) {
+  if (objVal < this->best_obj) {
+    this->best_obj = objVal;
+  }
+  if (objVal > this->worst_obj) {
+    this->worst_obj = objVal;
+  }
+} /* updateObjValue */
+
 void DisjunctionSet::initialize(const DisjunctionSet* const source) {
   if (source != NULL) {
     this->disjunctions = source->disjunctions;

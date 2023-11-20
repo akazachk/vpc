@@ -26,9 +26,12 @@ PRLP::PRLP() {
 } /* default constructor */
 
 /** Owner constructor */
-PRLP::PRLP(CglVPC* owner) {
+PRLP::PRLP(CglVPC* owner, const Disjunction* const disj, const int disjID, const CglVPC::PRLPData* const prlpData) {
   initialize();
   this->owner = owner;
+  this->disj = disj;
+  this->disjID = disjID;
+  this->prlpData = prlpData;
 } /* default constructor */
 
 /** Copy constructor */
@@ -60,8 +63,8 @@ OsiSolverInterface* PRLP::clone(bool copyData) const {
  */
 CglVPC::ExitReason PRLP::setup(const double scale) {
   owner->timer.start_timer(static_cast<int>(CglVPC::VPCTimeStats::PRLP_SETUP_TIME));
-  const int num_constraints = owner->prlpData.rhs.size();
-  const int num_disj_terms = owner->disj()->num_terms;
+  const int num_constraints = this->prlpData->rhs.size();
+  const int num_disj_terms = this->disj->num_terms;
   const int num_cols = owner->probData.num_cols;
 
   // Build the matrix as well as col lower/upper bounds
@@ -83,15 +86,15 @@ CglVPC::ExitReason PRLP::setup(const double scale) {
   // First pass is just to get the orthogonalities and fill the vectors,
   // but we will also remove any singleton rows by setting them as bounds
   for (int r = 0; r < num_constraints; r++) {
-    const int num_vec_el = owner->prlpData.constraints[r].getNumElements();
+    const int num_vec_el = this->prlpData->constraints[r].getNumElements();
     const double vec_rhs =
-        (owner->prlpData.rhs[r] != 0.) ?
-            owner->prlpData.rhs[r] * scale : owner->prlpData.rhs[r];
+        (this->prlpData->rhs[r] != 0.) ?
+            this->prlpData->rhs[r] * scale : this->prlpData->rhs[r];
     // Check if it is a bound
     if (num_vec_el == 1) {
       // row is coeff * var >= rhs
-      const double coeff = owner->prlpData.constraints[r].getElements()[0];
-      const int var = owner->prlpData.constraints[r].getIndices()[0];
+      const double coeff = this->prlpData->constraints[r].getElements()[0];
+      const int var = this->prlpData->constraints[r].getIndices()[0];
       const double old_lb = colLB[var];
       const double old_ub = colUB[var];
       if (isZero(vec_rhs)) {
@@ -137,10 +140,10 @@ CglVPC::ExitReason PRLP::setup(const double scale) {
       numElementsEstimate += num_vec_el;
       if (!isZero(vec_rhs)) {
         rowOfPoint.push_back(r);
-        objDepthPoints.push_back(owner->prlpData.objViolation[r]);
+        objDepthPoints.push_back(this->prlpData->objViolation[r]);
       } else {
         rowOfRay.push_back(r);
-        objDepthRays.push_back(owner->prlpData.objViolation[r]);
+        objDepthRays.push_back(this->prlpData->objViolation[r]);
       }
     } // we add it for processing
   } // iterate over the rows in the matrix
@@ -176,8 +179,8 @@ CglVPC::ExitReason PRLP::setup(const double scale) {
         continue;
       }
       int howDissimilar = 2;
-      const CoinShallowPackedVector vec1 = owner->prlpData.constraints[r1];
-      const double rhs1 = owner->prlpData.rhs[r1];
+      const CoinShallowPackedVector vec1 = this->prlpData->constraints[r1];
+      const double rhs1 = this->prlpData->rhs[r1];
       // Iterate through previous points until bottom or the orthogonality is different
       for (int p2 = p1 - 1; p2 >= 0; p2--) {
         if (isDuplicatePoint[p2]) {
@@ -189,8 +192,8 @@ CglVPC::ExitReason PRLP::setup(const double scale) {
           break;
         }
         const int r2 = rowOfPoint[ind2];
-        const CoinShallowPackedVector vec2 = owner->prlpData.constraints[r2];
-        const double rhs2 = owner->prlpData.rhs[r2];
+        const CoinShallowPackedVector vec2 = this->prlpData->constraints[r2];
+        const double rhs2 = this->prlpData->rhs[r2];
         // Ensure constants line up
         if (!((greaterThanVal(rhs1, 0.) && greaterThanVal(rhs2, 0.))
             || (lessThanVal(rhs1, 0.) && lessThanVal(rhs2, 0.)))) {
@@ -215,8 +218,8 @@ CglVPC::ExitReason PRLP::setup(const double scale) {
     for (int p1 = 1; p1 < numRaysToProcess; p1++) {
       const int ind1 = sortIndexRays[p1];
       const int r1 = rowOfRay[ind1];
-      const CoinShallowPackedVector vec1 = owner->prlpData.constraints[r1];
-      const double rhs1 = owner->prlpData.rhs[r1];
+      const CoinShallowPackedVector vec1 = this->prlpData->constraints[r1];
+      const double rhs1 = this->prlpData->rhs[r1];
       const double ortho1 = objDepthRays[ind1];
       int howDissimilar = 2;
       // Iterate through previous rays until bottom or the orthogonality is different
@@ -230,8 +233,8 @@ CglVPC::ExitReason PRLP::setup(const double scale) {
           break;
         }
         const int r2 = rowOfRay[ind2];
-        const CoinShallowPackedVector vec2 = owner->prlpData.constraints[r2];
-        const double rhs2 = owner->prlpData.rhs[r2];
+        const CoinShallowPackedVector vec2 = this->prlpData->constraints[r2];
+        const double rhs2 = this->prlpData->rhs[r2];
         howDissimilar = isRowDifferent(&vec1, rhs1, &vec2, rhs2, owner->params.get(doubleConst::DIFFEPS));
         if (howDissimilar == -1) {
           // This means the current row is better somehow, and we should replace r2
@@ -263,10 +266,10 @@ CglVPC::ExitReason PRLP::setup(const double scale) {
     }
     const int ind = sortIndexPoints[p];
     const int r = rowOfPoint[ind];
-    const double rhs = owner->prlpData.rhs[r] * scale;
-    mx.appendRow(owner->prlpData.constraints[r].getNumElements(),
-        owner->prlpData.constraints[r].getIndices(),
-        owner->prlpData.constraints[r].getElements());
+    const double rhs = this->prlpData->rhs[r] * scale;
+    mx.appendRow(this->prlpData->constraints[r].getNumElements(),
+        this->prlpData->constraints[r].getIndices(),
+        this->prlpData->constraints[r].getElements());
     rowLB.push_back(rhs);
     numPoints++;
     ortho.push_back(objDepthPoints[ind]);
@@ -279,10 +282,10 @@ CglVPC::ExitReason PRLP::setup(const double scale) {
     }
     const int ind = sortIndexRays[p];
     const int r = rowOfRay[ind];
-    const double rhs = owner->prlpData.rhs[r];
-    mx.appendRow(owner->prlpData.constraints[r].getNumElements(),
-        owner->prlpData.constraints[r].getIndices(),
-        owner->prlpData.constraints[r].getElements());
+    const double rhs = this->prlpData->rhs[r];
+    mx.appendRow(this->prlpData->constraints[r].getNumElements(),
+        this->prlpData->constraints[r].getIndices(),
+        this->prlpData->constraints[r].getElements());
     rowLB.push_back(rhs);
     numRays++;
     ortho.push_back(objDepthRays[ind]);
@@ -439,6 +442,9 @@ int PRLP::solve(OsiCuts& cuts,
 void PRLP::initialize(const PRLP* const source) {
   if (source != NULL) {
     this->owner = source->owner;
+    this->disj = source->disj;
+    this->disjID = source->disjID;
+    this->prlpData = source->prlpData;
     this->nonZeroColIndex = source->nonZeroColIndex;
     this->ortho = source->ortho;
     this->numPoints = source->numPoints;
@@ -450,6 +456,9 @@ void PRLP::initialize(const PRLP* const source) {
   }
   else {
     this->owner = NULL;
+    this->disj = NULL;
+    this->disjID = -1;
+    this->prlpData = NULL;
     this->nonZeroColIndex.resize(0);
     this->ortho.resize(0);
     this->numPoints = 0;
@@ -721,7 +730,7 @@ int PRLP::genCutHelper(OsiCuts& cuts,
         && !duplicateGICFlag && !orthogonalityGICFailFlag;
     if (toAdd) {
       currCut.setEffectiveness(violation / currCutNorm);
-      owner->addCut(currCut, cuts, CglVPC::CutType::VPC, cutHeur);
+      owner->addCut(currCut, cuts, CglVPC::CutType::VPC, cutHeur, this->disjID);
       this->num_cuts++;
       num_cuts_generated++;
       owner->numFails[static_cast<int>(CglVPC::FailureType::DUPLICATE_SIC)] += duplicateSICFlag;
