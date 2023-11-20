@@ -18,6 +18,7 @@
 #include "TimeStats.hpp"
 
 class Disjunction; // include is in source file
+class DisjunctionSet;
 class PRLP;
 enum class DisjExitReason;
 
@@ -60,6 +61,7 @@ public:
     SPLITS,       ///< set of split disjunctions
     CROSSES,      ///< set of cross disjunctions
     CUSTOM,       ///< user-defined disjunction
+    DISJ_SET_PBB, ///< run set of partial branch-and-bound trees
     NUM_VPC_MODES ///< number of vpc modes
   }; /* VPCMode */
 
@@ -197,6 +199,7 @@ public:
 
   std::vector<CutType> cutType;       ///< one entry per cut
   std::vector<ObjectiveType> objType; ///< one entry per cut
+  std::vector<int> disjID;            ///< one entry per cut
 
   std::vector<int> numCutsOfType;     ///< one entry per cut type
   std::vector<int> numCutsFromHeur;   ///< one entry per objective type
@@ -269,6 +272,13 @@ public:
   /// Specify a #disjunction to use and whether the CglVPC class #ownsDisjunction (and is responsible for freeing memory)
   void setDisjunction(Disjunction* const sourceDisj, int ownIt = -1);
 
+  /// DisjunctionSet being used by the class
+  inline DisjunctionSet* const disjSet() const { return this->disjunctionSet; }
+  /// alias for disjSet()
+  inline DisjunctionSet* const getDisjunctionSet() const { return this->disjSet(); }
+  /// Specify a #disjunctionSet to use and whether the CglVPC class #ownsDisjunction (and is responsible for freeing memory)
+  void setDisjunctionSet(DisjunctionSet* const sourceDisjSet, int ownIt = -1);
+
   /// Return #prlpData 
   inline const PRLPData& getPRLPData() const { return this->prlpData; }
   /// Return #prlp
@@ -289,7 +299,8 @@ public:
   virtual void generateCuts(const OsiSolverInterface&, OsiCuts&, const CglTreeInfo = CglTreeInfo());
 
   /// @brief Any time a cut is added, it should go through this method
-  bool addCut(const OsiRowCut& cut, OsiCuts& cuts, const CutType& type, const ObjectiveType& cutHeur, 
+  bool addCut(const OsiRowCut& cut, OsiCuts& cuts,
+      const CutType& type, const ObjectiveType& cutHeur, const int currDisjID,
       const OsiSolverInterface* const origSolver = NULL,
       const bool check_violation = false);
 
@@ -351,6 +362,7 @@ protected:
   std::vector<std::vector<double> > user_objectives; ///< User can provide objectives to try for PRLP, in original (structural) space
   std::vector<std::vector<double> > user_tight_points; ///< User can provide points that PRLP will attempt to find cuts with small distance to, where the points are in the original (structural) space
   Disjunction* disjunction = NULL; ///< Pointer to Disjunction used for this round of cuts
+  DisjunctionSet* disjunctionSet = NULL; ///< Pointer to DisjunctionSet used for this round of cuts (supercedes #disjunction)
   PRLPData prlpData; ///< PRLPData for this round of cuts
 
   /// @brief Clear old information before another round of cuts
@@ -364,8 +376,11 @@ protected:
       const ProblemData* const origProbData = NULL,
       const bool enable_factorization = true);
 
-  /// @brief Do everything necessary to setup PRLP constraints
-  CglVPC::ExitReason setupConstraints(OsiSolverInterface* const vpcsolver, OsiCuts& cuts);
+  /// @brief Incorporate root information into solver
+  CglVPC::ExitReason initializeSolverWithRootChanges(const Disjunction* const disj, const int currDisjID, OsiSolverInterface* const vpcsolver, OsiCuts& cuts);
+
+  /// @brief Do everything necessary (after #initializeSolverWithRootChanges) to set up PRLP constraints
+  CglVPC::ExitReason setupConstraints(const Disjunction* const disj, const int currDisjID, OsiSolverInterface* const vpcsolver, OsiCuts& cuts);
 
   /// @brief Get basis cone for each disjunctive term
   void genDepth1PRCollection(const OsiSolverInterface* const vpcsolver,

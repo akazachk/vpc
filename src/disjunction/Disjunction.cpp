@@ -382,3 +382,43 @@ void Disjunction::initialize(const Disjunction* const source) {
   }
 } /* initialize */
 
+DisjunctionSet::DisjunctionSet() {
+  initialize(NULL);
+} /* default constructor */
+
+DisjunctionSet::DisjunctionSet(const DisjunctionSet& source) {
+  initialize(&source);
+} /* copy constructor */
+
+DisjunctionSet::~DisjunctionSet() {
+  // Free memory in disjunctions
+  for (auto disj : disjunctions) {
+    delete disj;
+  }
+  this->disjunctions.clear();
+  this->disjunctions.resize(0);
+} /* destructor */
+
+DisjunctionSet& DisjunctionSet::operator=(const DisjunctionSet& source) {
+  if (this != &source) {
+    initialize(&source);
+  }
+  return *this;
+} /* assignment operator */
+
+DisjunctionSet *DisjunctionSet::clone() const
+{
+  return new DisjunctionSet(*this);
+} /* clone */
+
+void DisjunctionSet::setupAsNew() {
+  this->disjunctions.resize(0);
+} /* setupAsNew */
+
+void DisjunctionSet::initialize(const DisjunctionSet* const source) {
+  if (source != NULL) {
+    this->disjunctions = source->disjunctions;
+  } else {
+    this->disjunctions.resize(0);
+  }
+} /* initialize */

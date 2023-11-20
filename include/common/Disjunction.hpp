@@ -161,7 +161,7 @@ class DisjunctionSet {
   public:
   /// @name Required members
   ///@{
-    std::vector<DisjunctionSet> disjunctions; ///< disjunctions to test
+    std::vector<Disjunction*> disjunctions; ///< disjunctions to test
   ///@}
 
   /// @brief Default constructor
@@ -181,6 +181,11 @@ class DisjunctionSet {
 
   /// @brief For clearing things and setting up the disjunction as new
   virtual void setupAsNew();
+
+  /// @brief Add disjunction to the set
+  inline void addDisjunction(const Disjunction* const disj) {
+    this->disjunctions.push_back(disj->clone());
+  }
 
   protected:
   /// @brief Initialize class members (copy from \p source if provided)

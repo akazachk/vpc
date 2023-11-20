@@ -158,8 +158,9 @@ CglVPC::CglVPC(const CglVPC& source) : CglCutGenerator(source) {
 
 /// Deletes #disjunction and #prlp
 CglVPC::~CglVPC() {
-  if (disjunction && ownsDisjunction) { delete disjunction; }
-  if (prlp) delete prlp;
+  if (this->disjunction && this->ownsDisjunction) { delete this->disjunction; }
+  if (this->disjunctionSet && this->ownsDisjunction) { delete this->disjunctionSet; }
+  if (this->prlp) delete this->prlp;
 } /* destructor */
 
 /// Calls \link initialize() initialize(&source) \endlink
@@ -198,6 +199,26 @@ void CglVPC::setDisjunction(
   else
     this->disjunction = sourceDisj;
 } /* setDisjunction */
+
+/**
+ * @details #disjunctionSet will be deleted if it is currently not NULL and #ownsDisjunction is true  
+*/
+void CglVPC::setDisjunctionSet(
+    /// [in] Set of disjunctions to test
+    DisjunctionSet* const sourceDisjSet,
+    /// [in] -1, 0, or 1; -1 means use #ownsDisjunction value from class
+    int ownIt) {
+  if (ownIt < 0) {
+    ownIt = this->ownsDisjunction;
+  }
+  if (this->disjunctionSet && this->ownsDisjunction)
+    delete disjunctionSet;
+  this->ownsDisjunction = ownIt;
+  if (ownIt)
+    this->disjunctionSet = sourceDisjSet->clone();
+  else
+    this->disjunctionSet = sourceDisjSet;
+} /* setDisjunctionSet */
 
 void CglVPC::setUserObjectives(
     /// [in] set of user objectives in structural space, saved in #user_objectives
@@ -270,8 +291,8 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     return;
   }
 
-  if (!disjunction) {
-    mode = static_cast<VPCMode>(params.get(MODE));
+  if (!disjunction && !disjunctionSet) {
+    mode = static_cast<VPCMode>(params.get(intParam::MODE));
     if (mode == VPCMode::CUSTOM) {
       error_msg(errorstring,
           "Mode chosen is CUSTOM but no disjunction is set.\n");
@@ -288,9 +309,30 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
       printf(
           "\n## Starting VPC generation from partial branch-and-bound tree with up to %d disjunctive terms. ##\n",
           params.get(intParam::DISJ_TERMS));
-      disjunction = new PartialBBDisjunction(this->params);
-      dynamic_cast<PartialBBDisjunction*>(disjunction)->num_rounds = this->num_rounds;
-      dynamic_cast<PartialBBDisjunction*>(disjunction)->timer = &timer;
+      this->disjunction = new PartialBBDisjunction(this->params);
+      dynamic_cast<PartialBBDisjunction*>(this->disjunction)->num_rounds = this->num_rounds;
+      dynamic_cast<PartialBBDisjunction*>(this->disjunction)->timer = &timer;
+    } else if (mode == VPCMode::DISJ_SET_PBB) {
+      std::vector<int> disjOptions;
+      std::stringstream ss(params.get(stringParam::DISJ_OPTIONS));
+      std::string token;
+      printf(
+          "\n## Starting VPC generation from **SET** of partial branch-and-bound trees with up to { ");
+      while (std::getline(ss, token, ',')) {
+        const int curr_num_terms = std::stoi(token);
+        if (curr_num_terms >= 2) {
+          disjOptions.push_back(curr_num_terms);
+          printf("%d ", curr_num_terms);
+        }
+      }
+      printf("} disjunctive terms. ##\n");
+
+      for (const int curr_num_terms : disjOptions) {
+        Disjunction* disj = new PartialBBDisjunction(this->params);
+        dynamic_cast<PartialBBDisjunction*>(disj)->params.set(intParam::DISJ_TERMS, curr_num_terms);
+        dynamic_cast<PartialBBDisjunction*>(disj)->num_rounds = this->num_rounds;
+        dynamic_cast<PartialBBDisjunction*>(disj)->timer = &timer;
+      }
     } else if (mode == VPCMode::SPLITS) {
       printf("\n## Starting VPC generation from one split. ##\n");
       disjunction = new SplitDisjunction(this->params);
@@ -342,12 +384,12 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     // Get disjunctive terms and obtain their optimal bases
     // (If mode is custom, i.e., disjunction is given to us,
     // then we assume that the disjunction is already prepared)
-    DisjExitReason disjstatus = disjunction->prepareDisjunction(solver);
+    DisjExitReason disjstatus = this->disjunction->prepareDisjunction(solver);
     status = matchStatus(disjstatus);
     if (status == CglVPC::ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT) {
       warning_msg(warnstr,
           "An integer (optimal) solution with value %.6g was found prior while getting disjunction.\n",
-          disjunction->integer_obj);
+          this->disjunction->integer_obj);
           //" We will generate between n and 2n cuts, restricting the value of each variable.\n");
       /*const double* solution = disjunction->integer_sol.data();
       if (solution) {
@@ -386,7 +428,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
       objCut.setRow(indices.size(), indices.data(), vals.data(), false);
       double offset = 0.;
       solver->getDblParam(OsiDblParam::OsiObjOffset, offset);
-      objCut.setLb(disjunction->integer_obj + offset);
+      objCut.setLb(this->disjunction->integer_obj + offset);
       addCut(objCut, cuts, CutType::OPTIMALITY_CUT,
           ObjectiveType::OBJ_CUT);
     } // exit out early if integer-optimal solution found
@@ -399,8 +441,16 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   // Make a copy of the solver to allow for fixing variables and changed bounds at root
   SolverInterface* vpcsolver = dynamic_cast<SolverInterface*>(si.clone());
   
+  // Get the V-polyhedral relaxation of the root node
+  status = initializeSolverWithRootChanges(disjunction, 0, vpcsolver, cuts);
+  if (status != CglVPC::ExitReason::SUCCESS_EXIT) {
+    if (vpcsolver) { delete vpcsolver; }
+    finish(status);
+    return;
+  }
+
   // Save the V-polyhedral relaxations of each optimal basis in the terms of the PRLP
-  status = setupConstraints(vpcsolver, cuts);
+  status = setupConstraints(disjunction, 0, vpcsolver, cuts);
   if (status != CglVPC::ExitReason::SUCCESS_EXIT) {
     if (vpcsolver) { delete vpcsolver; }
     finish(status);
@@ -425,6 +475,8 @@ bool CglVPC::addCut(
     const CutType& type,
     /// [in] Track the cut heuristic generating this cut
     const ObjectiveType& cutHeur,
+    /// [in] Track the disjunction id generating this cut
+    const int currDisjID,
     /// [in] Solver pointer, the solution to which will be used to check violation of the cut
     const OsiSolverInterface* const origSolver,
     /// [in] Whether to check violation (when adding one-sided cuts, we check, whereas the other VPCs have already been vetted)
@@ -441,6 +493,7 @@ bool CglVPC::addCut(
   numCutsOfType[static_cast<int>(type)]++;
   objType.push_back(cutHeur);
   numCutsFromHeur[static_cast<int>(cutHeur)]++;
+  disjID.push_back(currDisjID);
   num_cuts++;
   return true;
 } /* addCut */
@@ -496,6 +549,7 @@ void CglVPC::initialize(
     if (param == NULL)
       setParams(source->params);
     setDisjunction(source->disjunction, source->ownsDisjunction);
+    setDisjunctionSet(source->disjunctionSet, source->ownsDisjunction);
     this->canReplaceGivenCuts = source->canReplaceGivenCuts;
     this->isSetupForRepeatedUse = source->isSetupForRepeatedUse;
     this->mode = source->mode;
@@ -526,6 +580,7 @@ void CglVPC::initialize(
     this->ownsDisjunction = false;
     this->isSetupForRepeatedUse = false;
     this->disjunction = NULL;
+    this->disjunctionSet = NULL;
     for (int t = 0; t < static_cast<int>(VPCTimeStats::NUM_TIME_STATS); t++) {
       timer.register_name(VPCTimeStatsName[t]);
     }
@@ -713,47 +768,173 @@ void CglVPC::getProblemData(
     solver->disableFactorization();
 } /* getProblemData */
 
-CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver, OsiCuts& cuts) {
+CglVPC::ExitReason CglVPC::initializeSolverWithRootChanges(
+    /// [in] Disjunction for which PRLP will be created
+    const Disjunction* const disj,
+    /// [in] ID of the disjunction,
+    const int currDisjID,
+    /// [in/out] Solver being used to determine the nonbasic space; note that the basis and/or solution may change due to enableFactorization
+    OsiSolverInterface* const vpcsolver,
+    /// [in/out] Current set of cuts (to be updated if any one-sided inequalities are found)
+    OsiCuts& cuts) {
   /***********************************************************************************
    * Change initial bounds
    ***********************************************************************************/
-  const int num_changed_bounds = this->disjunction->common_changed_var.size();
+  const int num_changed_bounds = disj->common_changed_var.size();
   int num_fixed = 0;
   for (int i = 0; i < num_changed_bounds; i++) {
     if (reachedCutLimit()) {
       printf("CglVPC::setupConstraints: Reached cut limit from one-sided cuts due to bounds fixed at the root.\n");
       return CglVPC::ExitReason::CUT_LIMIT_EXIT;
     }
-    const int col = this->disjunction->common_changed_var[i];
-    if (this->disjunction->common_changed_bound[i] <= 0) {
-      vpcsolver->setColLower(col, this->disjunction->common_changed_value[i]);
+    const int col = disj->common_changed_var[i];
+    if (disj->common_changed_bound[i] <= 0) {
+      vpcsolver->setColLower(col, disj->common_changed_value[i]);
     } else {
-      vpcsolver->setColUpper(col, this->disjunction->common_changed_value[i]);
+      vpcsolver->setColUpper(col, disj->common_changed_value[i]);
     }
 
-    const double mult = (this->disjunction->common_changed_bound[i] <= 0) ? 1. : -1.;
+    const double mult = (disj->common_changed_bound[i] <= 0) ? 1. : -1.;
     const double el = mult * 1.;
-    const double val = this->disjunction->common_changed_value[i];
+    const double val = disj->common_changed_value[i];
     OsiRowCut currCut;
     currCut.setLb(mult * val);
     currCut.setRow(1, &col, &el, false);
     // TODO set effectiveness?
-    addCut(currCut, cuts, CutType::ONE_SIDED_CUT, ObjectiveType::ONE_SIDED, vpcsolver, true);
+    addCut(currCut, cuts, CutType::ONE_SIDED_CUT, ObjectiveType::ONE_SIDED, currDisjID, vpcsolver, true);
 
     if (isVal(vpcsolver->getColLower()[col], vpcsolver->getColUpper()[col])) {
       num_fixed++;
     }
   } // account for bounds changed at root
 
-  const int num_added_ineqs = this->disjunction->common_ineqs.size();
+  const int num_added_ineqs = disj->common_ineqs.size();
+  for (int i = 0; i < num_added_ineqs; i++) {
+    if (reachedCutLimit()) {
+      printf("CglVPC::initializeSolverWithRootChanges: Reached cut limit from one-sided cuts added at the root.\n");
+      return CglVPC::ExitReason::CUT_LIMIT_EXIT;
+    }
+    OsiRowCut* currCut = &(disj->common_ineqs[i]);
+    vpcsolver->applyRowCuts(1, currCut); // hopefully this works
+    addCut(*currCut, cuts, CutType::ONE_SIDED_CUT, ObjectiveType::ONE_SIDED, currDisjID, vpcsolver, true);
+  }
+
+#ifdef TRACE
+//  printf(
+//      "\n## Total number changed bounds: %d. Number fixed: %d. Number added inequalities: %d. ##\n",
+//      num_changed_bounds, num_fixed, num_added_ineqs);
+#endif
+  if (num_changed_bounds + num_fixed + num_added_ineqs > 0) {
+    vpcsolver->resolve();
+    if (!checkSolverOptimality(vpcsolver, false)) {
+      error_msg(errorstring,
+          "CglVPC::initializeSolverWithRootChanges: Solver not proven optimal after updating bounds from root node.\n");
+      writeErrorToLog(errorstring, params.logfile);
+      exit(1);
+    }
+
+    // For debugging purposes, verify that the stored root objective matches
+    if (num_added_ineqs == 0) {
+      const double newval = vpcsolver->getObjValue();
+      const double savedval = !isInfinity(disj->root_obj) ? disj->root_obj : vpcsolver->getObjValue();
+      const double epsilon = params.get(doubleConst::DIFFEPS);
+      if (!isVal(newval, savedval, epsilon)) {
+        vpcsolver->resolve();
+      }
+      if (!isVal(newval, savedval, epsilon)) {
+        double ratio = 1.;
+        if (isZero(newval, epsilon) && isZero(savedval, epsilon)) {
+          // nothing to do, keep ratio = 1.
+          ratio = 1.;
+        }
+        else if (isZero(newval, epsilon) || isZero(savedval, epsilon)) {
+          // ratio is 1 + abs(diff between values, since one of these values is zero)
+          ratio = 1. + std::abs(newval - savedval);
+        }
+        else {
+          ratio = newval / savedval;
+          if (ratio < 1.) {
+            ratio = 1. / ratio;
+          }
+        }
+
+        // Allow it to be up to 3% off without causing an error
+        if (greaterThanVal(ratio, 1.03)) {
+          error_msg(errorstring,
+              "CglVPC::initializeSolverWithRootChanges: Root objective calculated after bound changes (%f) does not match stored value in disjunction (%f), with a difference of %e.\n",
+            vpcsolver->getObjValue(), this->disjunction->root_obj, std::abs(this->disjunction->root_obj - vpcsolver->getObjValue()));
+          writeErrorToLog(errorstring, params.logfile);
+          exit(1);
+        } else {
+          warning_msg(warnstring,
+              "CglVPC::initializeSolverWithRootChanges: Root objective calculated after bound changes (%f) does not match stored value in disjunction (%f), with a difference of %e.\n",
+            vpcsolver->getObjValue(), this->disjunction->root_obj, std::abs(this->disjunction->root_obj - vpcsolver->getObjValue()));
+        }
+      } // check root objective value matches
+    } // check if any inequalities have been added to the root node through the disjunction
+  } // compute root LP basis after changing bounds at root and adding globally valid inequalities
+
+  // Save problem data for nonbasic space usage and decide on problem-specific epsilon
+#ifdef TRACE
+  printf("\n## CglVPC::initializeSolverWithRootChanges: Saving root node optimal solution for nonbasic space usage ##\n");
+#endif
+  getProblemData(vpcsolver, this->probData); // this should be the same for all disjunctions
+#ifdef TRACE
+  printf("CglVPC::initializeSolverWithRootChanges: Problem-specific epsilon set to %.10e\n", this->probData.EPS);
+#endif
+
+  return CglVPC::ExitReason::SUCCESS_EXIT;
+} /* initializeSolverWithRootChanges */
+
+CglVPC::ExitReason CglVPC::setupConstraints(
+    /// [in] Disjunction for which PRLP will be created
+    const Disjunction* const disj,
+    /// [in] ID of the disjunction,
+    const int currDisjID,
+    /// [in/out] Solver being used to determine the nonbasic space; note that the basis and/or solution may change due to enableFactorization
+    OsiSolverInterface* const vpcsolver,
+    /// [in/out] Current set of cuts (to be updated if any one-sided inequalities are found)
+    OsiCuts& cuts) {
+  /***********************************************************************************
+   * Change initial bounds
+   ***********************************************************************************/
+  const int num_changed_bounds = disj->common_changed_var.size();
+  int num_fixed = 0;
+  for (int i = 0; i < num_changed_bounds; i++) {
+    if (reachedCutLimit()) {
+      printf("CglVPC::setupConstraints: Reached cut limit from one-sided cuts due to bounds fixed at the root.\n");
+      return CglVPC::ExitReason::CUT_LIMIT_EXIT;
+    }
+    const int col = disj->common_changed_var[i];
+    if (disj->common_changed_bound[i] <= 0) {
+      vpcsolver->setColLower(col, disj->common_changed_value[i]);
+    } else {
+      vpcsolver->setColUpper(col, disj->common_changed_value[i]);
+    }
+
+    const double mult = (disj->common_changed_bound[i] <= 0) ? 1. : -1.;
+    const double el = mult * 1.;
+    const double val = disj->common_changed_value[i];
+    OsiRowCut currCut;
+    currCut.setLb(mult * val);
+    currCut.setRow(1, &col, &el, false);
+    // TODO set effectiveness?
+    addCut(currCut, cuts, CutType::ONE_SIDED_CUT, ObjectiveType::ONE_SIDED, currDisjID, vpcsolver, true);
+
+    if (isVal(vpcsolver->getColLower()[col], vpcsolver->getColUpper()[col])) {
+      num_fixed++;
+    }
+  } // account for bounds changed at root
+
+  const int num_added_ineqs = disj->common_ineqs.size();
   for (int i = 0; i < num_added_ineqs; i++) {
     if (reachedCutLimit()) {
       printf("CglVPC::setupConstraints: Reached cut limit from one-sided cuts added at the root.\n");
       return CglVPC::ExitReason::CUT_LIMIT_EXIT;
     }
-    OsiRowCut* currCut = &(this->disjunction->common_ineqs[i]);
+    OsiRowCut* currCut = &(disj->common_ineqs[i]);
     vpcsolver->applyRowCuts(1, currCut); // hopefully this works
-    addCut(*currCut, cuts, CutType::ONE_SIDED_CUT, ObjectiveType::ONE_SIDED, vpcsolver, true);
+    addCut(*currCut, cuts, CutType::ONE_SIDED_CUT, ObjectiveType::ONE_SIDED, currDisjID, vpcsolver, true);
   }
 
 #ifdef TRACE
@@ -773,7 +954,7 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
     // For debugging purposes, verify that the stored root objective matches
     if (num_added_ineqs == 0) {
       const double newval = vpcsolver->getObjValue();
-      const double savedval = this->disjunction->root_obj;
+      const double savedval = !isInfinity(disj->root_obj) ? disj->root_obj : vpcsolver->getObjValue();
       const double epsilon = params.get(doubleConst::DIFFEPS);
       if (!isVal(newval, savedval, epsilon)) {
         vpcsolver->resolve();
@@ -815,7 +996,7 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
 #ifdef TRACE
   printf("\n## CglVPC::setupConstraints: Saving root node optimal solution for nonbasic space usage ##\n");
 #endif
-  getProblemData(vpcsolver, this->probData);
+  getProblemData(vpcsolver, this->probData); // this should be the same for all disjunctions
 #ifdef TRACE
   printf("CglVPC::setupConstraints: Problem-specific epsilon set to %.10e\n", this->probData.EPS);
 #endif
