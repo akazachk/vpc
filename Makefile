@@ -26,7 +26,7 @@ RM = rm -f
 BUILD_CONFIG = unit_test
 BUILD_CONFIG = release
 BUILD_CONFIG = debug
-UNIT_TEST_FILE = TestVPCEventHandler.cpp
+UNIT_TEST_FILE = TestPartialBBDisjunction.cpp
 
 ### Variables user should set ###
 PROJ_DIR=${PWD}
@@ -223,7 +223,8 @@ ifeq ($(USE_CBC),1)
   DEFS += -DUSE_CBC
   DEFS += -DVPC_CBC_VERSION="\#${VPC_CBC_VERSION}"
   SOURCES += test/CbcHelper.cpp \
-      test/CglStoredVpc.cpp
+      test/CglStoredVpc.cpp \
+      test/CbcSolverHeuristics.cpp
 endif
 ifeq ($(USE_GUROBI),1)
   DEFS += -DUSE_GUROBI

@@ -18,6 +18,8 @@ using namespace VPCParametersNamespace;
 
 #ifdef USE_CBC
 #include <CbcModel.hpp>
+#include <CbcSolver.hpp>  // CbcParam, CbcSolverUsefulData
+#include <CbcSolverHeuristics.hpp> // doHeuristics
 
 // Variable selection
 #include <CbcBranchDefaultDecision.hpp>
@@ -43,34 +45,43 @@ void setStrategyForBBTestCbc(
   cbc_model->setRandomSeed(seed); // random seed
 
   int strategy = given_strategy;
-  if (strategy <= 0) {
-    // Default strategy
-    CbcStrategyDefault strategy;
-    cbc_model->setStrategy(strategy);
-    /*
-    CbcStrategyDefault strategy(-1);
-    strategy.setupPreProcessing(-1,0);
-    cbc_model->setStrategy(strategy);
+
+  // pass default values except for logging verbosity
+  CbcStrategyDefault cbc_strategy(1, 5, 0, params.get(intParam::VERBOSITY));
+  cbc_model->setStrategy(cbc_strategy);
+
+  if (use_bb_option(strategy, BB_Strategy_Options::heuristics_on)){
+    // set parameters repsonsible for turning on default heuristics (according to CbcSolver)
+    CbcSolverUsefulData cbcData;
+    cbcData[CbcParam::ROUNDING]->setVal("on");
+    cbcData[CbcParam::FPUMP]->setVal("on");
+    cbcData[CbcParam::GREEDY]->setVal("on");
+    cbcData[CbcParam::FPUMPITS]->setVal(30);
+    cbcData[CbcParam::FPUMPTUNE]->setVal(1005043);
+    // turn on heuristics - doesn't actually do them until solve
+    doHeuristics(cbc_model, 1, cbcData, cbcData.noPrinting(), 1005043);
+  }
+
+  if (use_bb_option(strategy, BB_Strategy_Options::user_cuts)) {
+    // Make sure dual reductions are off
+  }
+
+  // Turn off all cuts
+  if (use_bb_option(strategy, BB_Strategy_Options::all_cuts_off)) {
     cbc_model->setMaximumCutPassesAtRoot(0);
     cbc_model->setMaximumCutPasses(0);
     cbc_model->setWhenCuts(0);
-    */
-  } else {
-    if (use_bb_option(strategy, BB_Strategy_Options::user_cuts)) {
-      // Make sure dual reductions are off
-    }
+  }
 
-    // Turn off all cuts
-    if (use_bb_option(strategy, BB_Strategy_Options::all_cuts_off)) {
-      cbc_model->setMaximumCutPassesAtRoot(0);
-      cbc_model->setMaximumCutPasses(0);
-      cbc_model->setWhenCuts(0);
-    }
+  // Presolve
+  if (use_bb_option(strategy, BB_Strategy_Options::presolve_off)) {
+    cbc_model->setTypePresolve(0);
+  }
 
-    // Presolve
-    if (use_bb_option(strategy, BB_Strategy_Options::presolve_off)) {
-      cbc_model->setTypePresolve(0);
-    }
+  // set bound
+  if (use_bb_option(strategy, BB_Strategy_Options::use_best_bound)) {
+    verify(!isInfinity(std::abs(best_bound)), "Best bound must be finite if applied.\n");
+    cbc_model->setCutoff(best_bound);
   }
 
   // Check if we should use strong branching
@@ -132,8 +143,13 @@ class CbcUserCutEventHandler : public CbcEventHandler {
     ///     endSearch
     ///   };
     virtual CbcAction event(CbcEvent whichEvent) {
+      // don't track anything if we're not in the main branch and bound loop
+      if ((model_->specialOptions() & 2048) != 0){
+        return noAction;
+      }
       const int num_nodes = model_->getNodeCount();
-      const double objValue = model_->getBestPossibleObjValue(); //model_->solver()->getObjValue();
+      // model_->getBestPossibleObjValue() is wrong when getting objective after cuts
+      const double objValue = model_->solver()->getObjValue();
       this->info.bound = objValue;
       if (num_nodes == 0) {
         if (this->info.root_passes == 1) {
@@ -141,11 +157,12 @@ class CbcUserCutEventHandler : public CbcEventHandler {
         }
       }
 
-      { /// DEBUG DEBUG
-        if (model_->currentNumberCuts() > 0 || model_->globalCuts()->sizeRowCuts() > 0) {
-          exit(1);
-        }
-      } /// DEBUG DEBUG
+      // unsure what this is supposed to do, but when you add a cut store, it's tripped
+//      { /// DEBUG DEBUG
+//        if (model_->currentNumberCuts() > 0 || model_->globalCuts()->sizeRowCuts() > 0) {
+//          exit(1);
+//        }
+//      } /// DEBUG DEBUG
 
       if (whichEvent == CbcEventHandler::treeStatus) {
       }
@@ -168,6 +185,7 @@ class CbcUserCutEventHandler : public CbcEventHandler {
           // When root_passes = 0, we have not applied any cuts yet
           this->info.root_passes++;
           this->info.last_cut_pass = objValue;
+          this->info.root_time = model_->getCurrentSeconds();
         }
       }
 #endif // CBC_VERSION_210PLUS
@@ -267,13 +285,13 @@ void doBranchAndBoundWithCbc(
       strategy, params.get(intParam::RANDOM_SEED));
   setStrategyForBBTestCbc(params, strategy, &model, best_bound);
 
-  model.branchAndBound(params.get(intParam::VERBOSITY) > 0 ? 3 : 0);
+  model.branchAndBound(params.get(intParam::VERBOSITY));
 
   // Status of problem - 0 finished, 1 stopped, 2 difficulties
   const int optimstatus = model.status();
   if ((optimstatus == 0 || optimstatus == 1 || optimstatus == 2) &&
       (model.isProvenInfeasible() || model.isContinuousUnbounded() || model.isProvenDualInfeasible())) {
-    error_msg(errorstring, "Gurobi: Failed to optimize MIP.\n");
+    error_msg(errorstring, "CBC: Failed to optimize MIP.\n");
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }
@@ -323,8 +341,7 @@ void doBranchAndBoundWithUserCutsCbc(
   if (cuts) {
     // if cuts are on, make sure vpcs are used as a cut generator instead of just being appended to the model
     // sometimes vpcs don't play nicely with default cuts and we want to give CBC a means of handling that
-    if (!use_bb_option(strategy, BB_Strategy_Options::all_cuts_off) &
-        use_bb_option(strategy, BB_Strategy_Options::presolve_off)){
+    if (!use_bb_option(strategy, BB_Strategy_Options::all_cuts_off)){
       for (int i = 0; i < cuts->sizeRowCuts(); i++) {
         store.addCut(cuts->rowCut(i));
       }
