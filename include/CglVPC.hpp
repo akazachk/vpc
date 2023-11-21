@@ -56,11 +56,11 @@ public:
 
   /// @brief Mode in which VPCs will be generated (disjunction type, in fact)
   enum class VPCMode {
-    PARTIAL_BB,   ///< generate partial branch-and-bound tree #PartialBBDisjunction
-    SPLITS,       ///< set of split disjunctions
-    CROSSES,      ///< set of cross disjunctions
-    CUSTOM,       ///< user-defined disjunction
-    NUM_VPC_MODES ///< number of vpc modes
+    PARTIAL_BB,       ///< generate partial branch-and-bound tree #PartialBBDisjunction
+    SPLITS,           ///< set of split disjunctions
+    CROSSES,          ///< set of cross disjunctions
+    CUSTOM,           ///< user-defined disjunction
+    NUM_VPC_MODES     ///< number of vpc modes
   }; /* VPCMode */
 
   /// @brief Timing

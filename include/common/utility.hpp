@@ -10,12 +10,20 @@
  */
 #pragma once
 
+// standard library
 #include <cstdio>
 #include <iostream> // cerr
+#include <memory> // shared_ptr
 #include <string>
 #include <vector>
 #include <cmath> // abs
 #include <limits> // numeric_limits
+
+// coin-or
+#include "SolverInterface.hpp" // SolverInterface
+
+// VPC
+#include <OsiSolverInterface.hpp>
 
 class CoinPackedVectorBase;
 class CoinPackedVector;
@@ -348,4 +356,72 @@ double dotProduct(int sizea, const int* indexa, const double* a, int sizeb,
 double getRowTwoNorm(const int row, const CoinPackedMatrix* const mat);
 void packedSortedVectorSum(CoinPackedVector& sum, const double mult1,
     const CoinPackedVectorBase& vec1, const double mult2,
-    const CoinPackedVectorBase& vec2, const double eps); 
+    const CoinPackedVectorBase& vec2, const double eps);
+
+bool variableBoundsContained(const OsiSolverInterface* const solver1,
+                             const OsiSolverInterface* const solver2);
+
+/// @brief create a mutable solver interface
+std::shared_ptr<SolverInterface> getSolver(const OsiSolverInterface* const si, FILE* logfile = NULL);
+
+/// @brief Find the indices of elements in vector1 that are not in vector2
+std::vector<int> findIndicesOfDifference(std::vector<int> vector1, std::vector<int> vector2);
+
+/// @brief Return message if condition is not true
+void verify(bool condition, const std::string& msg);
+
+/// @brief add a variable bound to the solver
+void addVarBound(OsiSolverInterface* solver, const int col, const int bound, const double val);
+
+/// @brief add a variable bound to the solver and augment the corresponding vectors
+void addVarBound(OsiSolverInterface* solver, const int col, const int bound,
+                 const double val, std::vector<int>& fixed_var,
+                 std::vector<int>& fixed_bound, std::vector<double>& fixed_value);
+
+
+/// @brief Check that the bounds encoded in fixed_var, fixed_bound, and fixed_value
+/// are consistent with the expectations on the solver
+void checkBounds(const OsiSolverInterface* const solver, const std::vector<int>& fixed_var,
+                 const std::vector<int>& fixed_bound, const std::vector<double>& fixed_value,
+                 bool isTrue=true);
+
+/// @brief check that the column and bound are appropriate for the solver
+void checkColumnAndBound(const OsiSolverInterface* const solver, const int col,
+                         const int bound);
+
+/// @brief Template function to select the elements with indices in \p indices from \p vec
+template <typename T>
+inline std::vector<T> subselectVector(const std::vector<T>& vec, const std::vector<int>& indices){
+  std::vector<T> selectedElements;
+  for (int idx : indices) {
+    if (idx >= 0 && idx < vec.size()) {
+      selectedElements.push_back(vec[idx]);
+    } else {
+      std::cerr << "Index " << idx << " is out of bounds." << std::endl;
+    }
+  }
+  return selectedElements;
+}
+
+/// @brief sort the encoding of branching decisions by the variable index
+void sortBranchingDecisions(std::vector<int>& vars, std::vector<int>& bounds,
+                            std::vector<double>& vals);
+
+/// @brief Check if the objective function is minimization. If not, negate it.
+void ensureMinimizationObjective(SolverInterface* solver);
+
+/** check if sol is feasible for solver */
+bool isFeasible(
+    /// [in] problem
+    const OsiSolverInterface& solver,
+    /// [in] solution
+    const std::vector<double>& sol);
+
+/** check if a value is an integer */
+bool isInteger(double val);
+
+/** take a min of two values */
+double min(double a, double b);
+
+/** take a max of two values */
+double max(double a, double b);

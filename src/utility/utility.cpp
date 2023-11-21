@@ -15,6 +15,7 @@
 #include <CoinPackedVectorBase.hpp>
 #include <CoinPackedVector.hpp>
 #include <CoinPackedMatrix.hpp>
+#include <OsiSolverInterface.hpp>
 
 /**
  * @details Creates temporary file (in /tmp) so that it can be accessed later.
@@ -570,3 +571,297 @@ void packedSortedVectorSum(CoinPackedVector& sum, const double mult1,
 
   sum.setVector(sumIndex.size(), sumIndex.data(), sumVal.data(), false);
 } /* packedSortedVectorSum */
+
+/** @details determine if the variable bounds of solver1 contain the variable
+ * bounds of solver2 */
+bool variableBoundsContained(const OsiSolverInterface* const solver1,
+                             const OsiSolverInterface* const solver2) {
+
+  for (int i = 0; i < solver1->getNumCols(); i++) {
+    if (solver1->getColLower()[i] > solver2->getColLower()[i] + 1e-7) {
+      return false;
+    }
+    if (solver1->getColUpper()[i] < solver2->getColUpper()[i] - 1e-7) {
+      return false;
+    }
+  }
+  return true;
+} /* variableBoundsContain */
+
+/// @brief create a mutable solver interface
+std::shared_ptr<SolverInterface> getSolver(const OsiSolverInterface* const si, FILE* logfile) {
+  // setup the solver for getting term bases
+  std::shared_ptr<SolverInterface> solver;
+  try {
+    solver = std::make_shared<SolverInterface>(*dynamic_cast<SolverInterface*>(si->clone()));
+  } catch (std::exception& e) {
+    error_msg(errorstring, "Unable to clone solver into desired SolverInterface.\n");
+    writeErrorToLog(errorstring, logfile);
+    exit(1);
+  }
+#ifdef USE_CLP
+  try {
+    setupClpForStrongBranching(dynamic_cast<OsiClpSolverInterface*>(solver.get()));
+  } catch (std::exception& e) {
+    // It's okay, we can continue
+  }
+#endif
+  // make sure solver is optimal
+  if (!solver->isProvenOptimal()) {
+    solver->initialSolve();
+    if (!solver->isProvenOptimal()) {
+      error_msg(errorstring, "Solver must be optimal to create disjunction.\n");
+      writeErrorToLog(errorstring, logfile);
+      exit(1);
+    }
+  }
+  solver->enableFactorization();
+  solver->markHotStart();
+  return solver;
+}
+
+/// @brief Find the indices of elements in vector1 that are not in vector2
+std::vector<int> findIndicesOfDifference(std::vector<int> vector1, std::vector<int> vector2) {
+  // Map element values to their indices in vector2
+  std::unordered_map<int, int> indexMap;
+  // Store indices of elements in vector1 not found in vector2
+  std::vector<int> indices;
+
+  // Populate the indexMap with elements from vector2
+  for (int i = 0; i < vector2.size(); ++i) {
+    indexMap[vector2[i]] = i;
+  }
+
+  // Iterate through vector1 and check if each element exists in vector2
+  for (int i = 0; i < vector1.size(); ++i) {
+    auto it = indexMap.find(vector1[i]);
+    if (it == indexMap.end()) {
+      // Element from vector1 not found in vector2
+      indices.push_back(i);
+    }
+  }
+
+  return indices;
+}
+
+/// @brief Return message if condition is not true
+void verify(bool condition, const std::string& msg) {
+  if (!condition) {
+    std::cerr << msg << std::endl;
+    assert(false);  // cause failure with a stack trace
+  }
+}
+
+/**
+ * @details Set the <bound> of <col> to <val> in <solver>.
+ *
+ * @param solver The solver to modify.
+ * @param col The column to bound.
+ * @param bound The bound to set. 0 is lower bound, 1 is upper bound.
+ * @param val The value to set the bound to.
+ *
+ * @return void
+ */
+void addVarBound(OsiSolverInterface* solver, const int col, const int bound, const double val){
+  checkColumnAndBound(solver, col, bound);
+  if (bound <= 0) {
+    solver->setColLower(col, val);
+  } else {
+    solver->setColUpper(col, val);
+  }
+}
+
+/**
+ * @details Set the <bound> of <col> to <val> in <solver>. Additionally, append
+ * the variable, bound, and value to the end of the respective vectors.
+ *
+ * @param solver The solver to modify.
+ * @param col The column to bound.
+ * @param bound The bound to set. 0 is lower bound, 1 is upper bound.
+ * @param val The value to set the bound to.
+ *
+ * @return void
+ */
+void addVarBound(OsiSolverInterface* solver, const int col, const int bound,
+                 const double val, std::vector<int>& fixed_var,
+                 std::vector<int>& fixed_bound, std::vector<double>& fixed_value){
+  addVarBound(solver, col, bound, val);
+  fixed_var.push_back(col);
+  fixed_bound.push_back(bound);
+  fixed_value.push_back(val);
+}
+
+/**
+ * @details Check that the bounds encoded in fixed_var, fixed_bound, and fixed_value
+ * exist in solver if isTrue is true. Otherwise, they should not exist
+ *
+ * @param solver The solver to check.
+ * @param fixed_var The variables to check.
+ * @param fixed_bound The bounds to check.
+ * @param fixed_value The values to check.
+ * @param isTrue Whether the bounds should be exist in the solver already or not
+ *
+ */
+void checkBounds(const OsiSolverInterface* const solver, const std::vector<int>& fixed_var,
+                 const std::vector<int>& fixed_bound, const std::vector<double>& fixed_value,
+                 bool isTrue){
+
+  verify((fixed_var.size() == fixed_bound.size()) && (fixed_bound.size() == fixed_value.size()),
+         "fixed_var, fixed_bound, and fixed_value must be the same size.");
+
+  for (int idx = 0; idx < fixed_var.size(); ++idx) {
+    const int col = fixed_var[idx];
+    const int bound = fixed_bound[idx];
+    const double val = fixed_value[idx];
+
+    checkColumnAndBound(solver, col, bound);
+    // checking for satisfaction and not equality because general integers may be branched on multiple times
+    if (bound <= 0) {
+      verify((solver->getColLower()[col] >= val) == isTrue,
+             "The branching decisions in fixed_var, fixed_bound, and fixed_value "
+             "are inconsistent with the expectations on the solver.");
+    } else {
+      verify((solver->getColUpper()[col] <= val) == isTrue,
+             "The branching decisions in fixed_var, fixed_bound, and fixed_value "
+             "are inconsistent with the expectations on the solver.");
+    }
+  }
+}
+
+/**
+ * @details Check that the bound is either lower (0) or upper (1) and that the
+ * column is required to be integer
+ *
+ * @param solver The solver to check
+ * @param col The column to check
+ * @param bound The bound to check (0 for lower (up branch) and 1 for upper (down branch))
+ */
+void checkColumnAndBound(const OsiSolverInterface* const solver, const int col,
+                         const int bound){
+  verify(bound == 0 || bound == 1, "bound must be 0 or 1.");
+  verify(0 <= col && col < solver->getNumCols(), "col must be a valid column index.");
+  verify(solver->isInteger(col), "col must be an integer variable.");
+}
+
+/**
+ * @details sort the encoding of branching decisions by the variable index
+ *
+ * @param vars the indices of variables branched on
+ * @param bounds the directions of branching that occurred
+ * @param vals the values that variables were branched on
+ * @return void
+ */
+void sortBranchingDecisions(std::vector<int>& vars, std::vector<int>& bounds,
+                            std::vector<double>& vals){
+
+  // Create a vector of tuples to store the original values and their indices
+  std::vector<std::tuple<int, int, double>> combined;
+
+  // Fill the combined vector with tuples of vars and their corresponding bounds and vals
+  for (size_t i = 0; i < vars.size(); i++) {
+    combined.emplace_back(vars[i], bounds[i], vals[i]);
+  }
+
+  // Sort the combined vector by the first element (the vars)
+  std::sort(combined.begin(), combined.end(), [](const auto& a, const auto& b) {
+    return std::get<0>(a) < std::get<0>(b);
+  });
+
+  // Extract the sorted values into the original vectors
+  for (size_t i = 0; i < vars.size(); ++i) {
+    vars[i] = std::get<0>(combined[i]);
+    bounds[i] = std::get<1>(combined[i]);
+    vals[i] = std::get<2>(combined[i]);
+  }
+}
+
+/**
+ * @details Check if the objective function is minimization. If not, negate it.
+ *
+ * @param solver the solver to check
+ */
+void ensureMinimizationObjective(SolverInterface* solver){
+  if (solver->getObjSense() < 1e-3) {
+    printf(
+        "\n## Detected maximization problem. Negating objective function to make it minimization. ##\n");
+    solver->setObjSense(1.0);
+    const double* obj = solver->getObjCoefficients();
+    for (int col = 0; col < solver->getNumCols(); col++) {
+      solver->setObjCoeff(col, -1. * obj[col]);
+    }
+    double objOffset = 0.;
+    solver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
+    if (objOffset != 0.) {
+      solver->setDblParam(OsiDblParam::OsiObjOffset, -1. * objOffset);
+    }
+  }
+}
+
+/** check if sol is feasible for solver */
+bool isFeasible(
+    /// [in] problem
+    const OsiSolverInterface& solver,
+    /// [in] solution
+    const std::vector<double>& sol) {
+
+  // get bounds and constraint coefficients
+  const double* rowLower = solver.getRowLower();
+  const double* rowUpper = solver.getRowUpper();
+  const double* colLower = solver.getColLower();
+  const double* colUpper = solver.getColUpper();
+  const CoinPackedMatrix* mat = solver.getMatrixByRow();
+  const int* cols = mat->getIndices();
+  const double* elem = mat->getElements();
+
+  // check dimensions match
+  verify(sol.size() == solver.getNumCols(), "solution has wrong dimension");
+
+  // make sure constraints are valid
+  for (int row = 0; row < solver.getNumRows(); row++) {
+    double sum = 0.0;
+    const int start = mat->getVectorFirst(row);
+    const int end = mat->getVectorLast(row);
+    for (int ind = start; ind < end; ind++) {
+      const double j = cols[ind];
+      const double el = elem[ind];
+      sum += el * sol[j];
+    }
+    if (lessThanVal(sum, rowLower[row]) || greaterThanVal(sum, rowUpper[row])) {
+      return false;
+    }
+  }
+
+  // make sure variables are valid
+  for (int col = 0; col < solver.getNumCols(); col++) {
+    if (lessThanVal(sol[col], colLower[col]) || greaterThanVal(sol[col], colUpper[col])) {
+      return false;
+    }
+    if (solver.isInteger(col) && !isInteger(sol[col])) {
+      return false;
+    }
+  }
+  return true;
+} /* isFeasible */
+
+/** check if a value is an integer */
+bool isInteger(double val){
+  return isZero(min(val - std::floor(val), std::ceil(val) - val));
+}
+
+/** take a min of two values */
+double min(double a, double b){
+  if (a < b){
+    return a;
+  } else {
+    return b;
+  }
+}
+
+/** take a max of two values */
+double max(double a, double b){
+  if (a > b){
+    return a;
+  } else {
+    return b;
+  }
+}

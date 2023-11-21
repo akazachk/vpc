@@ -1064,7 +1064,7 @@ int processArgs(int argc, char** argv) {
   // has_arg: 0,1,2 for none, required, or optional
   // *flag: how results are returned; if NULL, getopt_long() returns val (e.g., can be the equivalent short option character), and o/w getopt_long() returns 0, and flag points to a var which is set to val if the option is found, but left unchanged if the option is not found
   // val: value to return, or to load into the variable pointed to by flag
-  const char* const short_opts = "b:B:c:d:D:f:g:hi:l:m:o:r:R:s:S:t:T:v:";
+  const char* const short_opts = "b:B:c:d:D:f:F:g:hi:l:m:o:r:R:s:S:t:T:v:";
   const struct option long_opts[] =
   {
       {"bb_runs",               required_argument, 0, 'b'},
@@ -1454,7 +1454,7 @@ int processArgs(int argc, char** argv) {
                   params.set(param, val);
                   break;
                 }
-      case 'S'*'1': {
+      case 'F': {
                   int val;
                   intParam param = intParam::PARTIAL_BB_KEEP_PRUNED_NODES;
                   if (!parseInt(optarg, val)) {
@@ -1702,6 +1702,7 @@ int processArgs(int argc, char** argv) {
                 helpstring += "-S num strong, --partial_bb_num_strong=num strong\n\tNumber of candidates for strong branching to consider during the creation of the partial branch-and-bound tree.\n";
                 helpstring += "-T num seconds, --partial_bb_timelimit=num seconds\n\tTotal number of seconds allotted for generating the partial branch-and-bound tree.\n";
                 helpstring += "--tikz=[GEN_TIKZ_STRING | GEN_TIKZ_STRING_WITH_VPCS | ... ]\n\tWhether to generate code that prints tree used in partial b&b tree.\n";
+                helpstring += "-F save full tree, --save_full_tree=save full tree\n\tWhether to (1) save all disjunctive terms of the partial branch-and-bound tree or (0) only those required to generate vpcs.\n";
                 helpstring += "\n# Objective options #\n";
                 helpstring += "--use_all_ones=0/1\n\tUse all ones objective.\n";
                 helpstring += "--use_disj_lb=0/1\n\tUse disjunctive lower bound objective.\n";

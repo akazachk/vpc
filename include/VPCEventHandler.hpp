@@ -7,12 +7,14 @@
  */
 #pragma once
 
+#include <set>
 #include <string>
 #include <vector>
 #include <memory> // unique_ptr
 
 class PartialBBDisjunction;
 class OsiCuts;
+#include "Disjunction.hpp"
 #include "SolverInterface.hpp"
 
 #ifdef USE_CBC
@@ -97,7 +99,7 @@ public:
   VPCEventHandler();
   /** @brief VPC special constructors */
   VPCEventHandler(PartialBBDisjunction* const disj, const int maxNumLeafNodes,
-      const double maxTime, const bool keepPrunedNodes = false);
+      const double maxTime);
   /// @brief Constructor with pointer to model (redundant as setEventHandler does)
   VPCEventHandler(CbcModel* model);
   /** Destructor */
@@ -173,7 +175,6 @@ protected:
   int maxNumLeafNodes_; ///< stop when we reach this many leaf nodes
   int numCuts_; ///< number of cuts generated
   double maxTime_; ///< maximum allowable time
-  bool keepPrunedNodes_; ///< add terms for pruned nodes?
 
   ///@{
   /// @name Things that will be saved at the end
@@ -201,6 +202,8 @@ protected:
   PruneNodeOption pruneNode_ = PruneNodeOption::NO; ///< reason a node is pruned
   bool reachedEnd_ = false; ///< are we done?
   bool foundSolution_ = false; ///< was an integer-feasible solution found?
+  std::set<int> checked_nodes_; ///< nodes we have already checked for strong branching fixes
+  std::set<int> sorted_nodes_; ///< nodes we have already sorted the branching decisions for
   ///@}
 
   ///@{
@@ -209,23 +212,24 @@ protected:
   /// @brief Copy our stuff
   void initialize(const VPCEventHandler* const rhs);
 
-  /// @brief Save disjunctive term using only stats vector, without solving for it
-  int setupDisjunctiveTermFromStats(const int orig_node_id,
-      const int branching_variable, const int branching_way,
-      const double branching_value, const int parent_num_changed_bounds,
-      const std::vector<std::vector<int> >& parentTermIndices,
-      const std::vector<std::vector<double> >& parentTermCoeff,
-      const std::vector<double>& parentTermRHS,
-      SolverInterface* const tmpSolver);
+  /// @brief Update the dual bound of the disjunction if the term worsens it
+  void updateDualBound(const int orig_node_id, const DisjunctiveTerm& term);
 
   /// @brief Solve for a disjunctive term
-  bool setupDisjunctiveTerm(const int orig_node_id,
-      const int branching_variable, const int branching_way,
-      const double branching_value, const int parent_num_changed_bounds,
-      const std::vector<std::vector<int> >& parentTermIndices,
-      const std::vector<std::vector<double> >& parentTermCoeff,
-      const std::vector<double>& parentTermRHS,
-      const SolverInterface* const tmpSolverBase);
+  bool setupDisjunctiveTerm(const int node_id, const int branching_variable,
+      const int branching_way, const double branching_value,
+      const SolverInterface* const tmpSolverBase,
+      const int curr_num_changed_bounds,
+      std::vector<std::vector<int> >& commonTermIndices,
+      std::vector<std::vector<double> >& commonTermCoeff,
+      std::vector<double>& commonTermRHS);
+
+  /// @brief Set the warm start information for the parent node
+  void setWarmStart(SolverInterface* tmpSolverBase, CoinWarmStartBasis* parent_basis,
+                    int tmp_ind, int node_id, const int curr_num_changed_bounds = 0,
+                    const std::vector<std::vector<int> >& commonTermIndices = std::vector<std::vector<int> >(),
+                    const std::vector<std::vector<double> >& commonTermCoeff = std::vector<std::vector<double> >(),
+                    const std::vector<double>& commonTermRHS = std::vector<double>());
 
   /// @brief Clear saved information and free memory
   void clearInformation();
@@ -233,8 +237,39 @@ protected:
   /// @brief Save node information before we reach endSearch_
   int saveInformation();
 
-  /// @brief Save node information using only #stats_ and #pruned_stats_ vectors
-  int saveInformationFromStats();
+  /// @brief drop all tightened bounds occurring on continuous variables.
+  void removeContinuousVariableTightenedBounds(std::vector<NodeStatistics>& stat_vec);
+
+  /// @brief reorder the branching decisions leading to each node in the tree in the order that they occurred
+  void sortBranchingDecisions(const int node_id);
+
+  /// @brief Creates a disjunctive term in a generalized enough manner to allow for pruned terms
+  bool setupDisjunctiveTerm(
+      const SolverInterface* const tmpSolverParent, const std::vector<int>& term_var,
+      const std::vector<int>& term_bound, const std::vector<double>& term_val,
+      const int branching_variable, const int branching_bound, const double branching_value,
+      const std::string& term_type, const int orig_node_id = -1);
+
+  /// @brief Create disjunctive terms due to strong branching on the child node
+  void createStrongBranchingTerms(
+      std::vector<int> child_pre_branch_var, std::vector<int> child_pre_branch_bound,
+      std::vector<double> child_pre_branch_val, const SolverInterface* const tmpSolver,
+      std::vector<int> parent_var = std::vector<int>(),
+      std::vector<int> parent_bound = std::vector<int>(),
+      std::vector<double> parent_val = std::vector<double>());
+
+  /// @brief Create disjunctive terms pruned from strong branching between node
+  // <node_id> and the root node
+  void recursivelyCreateStrongBranchingTerms(
+    const int node_id, const std::vector<int>& common_var,
+    const std::vector<int>& common_bound, const std::vector<double>& commo_value,
+    const SolverInterface* const tmpSolverBase);
+
+  /// @brief Save node information (including those pruned) before we reach endSearch_
+  int saveInformationWithPrunes();
+
+  /// @brief check if the disjunction represents the leaves of a full binary tree
+  bool isFullBinaryTree();
   //@}
 };
 /* VPCEventHandler definition */

@@ -180,9 +180,8 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
     num_strong = static_cast<int>(std::ceil(std::sqrt(si->getNumCols())));
   }
   const int num_before_trusted = std::numeric_limits<int>::max(); // 10;
-  const bool keep_pruned_nodes = params.get(intParam::PARTIAL_BB_KEEP_PRUNED_NODES);
   generatePartialBBTree(this, cbc_model, si, params.get(intParam::DISJ_TERMS),
-      num_strong, num_before_trusted, keep_pruned_nodes);
+      num_strong, num_before_trusted);
   printf("PartialBBDisjunction::prepareDisjunction: Finished generating partial branch-and-bound tree");
   if (timer) {
     timer->end_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
@@ -264,22 +263,91 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
     }
   } // exit out early if cbc_model status is 0 or insufficiently many disjunctive terms
 
-  // Make sure that the right number of terms has been saved
-  if ((num_terms != eventHandler->getNumLeafNodes())
-      || (params.get(intParam::PARTIAL_BB_KEEP_PRUNED_NODES) == 0 
-            && (num_terms != static_cast<int>(terms.size() + eventHandler->isIntegerSolutionFound())))) {
-    error_msg(errstr,
-        "Number of terms does not match: num terms = %d, num leaf nodes = %d, num bases = %d, found_integer_sol = %d\n",
-        num_terms, eventHandler->getNumLeafNodes(), static_cast<int>(terms.size()),
-        eventHandler->isIntegerSolutionFound());
-    writeErrorToLog(errstr, params.logfile);
-    exit(1);
+  // Make sure that the right number of terms has been saved - skip if we're saving
+  // pruned terms because we don't know how many terms to expect from fixes between branching
+  if (!params.get(intParam::PARTIAL_BB_KEEP_PRUNED_NODES)){
+    if ((num_terms != eventHandler->getNumLeafNodes()) || (num_terms !=
+        static_cast<int>(terms.size() + eventHandler->isIntegerSolutionFound()))){
+      error_msg(errstr,
+                "Number of terms does not match: num terms = %d, num leaf nodes = %d, num bases = %d, found_integer_sol = %d\n",
+                num_terms, eventHandler->getNumLeafNodes(), static_cast<int>(terms.size()),
+                eventHandler->isIntegerSolutionFound());
+      writeErrorToLog(errstr, params.logfile);
+      exit(1);
+    }
   }
 
   if (BBSolver && !cbc_model->modelOwnsSolver()) { delete BBSolver; }
   if (cbc_model) { delete cbc_model; }
   return DisjExitReason::SUCCESS_EXIT;
 } /* prepareDisjunction */
+
+/**
+ * @details Create a new disjunction that parameterizes the curren with the given solver.
+ * This updates in each term the optimal basis and objective value, as well as
+ * the dual bounds and integer feasible solution in the disjunction.
+ *
+ * @param solver to update the disjunction with
+ */
+PartialBBDisjunction PartialBBDisjunction::parameterize(const OsiSolverInterface* const solver) const {
+
+  verify(this->common_changed_var.size() == 0 && this->common_changed_bound.size() == 0
+         && this->common_changed_value.size() == 0 && this->common_ineqs.size() == 0,
+         "Cannot parameterize a disjunction that has common terms or inequalities.");
+
+  // get a copy of the solver
+  SolverInterface* si = dynamic_cast<SolverInterface*>(solver->clone());
+  ensureMinimizationObjective(si); // minimize to keep meaning of disjunctive terms consistent
+  si->resolve();
+  verify(checkSolverOptimality(si, true), "solver must be feasible");
+
+  // create an empty disjunction
+  PartialBBDisjunction disj = PartialBBDisjunction(this->params);
+
+  // update the root LP relaxation
+  disj.root_obj = si->getObjValue();
+
+  // update the integer feasible solution if possible
+  if (this->integer_sol.size() > 0 && isFeasible(*si, this->integer_sol)){
+    disj.integer_sol = this->integer_sol;
+    double obj = 0;
+    for (int i = 0; i < si->getNumCols(); i++) {
+      obj += si->getObjCoefficients()[i] * this->integer_sol[i];
+    }
+    disj.integer_obj = obj;
+  }
+
+  // parameterize each term
+  for (int term_idx = 0; term_idx < this->num_terms; term_idx++){
+
+    // get the solver
+    OsiSolverInterface* termSolver;
+    this->getSolverForTerm(termSolver, term_idx, si, false, .001, NULL, true);
+
+    // get the term
+    DisjunctiveTerm term = this->terms[term_idx];
+
+    // update the necessary parts of the term
+    term.is_feasible = checkSolverOptimality(termSolver, true);
+    term.obj = term.is_feasible ? termSolver->getObjValue() : std::numeric_limits<double>::max();
+    enableFactorization(termSolver, params.get(doubleParam::EPS));
+    term.basis = dynamic_cast<CoinWarmStartBasis*>(termSolver->getWarmStart());
+
+    // update the necessary disjunction metadata
+    disj.updateObjValue(term.obj);
+    disj.terms.push_back(term);
+    disj.num_terms++;
+  }
+
+  // sanity check - egregious errors should be avoided by not counting objectives from infeasible terms
+  if (!lessThanVal(si->getObjValue(), disj.best_obj, -1e-7)) {
+    std::cout << "Warning: disjunctive dual bound should not be less than LP"
+                 "relaxation objective value. Sometimes this happens due to numerical issues." << std::endl;
+  }
+
+  // return the parameterized disjunction
+  return disj;
+}
 
 //<--***************** PROTECTED **********************-->
 
@@ -432,13 +500,13 @@ void setCbcParametersForPartialBB(
 //<!--***********************************************************-->
 void generatePartialBBTree(PartialBBDisjunction* const owner, CbcModel* cbc_model,
     const OsiSolverInterface* const solver, const int max_leaf_nodes,
-    const int num_strong, const int num_before_trusted, const bool keep_pruned_nodes) {
+    const int num_strong, const int num_before_trusted) {
   //  const double partial_timelimit = 100 * max_leaf_nodes * solver->getNumCols()
   //      * GlobalVariables::timeStats.get_time(GlobalConstants::INIT_SOLVE_TIME);
   const double partial_timelimit = owner->params.get(PARTIAL_BB_TIMELIMIT); // will be checked manually by the eventHandler
 
   // Set up options
-  VPCEventHandler* eventHandler = new VPCEventHandler(owner, max_leaf_nodes, partial_timelimit, keep_pruned_nodes);
+  VPCEventHandler* eventHandler = new VPCEventHandler(owner, max_leaf_nodes, partial_timelimit);
   eventHandler->setOriginalSolver(solver);
 
   // This sets branching decision, event handling, etc.

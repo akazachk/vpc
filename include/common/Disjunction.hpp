@@ -38,7 +38,9 @@ public:
   std::vector<int> changed_var; ///< list of indices of variables with changed bounds
   std::vector<int> changed_bound; ///< for each var in #changed_var, which bound was changed: <= 0: lower bound, 1: upper bound
   std::vector<double> changed_value; ///< new value of the variable
-  bool is_feasible; ///< is this term LP-feasible?
+  bool is_feasible; ///< whether the term is feasible
+  std::string type; ///< whether the term was pruned, a compliment to tightening, or a leaf
+  std::string name; ///< written out form of the disjunctive constraint applied to this term
 #ifdef USE_COIN
   CoinWarmStart* basis = NULL; ///< optional: saved basis for this term (to enable quick warm start)
   std::vector<OsiRowCut> ineqs; ///< optional: inequalities to add aside from changed bounds
@@ -131,7 +133,8 @@ public:
     const OsiSolverInterface* const solver,
     const bool shouldChangeBounds,
     const double DIFFEPS,
-    FILE* logfile) const;
+    FILE* logfile,
+    const bool parameterized=false) const;
 #else
   void getSolverForTerm(const int term_ind) const;
 #endif

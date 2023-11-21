@@ -323,20 +323,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
 
   // Make sure we are doing a minimization problem; this is just to make later
   // comparisons simpler (i.e., a higher LP obj after adding the cut is better).
-  if (solver->getObjSense() < 1e-3) {
-    printf(
-        "\n## Detected maximization problem. Negating objective function to make it minimization. ##\n");
-    solver->setObjSense(1.0);
-    const double* obj = solver->getObjCoefficients();
-    for (int col = 0; col < solver->getNumCols(); col++) {
-      solver->setObjCoeff(col, -1. * obj[col]);
-    }
-    double objOffset = 0.;
-    solver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
-    if (objOffset != 0.) {
-      solver->setDblParam(OsiDblParam::OsiObjOffset, -1. * objOffset);
-    }
-  }
+  ensureMinimizationObjective(solver);
 
   if (mode != VPCMode::CUSTOM) {
     // Get disjunctive terms and obtain their optimal bases
@@ -912,7 +899,8 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
   for (int tmp_ind = 0; tmp_ind < num_normal_terms; tmp_ind++) {
     DisjunctiveTerm* term = &(this->disjunction->terms[tmp_ind]);
     terms_added++;
-    if (!term->is_feasible) {
+
+    if (!term->is_feasible && !params.get(intParam::RECYCLED_DISJUNCTION)) {
       continue;
     }
 
@@ -963,7 +951,8 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
     //enableFactorization(termSolver, params.get(doubleParam::EPS)); // this may change the solution slightly
 
     // Check objective value against what is stored (if it is finite)
-    if (term->is_feasible && !isInfinity(term->obj)) {
+    // this value isn't going to make sense if we recycle the disjunction
+    if (term->is_feasible && !isInfinity(term->obj) && !params.get(intParam::RECYCLED_DISJUNCTION)) {
       // Sometimes we run into a few issues getting the ``right'' value
       const double newval = termSolver->getObjValue();
       const double savedval = term->obj;

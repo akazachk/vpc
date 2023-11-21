@@ -28,5 +28,6 @@ bin/
 results/
 doxygen/
 slurm*.out
-test/
 .vscode
+.idea/
+UnitTest/
