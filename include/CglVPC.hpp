@@ -385,7 +385,7 @@ protected:
 
   /// @brief Do everything necessary (after #initializeSolverWithRootChanges) to set up PRLP constraints
   CglVPC::ExitReason setupConstraints(
-      const Disjunction* const disj,
+      Disjunction* const disj,
       const int currDisjID,
       OsiSolverInterface* const vpcsolver,
       PRLPData& prlpData,

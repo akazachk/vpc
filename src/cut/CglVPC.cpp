@@ -241,9 +241,10 @@ void CglVPC::setUserTightPoints(
 void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const CglTreeInfo info) {
   // Time starts here, and will end when finish is called
   timer.start_timer(VPCTimeStatsName[static_cast<int>(VPCTimeStats::TOTAL_TIME)]);
+  mode = static_cast<VPCMode>(params.get(intParam::MODE));
 
   CglVPC::ExitReason status = CglVPC::ExitReason::UNKNOWN;
-  if (params.get(intParam::DISJ_TERMS) == 0) {
+  if (mode != VPCMode::DISJ_SET_PBB && params.get(intParam::DISJ_TERMS) == 0) {
     status = CglVPC::ExitReason::NO_DISJUNCTION_EXIT;
     finish(status);
     return;
@@ -293,7 +294,6 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   }
 
   if (!disjunction && !disjunctionSet) {
-    mode = static_cast<VPCMode>(params.get(intParam::MODE));
     if (mode == VPCMode::CUSTOM) {
       error_msg(errorstring,
           "Mode chosen is CUSTOM but no disjunction is set.\n");
@@ -330,12 +330,14 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
       }
       printf("} disjunctive terms. ##\n");
 
+      this->disjunctionSet = new DisjunctionSet;
       for (const int curr_num_terms : disjOptions) {
         Disjunction* disj = new PartialBBDisjunction(this->params);
         dynamic_cast<PartialBBDisjunction*>(disj)->params.set(intParam::DISJ_TERMS, curr_num_terms);
         dynamic_cast<PartialBBDisjunction*>(disj)->num_rounds = this->num_rounds;
         dynamic_cast<PartialBBDisjunction*>(disj)->timer = &timer;
         this->disjunctionSet->addDisjunction(disj);
+        if (disj) { delete disj; }
       }
     } // DISJ_SET_PBB
     else if (mode == VPCMode::SPLITS) {
@@ -986,7 +988,7 @@ CglVPC::ExitReason CglVPC::initializeSolverWithRootChanges(
 
 CglVPC::ExitReason CglVPC::setupConstraints(
     /// [in] Disjunction for which PRLP will be created
-    const Disjunction* const disj,
+    Disjunction* const disj,
     /// [in] ID of the disjunction,
     const int currDisjID,
     /// [in/out] Solver being used to determine the nonbasic space; note that the basis and/or solution may change due to enableFactorization
@@ -999,7 +1001,7 @@ CglVPC::ExitReason CglVPC::setupConstraints(
   /***********************************************************************************
    * Get bases and generate VPCs
    ***********************************************************************************/
-  //const int num_disj_terms = this->disjunction->num_terms; // may be different from terms.size() due to integer-feasible terms?
+  //const int num_disj_terms = disj->num_terms; // may be different from terms.size() due to integer-feasible terms?
   const int dim = vpcsolver->getNumCols(); // NB: treating fixed vars as at bound
 
   int terms_added = -1;
@@ -1038,14 +1040,14 @@ CglVPC::ExitReason CglVPC::setupConstraints(
     vpcsolver->getDblParam(OsiDblParam::OsiObjOffset, objOffset);
     const double objVal =
         dotProduct(vpcsolver->getObjCoefficients(), sol, dim) - objOffset;
-    this->disjunction->updateObjValue(objVal);
-//    this->disjunction->updateNBObjValue(curr_nb_obj_val);
+    disj->updateObjValue(objVal);
+//    disj->updateNBObjValue(curr_nb_obj_val);
   } // integer-feasible solution
 
   // Now we handle the normal terms
-  const int num_normal_terms = this->disjunction->terms.size();
+  const int num_normal_terms = disj->terms.size();
   for (int tmp_ind = 0; tmp_ind < num_normal_terms; tmp_ind++) {
-    DisjunctiveTerm* term = &(this->disjunction->terms[tmp_ind]);
+    DisjunctiveTerm* term = &(disj->terms[tmp_ind]);
     terms_added++;
     if (!term->is_feasible) {
       continue;
@@ -1161,7 +1163,7 @@ CglVPC::ExitReason CglVPC::setupConstraints(
       // This is here rather than in the Disjunction class,
       // because it is unclear whether, in that class,
       // the user computes with the variables changed at the root
-      this->disjunction->updateObjValue(termSolver->getObjValue());
+      disj->updateObjValue(termSolver->getObjValue());
 
       timer.register_name(CglVPC::time_T1 + std::to_string(terms_added));
       timer.register_name(CglVPC::time_T2 + std::to_string(terms_added));
@@ -1204,7 +1206,7 @@ CglVPC::ExitReason CglVPC::setupConstraints(
 //    double boundD = std::numeric_limits<double>::lowest();
 //    double boundU = std::numeric_limits<double>::lowest();
 //    try {
-//      RootTerm root = dynamic_cast<PartialBBDisjunction*>(this->disjunction)->root;
+//      RootTerm root = dynamic_cast<PartialBBDisjunction*>(disj)->root;
 //      var = root.var;
 //      val = root.val;
 //      boundD = root.boundD;
@@ -1243,7 +1245,7 @@ CglVPC::ExitReason CglVPC::setupConstraints(
 #ifdef TRACE
   printf(
       "\nCglVPC::setupConstraints: Finished setting up constraints. Min obj val: Structural: %1.3e, NB: %1.3e.\n",
-      this->disjunction->best_obj, this->disjunction->best_obj - this->probData.lp_opt);
+      disj->best_obj, disj->best_obj - this->probData.lp_opt);
 #endif
   return CglVPC::ExitReason::SUCCESS_EXIT;
 } /* setupConstraints */

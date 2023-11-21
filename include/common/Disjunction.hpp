@@ -200,6 +200,11 @@ class DisjunctionSet {
     return this->disjunctions.size();
   }
 
+  /// @brief Return disjunction with index \p ind
+  inline const Disjunction* const getDisjunction(const int ind) const {
+    return (ind < this->size()) ? this->disjunctions[ind] : NULL;
+  }
+
   /// @brief Prepare set of disjunctions
   #ifdef USE_COIN
   virtual DisjExitReason prepareDisjunction(const OsiSolverInterface* const si);

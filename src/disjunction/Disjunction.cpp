@@ -417,7 +417,21 @@ void DisjunctionSet::setupAsNew() {
 
 #ifdef USE_COIN
 DisjExitReason DisjunctionSet::prepareDisjunction(const OsiSolverInterface* const si) {
+  // Prepare each disjunction in the list
+  DisjExitReason exitReason = DisjExitReason::UNKNOWN;
 
+  for (auto disj : disjunctions) {
+    exitReason = disj->prepareDisjunction(si);
+    if (exitReason == DisjExitReason::OPTIMAL_SOLUTION_FOUND_EXIT) {
+      break;
+    }
+  }
+
+  return exitReason;
+} /* prepareDisjunction */
+#else
+DisjExitReason DisjunctionSet::prepareDisjunction() {
+  // nop
 } /* prepareDisjunction */
 #endif // USE_COIN
 
