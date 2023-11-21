@@ -404,11 +404,11 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     DisjExitReason disjstatus = DisjExitReason::UNKNOWN;
     double integer_obj = solver->getInfinity();
     if (mode == VPCMode::DISJ_SET_PBB) {
-      this->disjunctionSet->prepareDisjunction(solver);
+      disjstatus = this->disjunctionSet->prepareDisjunction(solver);
       integer_obj = this->disjunctionSet->integer_obj;
     }
     else {
-      this->disjunction->prepareDisjunction(solver);
+      disjstatus = this->disjunction->prepareDisjunction(solver);
       integer_obj = this->disjunction->integer_obj;
     }
 
