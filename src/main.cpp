@@ -1003,6 +1003,9 @@ int wrapUp(int retCode, int argc, char** argv) {
 #ifdef USE_CPLEX
   printf("CPLEX Version: %s\n", CPLEX_VERSION_STRING.c_str());
 #endif
+  fprintf(stdout, "Hostname: %s\n", hostname);
+  fprintf(stdout, "CPU Model: %s\n", cpu_model.c_str());
+  fprintf(stdout, "CPU ID: %d\n", cpu_id);
   printf("Instance: %s\n", instname.c_str());
   if (!params.get(stringParam::LOGFILE).empty()) {
     printf("Log: %s\n", params.get(stringParam::LOGFILE).c_str());
