@@ -97,6 +97,10 @@ char start_time_string[25];
 
 const int HOST_NAME_MAX = 1024;
 char hostname[HOST_NAME_MAX];
+#ifdef __linux__
+#include <sched.h>
+int cpu_id = -1;
+#endif
 
 SummaryBoundInfo boundInfo;
 std::vector<SummaryBoundInfo> boundInfoVec;
@@ -756,6 +760,16 @@ int startUp(int argc, char** argv) {
     }
   }
 
+  // Get CPU id
+  {
+#ifdef __linux__
+    cpu_id = sched_getcpu();
+#else
+    cpu_id = -1;
+#endif
+  }
+  
+
   /*
   printf("\n## Version Information ##\n");
 #ifdef VPC_VERSION
@@ -903,6 +917,7 @@ int wrapUp(int retCode, int argc, char** argv) {
 #endif
     // Data corresponding to "countExtraInfoEntries"
     fprintf(logfile, "%s,", hostname);
+    fprintf(logfile, "%d,", cpu_id);
     fprintf(logfile, "%s,", CglVPC::ExitReasonName[exitReasonInt].c_str());
     fprintf(logfile, "%s,", end_time_string);
     fprintf(logfile, "%.f,", difftime(end_time_t, start_time_t));
