@@ -164,7 +164,7 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
   }
 #endif
 
-  printf("## Generating partial branch-and-bound tree. ##\n");
+  printf("## Generating partial branch-and-bound tree with up to %d terms. ##\n", params.get(intParam::DISJ_TERMS));
   CbcModel* cbc_model = new CbcModel; // for obtaining the disjunction
   cbc_model->swapSolver(BBSolver);
   cbc_model->setModelOwnsSolver(true); // solver will be deleted with cbc object
@@ -183,7 +183,7 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
   const bool keep_pruned_nodes = params.get(intParam::PARTIAL_BB_KEEP_PRUNED_NODES);
   generatePartialBBTree(this, cbc_model, si, params.get(intParam::DISJ_TERMS),
       num_strong, num_before_trusted, keep_pruned_nodes);
-  printf("PartialBBDisjunction::prepareDisjunction: Finished generating partial branch-and-bound tree");
+  printf("PartialBBDisjunction::prepareDisjunction: Finished generating partial branch-and-bound tree with %d terms", this->num_terms);
   if (timer) {
     timer->end_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
     printf(" (%.3f seconds)", timer->get_time(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]));
