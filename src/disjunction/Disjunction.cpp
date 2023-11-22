@@ -382,3 +382,72 @@ void Disjunction::initialize(const Disjunction* const source) {
   }
 } /* initialize */
 
+DisjunctionSet::DisjunctionSet() {
+  initialize(NULL);
+} /* default constructor */
+
+DisjunctionSet::DisjunctionSet(const DisjunctionSet& source) {
+  initialize(&source);
+} /* copy constructor */
+
+DisjunctionSet::~DisjunctionSet() {
+  // Free memory in disjunctions
+  for (auto disj : disjunctions) {
+    delete disj;
+  }
+  this->disjunctions.clear();
+  this->disjunctions.resize(0);
+} /* destructor */
+
+DisjunctionSet& DisjunctionSet::operator=(const DisjunctionSet& source) {
+  if (this != &source) {
+    initialize(&source);
+  }
+  return *this;
+} /* assignment operator */
+
+DisjunctionSet *DisjunctionSet::clone() const
+{
+  return new DisjunctionSet(*this);
+} /* clone */
+
+void DisjunctionSet::setupAsNew() {
+  this->disjunctions.resize(0);
+} /* setupAsNew */
+
+#ifdef USE_COIN
+DisjExitReason DisjunctionSet::prepareDisjunction(const OsiSolverInterface* const si) {
+  // Prepare each disjunction in the list
+  DisjExitReason exitReason = DisjExitReason::UNKNOWN;
+
+  for (auto disj : disjunctions) {
+    exitReason = disj->prepareDisjunction(si);
+    if (exitReason == DisjExitReason::OPTIMAL_SOLUTION_FOUND_EXIT) {
+      break;
+    }
+  }
+
+  return exitReason;
+} /* prepareDisjunction */
+#else
+DisjExitReason DisjunctionSet::prepareDisjunction() {
+  // nop
+} /* prepareDisjunction */
+#endif // USE_COIN
+
+void DisjunctionSet::updateObjValue(const double objVal) {
+  if (objVal < this->best_obj) {
+    this->best_obj = objVal;
+  }
+  if (objVal > this->worst_obj) {
+    this->worst_obj = objVal;
+  }
+} /* updateObjValue */
+
+void DisjunctionSet::initialize(const DisjunctionSet* const source) {
+  if (source != NULL) {
+    this->disjunctions = source->disjunctions;
+  } else {
+    this->disjunctions.resize(0);
+  }
+} /* initialize */

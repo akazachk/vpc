@@ -23,7 +23,10 @@
  */
 class PRLP : public SolverInterface {
 public:
-  CglVPC* owner; ///< not owned by PRLP
+  CglVPC* owner; ///< CglVPC instance; not owned by PRLP
+  const Disjunction* disj; ///< disjunction corresponding to this PRLP; not owned by PRLP
+  int disjID; ///< ID of disjunction corresponding to this PRLP
+  const CglVPC::PRLPData* prlpData; ///< data for this PRLP; not owned by PRLP
   std::vector<int> nonZeroColIndex;
   std::vector<double> ortho; ///< orthogonality of each row
   int numPoints; ///< number of rows with nonzero constant side
@@ -37,7 +40,7 @@ public:
   PRLP();
 
   /// @brief Owner constructor
-  PRLP(CglVPC* owner);
+  PRLP(CglVPC* owner, const Disjunction* const disj, const int disjID, const CglVPC::PRLPData* const prlpData);
 
   /// @brief Copy constructor
   PRLP(const PRLP& source);

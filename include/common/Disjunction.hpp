@@ -161,8 +161,16 @@ class DisjunctionSet {
   public:
   /// @name Required members
   ///@{
-    std::vector<DisjunctionSet> disjunctions; ///< disjunctions to test
+    std::vector<Disjunction*> disjunctions; ///< disjunctions to test
   ///@}
+
+  /// @name Optional members
+  ///@{
+    double best_obj; ///< value of term with best objective
+    double worst_obj; ///< value of term with worst objective
+    double integer_obj; ///< value of best integer-feasible solution
+    std::vector<double> integer_sol; ///< integer-feasible solution
+  ///@} // optional members
 
   /// @brief Default constructor
   DisjunctionSet();
@@ -181,6 +189,31 @@ class DisjunctionSet {
 
   /// @brief For clearing things and setting up the disjunction as new
   virtual void setupAsNew();
+
+  /// @brief Add disjunction to the set
+  inline void addDisjunction(const Disjunction* const disj) {
+    this->disjunctions.push_back(disj->clone());
+  }
+
+  /// @brief Number of disjunctions
+  inline int size() const {
+    return this->disjunctions.size();
+  }
+
+  /// @brief Return disjunction with index \p ind
+  inline const Disjunction* const getDisjunction(const int ind) const {
+    return (ind < this->size()) ? this->disjunctions[ind] : NULL;
+  }
+
+  /// @brief Prepare set of disjunctions
+  #ifdef USE_COIN
+  virtual DisjExitReason prepareDisjunction(const OsiSolverInterface* const si);
+#else
+  virtual DisjExitReason prepareDisjunction() = 0;
+#endif
+
+  /// @brief Update best/worst obj
+  void updateObjValue(const double obj);
 
   protected:
   /// @brief Initialize class members (copy from \p source if provided)

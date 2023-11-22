@@ -228,10 +228,19 @@ int main(int argc, char** argv) {
   // Process disjunction options, if different by round
   std::vector<int> disjOptions;
   if (!params.get(stringParam::DISJ_OPTIONS).empty()) {
-    // TODO
-    error_msg(errorstring, "Setting DISJ_OPTIONS is currently not implemented. Received from command line: %s.\n", params.get(stringParam::DISJ_OPTIONS).c_str());
-    writeErrorToLog(errorstring, params.logfile);
-    return wrapUp(1, argc, argv);
+    // Parse string DISJ_OPTIONS into vector of ints, splitting by commas
+    std::stringstream ss(params.get(stringParam::DISJ_OPTIONS));
+    std::string token;
+    while (std::getline(ss, token, ',')) {
+      disjOptions.push_back(std::stoi(token));
+    }
+    if ((params.get(VPCParametersNamespace::intParam::MODE) != static_cast<int>(CglVPC::VPCMode::DISJ_SET_PBB))
+         && (disjOptions.size() != params.get(ROUNDS))) {
+      error_msg(errorstring, "Number of disjunction options (%d) is not equal to the number of rounds (%d).\n",
+          (int) disjOptions.size(), params.get(ROUNDS));
+      writeErrorToLog(errorstring, params.logfile);
+      return wrapUp(1, argc, argv);
+    }
   }
 
   // Information from each round of cuts will be saved and optionally printed
@@ -407,10 +416,11 @@ int main(int argc, char** argv) {
       updateGMICInfo(cutInfoGMICVec[round_ind], &currGMICs, params.get(EPS) / 2.);
     } // Gomory cut generation
 
-    if ((int) disjOptions.size() > round_ind) {
+    if ((params.get(VPCParametersNamespace::intParam::MODE) != static_cast<int>(CglVPC::VPCMode::DISJ_SET_PBB))
+        && ((int) disjOptions.size() > round_ind)) {
       params.set(intParam::DISJ_TERMS, disjOptions[round_ind]);
     }
-    const bool SHOULD_GENERATE_VPCS = (params.get(intParam::DISJ_TERMS) != 0);
+    const bool SHOULD_GENERATE_VPCS = (params.get(intParam::DISJ_TERMS) != 0 || disjOptions.size() > 0);
     if (SHOULD_GENERATE_VPCS) {
       const double vpc_start_time = timer.get_total_time(OverallTimeStats::VPC_GEN_TIME);
       timer.start_timer(OverallTimeStats::VPC_GEN_TIME);
@@ -422,25 +432,40 @@ int main(int argc, char** argv) {
           timer.get_value(OverallTimeStats::INIT_SOLVE_TIME));
 
       // Proceed with custom disjunctions if specified; otherwise, the disjunction will be set up in the CglVPC class
-      if (params.get(MODE) != static_cast<int>(CglVPC::VPCMode::CUSTOM)) {
+      if (params.get(intParam::MODE) != static_cast<int>(CglVPC::VPCMode::CUSTOM)) {
         gen.generateCuts(*solver, vpcs_by_round[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
         exitReason = gen.exitReason;
-        if (gen.disj()) {
-          Disjunction* disj = gen.disj();
-          num_disj++;
+        if (gen.disj() || gen.disjSet()) {
+          DisjunctionSet* disjSet = gen.disjSet();
+          if (gen.disjSet() == NULL) {
+            disjSet = new DisjunctionSet;
+            disjSet->addDisjunction(gen.disj());
+          }
+
           boundInfo.num_vpc += gen.num_cuts; // TODO: does this need to be in this if, and do we need to subtract initial num cuts?
           boundInfoVec[round_ind].num_vpc += gen.num_cuts;
-          if (boundInfo.best_disj_obj < disj->best_obj) {
-            boundInfo.best_disj_obj = disj->best_obj;
-            boundInfoVec[round_ind].best_disj_obj = disj->best_obj;
+
+          for (const Disjunction* const disj : disjSet->disjunctions) {
+            num_disj++;
+            if (boundInfo.best_disj_obj < disj->best_obj) {
+              boundInfo.best_disj_obj = disj->best_obj;
+              boundInfoVec[round_ind].best_disj_obj = disj->best_obj;
+            }
+            if (boundInfo.worst_disj_obj < disj->worst_obj) {
+              boundInfo.worst_disj_obj = disj->worst_obj;
+              boundInfoVec[round_ind].worst_disj_obj = disj->worst_obj;
+            }
+
+            // The following should be the same across all disjunctions
+            boundInfo.num_root_bounds_changed = disj->common_changed_var.size();
+            boundInfo.root_obj = disj->root_obj;
+          } // loop over disjunctions used for this round
+
+          if (gen.disjSet() == NULL) {
+            delete disjSet;
+            disjSet = NULL;
           }
-          if (boundInfo.worst_disj_obj < disj->worst_obj) {
-            boundInfo.worst_disj_obj = disj->worst_obj;
-            boundInfoVec[round_ind].worst_disj_obj = disj->worst_obj;
-          }
-          boundInfo.num_root_bounds_changed = disj->common_changed_var.size();
-          boundInfo.root_obj = disj->root_obj;
-        }
+        } // check if any disjunctions were used
         updateDisjInfo(disjInfo, num_disj, gen);
         updateCutInfo(cutInfoVec[round_ind], gen, &vpcs_by_round[round_ind], params.get(EPS) / 2.);
       } // check if mode is _not_ CUSTOM
@@ -899,7 +924,7 @@ int wrapUp(int retCode, int argc, char** argv) {
   printf("\n## Time information ##\n");
   for (int i = 0; i < NUM_TIME_STATS; i++) {
     std::string name = OverallTimeStatsName[i];
-    if (params.get(intParam::DISJ_TERMS) == 0 && name.compare(0, 3, "VPC") == 0)
+    if ((params.get(intParam::DISJ_TERMS) == 0) && (params.get(stringParam::DISJ_OPTIONS).empty()) && name.compare(0, 3, "VPC") == 0)
       continue;
     if (params.get(intParam::BB_RUNS) == 0 && name.compare(0, 2, "BB") == 0)
       continue;
@@ -1001,7 +1026,8 @@ void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_dis
           currCut.setRow(1, &col, &el, false);
           gen.addCut(currCut, vpcs,
               CglVPC::CutType::OPTIMALITY_CUT,
-              CglVPC::ObjectiveType::ONE_SIDED);
+              CglVPC::ObjectiveType::ONE_SIDED,
+              0);
         }
       }
     } // iterate over columns and add optimality cut if needed

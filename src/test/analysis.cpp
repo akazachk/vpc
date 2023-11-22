@@ -1123,27 +1123,32 @@ double getNumGomoryRounds(const VPCParameters& params,
 void updateDisjInfo(SummaryDisjunctionInfo& disjInfo, const int num_disj, const CglVPC& gen) {
   if (num_disj <= 0)
     return;
-  const Disjunction* const disj = gen.getDisjunction();
   const PRLP* const prlp = gen.getPRLP();
   if (!prlp)
     return;
   disjInfo.num_disj = num_disj;
-  disjInfo.num_integer_sol += !(disj->integer_sol.empty());
-  disjInfo.avg_num_terms = (disjInfo.avg_num_terms * (num_disj - 1) + disj->num_terms) / num_disj;
-  disjInfo.avg_density_prlp = (disjInfo.avg_density_prlp * (num_disj - 1) + prlp->density) / num_disj;
-  disjInfo.avg_num_rows_prlp += (disjInfo.avg_num_rows_prlp * (num_disj - 1) + prlp->getNumRows()) / num_disj;
-  disjInfo.avg_num_cols_prlp += (disjInfo.avg_num_cols_prlp * (num_disj - 1) + prlp->getNumCols()) / num_disj;
-  disjInfo.avg_num_points_prlp += (disjInfo.avg_num_points_prlp * (num_disj - 1) + prlp->numPoints) / num_disj;
-  disjInfo.avg_num_rays_prlp += (disjInfo.avg_num_rays_prlp * (num_disj - 1) + prlp->numRays) / num_disj;
-  try {
-    const PartialBBDisjunction* const partialDisj =
-        dynamic_cast<const PartialBBDisjunction* const >(disj);
-    disjInfo.avg_explored_nodes += (disjInfo.avg_explored_nodes * (num_disj - 1) + partialDisj->data.num_nodes_on_tree) / num_disj;
-    disjInfo.avg_pruned_nodes += (disjInfo.avg_pruned_nodes * (num_disj - 1) + partialDisj->data.num_pruned_nodes) / num_disj;
-    disjInfo.avg_min_depth += (disjInfo.avg_min_depth * (num_disj - 1) + partialDisj->data.min_node_depth) / num_disj;
-    disjInfo.avg_max_depth += (disjInfo.avg_max_depth * (num_disj - 1) + partialDisj->data.max_node_depth) / num_disj;
-  } catch (std::exception& e) {
 
+  const DisjunctionSet* const disjSet = gen.getDisjunctionSet();
+  const int num_disj_to_check = (disjSet == NULL) ? 1 : disjSet->size();
+  for (int disj_ind = 0; disj_ind < num_disj_to_check; disj_ind++) {
+    const Disjunction* const disj = (disjSet == NULL) ? gen.getDisjunction() : disjSet->getDisjunction(disj_ind);
+    disjInfo.num_integer_sol += !(disj->integer_sol.empty());
+    disjInfo.avg_num_terms = (disjInfo.avg_num_terms * (num_disj - 1) + disj->num_terms) / num_disj;
+    disjInfo.avg_density_prlp = (disjInfo.avg_density_prlp * (num_disj - 1) + prlp->density) / num_disj;
+    disjInfo.avg_num_rows_prlp += (disjInfo.avg_num_rows_prlp * (num_disj - 1) + prlp->getNumRows()) / num_disj;
+    disjInfo.avg_num_cols_prlp += (disjInfo.avg_num_cols_prlp * (num_disj - 1) + prlp->getNumCols()) / num_disj;
+    disjInfo.avg_num_points_prlp += (disjInfo.avg_num_points_prlp * (num_disj - 1) + prlp->numPoints) / num_disj;
+    disjInfo.avg_num_rays_prlp += (disjInfo.avg_num_rays_prlp * (num_disj - 1) + prlp->numRays) / num_disj;
+    try {
+      const PartialBBDisjunction* const partialDisj =
+          dynamic_cast<const PartialBBDisjunction* const >(disj);
+      disjInfo.avg_explored_nodes += (disjInfo.avg_explored_nodes * (num_disj - 1) + partialDisj->data.num_nodes_on_tree) / num_disj;
+      disjInfo.avg_pruned_nodes += (disjInfo.avg_pruned_nodes * (num_disj - 1) + partialDisj->data.num_pruned_nodes) / num_disj;
+      disjInfo.avg_min_depth += (disjInfo.avg_min_depth * (num_disj - 1) + partialDisj->data.min_node_depth) / num_disj;
+      disjInfo.avg_max_depth += (disjInfo.avg_max_depth * (num_disj - 1) + partialDisj->data.max_node_depth) / num_disj;
+    } catch (std::exception& e) {
+
+    }
   }
 } /* updateDisjInfo */
 
