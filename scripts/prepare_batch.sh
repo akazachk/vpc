@@ -106,8 +106,9 @@ fi
 EXECUTABLE="${PROJ_DIR}/Release/vpc"
 
 # Constrain to P-cores on Linux
+# (I am not sure about this ... maybe can use 0-15? ... but then two processes might end up on the same core.)
 if [ $(uname) != "Darwin" ]; then
-  EXECUTABLE="taskset -c 0-15 $EXECUTABLE"
+  EXECUTABLE="taskset -c 0,2,4,6,8,10,12,14 $EXECUTABLE"
 fi
 
 # Accept user options for instance list, results directory, and mode
