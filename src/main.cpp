@@ -235,9 +235,9 @@ int main(int argc, char** argv) {
       disjOptions.push_back(std::stoi(token));
     }
     if ((params.get(VPCParametersNamespace::intParam::MODE) != static_cast<int>(CglVPC::VPCMode::DISJ_SET_PBB))
-         && (disjOptions.size() != params.get(ROUNDS))) {
+         && (static_cast<int>(disjOptions.size()) != params.get(ROUNDS))) {
       error_msg(errorstring, "Number of disjunction options (%d) is not equal to the number of rounds (%d).\n",
-          (int) disjOptions.size(), params.get(ROUNDS));
+          static_cast<int>(disjOptions.size()), params.get(ROUNDS));
       writeErrorToLog(errorstring, params.logfile);
       return wrapUp(1, argc, argv);
     }
