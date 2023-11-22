@@ -97,9 +97,11 @@ char start_time_string[25];
 
 const int HOST_NAME_MAX = 1024;
 char hostname[HOST_NAME_MAX];
-#ifdef __linux__
-#include <sched.h>
+// For CPU model and number
+std::string cpu_model = "";
 int cpu_id = -1;
+#ifdef __linux__
+#include <sched.h> // for cpu_id
 #endif
 
 SummaryBoundInfo boundInfo;
@@ -760,6 +762,35 @@ int startUp(int argc, char** argv) {
     }
   }
 
+  // Get CPU model
+  {
+#ifdef __linux__
+    // File stream to read /proc/cpuinfo
+    std::ifstream cpuInfoFile("/proc/cpuinfo");
+
+    if (!cpuInfoFile.is_open()) {
+      std::cerr << "Error opening /proc/cpuinfo" << std::endl;
+    }
+
+    // Iterate through each line in /proc/cpuinfo
+    std::string line;
+    while (std::getline(cpuInfoFile, line)) {
+      // Search for the "model name" field
+      size_t pos = line.find("model name");
+      if (pos != std::string::npos) {
+        // Extract the CPU model information
+        cpu_model = line.substr(pos + 13); // 13 is the length of "model name    : "
+        break;
+      }
+    }
+
+    // Close the file
+    cpuInfoFile.close();
+#else
+    cpu_model = "";
+#endif
+  }
+
   // Get CPU id
   {
 #ifdef __linux__
@@ -917,6 +948,7 @@ int wrapUp(int retCode, int argc, char** argv) {
 #endif
     // Data corresponding to "countExtraInfoEntries"
     fprintf(logfile, "%s,", hostname);
+    fprintf(logfile, "%s,", cpu_model.c_str());
     fprintf(logfile, "%d,", cpu_id);
     fprintf(logfile, "%s,", CglVPC::ExitReasonName[exitReasonInt].c_str());
     fprintf(logfile, "%s,", end_time_string);

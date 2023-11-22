@@ -35,7 +35,7 @@ const int countFailInfoEntries = 1 + static_cast<int>(CglVPC::FailureType::NUM_F
 const int countParamInfoEntries = intParam::NUM_INT_PARAMS + doubleParam::NUM_DOUBLE_PARAMS + stringParam::NUM_STRING_PARAMS;
 int countTimeInfoEntries = 0; // set in printHeader
 const int countVersionInfoEntries = 5;
-const int countExtraInfoEntries = 6; // hostname, cpu_info, ExitReason, end_time_string, time elapsed, instname
+const int countExtraInfoEntries = 7; // hostname, cpu_model, cpu_info, ExitReason, end_time_string, time elapsed, instname
 
 void printHeader(const VPCParameters& params,
     const std::vector<std::string>& time_name,
@@ -263,6 +263,7 @@ void printHeader(const VPCParameters& params,
   { // WRAP UP INFO
     int count = 0;
     fprintf(logfile, "%s%c", "hostname", SEP); count++;
+    fprintf(logfile, "%s%c", "cpu_model", SEP); count++;
     fprintf(logfile, "%s%c", "cpu_id", SEP); count++;
     fprintf(logfile, "%s%c", "ExitReason", SEP); count++;
     fprintf(logfile, "%s%c", "end_time_string", SEP); count++;
