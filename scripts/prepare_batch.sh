@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage example:
-#   prepare_batch.sh /path/to/instance/list.test /path/to/results/dir [test / preprocess / bb / bb0 / gmic / rounds]
+#   prepare_batch.sh /path/to/instance/list.test /path/to/results/dir [test / preprocess / bb / bb0 / bb0bb / disjset / gmic / rounds]
 
 # Attempt to read VPC_DIR/PROJ_DIR values from environment
 # These will be used to set paths of other variables
@@ -159,6 +159,22 @@ elif [ $MODE == bb0bb ]; then
   PARAMS="$PARAMS --use_tight_rays=0"
   PARAMS="$PARAMS --use_unit_vectors=0"
   PARAMS="$PARAMS --gomory=-1"
+elif [ $MODE == disjset ] ; then
+  depthList=(0)
+  PARAMS="$PARAMS -t 3600"
+  PARAMS="$PARAMS --rounds=1"
+  PARAMS="$PARAMS --bb_runs=7"
+  PARAMS="$PARAMS --bb_mode=11"
+  PARAMS="$PARAMS --bb_timelimit=3600"
+  PARAMS="$PARAMS --use_all_ones=1"
+  PARAMS="$PARAMS --use_iter_bilinear=1"
+  PARAMS="$PARAMS --use_disj_lb=1"
+  PARAMS="$PARAMS --use_tight_points=0"
+  PARAMS="$PARAMS --use_tight_rays=0"
+  PARAMS="$PARAMS --use_unit_vectors=0"
+  PARAMS="$PARAMS --gomory=-1"
+  PARAMS="$PARAMS --mode=4"
+  PARAMS="$PARAMS --disj_options=2,4,8,16,32,64"
 elif [ $MODE == preprocess ]; then
   depthList=(0)
   PARAMS="$PARAMS -t 7200"
