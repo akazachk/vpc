@@ -235,12 +235,16 @@ int VPCSolverInterface::applyCuts(
   bool clear_cuts
 ) {
   int num_applied = 0;
+#ifdef TRACE
   int num_cuts = 0;
+#endif
   if (cutsToAdd != NULL) {
     int num_before = solver->getNumRows();
     for (int i = 0; i < cuts->sizeRowCuts(); ++i) {
       if (cutsToAdd[i]) {
+#ifdef TRACE
         num_cuts++;
+#endif
         solver->applyRowCuts(1, cuts->rowCutPtr(i));
       }
     }
@@ -250,7 +254,9 @@ int VPCSolverInterface::applyCuts(
       cuts = new OsiCuts;
     }
   } else {
+#ifdef TRACE
     num_cuts = cuts->sizeCuts();
+#endif
     OsiSolverInterface::ApplyCutsReturnCode code;
     code = solver->applyCuts(*(cuts));
     num_applied = code.getNumApplied();
