@@ -946,10 +946,11 @@ int wrapUp(int retCode, int argc, char** argv) {
 #else
     fprintf(logfile, ",");
 #endif
-    // Data corresponding to "countExtraInfoEntries"
+    // Data for the current run's host/processor
     fprintf(logfile, "%s,", hostname);
     fprintf(logfile, "%s,", cpu_model.c_str());
     fprintf(logfile, "%d,", cpu_id);
+    // Data corresponding to "countExtraInfoEntries"
     fprintf(logfile, "%s,", CglVPC::ExitReasonName[exitReasonInt].c_str());
     fprintf(logfile, "%s,", end_time_string);
     fprintf(logfile, "%.f,", difftime(end_time_t, start_time_t));
