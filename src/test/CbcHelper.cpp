@@ -46,8 +46,7 @@ void setStrategyForBBTestCbc(
 
   int strategy = given_strategy;
 
-  // pass default values except for logging verbosity
-  CbcStrategyDefault cbc_strategy(1, 5, 0, params.get(intParam::VERBOSITY));
+  CbcStrategyDefault cbc_strategy;
   cbc_model->setStrategy(cbc_strategy);
 
   if (use_bb_option(strategy, BB_Strategy_Options::heuristics_on)){
@@ -81,7 +80,8 @@ void setStrategyForBBTestCbc(
   // set bound
   if (use_bb_option(strategy, BB_Strategy_Options::use_best_bound)) {
     verify(!isInfinity(std::abs(best_bound)), "Best bound must be finite if applied.\n");
-    cbc_model->setCutoff(best_bound);
+    // sets primal bound - add a small tolerance so CBC finds the eventual solution
+    cbc_model->setCutoff(best_bound + 1e-7);
   }
 
   // Check if we should use strong branching

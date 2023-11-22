@@ -85,7 +85,7 @@ double getObjOffset(const OsiSolverInterface* const solver) {
 
 void setIPSolverParameters(CbcModel* const cbc_model, const int verbosity) {
   if (verbosity > 0) {
-    cbc_model->setLogLevel(3);
+    cbc_model->setLogLevel(verbosity);
     cbc_model->messagesPointer()->setDetailMessages(10, 10000, (int *) NULL);
   } else {
     cbc_model->setLogLevel(0);
