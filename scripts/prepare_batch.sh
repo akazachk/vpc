@@ -107,7 +107,7 @@ EXECUTABLE="${PROJ_DIR}/Release/vpc"
 
 # Constrain to P-cores on Linux
 if [ $(uname) != "Darwin" ]; then
-  EXECUTABLE="taskset -c 0-7 $EXECUTABLE"
+  EXECUTABLE="taskset -c 0-15 $EXECUTABLE"
 fi
 
 # Accept user options for instance list, results directory, and mode
