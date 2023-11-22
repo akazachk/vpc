@@ -280,9 +280,10 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   }
 
   // Set cut limit
-  params.set(CUTLIMIT,
-      CglVPC::getCutLimit(params.get(CUTLIMIT),
-          si.getFractionalIndices().size()));
+  const int ORIG_CUTLIMIT = params.get(CUTLIMIT);
+  const int NEW_CUTLIMIT = CglVPC::getCutLimit(ORIG_CUTLIMIT,
+          si.getFractionalIndices().size());
+  params.set(CUTLIMIT, NEW_CUTLIMIT);
   if (reachedCutLimit() && !use_temp_option(std::abs(params.get(intParam::TEMP)), TempOptions::GEN_TIKZ_STRING)) {
     if (si.getFractionalIndices().size() > 0) {
       status = CglVPC::ExitReason::CUT_LIMIT_EXIT;
@@ -509,6 +510,13 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
 
     // Generate cuts from the PRLP
     status = tryObjectives(cuts, curr_vpcsolver, curr_disj, disj_id, curr_prlp_data, NULL);
+
+    // If ORIG_CUTLIMIT < 0, then we are using a cut limit per disjunction
+    // and we need to update the cut limit for the next disjunction
+    // (if this is not the last one)
+    if (ORIG_CUTLIMIT < 0 && disj_id < num_disj - 1) {
+      params.set(CUTLIMIT, this->num_cuts + NEW_CUTLIMIT);
+    }
 
     // If more than 2 disjunctions, then delete curr_vpcsolver
     if (num_disj > 1 && curr_vpcsolver) { delete curr_vpcsolver; }
