@@ -72,6 +72,9 @@ ifeq ($(USER),akazachkov)
 		ifeq ($(HOSTNAME),ISE-D41L3Q3)
 			not_hpg = true
 		endif
+		ifeq ($(HOSTNAME),rupert0)
+			not_hpg = true
+		endif
 		ifeq ($(HOSTNAME),rupert1)
 			not_hpg = true
 		endif
