@@ -199,12 +199,23 @@ elif [ $MODE == gmic ]; then
   PARAMS="$PARAMS --temp=16"
   PARAMS="$PARAMS -v0"
 elif [ $MODE == rounds ]; then
-  depthList=(2 8 32)
-  PARAMS="$PARAMS --timelimit=1800"
-  PARAMS="$PARAMS --rounds=100"
-  PARAMS="$PARAMS --gomory=-1"
+  depthList=(2 4 8 16 32 64)
+  PARAMS="$PARAMS --rounds=2"
+  PARAMS="$PARAMS --cutlimit=-2"
+  PARAMS="$PARAMS --timelimit=3600"
+  # temp=16: Print bound by round
   PARAMS="$PARAMS --temp=16"
+  PARAMS="$PARAMS --gomory=-1"
   PARAMS="$PARAMS -v0"
+  PARAMS="$PARAMS --bb_mode=10"
+  PARAMS="$PARAMS --bb_runs=7"
+  PARAMS="$PARAMS --bb_timelimit=3600"
+  PARAMS="$PARAMS --use_all_ones=1"
+  PARAMS="$PARAMS --use_iter_bilinear=1"
+  PARAMS="$PARAMS --use_disj_lb=1"
+  PARAMS="$PARAMS --use_tight_points=0"
+  PARAMS="$PARAMS --use_tight_rays=0"
+  PARAMS="$PARAMS --use_unit_vectors=0"
 elif [ $MODE == "test" ]; then
   depthList=(2)
 else
