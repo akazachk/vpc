@@ -318,16 +318,17 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     } // PARTIAL_BB
     else if (mode == VPCMode::DISJ_SET_PBB) {
       std::vector<int> disjOptions;
-      std::stringstream ss(params.get(stringParam::DISJ_OPTIONS));
-      std::string token;
+      parseDisjOptions(disjOptions, params);
+      
       printf(
           "\n## Starting VPC generation from **SET** of partial branch-and-bound trees with up to { ");
-      while (std::getline(ss, token, ',')) {
-        const int curr_num_terms = std::stoi(token);
-        if (curr_num_terms >= 2) {
-          disjOptions.push_back(curr_num_terms);
-          printf("%d ", curr_num_terms);
+      for (const int curr_num_terms : disjOptions) {
+        // If curr_num_terms < 2, delete it from disjOptions (code below not tested)
+        if (curr_num_terms < 2) {
+          disjOptions.erase(std::remove(disjOptions.begin(), disjOptions.end(), curr_num_terms), disjOptions.end());
+          continue;
         }
+        printf("%d ", curr_num_terms);
       }
       printf("} disjunctive terms. ##\n");
 

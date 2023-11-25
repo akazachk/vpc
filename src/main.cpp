@@ -232,21 +232,10 @@ int main(int argc, char** argv) {
   }
 
   // Process disjunction options, if different by round
+  // Parse string DISJ_OPTIONS into vector of ints, splitting by default delimiter
   std::vector<int> disjOptions;
-  if (!params.get(stringParam::DISJ_OPTIONS).empty()) {
-    // Parse string DISJ_OPTIONS into vector of ints, splitting by commas
-    std::stringstream ss(params.get(stringParam::DISJ_OPTIONS));
-    std::string token;
-    while (std::getline(ss, token, ',')) {
-      disjOptions.push_back(std::stoi(token));
-    }
-    if ((params.get(VPCParametersNamespace::intParam::MODE) != static_cast<int>(CglVPC::VPCMode::DISJ_SET_PBB))
-         && (static_cast<int>(disjOptions.size()) != params.get(ROUNDS))) {
-      error_msg(errorstring, "Number of disjunction options (%d) is not equal to the number of rounds (%d).\n",
-          static_cast<int>(disjOptions.size()), params.get(ROUNDS));
-      writeErrorToLog(errorstring, params.logfile);
-      return wrapUp(1, argc, argv);
-    }
+  if (!parseDisjOptions(disjOptions, params)) {
+    return wrapUp(1, argc, argv);
   }
 
   // Information from each round of cuts will be saved and optionally printed

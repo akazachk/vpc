@@ -724,6 +724,40 @@ struct VPCParameters {
   ///@}
 }; /* struct VPCParameters */
 
+/// @brief Parse a string of disjunctive options separated by \p SEP (default semicolon)
+/// @return Status code (0 = ok, 1 = error)
+inline int parseDisjOptions(
+    /// [out] vector of disjunctive options
+    std::vector<int>& disjOptions,
+    /// [in] parameters (including string of disjunctive options via DISJ_OPTIONS)
+    const VPCParametersNamespace::VPCParameters& params,
+    /// [in] delimiter for disjunctive options
+    const char SEP = ';') {
+  const int OK_STATUS = 0;
+  const int ERROR_STATUS = 0;
+
+  std::string disjStr = params.get(stringParam::DISJ_OPTIONS);
+  if (disjStr.empty()) {
+    return OK_STATUS;
+  }
+
+  std::istringstream iss(disjStr);
+  std::string token;
+  while (std::getline(iss, token, SEP)) {
+    disjOptions.push_back(std::stoi(token));
+  }
+
+  if ((params.get(VPCParametersNamespace::intParam::MODE) != static_cast<int>(CglVPC::VPCMode::DISJ_SET_PBB))
+         && (static_cast<int>(disjOptions.size()) != params.get(ROUNDS))) {
+      error_msg(errorstring, "Number of disjunction options (%d) is not equal to the number of rounds (%d).\n",
+          static_cast<int>(disjOptions.size()), params.get(ROUNDS));
+      writeErrorToLog(errorstring, params.logfile);
+      return ERROR_STATUS;
+  }
+
+  return OK_STATUS;
+} /* parseDisjOptions */
+
 /// @brief Read parameters and constants from a given file with the format that each line has param_name,param_value (comma-separated)
 inline void readParams(VPCParameters& params, std::string infilename) {
   std::ifstream infile(infilename.c_str());

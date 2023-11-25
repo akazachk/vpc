@@ -180,7 +180,7 @@ elif [ $MODE == disjset ] ; then
   PARAMS="$PARAMS --use_unit_vectors=0"
   PARAMS="$PARAMS --gomory=-1"
   PARAMS="$PARAMS --mode=4"
-  PARAMS="$PARAMS --disj_options=2,4,8,16,32,64"
+  PARAMS="$PARAMS --disj_options=2;4;8;16;32;64"
 elif [ $MODE == preprocess ]; then
   depthList=(0)
   PARAMS="$PARAMS -t 7200"
