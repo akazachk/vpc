@@ -1218,6 +1218,13 @@ void VPCEventHandler::setWarmStart(
     writeErrorToLog(errorstring, owner->params.logfile);
     exit(1);
   }
+  // If called from saveInformationWithPrunes, we can't guarantee we get the same
+  // objective for the node that generated the basis as we may have reset continuous
+  // variable bounds. Also node 0 shouldn't match original solver LP objective
+  // because no bounds have been tightened
+  if (tmp_ind < 0 && node_id < 0) {
+    return;
+  }
   // Sometimes we run into a few issues getting the "right" value
   double ratio = solver->getObjValue() / stats_[node_id].obj;
   if (ratio < 1.) {
@@ -1818,7 +1825,7 @@ int VPCEventHandler::saveInformationWithPrunes() {
       dynamic_cast<SolverInterface*>(originalSolver_->clone());
   setLPSolverParameters(tmpSolverRoot, owner->params.get(VERBOSITY), owner->params.get(TIMELIMIT));
   CoinWarmStartBasis* original_basis = dynamic_cast<CoinWarmStartBasis*>(originalSolver_->getWarmStart());
-  setWarmStart(tmpSolverRoot, original_basis, 0, 0);
+  setWarmStart(tmpSolverRoot, original_basis);
 
   // add disjunctive terms for the pruned branching decisions found at the root
   createStrongBranchingTerms(common_var, common_bound, common_value, tmpSolverRoot);
@@ -1828,7 +1835,7 @@ int VPCEventHandler::saveInformationWithPrunes() {
 
     // create a new solver (solve from LP optimal basis since parent basis may be gone)
     SolverInterface* tmpSolverPruned = dynamic_cast<SolverInterface*>(originalSolver_->clone());
-    setWarmStart(tmpSolverPruned, original_basis, 0, 0);
+    setWarmStart(tmpSolverPruned, original_basis);
 
     // Change bounds in the solver for the root node variable fixes
     const int init_num_changed_bounds = common_var.size();
@@ -1937,9 +1944,8 @@ int VPCEventHandler::saveInformationWithPrunes() {
                   term_bound, term_value);
     }
 
-    // set the warm start and make some checks to ensure we're kosher
-    // tmpSolverBase should now have bounds such that parent_basis is optimal for it
-    setWarmStart(tmpSolverBase, parent_basis, tmp_ind, node_id);
+    // set the warm start - tmpSolverBase should now have bounds such that parent_basis is optimal for it
+    setWarmStart(tmpSolverBase, parent_basis);
 
     // Now we check the branch or branches left for this node
     bool hasFeasibleChild = false;

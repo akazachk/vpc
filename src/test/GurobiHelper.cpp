@@ -91,7 +91,7 @@ void setStrategyForBBTestGurobi(const VPCParameters& params, const int strategy,
         // BestBdStop: stop when dual bound >= z
         // Cutoff: prune subtrees with objective value > z
         //model.set(GRB_DoubleParam_BestObjStop, best_bound + 1e-3); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
-        model.set(GRB_DoubleParam_BestBdStop, best_bound - 1e-7); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
+        model.set(GRB_DoubleParam_BestBdStop, best_bound - 1e-4); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
         //model.set(GRB_DoubleParam_Cutoff, best_bound + 1e-3); // give the solver the best IP objective value (it is a minimization problem) with a tolerance
       }
       // Check if user provides mip start or solution file

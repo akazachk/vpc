@@ -226,7 +226,7 @@ protected:
 
   /// @brief Set the warm start information for the parent node
   void setWarmStart(SolverInterface* tmpSolverBase, CoinWarmStartBasis* parent_basis,
-                    int tmp_ind, int node_id, const int curr_num_changed_bounds = 0,
+                    int tmp_ind = -1, int node_id = -1, const int curr_num_changed_bounds = 0,
                     const std::vector<std::vector<int> >& commonTermIndices = std::vector<std::vector<int> >(),
                     const std::vector<std::vector<double> >& commonTermCoeff = std::vector<std::vector<double> >(),
                     const std::vector<double>& commonTermRHS = std::vector<double>());
