@@ -117,6 +117,7 @@ enum stringParam {
   LOGFILE,
   OPTFILE,
   SOLFILE,
+  TMPFOLDER,
   NUM_STRING_PARAMS
 }; /* stringParam */
 
@@ -589,6 +590,8 @@ struct VPCParameters {
     {stringParam::DISJ_OPTIONS, StringParameter("DISJ_OPTIONS", "")},
     {stringParam::SOLFILE,
       StringParameter(stringParam::SOLFILE, "SOLFILE", "")},
+    {stringParam::TMPFOLDER,
+        StringParameter(stringParam::TMPFOLDER, "TMPFOLDER", "")},
     {stringParam::OPTFILE,
       StringParameter(stringParam::OPTFILE, "OPTFILE", "")},
     {stringParam::LOGFILE,

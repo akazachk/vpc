@@ -412,7 +412,7 @@ void createTmpFileCopy(
     std::string& f_name) {
   if (f_name.empty()) {
     try {
-      createTmpFilename(f_name, "");
+      createTmpFilename(f_name, "", params.get(stringParam::TMPFOLDER));
     } catch (const std::exception &e) {
       error_msg(errorstring, "Could not generate temp file: %s.\n", e.what());
       writeErrorToLog(errorstring, params.logfile);

@@ -154,7 +154,8 @@ inline void writeErrorToLog(std::string text, FILE *myfile) {
 }
 
 /** @brief Create temporary filename */
-void createTmpFilename(std::string& f_name, const std::string add_ext = "");
+void createTmpFilename(std::string& f_name, const std::string add_ext = "",
+                       const std::string tmp_folder = "");
 
 /** @brief Separate filename into the directory, instance name, and extension */
 int parseFilename(std::string& dir, std::string& instname, std::string& in_file_ext, const std::string& fullfilename, FILE* logfile);

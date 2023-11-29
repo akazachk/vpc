@@ -22,10 +22,12 @@
  * It does not delete the file.
  */
 void createTmpFilename(std::string& f_name,
-    const std::string add_ext) {
+    const std::string add_ext, const std::string tmp_folder) {
 //  if (f_name.empty()) {
     // Generate temporary file name
-    char template_name[] = "/tmp/tmpvpcXXXXXX";
+    std::string str_name = tmp_folder.empty() ? "/tmp/tmpvpcXXXXXX" : tmp_folder + "/tmpvpcXXXXXX";
+    char template_name[str_name.size() + 1];
+    strcpy(template_name, str_name.c_str());
 
     mkstemp(template_name);
     f_name = template_name;
