@@ -421,6 +421,6 @@ void createTmpFileCopy(
   }
 
   solver->writeMps(f_name.c_str(), "mps", solver->getObjSense());
-  f_name += ".mps.gz"; // writeMps calls writeMpsNative, which invokes the CoinMpsIO writer with gzip option = 1
+  f_name += ".mps"; // writeMps calls writeMpsNative, which invokes the CoinMpsIO writer with gzip option = 1
 } /* createTmpFileCopy (Osi) */
 
