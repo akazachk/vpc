@@ -271,7 +271,7 @@ void printHeader(const VPCParameters& params,
     fprintf(logfile, "%s%c", "instname", SEP); count++;
     assert(count == countExtraInfoEntries);
   } // WRAP UP INFO
-  fprintf(logfile, "\n");
+  fprintf(logfile, "end\n");
   fflush(logfile);
 } /* printHeader */
 
