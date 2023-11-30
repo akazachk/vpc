@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import matplotlib
+import sys
+# if 'IPython' in sys.modules:
+#   from IPython.display import display
 
 INST_LIST = []
 # INST_LIST = ['bm23']
@@ -36,18 +39,19 @@ print("Current directory: ", os.getcwd())
 # Read in value of VPC_DIR from environment variable; if empty, use parent directory
 if 'VPC_DIR' not in os.environ:
     VPC_DIR = '..'
-    print("VPC_DIR not in environment variable; using parent directory: ", os.path.abspath(VPC_DIR))
+    print("VPC_DIR not in environment variable; using parent directory.")
 else:
     VPC_DIR = os.environ['VPC_DIR']
-    print("VPC_DIR set to: ", os.path.abspath(VPC_DIR))
+
+# Convert path to absolute path
+VPC_DIR = os.path.abspath(VPC_DIR)
+print("VPC_DIR set to: ", VPC_DIR)
 
 # path = VPC_DIR/results/2023-07-01
 path = VPC_DIR + '/results/2023-07-02'
+DATA_DIR = VPC_DIR + "/data/"
 # HOME_DIR = os.environ['HOME']
 # path = HOME_DIR + '/results/2023-07-02/gmic'
-
-# Convert path to absolute path
-path = os.path.abspath(path)
 
 print("Path set to: ", path)
 
@@ -140,9 +144,20 @@ def plotInstance(path, prev_instance, typestub, fig, axes, depth_index, legendlo
     print("Saving plot to: ", savepath)
     plt.savefig(savepath, bbox_inches='tight', pad_inches=0, dpi=300)
 
+    matplotlib.pyplot.close()
+
+#%%
+## Best known IP objective values
+df_ipopt = pd.read_csv(DATA_DIR + "ip_obj.csv")
+df_ipopt = df_ipopt.set_index(df_ipopt[df_ipopt.columns[0]])
+df_ipopt.rename(columns = {'IP Objective' : 'IP OBJ'}, inplace=True) # for consistency with other dfs
+df_ipopt = df_ipopt[~df_ipopt.index.duplicated()]
+# display(df_ipopt.head())
+# display(df_ipopt['IP OBJ']['bm23_presolved'])
+
 # %%
-print("\n## Plotting bound per round ##")
-typestub = "bound"
+print("\n## Plotting gap closed per round ##")
+typestub = "gap"
 legendloc = None
 bbox_pos = None
 prev_instance = ""
@@ -223,7 +238,6 @@ for filename in all_files:
     # If we are in a Jupyter notebook, display the dataframe
     import sys
     if 'IPython' in sys.modules:
-        from IPython.display import display
         display(df.head())
 
     # Plot the gmic_bound on the first axis
@@ -236,17 +250,33 @@ for filename in all_files:
     
     # curr_ax.set_xlabel('Rounds of cuts', horizontalalignment='left', x=0.0)
     curr_ax.set_xlabel('Rounds of cuts')
-    curr_ax.set_ylabel('Bound', color='black')
+    curr_ax.set_ylabel('%% gap closed', color='black')
     x_ticks = df['Round'].to_numpy()
-    
-    curr_ax.plot(x_ticks, df['bound_gmic'], color=color, label='gmic'+depth_stub, marker=marker, linestyle=linestyle, alpha=alphastyle)
+
+    # Get the IP objective value for this instance
+    curr_ip_obj = np.float64(df_ipopt['IP OBJ'][instance])
+
+    # compute gap closed from bound_gmic column
+    cut_type = 'gmic'
+    ref_col = 'bound_' + cut_type
+    lp_bound = df[ref_col][0]
+    init_gap = curr_ip_obj - lp_bound
+    df['gap_closed_' + cut_type] = 100. * (df[ref_col] - lp_bound) / init_gap
+
+    curr_ax.plot(x_ticks, df['gap_closed_' + cut_type], color=color, label=cut_type+depth_stub, marker=marker, linestyle=linestyle, alpha=alphastyle)
     
     # Plot vpc bound
     if depth > 0:
         color_index += 1
         color = CB_color_cycle[color_index]
         marker = MARKERS[color_index]
-        curr_ax.plot(x_ticks, df['bound_vpc'], color=color, label='vpc'+depth_stub, marker=marker, linestyle=linestyle, alpha=alphastyle, markersize=4)
+        
+        # compute gap closed from bound_vpc column
+        cut_type = 'vpc'
+        ref_col = 'bound_' + cut_type
+        df['gap_closed_' + cut_type] = 100. * (df[ref_col] - lp_bound) / init_gap
+
+        curr_ax.plot(x_ticks, df['gap_closed_' + cut_type], color=color, label=cut_type+depth_stub, marker=marker, linestyle=linestyle, alpha=alphastyle, markersize=4)
 
         # Add a red box marker at MARK_TOTAL_TIME
         # Find the index of the row with the closest value to MARK_TOTAL_TIME
@@ -256,7 +286,7 @@ for filename in all_files:
         curr_ax.plot(# x-axis is given by idx,
                         [df['Round'][idx]],
                         # y-axis is given by the bound at idx
-                        [df['bound_vpc'][idx]],
+                        [df['gap_closed_' + cut_type][idx]],
                         linestyle='None',
                         # Red box marker that is not filled in
                         marker='s', markerfacecolor='red', markeredgecolor='red', markersize=10, alpha=alphastyle)
@@ -272,7 +302,7 @@ for filename in all_files:
         curr_ax.plot(# x-axis is given by idx,
                         [df['Round'][idx]],
                         # y-axis is given by the bound at idx
-                        [df['bound_gmic'][idx]],
+                        [df['gap_closed_' + cut_type][idx]],
                      # Red box marker
                      marker='s', markerfacecolor='red', markeredgecolor='red', markersize=10, 
                      linestyle='None',
@@ -485,7 +515,7 @@ for filename in all_files:
     
     # curr_ax.set_xlabel('Rounds of cuts', horizontalalignment='left', x=0.0)
     curr_ax.set_xlabel('Rounds of cuts')
-    curr_ax.set_ylabel('Time for Generation + LP Resolve per Round (s)', color='black')
+    curr_ax.set_ylabel('Time per round for generation + LP resolve (s)', color='black')
     x_ticks = df['Round'].to_numpy()
     
     curr_ax.plot(x_ticks, df['gmic_gen_time'] + df['gmic_apply_time'], color=color, label='gmic'+depth_stub, marker=marker, linestyle=linestyle, alpha=alphastyle)
@@ -592,7 +622,7 @@ for filename in all_files:
     
     # curr_ax.set_xlabel('Rounds of cuts', horizontalalignment='left', x=0.0)
     curr_ax.set_xlabel('Rounds of cuts')
-    curr_ax.set_ylabel('LP Resolve Time per Round (s)', color='black')
+    curr_ax.set_ylabel('Time per round to resolve LP (s)', color='black')
     x_ticks = df['Round'].to_numpy()
     
     curr_ax.plot(x_ticks, df['gmic_apply_time'], color=color, label='gmic'+depth_stub, marker=marker, linestyle=linestyle, alpha=alphastyle)
