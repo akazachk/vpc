@@ -191,6 +191,23 @@ inline int disable_temp_option(const int strategy, const TempOptions option) {
   return strategy & ~static_cast<int>(option);
 }
 
+/// @brief Mode in which VPCs will be generated (disjunction type, in fact)
+enum class VPCMode {
+  PARTIAL_BB,   ///< generate partial branch-and-bound tree #PartialBBDisjunction
+  SPLITS,       ///< set of split disjunctions
+  CROSSES,      ///< set of cross disjunctions
+  CUSTOM,       ///< user-defined disjunction
+  DISJ_SET_PBB, ///< run set of partial branch-and-bound trees
+  NUM_VPC_MODES ///< number of vpc modes
+}; /* VPCMode */
+const std::vector<std::string> VPCModeName {
+  "PARTIAL_BB",
+  "SPLITS",
+  "CROSSES",
+  "CUSTOM",
+  "DISJ_SET_PBB"
+}; /* VPCModeName */
+
 /// @brief Options for the parameter BB_STRATEGY
 enum class BB_Strategy_Options {
   off                 = 0,              ///< do not do any b&b tests
@@ -736,7 +753,7 @@ inline int parseDisjOptions(
   const int OK_STATUS = 0;
   const int ERROR_STATUS = 0;
 
-  std::string disjStr = params.get(stringParam::DISJ_OPTIONS);
+  std::string disjStr = params.get(VPCParametersNamespace::stringParam::DISJ_OPTIONS);
   if (disjStr.empty()) {
     return OK_STATUS;
   }
@@ -747,10 +764,10 @@ inline int parseDisjOptions(
     disjOptions.push_back(std::stoi(token));
   }
 
-  if ((params.get(VPCParametersNamespace::intParam::MODE) != static_cast<int>(CglVPC::VPCMode::DISJ_SET_PBB))
-         && (static_cast<int>(disjOptions.size()) != params.get(ROUNDS))) {
+  if ((params.get(VPCParametersNamespace::intParam::MODE) != static_cast<int>(VPCParametersNamespace::VPCMode::DISJ_SET_PBB))
+         && (static_cast<int>(disjOptions.size()) != params.get(VPCParametersNamespace::intParam::ROUNDS))) {
       error_msg(errorstring, "Number of disjunction options (%d) is not equal to the number of rounds (%d).\n",
-          static_cast<int>(disjOptions.size()), params.get(ROUNDS));
+          static_cast<int>(disjOptions.size()), params.get(VPCParametersNamespace::intParam::ROUNDS));
       writeErrorToLog(errorstring, params.logfile);
       return ERROR_STATUS;
   }

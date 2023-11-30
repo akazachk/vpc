@@ -234,7 +234,7 @@ int main(int argc, char** argv) {
   // Process disjunction options, if different by round
   // Parse string DISJ_OPTIONS into vector of ints, splitting by default delimiter
   std::vector<int> disjOptions;
-  if (!parseDisjOptions(disjOptions, params)) {
+  if (parseDisjOptions(disjOptions, params)) {
     return wrapUp(1, argc, argv);
   }
 
@@ -411,7 +411,7 @@ int main(int argc, char** argv) {
       updateGMICInfo(cutInfoGMICVec[round_ind], &currGMICs, params.get(EPS) / 2.);
     } // Gomory cut generation
 
-    if ((params.get(VPCParametersNamespace::intParam::MODE) != static_cast<int>(CglVPC::VPCMode::DISJ_SET_PBB))
+    if ((params.get(VPCParametersNamespace::intParam::MODE) != static_cast<int>(VPCParametersNamespace::VPCMode::DISJ_SET_PBB))
         && ((int) disjOptions.size() > round_ind)) {
       params.set(intParam::DISJ_TERMS, disjOptions[round_ind]);
     }
@@ -427,7 +427,7 @@ int main(int argc, char** argv) {
           timer.get_value(OverallTimeStats::INIT_SOLVE_TIME));
 
       // Proceed with custom disjunctions if specified; otherwise, the disjunction will be set up in the CglVPC class
-      if (params.get(intParam::MODE) != static_cast<int>(CglVPC::VPCMode::CUSTOM)) {
+      if (params.get(intParam::MODE) != static_cast<int>(VPCParametersNamespace::VPCMode::CUSTOM)) {
         gen.generateCuts(*solver, vpcs_by_round[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
         exitReason = gen.exitReason;
         if (gen.disj() || gen.disjSet()) {
@@ -1035,7 +1035,7 @@ void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_dis
   std::vector<Disjunction*> disjVec;
   printf("\n## Setting up disjunction(s) ##\n");
   gen.timer.start_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
-  CglVPC::ExitReason setDisjExitReason = setDisjunctions(disjVec, solver, params, CglVPC::VPCMode::SPLITS);
+  CglVPC::ExitReason setDisjExitReason = setDisjunctions(disjVec, solver, params, VPCParametersNamespace::VPCMode::SPLITS);
   gen.timer.end_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
   const int numDisj = disjVec.size();
 

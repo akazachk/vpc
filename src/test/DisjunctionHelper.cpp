@@ -21,9 +21,8 @@ CglVPC::ExitReason setDisjunctions(
     std::vector<Disjunction*>& disjVec,
     const OsiSolverInterface* const si, 
     const VPCParametersNamespace::VPCParameters& params,
-    CglVPC::VPCMode mode) {
-//  CglVPC::VPCMode mode = static_cast<CglVPC::VPCMode>(params.get(MODE));
-  if (mode == CglVPC::VPCMode::PARTIAL_BB) {
+    const VPCParametersNamespace::VPCMode& mode) {
+  if (mode == VPCParametersNamespace::VPCMode::PARTIAL_BB) {
     if (params.get(intParam::DISJ_TERMS) < 2) {
       return CglVPC::ExitReason::NO_DISJUNCTION_EXIT;
     }
@@ -32,7 +31,7 @@ CglVPC::ExitReason setDisjunctions(
     disjVec.push_back(disj);
     return matchStatus(status);
   } // PARTIAL_BB
-  else if (mode == CglVPC::VPCMode::SPLITS) {
+  else if (mode == VPCParametersNamespace::VPCMode::SPLITS) {
     if (generateSplitDisjunctions(disjVec, si, params)) {
       return CglVPC::ExitReason::SUCCESS_EXIT;
     } else {
@@ -41,7 +40,7 @@ CglVPC::ExitReason setDisjunctions(
   } else {
     error_msg(errorstring,
         "Mode that is chosen has not yet been implemented for VPC generation: %s.\n",
-        CglVPC::VPCModeName[static_cast<int>(mode)].c_str());
+        VPCParametersNamespace::VPCModeName[static_cast<int>(mode)].c_str());
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }

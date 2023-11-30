@@ -60,12 +60,6 @@ const std::vector<std::string> CglVPC::ExitReasonName {
   "NO_DISJUNCTION",
   "UNKNOWN"
 }; /* ExitReasonName */
-const std::vector<std::string> CglVPC::VPCModeName {
-  "PARTIAL_BB",
-  "SPLITS",
-  "CROSSES",
-  "CUSTOM"
-}; /* VPCModeName */
 const std::vector<std::string> CglVPC::VPCTimeStatsName {
   "TOTAL_TIME",
   "INIT_SOLVE_TIME",

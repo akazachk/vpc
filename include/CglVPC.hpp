@@ -55,16 +55,6 @@ public:
     NUM_EXIT_REASONS             ///< number of possible exit reasons
   }; /* ExitReason */
 
-  /// @brief Mode in which VPCs will be generated (disjunction type, in fact)
-  enum class VPCMode {
-    PARTIAL_BB,   ///< generate partial branch-and-bound tree #PartialBBDisjunction
-    SPLITS,       ///< set of split disjunctions
-    CROSSES,      ///< set of cross disjunctions
-    CUSTOM,       ///< user-defined disjunction
-    DISJ_SET_PBB, ///< run set of partial branch-and-bound trees
-    NUM_VPC_MODES ///< number of vpc modes
-  }; /* VPCMode */
-
   /// @brief Timing
   enum class VPCTimeStats {
     TOTAL_TIME,
@@ -177,7 +167,7 @@ public:
   ///@{
   /// @name Static variables/functions
   static const std::vector<std::string> ExitReasonName;    ///< #ExitReason strings
-  static const std::vector<std::string> VPCModeName;       ///< #VPCMode strings
+  // static const std::vector<std::string> VPCModeName;       ///< #VPCMode strings
   static const std::vector<std::string> VPCTimeStatsName;  ///< #VPCTimeStats strings
   static const std::vector<std::string> CutTypeName;       ///< #CutType strings
   static const std::vector<std::string> ObjectiveTypeName; ///< #ObjectiveType strings
@@ -192,7 +182,7 @@ public:
   ///@{
   /// @name Class variables
   VPCParametersNamespace::VPCParameters params; ///< store parameters for this specific run
-  VPCMode mode;                                 ///< type of Disjunction to use
+  VPCParametersNamespace::VPCMode mode;                                 ///< type of Disjunction to use
   ExitReason exitReason;                        ///< track why CglVPC instance exits
   TimeStats timer;                              ///< holds time statistics for all timers enumerated in #VPCTimeStats
   PRLP* prlp = NULL;                            ///< pointer to PRLP instance constructed from PRLPData
