@@ -366,8 +366,8 @@ int main(int argc, char** argv) {
       OsiCuts currGMICs;
       CglGMI GMIGen;
       // Set parameters so that many GMIs are generated
-      GMIGen.getParam().setMAX_SUPPORT(solver->getNumCols());
-      GMIGen.getParam().setMAX_SUPPORT_REL(0.5);
+      GMIGen.getParam().setMAX_SUPPORT(params.get(intConst::MAX_SUPPORT_ABS));
+      GMIGen.getParam().setMAX_SUPPORT_REL(params.get(doubleParam::MAX_SUPPORT_REL));
       //GMIGen.getParam().setMAXDYN(params.get(doubleConst::MAX_DYN));
       GMIGen.getParam().setMAXDYN(solver->getInfinity());
       GMIGen.getParam().setMINVIOL(0.0);
@@ -1155,6 +1155,7 @@ int processArgs(int argc, char** argv) {
       {"help",                  no_argument,       0, 'h'},
       {"ip_obj",                required_argument, 0, 'i'},
       {"logfile",               required_argument, 0, 'l'},
+      {"max_support_rel",       required_argument, 0, 'm'*'1'},
       {"mode",                  required_argument, 0, 'm'},
       {"optfile",               required_argument, 0, 'o'},
       {"partial_bb_strategy",   required_argument, 0, 's'},
@@ -1482,6 +1483,16 @@ int processArgs(int argc, char** argv) {
                   params.set(stringParam::LOGFILE, optarg);
                   break;
                 }
+      case 'm'*'1': {
+                      double val;
+                      doubleParam param = doubleParam::MAX_SUPPORT_REL;
+                      if (!parseDouble(optarg, val)) {
+                        error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                        exit(1);
+                      }
+                      params.set(param, val);
+                      break;
+                    }
       case 'm': {
                  int val;
                  intParam param = intParam::MODE;

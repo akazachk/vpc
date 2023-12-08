@@ -100,6 +100,7 @@ enum intParam {
 /// Double-valued parameters
 enum doubleParam {
   BB_TIMELIMIT, ///< time limit for doing branch-and-bound
+  MAX_SUPPORT_REL, ///< max relative (to number of variables) number of nonzero coefficients in any cut we generate
   EPS, ///< global epsilon (may be further refined based on instance-specific data)
   INF, ///< infinity (INFINITY keyword is reserved as a macro from math header)
   IP_OBJ, ///< way to give just the objective for this instance rather than reading it from a file
@@ -124,6 +125,7 @@ enum stringParam {
 enum class intConst {
   CHECK_DUPLICATES, ///< do not add duplicate cuts
   LUB, ///< value for var upper bound considered "large"
+  MIN_SUPPORT_THRESHOLD, ///< min absolute number of nonzero coefficients before enabling pruning by support
   MAX_SUPPORT_ABS, ///< max absolute number of nonzero coefficients in any cut we generate
   /// VPC objective-related constants
   /// For each point, MODE_OBJ_PER_POINT says which objectives to try
@@ -158,7 +160,6 @@ enum class doubleConst {
   MIN_VIOL_REL, ///< minimum amount a cut should remove the LP opt (using ratio)
   MAX_DYN, ///< |alpha_max| / |alpha_min| upper bound; Maximum ratio between largest and smallest non zero coefficients in a cut
   MAX_DYN_LUB, ///< Same as doubleConst::MAX_DYN but when some of the variables involved in the cut have a large upper bound; should be >= doubleConst::MAX_DYN logically
-  MAX_SUPPORT_REL, ///< max relative (to number of variables) number of nonzero coefficients in any cut we generate
   NUM_DOUBLE_CONST ///< number of double constants
 }; /* doubleConst */
 
@@ -592,6 +593,9 @@ struct VPCParameters {
     {doubleParam::EPS,
         DoubleParameter(doubleParam::EPS, "EPS",
             1e-7, 0., 1.)},
+    {doubleParam::MAX_SUPPORT_REL, 
+        DoubleParameter("MAX_SUPPORT_REL", 
+            1.0, 0., 1.0)},
     {doubleParam::BB_TIMELIMIT,
         DoubleParameter(doubleParam::BB_TIMELIMIT, "BB_TIMELIMIT",
             3600., 0., std::numeric_limits<double>::max())},
@@ -617,13 +621,13 @@ struct VPCParameters {
     {intConst::NUM_OBJ_PER_POINT, IntParameter("NUM_OBJ_PER_POINT", -2, -2, -2)}, // sqrt(n)
     {intConst::MODE_OBJ_PER_POINT, IntParameter("MODE_OBJ_PER_POINT", 121, 121, 121)}, // one ray at a time, points+rays+variables, large to small angle (descending)
     {intConst::MAX_SUPPORT_ABS, IntParameter("MAX_SUPPORT_ABS", std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), std::numeric_limits<int>::max())},
+    {intConst::MIN_SUPPORT_THRESHOLD, IntParameter("MIN_SUPPORT_THRESHOLD", 1000, 1000, 1000)},
     {intConst::LUB, IntParameter("LUB", 1e3, 1e3, 1e3)},
     {intConst::CHECK_DUPLICATES, IntParameter("CHECK_DUPLICATES", 1, 1, 1)},
   }; /* intConstValues */
 
   /// @brief Double constants
   std::unordered_map<doubleConst, DoubleParameter, EnumClassHash> doubleConstValues {
-    {doubleConst::MAX_SUPPORT_REL, DoubleParameter("MAX_SUPPORT_REL", 0.9, 0.9, 0.9)},
     {doubleConst::MAX_DYN_LUB, DoubleParameter("MAX_DYN_LUB", 1e13, 1e13, 1e13)},
     {doubleConst::MAX_DYN, DoubleParameter("MAX_DYN", 1e8, 1e8, 1e8)},
     {doubleConst::MIN_VIOL_REL, DoubleParameter("MIN_VIOL_REL", 1e-7, 1e-7, 1e-7)},

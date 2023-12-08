@@ -103,9 +103,14 @@ void removeSmallCoefficients(OsiRowCut* const cut, const OsiSolverInterface* con
   cut->setLb(cutRhs);
 } /* removeSmallCoefficients */
 
-/// @brief Returns whether \p cutNz > \p max_sup_abs + \p max_sup_rel * \p numCols
-bool badSupport(const int cutNz, const int numCols, const double max_sup_abs, const double max_sup_rel) {
-  return (cutNz > max_sup_abs + max_sup_rel * numCols);
+/// @brief Returns whether \p cutNz > \p max_sup_abs or ( \p max_sup_rel * \p numCols ), whenever \p cutNz > \p min_sup_thresh
+/// @details In CglGMI.cpp::checkSupport, the following is done:
+///  if (cutNz > param.getMAX_SUPPORT_ABS() + param.getMAX_SUPPORT_REL()*ncol)
+/// This is indeed correct based on Section 4.2 in "Practical Strategies for Generating Rank-1 Split Cuts" by Nannicini and Cornuéjols
+/// in which max_sup_abs is set to 1000
+/// But we will use a slightly different approach (because the above is confusing to me, since MAX_SUPPPORT_ABS is not really an upper bound in this case)
+bool badSupport(const int cutNz, const int numCols, const double min_sup_thresh, const double max_sup_abs, const double max_sup_rel) {
+  return (cutNz > min_sup_thresh) && ((cutNz > max_sup_abs) || (cutNz >= max_sup_rel * numCols));
 } /* badSupport */
 
 bool badViolation(const OsiRowCut* const cut, const OsiSolverInterface* const solver, const double min_viol_abs, const double min_viol_rel) {
@@ -204,6 +209,8 @@ int cleanCut(OsiRowCut* const cut,
     const OsiSolverInterface* const solver,
     const double EPS_COEFF,
     const double MAX_DYN,
+    /// minimum support at which we start checking for bad support
+    const int MIN_SUP_THRESH,
     const int MAX_SUP_ABS,
     const double MAX_SUP_REL,
     const double MIN_VIOL_ABS,
@@ -213,7 +220,7 @@ int cleanCut(OsiRowCut* const cut,
     const double EPS, 
     const bool checkViolation) {
   removeSmallCoefficients(cut, solver, EPS, EPS_COEFF);
-  if (badSupport(cut->row().getNumElements(), solver->getNumCols(), MAX_SUP_ABS, MAX_SUP_REL)) {
+  if (badSupport(cut->row().getNumElements(), solver->getNumCols(), MIN_SUP_THRESH, MAX_SUP_ABS, MAX_SUP_REL)) {
     return -1 * (static_cast<int>(CglVPC::FailureType::BAD_SUPPORT) + 1);
   }
   if (checkViolation && badViolation(cut, solver, MIN_VIOL_ABS, MIN_VIOL_REL)) {
