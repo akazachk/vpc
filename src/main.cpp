@@ -366,7 +366,10 @@ int main(int argc, char** argv) {
       OsiCuts currGMICs;
       CglGMI GMIGen;
       // Set parameters so that many GMIs are generated
-      GMIGen.getParam().setMAX_SUPPORT(params.get(intConst::MAX_SUPPORT_ABS));
+      // CglGMI's MAX_SUPPORT parameter is equivalent to the MIN_SUPPORT_THRESHOLD value in this code
+      // CglGMI's sparsity parameter rejects with bad support when # cut coefficient nonzeros >= MAX_SUPPORT + MAX_SUPPORT_REL * # cols
+      // This means that there will be a constant offset on the max allowable support for GMICs compared to VPCs (in the favor of GMICs being denser)
+      GMIGen.getParam().setMAX_SUPPORT(params.get(intConst::MIN_SUPPORT_THRESHOLD));
       GMIGen.getParam().setMAX_SUPPORT_REL(params.get(doubleParam::MAX_SUPPORT_REL));
       //GMIGen.getParam().setMAXDYN(params.get(doubleConst::MAX_DYN));
       GMIGen.getParam().setMAXDYN(solver->getInfinity());
