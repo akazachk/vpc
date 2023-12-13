@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
+# Usage:
+#   ./install_coin.sh ${COIN_OR} 5 debug
 # Takes as an (optional) argument the directory where you wish to install the COIN-OR software
+# The second optional argument is the number of parallel jobs
+# The third optional argument is debug, release, or all to indicate which build mode to use
 
 ## User needs to define
 #VPC_DIR="~/repos/vpc"
@@ -88,8 +92,23 @@ then
   # -p: install in same directory as build
   #./coinbrew build install Cbc -b build -p --no-prompt --test --with-cplex=false ADD_CXXFLAGS="-DSAVE_NODE_INFO"
   #./coinbrew build install Cbc -b buildg -p --no-prompt --test --with-cplex=false --enable-debug ADD_CXXFLAGS="-DSAVE_NODE_INFO"
-  ./coinbrew build Cbc -b build -p build --no-prompt ADD_CXXFLAGS="-DSAVE_NODE_INFO"
-  ./coinbrew build Cbc -b buildg -p buildg --no-prompt --enable-debug ADD_CXXFLAGS="-DSAVE_NODE_INFO"
+  if [ ! -z ${2} ]; then
+    PARALLEL_FLAG="-j 8"
+  else
+    PARALLEL_FLAG=""
+  fi
+
+  if [ -z ${3} ] || [ "${3}" == "all" ] || [ "${3}" == "release" ]; then
+    echo ""
+    echo "### Building *release* version of Cbc ###"
+    ./coinbrew build Cbc -b build -p ADD_CXXFLAGS="-DSAVE_NODE_INFO" --tests none ${PARALLEL_FLAG}
+  fi
+
+  if [ -z ${3} ] || [ "${3}" == "all" ] || [ "${3}" == "debug" ]; then
+    echo ""
+    echo "### Building *debug* version of Cbc ###"
+    ./coinbrew build Cbc -b buildg -p --enable-debug ADD_CXXFLAGS="-DSAVE_NODE_INFO" --tests none ${PARALLEL_FLAG}
+  fi
 else
   ## Ignore below unless you wish to use OsiCpxSolverInterface
   #UNAME=`uname`
