@@ -400,7 +400,7 @@ mas074,11801.18572,miplib2017
 mas76,40005.05399,miplib2017
 mas076,40005.05399,miplib2017
 mas284,91405.72368,neos
-maxgasflow,-44565819158,miplib2017
+maxgasflow,-44565819.158,miplib2017
 mc11,11689,miplib2017
 mc7,3417,miplib2017
 mc8,1566,miplib2017
@@ -603,7 +603,7 @@ neos-3025225-shelon,0.772727271,miplib2017
 neos-3045796-mogo,-175,miplib2017
 neos-3046601-motu,1459,miplib2017
 neos-3046615-murg,1600,miplib2017
-neos-3048764-nadi,-3883988306,miplib2017
+neos-3048764-nadi,-3883988306.366686,miplib2017
 neos-3065804-namu,0,miplib2017
 neos-3068746-nene,61910283.68794999*,miplib2017
 neos-3072252-nete,11807698,miplib2017
@@ -1867,7 +1867,7 @@ mas074_presolved,11801.18572,miplib2017
 mas76_presolved,40005.05399,miplib2017
 mas076_presolved,40005.05399,miplib2017
 mas284_presolved,91405.72368,neos
-maxgasflow_presolved,-44565819158,miplib2017
+maxgasflow_presolved,-44565819.158,miplib2017
 mc11_presolved,11689,miplib2017
 mc7_presolved,3417,miplib2017
 mc8_presolved,1566,miplib2017
@@ -2070,7 +2070,7 @@ neos-3025225-shelon_presolved,0.772727271,miplib2017
 neos-3045796-mogo_presolved,-175,miplib2017
 neos-3046601-motu_presolved,1459,miplib2017
 neos-3046615-murg_presolved,1600,miplib2017
-neos-3048764-nadi_presolved,-3883988306,miplib2017
+neos-3048764-nadi_presolved,-3883988306.366686,miplib2017
 neos-3065804-namu_presolved,0,miplib2017
 neos-3068746-nene_presolved,61910283.68794999*,miplib2017
 neos-3072252-nete_presolved,11807698,miplib2017
