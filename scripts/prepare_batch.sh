@@ -151,6 +151,7 @@ elif [ $MODE == bb0 ]; then
   PARAMS="$PARAMS --bb_runs=7"
   PARAMS="$PARAMS --bb_mode=001"
   PARAMS="$PARAMS --bb_timelimit=3600"
+  PARAMS="$PARAMS --gomory=-1"
 elif [ $MODE == bb0bb ]; then
   depthList=(2 4 8 16 32 64)
   PARAMS="$PARAMS -t 3600"
@@ -210,7 +211,7 @@ elif [ $MODE == rounds ]; then
   PARAMS="$PARAMS --temp=16"
   PARAMS="$PARAMS --gomory=-1"
   PARAMS="$PARAMS -v0"
-  PARAMS="$PARAMS --bb_mode=10"
+  PARAMS="$PARAMS --bb_mode=11"
   PARAMS="$PARAMS --bb_runs=7"
   PARAMS="$PARAMS --bb_timelimit=3600"
   PARAMS="$PARAMS --use_all_ones=1"
@@ -232,7 +233,7 @@ elif [ $MODE == sparse ]; then
   PARAMS="$PARAMS --max_support_rel=0.25"
   PARAMS="$PARAMS --gomory=-1"
   PARAMS="$PARAMS -v0"
-  PARAMS="$PARAMS --bb_mode=10"
+  PARAMS="$PARAMS --bb_mode=11"
   PARAMS="$PARAMS --bb_runs=7"
   PARAMS="$PARAMS --bb_timelimit=3600"
   PARAMS="$PARAMS --use_all_ones=1"
