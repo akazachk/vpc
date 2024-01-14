@@ -851,10 +851,10 @@ void analyzeStrength(
       const int curr_support = getCutSupport(cut, params.get(EPS) / 2.);
       total_support += curr_support;
       if (curr_support < cutInfoGMICs.min_support) {
-        cutInfoVPCs.min_support = curr_support;
+        cutInfoGMICs.min_support = curr_support;
       }
       if (curr_support > cutInfoGMICs.max_support) {
-        cutInfoVPCs.max_support = curr_support;
+        cutInfoGMICs.max_support = curr_support;
       }
     }
     cutInfoGMICs.avg_support = (double) total_support / num_gmics;
