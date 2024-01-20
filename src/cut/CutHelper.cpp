@@ -110,7 +110,7 @@ void removeSmallCoefficients(OsiRowCut* const cut, const OsiSolverInterface* con
 /// in which max_sup_abs is set to 1000
 /// But we will use a slightly different approach (because the above is confusing to me, since MAX_SUPPPORT_ABS is not really an upper bound in this case)
 bool badSupport(const int cutNz, const int numCols, const double min_sup_thresh, const double max_sup_abs, const double max_sup_rel) {
-  return (cutNz > min_sup_thresh) && ((cutNz > max_sup_abs) || (cutNz >= max_sup_rel * numCols));
+  return (cutNz > min_sup_thresh) && ((cutNz > max_sup_abs) || (cutNz > max_sup_rel * numCols));
 } /* badSupport */
 
 bool badViolation(const OsiRowCut* const cut, const OsiSolverInterface* const solver, const double min_viol_abs, const double min_viol_rel) {
