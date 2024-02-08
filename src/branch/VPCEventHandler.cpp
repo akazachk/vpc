@@ -2055,6 +2055,8 @@ bool VPCEventHandler::isFullBinaryTree(){
   // check each leaf has a sibling
   for (int depth = max_depth; depth > 0; depth--){
 
+    printf("Checking depth %d\n", depth);
+
     // get the terms at this depth
     std::vector<DisjunctiveTerm> depth_terms;
     for (DisjunctiveTerm term : terms){
@@ -2068,6 +2070,8 @@ bool VPCEventHandler::isFullBinaryTree(){
 
     // find a sibling for each term
     for (const DisjunctiveTerm& term : depth_terms){
+
+      printf("Checking term");
 
       // Check if the term was found to be another's sibling earlier
       if (paired_terms.find(&term) != paired_terms.end()){
