@@ -2071,7 +2071,7 @@ bool VPCEventHandler::isFullBinaryTree(){
     // find a sibling for each term
     for (const DisjunctiveTerm& term : depth_terms){
 
-      printf("Checking term");
+      printf("%s \n", "Checking term");
 
       // Check if the term was found to be another's sibling earlier
       if (paired_terms.find(&term) != paired_terms.end()){
