@@ -1726,6 +1726,10 @@ void VPCEventHandler::recursivelyCreateStrongBranchingTerms(
   // have been branched on already leading to a wrong id for our purposes
   int parent_id = stats_[orig_node_id].parent_id; // to get parent branching decision
   int orig_parent_id = stats_[parent_id].orig_id; // to get tightenings at the parent
+#ifdef TRACE
+  printf("orig_node_id: %d, orig_node_id: %d, parent_id: %d, orig_parent_id: %d\n",
+         node_id, orig_node_id, parent_id, orig_parent_id);
+#endif
 
   // if the node has a parent and has not already been checked
   if (parent_id >= 0 && checked_nodes_.find(orig_node_id) == checked_nodes_.end()){
@@ -2055,7 +2059,9 @@ bool VPCEventHandler::isFullBinaryTree(){
   // check each leaf has a sibling
   for (int depth = max_depth; depth > 0; depth--){
 
+#ifdef TRACE
     printf("Checking depth %d\n", depth);
+#endif
 
     // get the terms at this depth
     std::vector<DisjunctiveTerm> depth_terms;
@@ -2071,7 +2077,9 @@ bool VPCEventHandler::isFullBinaryTree(){
     // find a sibling for each term
     for (const DisjunctiveTerm& term : depth_terms){
 
+#ifdef TRACE
       printf("%s \n", "Checking term");
+#endif
 
       // Check if the term was found to be another's sibling earlier
       if (paired_terms.find(&term) != paired_terms.end()){
