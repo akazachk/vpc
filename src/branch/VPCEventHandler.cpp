@@ -2084,6 +2084,9 @@ bool VPCEventHandler::isFullBinaryTree(){
 
       // Check if the term was found to be another's sibling earlier
       if (paired_terms.find(&term) != paired_terms.end()){
+#ifdef TRACE
+        printf("%s \n", "Previously found");
+#endif
         continue;
       }
 
