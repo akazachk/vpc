@@ -2087,6 +2087,10 @@ bool VPCEventHandler::isFullBinaryTree(){
         continue;
       }
 
+#ifdef TRACE
+      printf("%s \n", "Not found yet");
+#endif
+
       // check term against all other terms at this depth
       for (const DisjunctiveTerm& term2 : depth_terms){
 #ifdef TRACE
