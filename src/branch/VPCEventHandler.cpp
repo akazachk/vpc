@@ -2089,6 +2089,9 @@ bool VPCEventHandler::isFullBinaryTree(){
 
       // check term against all other terms at this depth
       for (const DisjunctiveTerm& term2 : depth_terms){
+#ifdef TRACE
+        printf("%s\n", "checking against new term at this depth");
+#endif
         std::vector<int> differing_idx;
         
         // we can only be siblings if we share the same variables that were
@@ -2098,6 +2101,9 @@ bool VPCEventHandler::isFullBinaryTree(){
           // record branching directions we differ on
           for (int i = 0; i < depth; i++) {
             if (term.changed_bound[i] != term2.changed_bound[i]) {
+#ifdef TRACE
+              printf("Differing on index %d\n", i);
+#endif
               differing_idx.push_back(i);
             }
           }
