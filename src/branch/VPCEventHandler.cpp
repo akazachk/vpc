@@ -1720,20 +1720,19 @@ void VPCEventHandler::recursivelyCreateStrongBranchingTerms(
 
   // declare variables - need orig_id's for the branching decisions
   int orig_node_id = stats_[node_id].orig_id; // to get tightenings at this node
+  // both siblings have same parent so querying with orig_id is fine
+  // we sometimes get the wrong node for parent id if we use node_id because parent_id
+  // reflects the state of the parent node when this node was created and the parent may
+  // have been branched on already leading to a wrong id for our purposes
+  int parent_id = stats_[orig_node_id].parent_id; // to get parent branching decision
+  int orig_parent_id = stats_[parent_id].orig_id; // to get tightenings at the parent
+#ifdef TRACE
+  printf("node_id: %d, orig_node_id: %d, parent_id: %d, orig_parent_id: %d\n",
+         node_id, orig_node_id, parent_id, orig_parent_id);
+#endif
 
   // if the node has a parent and has not already been checked
   if (orig_node_id > 0 && checked_nodes_.find(orig_node_id) == checked_nodes_.end()){
-
-    // both siblings have same parent so querying with orig_id is fine
-    // we sometimes get the wrong node for parent id if we use node_id because parent_id
-    // reflects the state of the parent node when this node was created and the parent may
-    // have been branched on already leading to a wrong id for our purposes
-    int parent_id = stats_[orig_node_id].parent_id; // to get parent branching decision
-    int orig_parent_id = stats_[parent_id].orig_id; // to get tightenings at the parent
-#ifdef TRACE
-    printf("node_id: %d, orig_node_id: %d, parent_id: %d, orig_parent_id: %d\n",
-         node_id, orig_node_id, parent_id, orig_parent_id);
-#endif
 
     // recurse on the parent node
     recursivelyCreateStrongBranchingTerms(parent_id, common_var, common_bound,
