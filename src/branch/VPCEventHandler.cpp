@@ -2029,11 +2029,12 @@ bool VPCEventHandler::isFullBinaryTree(){
 
         // make sure that terms[i] is not an ancestor of terms[j] by checking they branch
         // on different variables or at least in different directions
+        std::string msg = "the LP relaxation of terms[" + std::to_string(i) +
+            "] contains the LP relaxation of terms[" + std::to_string(j) + "]";
         verify(!std::equal(terms[j].changed_var.begin(), terms[j].changed_var.begin() +
                            terms[i].changed_var.size(), terms[i].changed_var.begin()) ||
                !std::equal(terms[j].changed_bound.begin(), terms[j].changed_bound.begin() +
-                           terms[i].changed_bound.size(), terms[i].changed_bound.begin()),
-               "the LP relaxation of terms[i] contains the LP relaxation of terms[j]");
+                           terms[i].changed_bound.size(), terms[i].changed_bound.begin()), msg);
       }
     }
   }
