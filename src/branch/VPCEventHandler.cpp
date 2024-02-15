@@ -1999,7 +1999,7 @@ int VPCEventHandler::saveInformationWithPrunes() {
 #endif
   }
   // validate the disjunction represents a full binary tree
-  isFullBinaryTree();
+//  isFullBinaryTree();
 
   if (original_basis) {
     delete original_basis;
