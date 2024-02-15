@@ -29,6 +29,7 @@ DisjunctiveTerm::~DisjunctiveTerm() {
 /** Assignment operator */
 DisjunctiveTerm& DisjunctiveTerm::operator=(const DisjunctiveTerm& source) {
   if (this != &source) {
+    clear();  // clear existing resources before initializing
     initialize(&source);
   }
   return *this;
@@ -85,8 +86,12 @@ void DisjunctiveTerm::clear() {
   if (basis) {
     delete basis;
     basis = NULL;
+    ineqs.clear();
   }
 #endif
+  changed_var.clear();
+  changed_bound.clear();
+  changed_value.clear();
 } /* clear */
 
 // Defining Disjunction class
