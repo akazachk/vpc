@@ -2070,7 +2070,7 @@ bool VPCEventHandler::isFullBinaryTree(){
 
       // check term against all other terms at this depth
       for (int j = i + 1; j < depth_terms_idxs.size(); j++){
-        std::vector<int> differing_idx;
+        int differing_idx = -1;
         
         // we can only be siblings if we share the same variables that were
         // branched on and we're not the same term
@@ -2081,17 +2081,23 @@ bool VPCEventHandler::isFullBinaryTree(){
           for (int k = 0; k < depth; k++) {
             if (terms[depth_terms_idxs[i]].changed_bound[k] !=
                 terms[depth_terms_idxs[j]].changed_bound[k]) {
-              differing_idx.push_back(k);
+              // if we differ on more than one branching decision, we're not siblings, so break
+              if (differing_idx != -1){
+                differing_idx = -1;
+                break;
+              } else {
+                differing_idx = k;
+              }
             }
           }
         }
 
         // if we differ by only the last branching decision, we're siblings
-        if (differing_idx.size() == 1 && differing_idx[0] == depth - 1){
+        if (differing_idx == depth - 1){
           // check that we have the reciprocal branching decision
-          double expected_val = terms[depth_terms_idxs[i]].changed_value[differing_idx[0]] +
-              (terms[depth_terms_idxs[i]].changed_bound[differing_idx[0]] == 0 ? -1 : 1);
-//          verify(terms[depth_terms_idxs[j]].changed_value[differing_idx[0]] == expected_val,
+          double expected_val = terms[depth_terms_idxs[i]].changed_value[differing_idx] +
+              (terms[depth_terms_idxs[i]].changed_bound[differing_idx] == 0 ? -1 : 1);
+//          verify(terms[depth_terms_idxs[j]].changed_value[differing_idx] == expected_val,
 //                 "terms[depth_terms_idxs[j]] branch value doesnt meet expectation");
 
           // record siblings
@@ -2100,14 +2106,12 @@ bool VPCEventHandler::isFullBinaryTree(){
 
           // create a parent node to leave in the next level above
           terms.push_back(terms[depth_terms_idxs[i]]);
-          terms.back().changed_var.erase(terms.back().changed_var.begin() + differing_idx[0]);
-          terms.back().changed_bound.erase(terms.back().changed_bound.begin() + differing_idx[0]);
-          terms.back().changed_value.erase(terms.back().changed_value.begin() + differing_idx[0]);
+          terms.back().changed_var.erase(terms.back().changed_var.begin() + differing_idx);
+          terms.back().changed_bound.erase(terms.back().changed_bound.begin() + differing_idx);
+          terms.back().changed_value.erase(terms.back().changed_value.begin() + differing_idx);
           terms.back().type = "parent";
-          differing_idx.clear();
           break;
         }
-        differing_idx.clear();
       }
 
       // if we didn't find a sibling, the disjunction is not complete
