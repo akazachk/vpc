@@ -2104,6 +2104,7 @@ bool VPCEventHandler::isFullBinaryTree(){
           terms.back().changed_bound.erase(terms.back().changed_bound.begin() + differing_idx[0]);
           terms.back().changed_value.erase(terms.back().changed_value.begin() + differing_idx[0]);
           terms.back().type = "parent";
+          differing_idx.clear();
           break;
         }
         differing_idx.clear();
