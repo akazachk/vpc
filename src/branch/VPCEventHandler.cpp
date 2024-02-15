@@ -2106,6 +2106,7 @@ bool VPCEventHandler::isFullBinaryTree(){
           terms.back().type = "parent";
           break;
         }
+        differing_idx.clear();
       }
 
       // if we didn't find a sibling, the disjunction is not complete
