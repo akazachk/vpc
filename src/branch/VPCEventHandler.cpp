@@ -2099,12 +2099,11 @@ bool VPCEventHandler::isFullBinaryTree(){
           paired_terms.insert(j);
 
           // create a parent node to leave in the next level above
-          DisjunctiveTerm parent_term = terms[depth_terms_idxs[i]];
-          parent_term.changed_var.erase(parent_term.changed_var.begin() + differing_idx[0]);
-          parent_term.changed_bound.erase(parent_term.changed_bound.begin() + differing_idx[0]);
-          parent_term.changed_value.erase(parent_term.changed_value.begin() + differing_idx[0]);
-          parent_term.type = "parent";
-          terms.push_back(parent_term);
+          terms.push_back(terms[depth_terms_idxs[i]]);
+          terms.back().changed_var.erase(terms.back().changed_var.begin() + differing_idx[0]);
+          terms.back().changed_bound.erase(terms.back().changed_bound.begin() + differing_idx[0]);
+          terms.back().changed_value.erase(terms.back().changed_value.begin() + differing_idx[0]);
+          terms.back().type = "parent";
           break;
         }
       }
