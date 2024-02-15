@@ -1988,10 +1988,6 @@ int VPCEventHandler::saveInformationWithPrunes() {
       delete parent_basis;
   } // loop over num nodes on tree // DONE
 
-  if (original_basis) {
-    delete original_basis;
-  }
-
   // If number of real (feasible) terms is too few, we should keep going, unless we have been branching for too long
   if (status == 0 && !hitTimeLimit && !hitHardNodeLimit && this->owner->num_terms <= 0.5 * maxNumLeafNodes_) {
     status = 1;
@@ -2004,6 +2000,11 @@ int VPCEventHandler::saveInformationWithPrunes() {
   }
   // validate the disjunction represents a full binary tree
   isFullBinaryTree();
+
+  if (original_basis) {
+    delete original_basis;
+  }
+
   return status;
 } /* saveInformationWithPrunes */
 
