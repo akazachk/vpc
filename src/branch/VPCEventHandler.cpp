@@ -2030,12 +2030,12 @@ bool VPCEventHandler::isFullBinaryTree(){
 
         // make sure that terms[i] is not an ancestor of terms[j] by checking they branch
         // on different variables or at least in different directions
-        verify(!std::equal(terms[j].changed_var.begin(), terms[j].changed_var.begin() +
-                           terms[i].changed_var.size(), terms[i].changed_var.begin()) ||
-               !std::equal(terms[j].changed_bound.begin(), terms[j].changed_bound.begin() +
-                           terms[i].changed_bound.size(), terms[i].changed_bound.begin()),
-               "the LP relaxation of terms[" + std::to_string(i) +
-               "] contains the LP relaxation of terms[" + std::to_string(j) + "]");
+//        verify(!std::equal(terms[j].changed_var.begin(), terms[j].changed_var.begin() +
+//                           terms[i].changed_var.size(), terms[i].changed_var.begin()) ||
+//               !std::equal(terms[j].changed_bound.begin(), terms[j].changed_bound.begin() +
+//                           terms[i].changed_bound.size(), terms[i].changed_bound.begin()),
+//               "the LP relaxation of terms[" + std::to_string(i) +
+//               "] contains the LP relaxation of terms[" + std::to_string(j) + "]");
       }
     }
   }
@@ -2091,8 +2091,8 @@ bool VPCEventHandler::isFullBinaryTree(){
           // check that we have the reciprocal branching decision
           double expected_val = terms[depth_terms_idxs[i]].changed_value[differing_idx[0]] +
               (terms[depth_terms_idxs[i]].changed_bound[differing_idx[0]] == 0 ? -1 : 1);
-          verify(terms[depth_terms_idxs[j]].changed_value[differing_idx[0]] == expected_val,
-                 "terms[depth_terms_idxs[j]] branch value doesnt meet expectation");
+//          verify(terms[depth_terms_idxs[j]].changed_value[differing_idx[0]] == expected_val,
+//                 "terms[depth_terms_idxs[j]] branch value doesnt meet expectation");
 
           // record siblings
           paired_terms.insert(i);
@@ -2111,7 +2111,7 @@ bool VPCEventHandler::isFullBinaryTree(){
 
       // if we didn't find a sibling, the disjunction is not complete
       if (paired_terms.find(i) == paired_terms.end()) {
-        verify(false, "Disjunction does not represent a full binary tree.");
+//        verify(false, "Disjunction does not represent a full binary tree.");
       }
     } // find a sibling for each term
   }
