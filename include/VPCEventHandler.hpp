@@ -269,7 +269,7 @@ protected:
   int saveInformationWithPrunes();
 
   /// @brief check if the disjunction represents the leaves of a full binary tree
-  bool isFullBinaryTree();
+  void isFullBinaryTree();
   //@}
 };
 /* VPCEventHandler definition */
