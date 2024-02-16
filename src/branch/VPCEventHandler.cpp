@@ -2019,32 +2019,32 @@ bool VPCEventHandler::isFullBinaryTree(){
 
   std::vector<DisjunctiveTerm> terms = owner->terms;
 
-  // check that terms[i] does not contain terms[j]
-  // we can get away with just checking for ancestral relationship because it
-  // isn't possible to end up with the same branching decisions just in different order
-  for (int i = 0; i < terms.size(); i++){
-    for (int j = 0; j < terms.size(); j++){
-
-      // terms[i] can only contain terms[j] if terms[j] is at least as deep in the tree
-      if (i != j && terms[i].changed_var.size() <= terms[j].changed_var.size()){
-
-        // make sure that terms[i] is not an ancestor of terms[j] by checking they branch
-        // on different variables or at least in different directions
-//        verify(!std::equal(terms[j].changed_var.begin(), terms[j].changed_var.begin() +
-//                           terms[i].changed_var.size(), terms[i].changed_var.begin()) ||
-//               !std::equal(terms[j].changed_bound.begin(), terms[j].changed_bound.begin() +
-//                           terms[i].changed_bound.size(), terms[i].changed_bound.begin()),
-//               "the LP relaxation of terms[" + std::to_string(i) +
-//               "] contains the LP relaxation of terms[" + std::to_string(j) + "]");
-      }
-    }
-  }
-
-  // get the maximum depth
-  int max_depth = 0;
-  for (int i = 0; i < terms.size(); i++){
-    max_depth = terms[i].changed_var.size() > max_depth ? terms[i].changed_var.size() : max_depth;
-  }
+//  // check that terms[i] does not contain terms[j]
+//  // we can get away with just checking for ancestral relationship because it
+//  // isn't possible to end up with the same branching decisions just in different order
+//  for (int i = 0; i < terms.size(); i++){
+//    for (int j = 0; j < terms.size(); j++){
+//
+//      // terms[i] can only contain terms[j] if terms[j] is at least as deep in the tree
+//      if (i != j && terms[i].changed_var.size() <= terms[j].changed_var.size()){
+//
+//        // make sure that terms[i] is not an ancestor of terms[j] by checking they branch
+//        // on different variables or at least in different directions
+////        verify(!std::equal(terms[j].changed_var.begin(), terms[j].changed_var.begin() +
+////                           terms[i].changed_var.size(), terms[i].changed_var.begin()) ||
+////               !std::equal(terms[j].changed_bound.begin(), terms[j].changed_bound.begin() +
+////                           terms[i].changed_bound.size(), terms[i].changed_bound.begin()),
+////               "the LP relaxation of terms[" + std::to_string(i) +
+////               "] contains the LP relaxation of terms[" + std::to_string(j) + "]");
+//      }
+//    }
+//  }
+//
+//  // get the maximum depth
+//  int max_depth = 0;
+//  for (int i = 0; i < terms.size(); i++){
+//    max_depth = terms[i].changed_var.size() > max_depth ? terms[i].changed_var.size() : max_depth;
+//  }
 
 //  // check each leaf has a sibling
 //  for (int depth = max_depth; depth > 0; depth--){
