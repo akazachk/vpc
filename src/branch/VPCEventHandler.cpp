@@ -2022,7 +2022,7 @@ int VPCEventHandler::saveInformationWithPrunes() {
  *
  * @return true if the tree of the disjunction is complete, false otherwise
  */
-bool VPCEventHandler::isFullBinaryTree(){
+void VPCEventHandler::isFullBinaryTree(){
 
   std::vector<DisjunctiveTerm> terms = owner->terms;
 
