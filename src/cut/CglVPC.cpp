@@ -1469,7 +1469,5 @@ void CglVPC::finish(CglVPC::ExitReason exitReason) {
   }
   this->exitReason = exitReason;
   this->timer.end_timer(timeName);
-#ifdef TRACE
   printf("CglVPC: Finishing with exit reason: %s. Number cuts: %d.\n", CglVPC::ExitReasonName[static_cast<int>(exitReason)].c_str(), num_cuts);
-#endif
 } /* finish */
