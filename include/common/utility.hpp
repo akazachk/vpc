@@ -365,8 +365,10 @@ bool variableBoundsContained(const OsiSolverInterface* const solver1,
 /// @brief create a mutable solver interface
 std::shared_ptr<SolverInterface> getSolver(const OsiSolverInterface* const si, FILE* logfile = NULL);
 
-/// @brief Find the indices of elements in vector1 that are not in vector2
-std::vector<int> findIndicesOfDifference(std::vector<int> vector1, std::vector<int> vector2);
+/// @brief Find the branching decisions leading to the child that are not present in the parent (i.e. fixed by strong branching)
+std::vector<int> findIndicesOfDifference(std::vector<int> child_var, std::vector<int> parent_var,
+                                         std::vector<int> child_bound, std::vector<int> parent_bound,
+                                         std::vector<double> child_value, std::vector<double> parent_value);
 
 /// @brief Return message if condition is not true
 void verify(bool condition, const std::string& msg);

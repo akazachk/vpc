@@ -275,6 +275,13 @@ DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface
       writeErrorToLog(errstr, params.logfile);
       exit(1);
     }
+  } else {
+    // exit early if we have a solution because we don't know how to handle it
+    if (eventHandler->owner->integer_sol.size() > 0){
+      printf("PartialBBDisjunction::prepareDisjunction: Handling for integer solution"
+             "in partial tree not developed for full tree. Discarding tree.\n");
+      return DisjExitReason::NO_DISJUNCTION_EXIT;
+    }
   }
 
   if (BBSolver && !cbc_model->modelOwnsSolver()) { delete BBSolver; }

@@ -622,23 +622,29 @@ std::shared_ptr<SolverInterface> getSolver(const OsiSolverInterface* const si, F
   return solver;
 }
 
-/// @brief Find the indices of elements in vector1 that are not in vector2
-std::vector<int> findIndicesOfDifference(std::vector<int> vector1, std::vector<int> vector2) {
-  // Map element values to their indices in vector2
-  std::unordered_map<int, int> indexMap;
-  // Store indices of elements in vector1 not found in vector2
+/// @brief Find the branching decisions leading to the child that are not present in the parent (i.e. fixed by strong branching)
+std::vector<int> findIndicesOfDifference(std::vector<int> child_var, std::vector<int> parent_var,
+                                         std::vector<int> child_bound, std::vector<int> parent_bound,
+                                         std::vector<double> child_value, std::vector<double> parent_value) {
+
+  // vector to hold which indices of child branching decisions are not present in parent
   std::vector<int> indices;
 
-  // Populate the indexMap with elements from vector2
-  for (int i = 0; i < vector2.size(); ++i) {
-    indexMap[vector2[i]] = i;
-  }
+  // Iterate through branching decisions leading to child node
+  for (int i = 0; i < child_var.size(); ++i) {
+    bool found = false;
 
-  // Iterate through vector1 and check if each element exists in vector2
-  for (int i = 0; i < vector1.size(); ++i) {
-    auto it = indexMap.find(vector1[i]);
-    if (it == indexMap.end()) {
-      // Element from vector1 not found in vector2
+    // iterate over branching decisions leading to parent node
+    for (int j = 0; j < parent_var.size(); ++j) {
+
+      // if child branching decision is found, move on to check the next decision
+      if (child_var[i] == parent_var[j] && child_bound[i] == parent_bound[j] && child_value[i] == parent_value[j]) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      // Element from child_var not found in parent_var
       indices.push_back(i);
     }
   }

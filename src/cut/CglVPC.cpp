@@ -942,10 +942,9 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
     }
 
     // Resolve and check the objective matches
-#ifdef TRACE
+    // taking this off trace only because I need it for tracking number of terms in current release
     printf("\n## CglVPC::setupConstraints: Solving for term %d/%d. ##\n",
         tmp_ind + 1, num_normal_terms);
-#endif
     termSolver->resolve();
     term->is_feasible = checkSolverOptimality(termSolver, true);
     //enableFactorization(termSolver, params.get(doubleParam::EPS)); // this may change the solution slightly
