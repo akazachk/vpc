@@ -299,9 +299,12 @@ class GurobiUserCutCallback : public GRBCallback {
 //          std::string msg = GRBCallback::getStringInfo(GRB_CB_MSG_STRING);
 //        } /* where == MESSAGE */
       } catch (GRBException& e) {
-        error_msg(errorstring, "Gurobi: Error during callback: %s\n", e.getMessage().c_str());
-        writeErrorToLog(errorstring, params.logfile);
-        exit(1);
+        // ignore warnings that a cut was skipped - that's not critical
+        if (e.getMessage() != "addCut"){
+          error_msg(errorstring, "Gurobi: Error during callback: %s\n", e.getMessage().c_str());
+          writeErrorToLog(errorstring, params.logfile);
+          exit(1);
+        }
       } catch (...) {
         error_msg(errorstring, "Gurobi: Error during callback.\n");
         writeErrorToLog(errorstring, params.logfile);

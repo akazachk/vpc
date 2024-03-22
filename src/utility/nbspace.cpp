@@ -7,6 +7,7 @@
 
 #include <cmath> // abs
 #include <CoinPackedVector.hpp>
+#include <stdexcept> // Include the necessary header for exceptions
 
 #include "CutHelper.hpp" // setOsiRowCut
 #include "SolverHelper.hpp"
@@ -145,16 +146,11 @@ void setCompNBCoorPoint(CoinPackedVector& vec, double& objViolation,
   }
 
   if (!isVal(nonTinyObj, objViolation, params.get(EPS))) {
+    warning_msg(warnstring,
+                "Point: Calculated dot product with obj differs from solver's. Obj viol from solver: %.8f. Calculated: %.8f.\n",
+                objViolation, nonTinyObj);
     if (!isVal(nonTinyObj, objViolation, params.get(doubleConst::DIFFEPS))) {
-      error_msg(errorstring,
-          "Point: Calculated dot product with obj differs from solver's. Obj viol from solver: %.8f. Calculated: %.8f.\n",
-          objViolation, nonTinyObj);
-      writeErrorToLog(errorstring, params.logfile);
-      exit(1);
-    } else {
-      warning_msg(warnstring,
-          "Point: Calculated dot product with obj differs from solver's. Obj viol from solver: %.8f. Calculated: %.8f.\n",
-          objViolation, nonTinyObj);
+      throw std::runtime_error("Point: Calculated dot product with obj differs from solver's");
     }
   }
 } /* setCompNBCoorPoint */
