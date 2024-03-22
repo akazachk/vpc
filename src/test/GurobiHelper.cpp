@@ -625,7 +625,13 @@ void doBranchAndBoundWithUserCutsGurobi(const VPCParameters& params, int strateg
     const double best_bound, const bool addAsLazy) {
   std::string f_name;
   createTmpFileCopy(params, solver, f_name);
+  // create a new strings to match what was actually created
+  std::string f_name_no_ext = f_name.substr(0, f_name.size() - 4);
+  std::string f_name_gz = f_name + ".gz";
   doBranchAndBoundWithUserCutsGurobi(params, strategy, f_name.c_str(), cuts, info, best_bound, addAsLazy);
-  remove(f_name.c_str()); // remove temporary file
+  // remove temporary files
+  remove(f_name.c_str());
+  remove(f_name_gz.c_str());
+  remove(f_name_no_ext.c_str());
 } /* doBranchAndBoundWithUserCutsGurobi (Osi) */
 #endif /* USE_GUROBI */
