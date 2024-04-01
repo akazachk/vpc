@@ -89,7 +89,6 @@ void setNodeStatistics(NodeStatistics& stats, const CbcNode* const node,
       }
     }
   } /* cbc_branch */
-
   if (stats.branch_index == 0) {
     stats.id = nodeInfo->nodeNumber();
     stats.orig_id = stats.id;
@@ -435,8 +434,16 @@ VPCEventHandler::event(CbcEvent whichEvent) {
     if (model_->getNodeCount2() == 1) {
       CbcNode* node = model_->tree()->nodePointer(0);
       NodeStatistics currNodeStats;
-      setNodeStatistics(currNodeStats, node, model_, stats_, originalLB_, originalUB_, true, foundSolution_);
+      // set node stats for root
+      setNodeStatistics(currNodeStats, node, model_, stats_, originalLB_,
+                        originalUB_, true, foundSolution_);
       stats_.push_back(currNodeStats);
+      // increment number of pruned nodes by those implicitly pruned at the root from strong branching
+      for (int i = 0; i < currNodeStats.changed_var.size(); i++) {
+        if (model_->solver()->isInteger(currNodeStats.changed_var[i])){
+          numPrunedNodes_++;
+        }
+      }
       numNodes_ = 1;
 
       // If any bounds were changed, let us update the originalLB and originalUB
@@ -466,7 +473,9 @@ VPCEventHandler::event(CbcEvent whichEvent) {
     foundSolution_ = false;
 
     // Check if we are done
-    if (numLeafNodes_ >= maxNumLeafNodes_ || model_->getCurrentSeconds() >= maxTime_) {
+    if (model_->getCurrentSeconds() >= maxTime_ ||
+        (numLeafNodes_ >= maxNumLeafNodes_ && !owner->params.get(PARTIAL_BB_KEEP_PRUNED_NODES)) ||
+        (numLeafNodes_ + numPrunedNodes_ >= maxNumLeafNodes_ && owner->params.get(PARTIAL_BB_KEEP_PRUNED_NODES))) {
       // Save information
       const int status = owner->params.get(PARTIAL_BB_KEEP_PRUNED_NODES) ?
           saveInformationWithPrunes() : saveInformation();
@@ -599,8 +608,30 @@ VPCEventHandler::event(CbcEvent whichEvent) {
         exit(1);
       }
       NodeStatistics currNodeStats;
-      setNodeStatistics(currNodeStats, child_, model_, stats_, originalLB_, originalUB_, true, foundSolution_);
+      // set node stats for child
+      setNodeStatistics(currNodeStats, child_, model_, stats_, originalLB_,
+                        originalUB_, true, foundSolution_);
       stats_.push_back(currNodeStats);
+
+      // increment number of implicitly pruned nodes from strong branching
+      const int p_id = currNodeStats.parent_id;
+      const int p_orig_id = stats_[p_id].orig_id;
+      std::vector<int> p_var = stats_[p_orig_id].changed_var;
+      std::vector<int> p_bound = stats_[p_orig_id].changed_bound;
+      std::vector<double> p_value = stats_[p_orig_id].changed_value;
+      p_var.push_back(stats_[p_id].variable);
+      p_bound.push_back(stats_[p_id].way <= 0);
+      p_value.push_back(stats_[p_id].way <= 0 ? stats_[p_id].ub : stats_[p_id].lb);
+      std::vector<int> idx_diff = findIndicesOfDifference(
+          currNodeStats.changed_var, p_var, currNodeStats.changed_bound, p_bound,
+          currNodeStats.changed_value, p_value);
+      for (int i = 0; i < idx_diff.size(); i++) {
+        // ignore tightened bounds on continuous variables
+        if (model_->solver()->isInteger(currNodeStats.changed_var[idx_diff[i]])){
+          numPrunedNodes_++;
+        }
+      }
+
       parentInfo_ = child_->nodeInfo()->parent(); // 2020-07-21: same as model_->parentNode()->nodeInfo() in trunk code
       if (currNodeStats.number >= numNodes_) {
         numNodes_ = currNodeStats.number + 1;
@@ -819,6 +850,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
         prunedNodeStats.way = model_->branchingMethod()->chooseMethod()->bestWhichWay();
       }
       pruned_stats_.push_back(prunedNodeStats);
+      numPrunedNodes_++;
       if (prunedNodeStats.number >= numNodes_) {
         numNodes_ = prunedNodeStats.number + 1;
       }
@@ -832,6 +864,7 @@ VPCEventHandler::event(CbcEvent whichEvent) {
 #else
       const CbcNode* parent_node = parentInfo_->owner();
 #endif
+      // set node stats for sibling node
       setNodeStatistics(currNodeStats, parent_node, model_, stats_,
           originalLB_, originalUB_, will_create_child);
       stats_.push_back(currNodeStats);
@@ -1070,6 +1103,7 @@ void VPCEventHandler::initialize(const VPCEventHandler* const source) {
     this->foundSolution_ = source->foundSolution_;
     this->checked_nodes_ = source->checked_nodes_;
     this->sorted_nodes_ = source->sorted_nodes_;
+    this->numPrunedNodes_ = source->numPrunedNodes_;
   } else {
     this->owner = NULL;
     this->maxNumLeafNodes_ = 0;
@@ -1096,6 +1130,7 @@ void VPCEventHandler::initialize(const VPCEventHandler* const source) {
     this->foundSolution_ = false;
     this->checked_nodes_ = std::set<int>();
     this->sorted_nodes_ = std::set<int>();
+    this->numPrunedNodes_ = 0;
   }
 } /* initialize */
 
@@ -1614,10 +1649,6 @@ bool VPCEventHandler::setupDisjunctiveTerm(
   term.basis = dynamic_cast<CoinWarmStartBasis*>(tmpSolverNode->getWarmStart());
   term.obj = tmpSolverNode->getObjValue();
   term.is_feasible = checkSolverOptimality(tmpSolverNode, true);
-  if (not term.is_feasible){
-    // todo: check what happens when passing an infeasible term
-    printf("hello\n");
-  }
   term.type = term_type;
   term.changed_var = term_var;
   term.changed_bound = term_bound;
@@ -1641,6 +1672,8 @@ bool VPCEventHandler::setupDisjunctiveTerm(
       // decrement the number of leaf nodes if the leaf was infeasible
       this->numLeafNodes_--;
     }
+  } else {
+    owner->num_pruned_terms++;
   }
 
   // return whether or not this was a feasible leaf
@@ -2019,6 +2052,8 @@ int VPCEventHandler::saveInformationWithPrunes() {
   // (discarding for solution is just because we haven't put the thought into how to handle yet)
   if (status == 0 && this->owner->integer_sol.size() == 0){
     isFullBinaryTree();
+    verify(numLeafNodes_ + numPrunedNodes_ == owner->num_terms,
+           "the size of our disjunction is not what we expected it to be");
   }
   return status;
 } /* saveInformationWithPrunes */

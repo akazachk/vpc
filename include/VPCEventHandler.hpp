@@ -204,6 +204,7 @@ protected:
   bool foundSolution_ = false; ///< was an integer-feasible solution found?
   std::set<int> checked_nodes_; ///< nodes we have already checked for strong branching fixes
   std::set<int> sorted_nodes_; ///< nodes we have already sorted the branching decisions for
+  int numPrunedNodes_; ///< number of nodes implicitly created and pruned during strong branching
   ///@}
 
   ///@{

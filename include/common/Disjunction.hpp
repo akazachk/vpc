@@ -75,6 +75,7 @@ public:
   /// @name Required members
   ///@{
   int num_terms; ///< number of terms in disjunction (some may be infeasible)
+  int num_pruned_terms; ///< number of terms that were pruned either explicitly ("pruned") or implicitly ("complement")
   std::vector<DisjunctiveTerm> terms; ///< information about disjunctive terms, including optimal bases of each feasible term when available
   ///@}
 
