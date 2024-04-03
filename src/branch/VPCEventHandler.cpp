@@ -1311,6 +1311,8 @@ void VPCEventHandler::setWarmStart(
  */
 void VPCEventHandler::clearInformation() {
   owner->setupAsNew();
+  checked_nodes_.clear();
+  sorted_nodes_.clear();
 } /* clearInformation */
 
 /**
@@ -1781,7 +1783,7 @@ void VPCEventHandler::recursivelyCreateStrongBranchingTerms(
       std::vector<double> term_value = common_value;
       std::vector<int> term_var = common_var;
 
-      // augment term_x and the solver with parent's bounds prior to when it branched
+      // augment term_x vector and the solver with parent's bounds prior to when it branched
       // again skip children of root b/c they include root node fixes which were captured in common_x
       if (orig_parent_id > 0){
         for (int idx = 0; idx < stats_[orig_parent_id].changed_var.size(); idx++){
@@ -1792,7 +1794,7 @@ void VPCEventHandler::recursivelyCreateStrongBranchingTerms(
         }
       }
 
-      // add parent's bound from branching to each of term_x and the solver
+      // add parent's bound from branching to each term_x vector and the solver
       addVarBound(tmpSolver, stats_[parent_id].variable, stats_[parent_id].way <= 0 ? 1 : 0,
                   stats_[parent_id].way <= 0 ? stats_[parent_id].ub : stats_[parent_id].lb,
                   term_var, term_bound, term_value);
@@ -1828,7 +1830,6 @@ void VPCEventHandler::recursivelyCreateStrongBranchingTerms(
  * @return status: 0 if everything is okay, otherwise 1 (e.g., if all but one of the terms is infeasible)
  */
 int VPCEventHandler::saveInformationWithPrunes() {
-  int status = 0;
   const bool hitTimeLimit = model_->getCurrentSeconds() >= maxTime_;
   const bool hitHardNodeLimit = false;
   //const bool hitHardNodeLimit = model_->getNodeCount2() > maxNumLeafNodes_ * 10;
@@ -1896,7 +1897,7 @@ int VPCEventHandler::saveInformationWithPrunes() {
     // find and create any disjunctive terms pruned due to strong branching between
     // the root and the node we're about to create a disjunctive term for
     recursivelyCreateStrongBranchingTerms(node_id, common_var, common_bound,
-                                          common_value, tmpSolverPruned);
+                                          common_value, tmpSolverPruned); // stop here on tmp_idx = 3
 
     // Collect the parent changed node bounds
     const int curr_num_changed_bounds =
@@ -1928,13 +1929,6 @@ int VPCEventHandler::saveInformationWithPrunes() {
   // For each node on the tree, use the warm start basis and branching directions
   // to create the corresponding disjunctive term
   for (int tmp_ind = 0; tmp_ind < numNodesOnTree_; tmp_ind++) {
-    // Exit early if needed
-    if (!hitTimeLimit && !hitHardNodeLimit
-        && (this->owner->num_terms + 2 * (numNodesOnTree_ - tmp_ind) <= 0.5 * maxNumLeafNodes_)) {
-      status = 1;
-      break;
-    }
-
     // create a new copy of the solver for the term/s we're about to create
     SolverInterface* tmpSolverBase = dynamic_cast<SolverInterface*>(originalSolver_->clone());
     setLPSolverParameters(tmpSolverBase, owner->params.get(VERBOSITY), owner->params.get(TIMELIMIT));
@@ -1999,13 +1993,7 @@ int VPCEventHandler::saveInformationWithPrunes() {
         tmpSolverBase, term_var, term_bound, term_value, branching_variable,
         branching_way == 1 ? 0 : 1, branching_value, "leaf", node_id);
 
-    // Check if we exit early
-    if (!hitTimeLimit && !hitHardNodeLimit
-        && (this->owner->num_terms + 2 * (numNodesOnTree_ - tmp_ind) - 1 <= 0.5 * maxNumLeafNodes_)) {
-      status = 1;
-    }
-
-    if (status == 0 && branching_index == 0) { // should we compute a second branch?
+    if (branching_index == 0) { // should we compute a second branch?
 #ifdef TRACE
       printf("\n## Solving second child of parent %d/%d (term %d). ##\n",
           tmp_ind + 1, this->numNodesOnTree_, this->owner->num_terms);
@@ -2037,25 +2025,36 @@ int VPCEventHandler::saveInformationWithPrunes() {
     delete original_basis;
   }
 
-  // If number of real (feasible) terms is too few, we should keep going, unless we have been branching for too long
-  if (status == 0 && !hitTimeLimit && !hitHardNodeLimit && this->owner->num_terms <= 0.5 * maxNumLeafNodes_) {
-    status = 1;
-#ifdef TRACE
-    warning_msg(warnstring,
-          "Save information exiting with status %d because number of feasible terms is calulated to be %d "
-          "(whereas requested was %d).#\n",
-          status, this->owner->num_terms, maxNumLeafNodes_);
-#endif
-  }
   // validate the disjunction represents a full binary tree if we don't have a solution
   // and didn't error out. We'll discard the disjunction later in case of solution or error
   // (discarding for solution is just because we haven't put the thought into how to handle yet)
-  if (status == 0 && this->owner->integer_sol.size() == 0){
+  if (this->owner->integer_sol.size() == 0){
+#ifdef TRACE
+    // print number of terms with type "pruned", "complement", and "leaf"
+    int p = 0;
+    int l = 0;
+    int c = 0;
+    for (const DisjunctiveTerm& term : owner->terms){
+      if (term.type == "pruned"){
+        p++;
+      } else if (term.type == "leaf"){
+        l++;
+      } else {
+        verify(term.type == "complement", "term type must be pruned, complement, or leaf");
+        c++;
+      }
+    }
+    printf("Number of pruned terms: %d\n", p);
+    printf("Number of complement terms: %d\n", c);
+    printf("Number of leaf terms: %d\n", l);
+    printf("Number of expected pruned and complement terms: %d\n", numPrunedNodes_);
+    printf("Number of expected leaf terms: %d\n", numLeafNodes_);
+#endif
     isFullBinaryTree();
     verify(numLeafNodes_ + numPrunedNodes_ == owner->num_terms,
            "the size of our disjunction is not what we expected it to be");
   }
-  return status;
+  return 0;
 } /* saveInformationWithPrunes */
 
 /**
