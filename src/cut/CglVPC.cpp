@@ -953,11 +953,13 @@ CglVPC::ExitReason CglVPC::setupConstraints(OsiSolverInterface* const vpcsolver,
     // this value isn't going to make sense if we recycle the disjunction
     if (term->is_feasible && !isInfinity(term->obj) && !params.get(intParam::RECYCLED_DISJUNCTION)) {
       // Sometimes we run into a few issues getting the ``right'' value
-      const double newval = termSolver->getObjValue();
+      double newval = termSolver->getObjValue();
       const double savedval = term->obj;
       const double epsilon = params.get(doubleConst::DIFFEPS);
+      // double check to make sure CLP didn't trip on its own shoelaces
       if (!isVal(newval, savedval, epsilon)) {
         termSolver->resolve();
+        newval = termSolver->getObjValue();
       }
       if (!isVal(newval, savedval, epsilon)) {
         double ratio = 1.;
