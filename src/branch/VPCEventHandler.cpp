@@ -1651,6 +1651,9 @@ bool VPCEventHandler::setupDisjunctiveTerm(
   term.basis = dynamic_cast<CoinWarmStartBasis*>(tmpSolverNode->getWarmStart());
   term.obj = tmpSolverNode->getObjValue();
   term.is_feasible = checkSolverOptimality(tmpSolverNode, true);
+  if (!term.is_feasible){
+    std::cerr << "Infeasible term!!!" << std::endl;
+  }
   term.type = term_type;
   term.changed_var = term_var;
   term.changed_bound = term_bound;
