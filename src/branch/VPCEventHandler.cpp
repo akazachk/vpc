@@ -1642,17 +1642,17 @@ bool VPCEventHandler::setupDisjunctiveTerm(
   if (branching_variable >= 0){
     addVarBound(tmpSolverNode, branching_variable, branching_bound, branching_value);
   }
-  tmpSolverNode->resolve();
   enableFactorization(tmpSolverNode, owner->params.get(doubleParam::EPS)); // this may change the solution slightly
+  tmpSolverNode->resolve();
 
   // create the term
   this->owner->num_terms++;
   DisjunctiveTerm term;
   term.basis = dynamic_cast<CoinWarmStartBasis*>(tmpSolverNode->getWarmStart());
-  term.obj = tmpSolverNode->getObjValue();
   term.is_feasible = checkSolverOptimality(tmpSolverNode, true);
+  term.obj = term.is_feasible ? tmpSolverNode->getObjValue() : std::numeric_limits<double>::max();
   if (!term.is_feasible){
-    std::cerr << "Infeasible term!!!" << std::endl;
+    owner->num_infeasible_terms++;;
   }
   term.type = term_type;
   term.changed_var = term_var;
@@ -1673,9 +1673,6 @@ bool VPCEventHandler::setupDisjunctiveTerm(
       // if this was a feasible leaf, update the dual bound
       updateDualBound(orig_node_id, term);
       return true;
-    } else {
-      // decrement the number of leaf nodes if the leaf was infeasible
-      this->numLeafNodes_--;
     }
   } else {
     owner->num_pruned_terms++;
@@ -1840,7 +1837,6 @@ int VPCEventHandler::saveInformationWithPrunes() {
   clearInformation();
   this->owner->data.num_nodes_on_tree = this->getNumNodesOnTree();
   this->owner->data.num_partial_bb_nodes = model_->getNodeCount(); // save number of nodes looked at
-  this->owner->data.num_pruned_nodes = this->getPrunedStatsVector().size() - this->isIntegerSolutionFound();
   this->owner->data.num_fixed_vars = model_->strongInfo()[1]; // number fixed during b&b
 
   // clear out tightened bounds on continuous variables since we can't create terms with them

@@ -311,6 +311,9 @@ PartialBBDisjunction PartialBBDisjunction::parameterize(const OsiSolverInterface
   // create an empty disjunction
   PartialBBDisjunction disj = PartialBBDisjunction(this->params);
 
+  // reset number of infeasible terms
+  disj.num_infeasible_terms = 0;
+
   // update the root LP relaxation
   disj.root_obj = si->getObjValue();
 
@@ -343,6 +346,7 @@ PartialBBDisjunction PartialBBDisjunction::parameterize(const OsiSolverInterface
     // update the necessary disjunction metadata
     disj.updateObjValue(term.obj);
     disj.terms.push_back(term);
+    disj.num_infeasible_terms += !term.is_feasible;
     disj.num_terms++;
   }
 

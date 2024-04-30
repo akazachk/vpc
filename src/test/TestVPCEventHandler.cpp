@@ -107,6 +107,13 @@ TEST_CASE("Test saveInformation", "[VPCEventHandler::saveInformation]") {
     REQUIRE(disj.common_ineqs.size() == 0);
     REQUIRE(disj.integer_sol.size() == 0);
     REQUIRE(disj.integer_obj > 1e300);
+    int num_infeasible = 0;
+    for (int i = 0; i < disj.num_terms; i++) {
+      if (!disj.terms[i].is_feasible) {
+        num_infeasible++;
+      }
+    }
+    REQUIRE(num_infeasible == disj.num_infeasible_terms);
   }
 
   // load a different problem to test pruned terms
@@ -183,6 +190,21 @@ TEST_CASE("Test saveInformation", "[VPCEventHandler::saveInformation]") {
     REQUIRE(disj.common_ineqs.size() == 0);
     REQUIRE(disj.integer_sol.size() == 0);
     REQUIRE(disj.integer_obj > 1e300);
+
+    // check each term's solver's terminal status matches what was recorded
+    int num_infeasible = 0;
+    for (int termIdx=0; termIdx < disj.num_terms; termIdx++) {
+      OsiSolverInterface* termSolver;
+      disj.getSolverForTerm(termSolver, termIdx, &si, false, .001, NULL, true);
+      if (termSolver->isProvenOptimal()){
+        REQUIRE(disj.terms[termIdx].is_feasible);
+      } else {
+        REQUIRE(!disj.terms[termIdx].is_feasible);
+        num_infeasible++;
+      }
+    }
+    REQUIRE(num_infeasible == disj.num_infeasible_terms);
+
   }
 
   // make sure that we see the same number of cuts and bound improvement
