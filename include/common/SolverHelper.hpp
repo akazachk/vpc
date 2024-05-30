@@ -289,7 +289,7 @@ bool isNonBasicFixedSlack(const OsiSolverInterface* const solver, const int row)
 
 ///@{
 /// @name Aliases checking if var is structural or slack
-/// @brief Check if variable is nonbasic at its lower bound
+/// @brief Check if variable is basic
 inline bool isBasicVar(const OsiSolverInterface* const solver, const int var) {
 #ifdef USE_CLP
   try {

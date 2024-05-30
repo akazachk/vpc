@@ -203,33 +203,38 @@ void Disjunction::getSolverForTerm(
 
   if (!calcAndFeasTerm) {
     printf("\n## Term %d/%d is not proven optimal. Exiting from this term. ##\n", term_ind+1, this->num_terms);
-    delete termSolver;;
+    delete termSolver;
+    termSolver = nullptr;
     return;
   }
 
-  // Sometimes we run into a few issues getting the ``right'' value
-  if (!isVal(termSolver->getObjValue(), term->obj, DIFFEPS)) {
-    termSolver->resolve();
+  // Check against objective value, if provided by user
+  if (!isInfinity(term->obj)) {
+    // Sometimes we run into a few issues getting the ``right'' value
+    if (!isVal(termSolver->getObjValue(), term->obj, DIFFEPS)) {
+      termSolver->resolve();
+    }
+    if (!isVal(termSolver->getObjValue(), term->obj, DIFFEPS)) {
+      double ratio = termSolver->getObjValue() / term->obj;
+      if (ratio < 1.) {
+        ratio = 1. / ratio;
+      }
+      // Allow it to be up to 3% off without causing an error
+      if (greaterThanVal(ratio, 1.03)) {
+        error_msg(errorstring,
+            "Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
+            term_ind+1, this->num_terms, stringValue(term->obj, "%1.3f").c_str(),
+            stringValue(termSolver->getObjValue(), "%1.3f").c_str());
+        writeErrorToLog(errorstring, logfile);
+        exit(1);
+      } else {
+        warning_msg(warnstring,
+            "Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
+            term_ind+1, this->num_terms, stringValue(term->obj, "%1.3f").c_str(),
+            stringValue(termSolver->getObjValue(), "%1.3f").c_str());
+      }
   }
-  if (!isVal(termSolver->getObjValue(), term->obj, DIFFEPS)) {
-    double ratio = termSolver->getObjValue() / term->obj;
-    if (ratio < 1.) {
-      ratio = 1. / ratio;
-    }
-    // Allow it to be up to 3% off without causing an error
-    if (greaterThanVal(ratio, 1.03)) {
-      error_msg(errorstring,
-          "Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
-          term_ind+1, this->num_terms, stringValue(term->obj, "%1.3f").c_str(),
-          stringValue(termSolver->getObjValue(), "%1.3f").c_str());
-      writeErrorToLog(errorstring, logfile);
-      exit(1);
-    } else {
-      warning_msg(warnstring,
-          "Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
-          term_ind+1, this->num_terms, stringValue(term->obj, "%1.3f").c_str(),
-          stringValue(termSolver->getObjValue(), "%1.3f").c_str());
-    }
+  
 #ifdef TRACE
     std::string commonName;
     const int curr_num_changed_bounds = term->changed_var.size();

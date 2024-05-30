@@ -26,11 +26,18 @@ void createTmpFilename(std::string& f_name,
     // Generate temporary file name
     char template_name[] = "/tmp/tmpvpcXXXXXX";
 
-    mkstemp(template_name);
+    int fd;
+    if ((fd = mkstemp(template_name)) == -1) {
+      error_msg(errorstring,
+          "Could not generate temp file with error %s.\n",
+          strerror(errno));
+      throw std::logic_error(errorstring);
+    }
+
     f_name = template_name;
     if (f_name.empty()) {
       error_msg(errorstring, "Could not generate temp file.\n");
-      throw errorstring;
+      throw std::logic_error(errorstring);
     }
     f_name += add_ext;
 //  }

@@ -151,8 +151,11 @@ inline void TimeStats::end_timer(int id) {
 }
 
 inline void TimeStats::end_all() {
-  for (int id = 0; id < (int) value.size(); id++)
-    end_timer(id);
+  for (int id = 0; id < (int) value.size(); id++) {
+    if (timer_running[id]) {
+      end_timer(id);
+    }
+  }
 } /* end_all */
 
 inline void TimeStats::add_value(const std::string &name, clock_t val) {

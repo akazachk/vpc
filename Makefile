@@ -186,6 +186,9 @@ ifeq ($(BUILD_CONFIG),debug)
   OPT_FLAG = -O0
   DEFS = -DTRACE -DPRINT_LP_WITH_CUTS -DVPC_VERSION="\#${VPC_VERSION}"
   # message-length sets line wrapping for error messages; 0 = no line wrapping
+	# PIC stands for "position-independent code" to generate machine code that
+	# can be loaded at different memory addresses, such as by using relative rather than absolute jumps
+	# which is needed for shared libraries
   EXTRA_FLAGS = -fmessage-length=0 -fPIC
   ifeq ($(CC),g++)
     ifneq ($(USE_CPLEX),1)
