@@ -31,6 +31,9 @@ BUILD_CONFIG = release
 BUILD_CONFIG = debug
 
 ### Variables user should set ###
+ifeq ($(REPOS_DIR),)
+	REPOS_DIR=${PWD}/..
+endif
 PROJ_DIR=${PWD}
 #COIN_VERSION = 2.9
 #COIN_VERSION = 2.9r2376
@@ -109,7 +112,7 @@ ifeq ($(USER),akazachkov)
 	endif
 	# MacStudio
   ifeq ($(UNAME),Darwin)
-    GUROBI_LINK = gurobi95
+    GUROBI_LINK = gurobi110
     GUROBI_DIR = ${GUROBI_HOME}
     CPLEX_DIR = ${CPLEX_HOME}
   endif
@@ -147,7 +150,7 @@ MAIN_SRC = main.cpp
 DIR_LIST = $(SRC_DIR) $(SRC_DIR)/branch $(SRC_DIR)/cut $(SRC_DIR)/disjunction $(SRC_DIR)/utility
 
 # Code version
-VPC_VERSION = $(shell git log -1 --pretty=format:"%H")
+VPC_VERSION 		= $(shell git log -1 --pretty=format:"%H")
 VPC_CBC_VERSION = $(shell git -C ${COIN_OR}/Cbc log -1 --pretty=format:"%H")
 VPC_CLP_VERSION = $(shell git -C ${COIN_OR}/Clp log -1 --pretty=format:"%H")
 
