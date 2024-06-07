@@ -80,11 +80,11 @@ const std::vector<std::string> OverallTimeStatsName {
 // Main file variables
 VPCParameters params;
 
-OsiSolverInterface *solver;               ///< stores the cuts we actually want to "count"
+OsiSolverInterface *solver;               ///< stores the cuts we actually want to "count" (i.e., the base LP from which we generate cuts in each round)
 OsiSolverInterface *origSolver;           ///< original solver in case we wish to come back to it later
 OsiSolverInterface* GMICSolver = NULL;    ///< only GMICs
-OsiSolverInterface* VPCSolver = NULL;     ///< if GMICs count, this is only VPCs; otherwise, it is both GMICs and mycuts
-OsiSolverInterface* allCutsSolver = NULL; ///< all generated cuts
+OsiSolverInterface* VPCSolver = NULL;     ///< if GMICs count, this is only VPCs; otherwise, it is both GMICs and VPCs
+OsiSolverInterface* allCutsSolver = NULL; ///< all generated cuts (same as solver if no GMICs, in which case not generated)
 
 OsiCuts gmics, vpcs;
 
@@ -114,6 +114,9 @@ SummaryCutInfo cutInfo, cutInfoGMICs;
 // For output
 std::string cut_output = "", bb_output = "";
 
+// #ifdef CODE_VERSION
+// const std::string CODE_VERSION_STRING = x_macro_to_string(CODE_VERSION);
+// #endif
 #ifdef VPC_VERSION
 const std::string VPC_VERSION_STRING = x_macro_to_string(VPC_VERSION);
 #endif
@@ -249,21 +252,20 @@ int main(int argc, char** argv) {
   cutInfoVec.resize(num_rounds);
   cutInfoGMICVec.resize(num_rounds);
   boundInfoVec.resize(num_rounds);
+
   std::vector<double> gmic_gen_time_by_round(num_rounds);
   std::vector<double> gmic_apply_time_by_round(num_rounds);
   //std::vector<double> gmic_cond_num1_by_round(num_rounds);
   std::vector<double> gmic_cond_num2_by_round;
   std::vector<double> vpc_gen_time_by_round(num_rounds);
   std::vector<double> vpc_apply_time_by_round(num_rounds);
+
   //std::vector<double> vpc_cond_num1_by_round(num_rounds);
   std::vector<double> vpc_cond_num2_by_round;
   if (COMPUTE_COND_NUM) {
     gmic_cond_num2_by_round.resize(num_rounds);
     vpc_cond_num2_by_round.resize(num_rounds);
   }
-
-  int round_ind = 0;
-  int num_disj = 0;
 
   // If requested, open cutrounds_logfile file then print header and round "0" information
   FILE* cutrounds_logfile = NULL;
@@ -348,6 +350,8 @@ int main(int argc, char** argv) {
   //====================================================================================================//
   // Now do rounds of cuts, until a limit is reached (e.g., time, number failures, number cuts, or all rounds are exhausted)
   boundInfo.num_vpc = 0, boundInfo.num_gmic = 0;
+  int num_disj = 0;
+  int round_ind = 0;
   for (round_ind = 0; round_ind < num_rounds; ++round_ind) {
     if (num_rounds > 1) {
       printf("\n## Starting round %d/%d. ##\n", round_ind+1, num_rounds);
@@ -357,6 +361,13 @@ int main(int argc, char** argv) {
     boundInfoVec[round_ind].num_vpc = 0;
     boundInfoVec[round_ind].num_gmic = 0;
 
+    //====================================================================================================//
+    // Generate Gomory cuts
+    // > 0: apply cuts to solver (affects disjunctive cuts generated);
+    // < 0: apply cuts to strCutSolver only
+    // Option 1: GglGMI
+    // (to be added) Option 2: custom generate intersection cuts, calculate Farkas certificate, do strengthening
+    // (to be added) Option 3: custom generate intersection cuts, calculate Farkas certificate, do closed-form strengthening
     if (params.get(GOMORY) == -1 || params.get(GOMORY) == 1) {
       // Generate GMICs using CglGMI,
       // based on solver (which contains all cuts)
@@ -504,6 +515,11 @@ int main(int argc, char** argv) {
     else { // else update cutInfo with blanks
       setCutInfo(cutInfoVec[round_ind], 0, NULL);
     }
+    
+    //====================================================================================================//
+    // Apply cuts
+    printf("\n## Applying disjunctive cuts (# cuts = %d). ##\n", (int) vpcs_by_round[round_ind].sizeCuts());
+    timer.start_timer(OverallTimeStats::TOTAL_APPLY_TIME);
 
     // To track time to apply VPCs, need to be careful of which solver they are being added to
     // If GOMORY = 0, then no GMICs generated; solver is only one that exists
@@ -511,7 +527,6 @@ int main(int argc, char** argv) {
     // If GOMORY = 1, then solver has GMICs from this round applied already (will be identical to allCutsSolver)
     // If GOMORY = -1, then solver has only VPCs from prior rounds (will be identical to VPCSolver)
     // Recall that "solver" is the one used for generating cuts for each round
-    timer.start_timer(OverallTimeStats::TOTAL_APPLY_TIME);
     if (vpcs_by_round[round_ind].sizeCuts() > 0) {
       if (params.get(GOMORY) != 0) { // GMICs generated, so need to track VPC-only objective with VPCSolver
         // Apply to "VPCSolver", which tracks effect of VPCs without other cuts
@@ -542,11 +557,13 @@ int main(int argc, char** argv) {
     timer.end_timer(OverallTimeStats::TOTAL_APPLY_TIME);
 
     // Update bound info
-    boundInfo.vpc_obj = (params.get(GOMORY) != 0) ? VPCSolver->getObjValue() : solver->getObjValue();
+    boundInfo.vpc_obj      = (params.get(GOMORY) != 0) ? VPCSolver->getObjValue() : solver->getObjValue();
     boundInfo.gmic_vpc_obj = (params.get(GOMORY) != 0) ? allCutsSolver->getObjValue() : solver->getObjValue();
     boundInfo.all_cuts_obj = boundInfo.gmic_vpc_obj;
+
+    // Also update the bound info for this round
     boundInfoVec[round_ind].gmic_vpc_obj = boundInfo.gmic_vpc_obj;
-    boundInfoVec[round_ind].vpc_obj = boundInfo.vpc_obj;
+    boundInfoVec[round_ind].vpc_obj      = boundInfo.vpc_obj;
     boundInfoVec[round_ind].all_cuts_obj = boundInfo.all_cuts_obj;
 
     // Update condition number for VPCs
@@ -566,15 +583,21 @@ int main(int argc, char** argv) {
         "VPCs generated = %d. GMICs generated = %d.\n",
         vpcs_by_round[round_ind].sizeCuts(),
         boundInfoVec[round_ind].num_gmic);
-    fflush(stdout);
-    printf("Obj value: %s. Initial obj value: %s. Disj lb: %s.\n", 
-        stringValue(solver->getObjValue(), "%1.6f").c_str(),
-        stringValue(boundInfo.lp_obj, "%1.6f").c_str(), 
+    printf("Obj value: %s.\n",
+        stringValue(solver->getObjValue(), "%1.6f").c_str());
+    printf("Initial obj value: %s.\n",
+        stringValue(boundInfo.lp_obj, "%1.6f").c_str());
+    if (round_ind > 0) {
+      printf("Round start obj value: %s.\n",
+          stringValue(boundInfoVec[round_ind-1].all_cuts_obj, "%1.6f").c_str());
+    }
+    printf("Disj lb: %s.\n",
         stringValue(boundInfo.best_disj_obj, "%1.6f").c_str());
     printf("Elapsed time: %1.2f seconds. Time limit = %1.2f seconds.\n",
         timer.get_total_time(OverallTimeStatsName[OverallTimeStats::TOTAL_TIME]),
         params.get(TIMELIMIT));
     printf("***\n");
+    fflush(stdout);
 
     // Print information from this round of cuts
     if (use_temp_option(params.get(intParam::TEMP), TempOptions::PRINT_BOUND_BY_ROUND)) {
@@ -667,20 +690,27 @@ int main(int argc, char** argv) {
         || (!SHOULD_GENERATE_VPCS && boundInfoVec[round_ind].num_gmic == 0)
         || !solver->isProvenOptimal()
         || isInfinity(std::abs(solver->getObjValue()))
-        || exitReason == CglVPC::ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT)
+        || exitReason == CglVPC::ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT) {
       break;
+    }
   } // loop over rounds of cuts
   if (round_ind < num_rounds) {
     num_rounds = round_ind+1;
   }
 
   printf(
-      "\n## Finished VPC generation with %d VPCs and %d GMICs. Initial obj value: %s. Final VPC obj value: %s. Final all cuts obj value: %s. Disj lb: %s. ##\n",
-      boundInfo.num_vpc, boundInfo.num_gmic,
-      stringValue(boundInfo.lp_obj, "%1.6f").c_str(),
-      stringValue(boundInfo.vpc_obj, "%1.6f").c_str(),
-      stringValue(boundInfo.all_cuts_obj, "%1.6f").c_str(),
+      "\n## Finished VPC generation with %d VPCs and %d GMICs. ",
+      boundInfo.num_vpc, boundInfo.num_gmic);
+  printf(" Initial obj value: %s.",
+      stringValue(boundInfo.lp_obj, "%1.6f").c_str());
+  printf(" Final VPC obj value: %s.",
+      stringValue(boundInfo.vpc_obj, "%1.6f").c_str());
+  printf(" Final all cuts obj value: %s.",
+      stringValue(boundInfo.all_cuts_obj, "%1.6f").c_str());
+  printf(" Disj lb: %s.",
       stringValue(boundInfo.best_disj_obj, "%1.6f").c_str());
+  printf(" ##\n");
+  fflush(stdout);
 
   //====================================================================================================//
   // Do branch-and-bound experiments (if requested)
@@ -696,9 +726,11 @@ int main(int argc, char** argv) {
   timer.end_timer(OverallTimeStats::TOTAL_TIME);
 
 #ifdef PRINT_LP_WITH_CUTS
-  if (boundInfo.num_vpc > 0) {
+  // If num rows in solver is > # initial rows, print cut lp file
+  if (solver->getNumRows() > origSolver->getNumRows()) {
     std::string fileWithCuts = filename_stub + "_cuts";
-    solver->writeMps(fileWithCuts.c_str());
+    // solver->writeMps(fileWithCuts.c_str());
+    solver->writeLp(fileWithCuts.c_str());
   }
 #endif
 
@@ -739,6 +771,7 @@ int startUp(int argc, char** argv) {
     std::cout << argv[i] << " ";
   }
   std::cout << std::endl;
+
   time(&start_time_t);
   struct tm* start_timeinfo = localtime(&start_time_t);
   snprintf(start_time_string, sizeof(start_time_string) / sizeof(char), "%s", asctime(start_timeinfo));
@@ -851,12 +884,10 @@ int startUp(int argc, char** argv) {
     if (optfile.size() > csvext.size() && optfile.compare(optfile.size()-csvext.size(), csvext.size(), csvext) == 0) {
   #ifdef TRACE
       fprintf(stdout, "Reading objective information from \"%s\".\n", optfile.c_str());
-      //std::cout << "Reading objective information from \"" + params.get(stringParam::OPTFILE) + "\"" << std::endl;
   #endif
       boundInfo.ip_obj = getObjValueFromFile(optfile, params.get(stringParam::FILENAME), params.logfile);
       params.set(doubleParam::IP_OBJ, boundInfo.ip_obj);
-      fprintf(stdout, "Best known objective value is %s.\n", stringValue(boundInfo.ip_obj, "%f").c_str());
-      //std::cout << "Best known objective value is " << boundInfo.ip_obj << std::endl;
+      fprintf(stdout, "Best known IP objective value is %s.\n", stringValue(boundInfo.ip_obj, "%f").c_str());
       if (isInfinity(boundInfo.ip_obj)) {
         warning_msg(warnstring, "Did not find objective value.\n");
       }
@@ -913,6 +944,12 @@ int wrapUp(int retCode, int argc, char** argv) {
     } else {
     }
 
+    // Print version information
+// #ifdef CODE_VERSION
+//     fprintf(logfile, "%s,", CODE_VERSION_STRING.substr(0,8).c_str());
+// #else
+//     fprintf(logfile, ",");
+// #endif
 #ifdef VPC_VERSION
     fprintf(logfile, "%s,", VPC_VERSION_STRING.substr(0,8).c_str());
 #else
@@ -965,7 +1002,7 @@ int wrapUp(int retCode, int argc, char** argv) {
   for (int i = 0; i < NUM_TIME_STATS; i++) {
     std::string name = OverallTimeStatsName[i];
     if ((params.get(intParam::DISJ_TERMS) == 0) && (params.get(stringParam::DISJ_OPTIONS).empty()) && name.compare(0, 3, "VPC") == 0)
-      continue;
+      continue; // skip VPC time stats
     if (params.get(intParam::BB_RUNS) == 0 && name.compare(0, 2, "BB") == 0)
       continue;
     printf("%-*.*s%s\n", NAME_WIDTH, NAME_WIDTH, (name).c_str(),
@@ -980,6 +1017,9 @@ int wrapUp(int retCode, int argc, char** argv) {
   printf("%s", bb_output.c_str());
 
   printf("\n## Exiting VPC generation with reason %s. ##\n", CglVPC::ExitReasonName[exitReasonInt].c_str());
+// #ifdef CODE_VERSION
+//   printf("Code Version: %s\n", CODE_VERSION_STRING.substr(0,8).c_str());
+// #endif
 #ifdef VPC_VERSION
   printf("VPC Version: %s\n", VPC_VERSION_STRING.substr(0,8).c_str());
 #endif
