@@ -24,6 +24,13 @@ struct SummaryBoundInfo; // analysis.hpp
 struct SummaryDisjunctionInfo; // analysis.hpp
 struct SummaryCutInfo; // analysis.hpp
 
+/// @brief Container for types of statistics we want to keep
+enum class Stat { total = 0, avg, stddev, min, max, num_stats };
+
+/// @brief Compute statistics in #Stat about given templated vector
+template <typename T>
+std::vector<double> computeStats(const std::vector<T>& v);
+
 /// @brief Information about objective value at various points in the solution process
 /// @details Gives objective for the LP and IP, and after adding GMICs, L&PCs, VPCs, and combinations of these cuts
 /// and also keeps number of GMICs, L&PCs, and VPCs applied
@@ -33,11 +40,15 @@ struct SummaryBoundInfo {
   double worst_disj_obj = std::numeric_limits<double>::lowest();
   double root_obj = std::numeric_limits<double>::lowest();
   double ip_obj = std::numeric_limits<double>::max();
-  double gmic_obj = std::numeric_limits<double>::max();
   double lpc_obj = std::numeric_limits<double>::max();
+  
+  double unstr_gmic_obj = std::numeric_limits<double>::max();
+  
+  double gmic_obj = std::numeric_limits<double>::max();
   double vpc_obj = std::numeric_limits<double>::max();
   double gmic_vpc_obj = std::numeric_limits<double>::max();
   double all_cuts_obj = std::numeric_limits<double>::max();
+
   int num_root_bounds_changed = 0, num_gmic = 0, num_lpc = 0, num_vpc = 0;
 }; /* SummaryBoundInfo */
 
@@ -102,7 +113,8 @@ void printCutInfo(const SummaryCutInfo& cutInfoGMICs,
     const SummaryCutInfo& cutInfo, FILE* logfile, const char SEP = ',');
 
 /// @brief Check cut density and update min/max support in \p cutInfo
-int getCutSupport(
+int checkCutDensity(
+    SummaryCutInfo& cutInfo,
     const OsiRowCut* const cut,
     const double EPS = 1e-14);
 
@@ -110,6 +122,11 @@ int getCutSupport(
 bool checkCutActivity(
   const OsiSolverInterface* const solver,
   const OsiRowCut* const cut);
+
+/// @brief Checks how many cuts remove a given feasible solution
+int checkCutsAgainstFeasibleSolution(
+    const OsiCuts& currCuts,
+    const std::vector<double> ip_solution);
 
 /// @brief Compute gap closed and active cuts
 void analyzeStrength(const VPCParametersNamespace::VPCParameters& params, 

@@ -22,7 +22,30 @@
 using namespace VPCParametersNamespace;
 #include "utility.hpp" // isInfinity, stringValue
 
-const int countBoundInfoEntries = 13;
+template <typename T>
+std::vector<double> computeStats(const std::vector<T>& vec) {
+  std::vector<double> stats(static_cast<int>(Stat::num_stats), 0.);
+  if (vec.empty()) {
+    return stats;
+  }
+  stats[static_cast<int>(Stat::total)] = 0.;
+  stats[static_cast<int>(Stat::min)] = std::numeric_limits<double>::max();
+  stats[static_cast<int>(Stat::max)] = std::numeric_limits<double>::lowest();
+  for (const auto& val : vec) {
+    stats[static_cast<int>(Stat::total)] += val;
+    stats[static_cast<int>(Stat::min)] = std::min(stats[static_cast<int>(Stat::min)], static_cast<double>(val));
+    stats[static_cast<int>(Stat::max)] = std::max(stats[static_cast<int>(Stat::max)], static_cast<double>(val));
+  }
+  stats[static_cast<int>(Stat::avg)] = stats[static_cast<int>(Stat::total)] / static_cast<double>(vec.size());
+  for (const auto& val : vec) {
+    stats[static_cast<int>(Stat::stddev)] += (val - stats[static_cast<int>(Stat::avg)]) * (val - stats[static_cast<int>(Stat::avg)]);
+  }
+  stats[static_cast<int>(Stat::stddev)] = sqrt(stats[static_cast<int>(Stat::stddev)] / static_cast<double>(vec.size()));
+  return stats;
+} /* computeStats */
+
+// Below values are used to doublecheck that the columns in the header are correctly counted
+const int countBoundInfoEntries = 14;
 const int countGapInfoEntries = 4;
 const int countSummaryBBInfoEntries = 4 * 2;
 const int countFullBBInfoEntries = static_cast<int>(BB_INFO_CONTENTS.size()) * 4 * 2;
@@ -108,12 +131,13 @@ void printHeader(const VPCParameters& params,
     fprintf(logfile, "%s%c", "NUM CHANGED ROOT BOUNDS", SEP); count++; // 5
     fprintf(logfile, "%s%c", "ROOT OBJ", SEP); count++; // 6
     fprintf(logfile, "%s%c", "NUM GMIC", SEP); count++; // 7
-    fprintf(logfile, "%s%c", "GMIC OBJ", SEP); count++; // 8
-    fprintf(logfile, "%s%c", "NUM L&PC", SEP); count++; // 9
-    fprintf(logfile, "%s%c", "L&PC OBJ", SEP); count++; // 10
-    fprintf(logfile, "%s%c", "NUM VPC", SEP); count++; // 11
-    fprintf(logfile, "%s%c", "VPC OBJ", SEP); count++; // 12
-    fprintf(logfile, "%s%c", "VPC+GMIC OBJ", SEP); count++; // 13
+    fprintf(logfile, "%s%c", "UNSTR GMIC OBJ", SEP); count++; // 8
+    fprintf(logfile, "%s%c", "GMIC OBJ", SEP); count++; // 9
+    fprintf(logfile, "%s%c", "NUM L&PC", SEP); count++; // 10
+    fprintf(logfile, "%s%c", "L&PC OBJ", SEP); count++; // 11
+    fprintf(logfile, "%s%c", "NUM VPC", SEP); count++; // 12
+    fprintf(logfile, "%s%c", "VPC OBJ", SEP); count++; // 13
+    fprintf(logfile, "%s%c", "VPC+GMIC OBJ", SEP); count++; // 14
     assert(count == countBoundInfoEntries);
   } // BOUND INFO
   { // GAP INFO
@@ -261,7 +285,7 @@ void printHeader(const VPCParameters& params,
     fprintf(logfile, "%s%c", "hostname", SEP); count++;
     fprintf(logfile, "%s%c", "cpu_model", SEP); count++;
     fprintf(logfile, "%s%c", "cpu_id", SEP); count++;
-    assert(count == countVersionInfoEntries); count++;
+    assert(count == countVersionInfoEntries);
   } // VERSION INFO
   { // WRAP UP INFO
     int count = 0;
@@ -297,8 +321,10 @@ void printBoundAndGapInfo(const SummaryBoundInfo& boundInfo, FILE* logfile, cons
     }
     fprintf(logfile, "%s%c", stringValue(boundInfo.num_gmic).c_str(), SEP); count++;
     if (boundInfo.num_gmic > 0) {
+      fprintf(logfile, "%s%c", stringValue(boundInfo.unstr_gmic_obj, "%2.20f").c_str(), SEP); count++;
       fprintf(logfile, "%s%c", stringValue(boundInfo.gmic_obj, "%2.20f").c_str(), SEP); count++;
     } else {
+      fprintf(logfile, "%c", SEP); count++;
       fprintf(logfile, "%c", SEP); count++;
     }
     fprintf(logfile, "%s%c", stringValue(boundInfo.num_lpc).c_str(), SEP); count++;
@@ -324,6 +350,13 @@ void printBoundAndGapInfo(const SummaryBoundInfo& boundInfo, FILE* logfile, cons
   { // GAP INFO
     int count = 0;
     if (!isInfinity(std::abs(boundInfo.ip_obj))) {
+      if (!isInfinity(std::abs(boundInfo.unstr_gmic_obj))) {
+        double val = 100. * (boundInfo.unstr_gmic_obj - boundInfo.lp_obj)
+            / (boundInfo.ip_obj - boundInfo.lp_obj);
+        fprintf(logfile, "%s%c", stringValue(val, "%2.6f").c_str(), SEP); count++;
+      } else {
+        fprintf(logfile, "%c", SEP); count++; // unstr_gmic
+      }
       if (!isInfinity(std::abs(boundInfo.gmic_obj))) {
         double val = 100. * (boundInfo.gmic_obj - boundInfo.lp_obj)
             / (boundInfo.ip_obj - boundInfo.lp_obj);
@@ -757,9 +790,9 @@ void printCutInfo(const SummaryCutInfo& cutInfoGMICs,
 } /* printCutInfo */
 
 /// @details Gets cut support size 
-int getCutSupport(
-    // /// [in,out] Where to save min and max support
-    // SummaryCutInfo& cutInfo,
+int checkCutDensity(
+    /// [in,out] Where to save min and max support
+    SummaryCutInfo& cutInfo,
     /// [in] Row that we want to check
     const OsiRowCut* const cut,
     /// [in] What counts as a zero coefficient
@@ -771,8 +804,12 @@ int getCutSupport(
       num_elem--;
     }
   }
+  // if (num_elem < cutInfo.min_support)
+  //   cutInfo.min_support = num_elem;
+  // if (num_elem > cutInfo.max_support)
+  //   cutInfo.max_support = num_elem;
   return num_elem;
-} // getCutSupport
+} // checkCutDensity
 
 /// @brief Find active cuts, and also report density of cuts
 bool checkCutActivity(
@@ -785,6 +822,28 @@ bool checkCutActivity(
     return false;
   }
 } /* checkCutActivity */
+
+/// @details Returns how many cuts are violated by a given integer-feasible solution
+int checkCutsAgainstFeasibleSolution(
+    const OsiCuts& currCuts, ///< [in] Cuts to check
+    const std::vector<double> ip_solution ///< [in] Feasible solution
+) {
+  int num_violated = 0;
+  for (int cut_ind = 0; cut_ind < currCuts.sizeCuts(); cut_ind++) {
+    OsiRowCut currCut = currCuts.rowCut(cut_ind);
+    const double rhs = currCut.rhs();
+    const int num_el = currCut.row().getNumElements();
+    const int* ind = currCut.row().getIndices();
+    const double* el = currCut.row().getElements();
+    const double activity = dotProduct(num_el, ind, el, ip_solution.data());
+
+    if (lessThanVal(activity, rhs)) {
+      num_violated++;
+      warning_msg(warnstring, "Unstrengthened cut %d removes optimal solution. Activity: %.10f. Rhs: %.10f.\n", cut_ind, activity, rhs);
+    }
+  } // loop over cuts
+  return num_violated;
+} /* checkCutsAgainstFeasibleSolution */
 
 /**
  * @details The cut properties we want to look at are:
@@ -822,14 +881,7 @@ void analyzeStrength(
       if (checkCutActivity(solver_all, cut)) {
         cutInfoVPCs.num_active_all++;
       }
-      const int curr_support = getCutSupport(cut, params.get(EPS) / 2.);
-      total_support += curr_support;
-      if (curr_support < cutInfoVPCs.min_support) {
-        cutInfoVPCs.min_support = curr_support;
-      }
-      if (curr_support > cutInfoVPCs.max_support) {
-        cutInfoVPCs.max_support = curr_support;
-      }
+      total_support += checkCutDensity(cutInfoVPCs, cut, params.get(EPS) / 2.);
     }
     cutInfoVPCs.avg_support = (double) total_support / num_vpcs;
   }
@@ -848,14 +900,7 @@ void analyzeStrength(
       if (checkCutActivity(solver_all, cut)) {
         cutInfoGMICs.num_active_all++;
       }
-      const int curr_support = getCutSupport(cut, params.get(EPS) / 2.);
-      total_support += curr_support;
-      if (curr_support < cutInfoGMICs.min_support) {
-        cutInfoGMICs.min_support = curr_support;
-      }
-      if (curr_support > cutInfoGMICs.max_support) {
-        cutInfoGMICs.max_support = curr_support;
-      }
+      total_support += checkCutDensity(cutInfoGMICs, cut, params.get(EPS) / 2.);
     }
     cutInfoGMICs.avg_support = (double) total_support / num_gmics;
   }
@@ -886,6 +931,17 @@ void analyzeStrength(
           NUM_DIGITS_AFTER_DEC).c_str(),
         boundInfo.num_root_bounds_changed);
     output += tmpstring;
+  }
+  if (!isInfinity(std::abs(boundInfo.unstr_gmic_obj))) {
+    snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
+        "%-*.*s%s (%d cuts", NAME_WIDTH, NAME_WIDTH, "Unstr GMICs: ",
+        stringValue(boundInfo.unstr_gmic_obj, "% -*.*g",
+          INF,
+          NUM_DIGITS_BEFORE_DEC,
+          NUM_DIGITS_AFTER_DEC).c_str(),
+        boundInfo.num_gmic);
+    output += tmpstring;
+    output += ")\n";
   }
   if (!isInfinity(std::abs(boundInfo.gmic_obj))) {
     snprintf(tmpstring, sizeof(tmpstring) / sizeof(char),
@@ -1175,15 +1231,7 @@ void updateGMICInfo(
     int total_support = 0;
     for (int cut_ind = 0; cut_ind < cuts->sizeCuts(); cut_ind++) {
       const OsiRowCut* const cut = cuts->rowCutPtr(cut_ind);
-      const int curr_support = getCutSupport(cut, EPS);
-
-      total_support += curr_support;
-      if (curr_support < cutInfo.min_support) {
-        cutInfo.min_support = curr_support;
-      }
-      if (curr_support > cutInfo.max_support) {
-        cutInfo.max_support = curr_support;
-      }
+      total_support += checkCutDensity(cutInfo, cut, EPS);
     }
     cutInfo.avg_support = (cutInfo.avg_support * old_num_cuts + 1. * total_support) / (old_num_cuts + cuts->sizeCuts());
   }
@@ -1268,15 +1316,8 @@ void updateCutInfo(
     int total_support = 0;
     for (int cut_ind = start_ind; cut_ind < cuts->sizeCuts(); cut_ind++) {
       const OsiRowCut* const cut = cuts->rowCutPtr(cut_ind);
-      const int curr_support = getCutSupport(cut, EPS);
 
-      total_support += curr_support;
-      if (curr_support < cutInfo.min_support) {
-        cutInfo.min_support = curr_support;
-      }
-      if (curr_support > cutInfo.max_support) {
-        cutInfo.max_support = curr_support;
-      }
+      total_support += checkCutDensity(cutInfo, cut, EPS);
     }
     cutInfo.avg_support = (cutInfo.avg_support * old_num_cuts + 1. * total_support) / (old_num_cuts + cuts->sizeCuts());
   }
