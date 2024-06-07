@@ -307,6 +307,7 @@ void SplitDisjunction::addTerm(const int branching_variable,
   term.changed_var.resize(1, branching_variable);
   term.changed_bound.resize(1, branching_way);
   term.changed_value.resize(1, branching_value);
+  term.is_feasible = true;
   this->terms.push_back(term);
   this->num_terms++;
 } /* addTerm */
