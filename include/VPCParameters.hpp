@@ -63,7 +63,7 @@ enum intParam {
   PREPROCESS, ///< 0: off, 1: on (with solver), 2: on (solver + custom cleaning process)
   PRLP_FLIP_BETA, ///< controls rhs in nb space, -1: do not cut away LP opt, 0: cut away LP opt, 1: both
   ROUNDS, ///< number of VPC rounds to do
-  STRENGTHEN, ///< 0: no, 1: yes, when possible, 2: same as 1 plus add GMICs to strengthen each disjunctive term
+  STRENGTHEN, ///< 0: no, 1: yes, when possible, 3: same as 1 plus add GMICs to strengthen each disjunctive term
   TEMP, ///< useful for various temporary parameter changes; see corresponding enum
   // Objective options
   USE_ALL_ONES, ///< 0: do not use, 1: use

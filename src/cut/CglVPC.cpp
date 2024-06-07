@@ -1152,7 +1152,7 @@ CglVPC::ExitReason CglVPC::setupConstraints(
     }
 
     // Possibly strengthen the term
-    if (term->is_feasible && params.get(intParam::STRENGTHEN) == 2) {
+    if (term->is_feasible && params.get(intParam::STRENGTHEN) == 3) {
     // Add Gomory cuts on disjunctive term and resolve
       OsiCuts GMICs;
       CglGMI GMIGen;
