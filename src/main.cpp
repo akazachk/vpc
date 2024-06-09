@@ -43,18 +43,27 @@ using namespace VPCParametersNamespace;
 #include "condition_number.hpp" // compute_condition_number
 #endif
 
+#ifdef USE_GUROBI
+#include "GurobiHelper.hpp" // for obtaining ip opt
+#endif
+
+#ifdef VPC_DEBUG
+#include "debug.hpp"
+#endif
+
 enum OverallTimeStats {
   INIT_SOLVE_TIME,
   GOMORY_GEN_TIME,
   GOMORY_APPLY_TIME,
+  CUT_TOTAL_TIME,
   VPC_GEN_TIME,
+  VPC_APPLY_TIME,
   VPC_INIT_SOLVE_TIME,
   VPC_DISJ_SETUP_TIME,
   VPC_DISJ_GEN_TIME,
   VPC_PRLP_SETUP_TIME,
   VPC_PRLP_SOLVE_TIME,
   VPC_GEN_CUTS_TIME,
-  VPC_APPLY_TIME,
   BB_TIME,
   TOTAL_APPLY_TIME,
   TOTAL_TIME,
@@ -64,14 +73,15 @@ const std::vector<std::string> OverallTimeStatsName {
   "INIT_SOLVE_TIME",
   "GOMORY_GEN_TIME",
   "GOMORY_APPLY_TIME",
+  "CUT_TOTAL_TIME",
   "VPC_GEN_TIME",
+  "VPC_APPLY_TIME",
   "VPC_INIT_SOLVE_TIME",
   "VPC_DISJ_SETUP_TIME",
   "VPC_DISJ_GEN_TIME",
   "VPC_PRLP_SETUP_TIME",
   "VPC_PRLP_SOLVE_TIME",
   "VPC_GEN_CUTS_TIME",
-  "VPC_APPLY_TIME",
   "BB_TIME",
   "TOTAL_APPLY_TIME",
   "TOTAL_TIME"
@@ -201,6 +211,55 @@ int main(int argc, char** argv) {
     }
     exit(1);
   } **/
+
+  //====================================================================================================//
+  // Get IP solution if requested
+  timer.end_timer(OverallTimeStats::TOTAL_TIME);
+  std::vector<double> ip_solution;
+  if (params.get(TEMP) == static_cast<int>(TempOptions::CHECK_CUTS_AGAINST_BB_OPT)) {
+    printf("\n## Try to find optimal IP solution to compare against. ##\n");
+    BBInfo tmp_bb_info;
+#ifdef USE_GUROBI
+    int strategy = params.get(BB_STRATEGY);
+    // If no solfile provided, check if we can find it in the same directory as the instance
+    if (params.get(SOLFILE).empty()) {
+      std::string f_name = dir + "/" + instname + "_gurobi.mst.gz";
+      if (fexists(f_name.c_str())) {
+        printf("No solution provided, but solution file found at %s.\n", f_name.c_str());
+        params.set(SOLFILE, f_name);
+      }
+    }
+    // If solfile provided, enable use_bound
+    if (!params.get(SOLFILE).empty() && !use_bb_option(strategy, VPCParametersNamespace::BB_Strategy_Options::use_best_bound)) {
+      strategy = enable_bb_option(strategy, VPCParametersNamespace::BB_Strategy_Options::use_best_bound);
+    }
+    doBranchAndBoundWithGurobi(params, strategy,
+        params.get(stringParam::FILENAME).c_str(),
+        tmp_bb_info, boundInfo.ip_obj, &ip_solution);
+#endif
+#ifdef TRACE
+    /*{/// DEBUG
+    bool first = true;
+    for (int i = 0; i < (int) ip_solution.size(); i++) {
+      const double val = ip_solution[i];
+      if (isZero(val)) continue;
+      if (!first) printf(", ");
+      else first = false;
+      printf("(%d,%g)", i, val);
+    }
+    printf("\n");
+    }*/ /// DEBUG
+#endif
+    if (ip_solution.size() > 0) {
+      if (isInfinity(std::abs(boundInfo.ip_obj))) {
+        const double ip_obj = dotProduct(ip_solution.data(), solver->getObjCoefficients(), solver->getNumCols());
+        boundInfo.ip_obj = ip_obj;
+        params.set(doubleParam::IP_OBJ, boundInfo.ip_obj);
+        fprintf(stdout, "Best known IP objective value is %s.\n", stringValue(boundInfo.ip_obj, "%g").c_str());
+      }
+    }
+  } // get IP opt
+  timer.start_timer(OverallTimeStats::TOTAL_TIME);
 
   //====================================================================================================//
   // Save original solver in case we wish to come back to it later
@@ -350,16 +409,19 @@ int main(int argc, char** argv) {
   //====================================================================================================//
   // Now do rounds of cuts, until a limit is reached (e.g., time, number failures, number cuts, or all rounds are exhausted)
   boundInfo.num_vpc = 0, boundInfo.num_gmic = 0;
-  int num_disj = 0;
   int round_ind = 0;
   for (round_ind = 0; round_ind < num_rounds; ++round_ind) {
     if (num_rounds > 1) {
       printf("\n## Starting round %d/%d. ##\n", round_ind+1, num_rounds);
     }
+    int num_disj = 0;
 
+    // Initialize all the boundInfo entries for this round
     boundInfoVec[round_ind].lp_obj = solver->getObjValue();
     boundInfoVec[round_ind].num_vpc = 0;
     boundInfoVec[round_ind].num_gmic = 0;
+
+    timer.start_timer(OverallTimeStats::CUT_TOTAL_TIME);
 
     //====================================================================================================//
     // Generate Gomory cuts
@@ -368,13 +430,12 @@ int main(int argc, char** argv) {
     // Option 1: GglGMI
     // (to be added) Option 2: custom generate intersection cuts, calculate Farkas certificate, do strengthening
     // (to be added) Option 3: custom generate intersection cuts, calculate Farkas certificate, do closed-form strengthening
+    OsiCuts currGMICs;
     if (params.get(GOMORY) == -1 || params.get(GOMORY) == 1) {
-      // Generate GMICs using CglGMI,
-      // based on solver (which contains all cuts)
+      // Generate GMICs
       const double gmic_gen_start_time = timer.get_total_time(OverallTimeStats::GOMORY_GEN_TIME);
       timer.start_timer(OverallTimeStats::GOMORY_GEN_TIME);
 
-      OsiCuts currGMICs;
       CglGMI GMIGen;
       // Set parameters so that many GMIs are generated
       // CglGMI's MAX_SUPPORT parameter is equivalent to the MIN_SUPPORT_THRESHOLD value in this code
@@ -425,14 +486,19 @@ int main(int argc, char** argv) {
       updateGMICInfo(cutInfoGMICVec[round_ind], &currGMICs, params.get(EPS) / 2.);
     } // Gomory cut generation
 
+    //====================================================================================================//
+    // Now for more general cuts
     if ((params.get(VPCParametersNamespace::intParam::MODE) != static_cast<int>(VPCParametersNamespace::VPCMode::DISJ_SET_PBB))
         && ((int) disjOptions.size() > round_ind)) {
       params.set(intParam::DISJ_TERMS, disjOptions[round_ind]);
     }
     const bool SHOULD_GENERATE_VPCS = (params.get(intParam::DISJ_TERMS) != 0 || disjOptions.size() > 0);
+    const bool USE_CUSTOM = (params.get(intParam::MODE) == static_cast<int>(VPCParametersNamespace::VPCMode::CUSTOM));
+
     if (SHOULD_GENERATE_VPCS) {
       const double vpc_start_time = timer.get_total_time(OverallTimeStats::VPC_GEN_TIME);
       timer.start_timer(OverallTimeStats::VPC_GEN_TIME);
+
       CglVPC gen(params, round_ind);
 
       // Store the initial solve time in order to set a baseline for the PRLP resolve time
@@ -441,8 +507,13 @@ int main(int argc, char** argv) {
           timer.get_value(OverallTimeStats::INIT_SOLVE_TIME));
 
       // Proceed with custom disjunctions if specified; otherwise, the disjunction will be set up in the CglVPC class
-      if (params.get(intParam::MODE) != static_cast<int>(VPCParametersNamespace::VPCMode::CUSTOM)) {
+      if (USE_CUSTOM) {
+        doCustomRoundOfCuts(round_ind, vpcs_by_round[round_ind], gen, num_disj);
+      } else {
+        // Generate disjunctive cuts
         gen.generateCuts(*solver, vpcs_by_round[round_ind]); // solution may change slightly due to enable factorization called in getProblemData...
+
+        // Update statistics about the disjunction objective value and cuts
         exitReason = gen.exitReason;
         if (gen.disj() || gen.disjSet()) {
           DisjunctionSet* disjSet = gen.disjSet();
@@ -451,23 +522,32 @@ int main(int argc, char** argv) {
             disjSet->addDisjunction(gen.disj());
           }
 
-          boundInfo.num_vpc += gen.num_cuts; // TODO: does this need to be in this if, and do we need to subtract initial num cuts?
+          boundInfo.num_vpc += gen.num_cuts; // TODO: does this need to be in this "if", and do we need to subtract initial num cuts?
           boundInfoVec[round_ind].num_vpc += gen.num_cuts;
 
           for (const Disjunction* const disj : disjSet->disjunctions) {
             num_disj++;
+
             if (boundInfo.best_disj_obj < disj->best_obj) {
               boundInfo.best_disj_obj = disj->best_obj;
+            }
+            if (boundInfoVec[round_ind].best_disj_obj < disj->best_obj) {
               boundInfoVec[round_ind].best_disj_obj = disj->best_obj;
             }
             if (boundInfo.worst_disj_obj < disj->worst_obj) {
               boundInfo.worst_disj_obj = disj->worst_obj;
+            }
+            if (boundInfoVec[round_ind].worst_disj_obj < disj->worst_obj) {
               boundInfoVec[round_ind].worst_disj_obj = disj->worst_obj;
             }
 
-            // The following should be the same across all disjunctions
-            boundInfo.num_root_bounds_changed = disj->common_changed_var.size();
-            boundInfo.root_obj = disj->root_obj;
+            if (round_ind == 0) {
+              // The following should be the same across all disjunctions
+              boundInfo.num_root_bounds_changed = disj->common_changed_var.size();
+              boundInfo.root_obj = disj->root_obj;
+            }
+            boundInfoVec[round_ind].num_root_bounds_changed = disj->common_changed_var.size();
+            boundInfoVec[round_ind].root_obj = disj->root_obj;
           } // loop over disjunctions used for this round
 
           if (gen.disjSet() == NULL) {
@@ -478,9 +558,6 @@ int main(int argc, char** argv) {
         updateDisjInfo(disjInfo, num_disj, gen);
         updateCutInfo(cutInfoVec[round_ind], gen, &vpcs_by_round[round_ind], params.get(EPS) / 2.);
       } // check if mode is _not_ CUSTOM
-      else {
-        doCustomRoundOfCuts(round_ind, vpcs_by_round[round_ind], gen, num_disj);
-      } // check if mode is CUSTOM
 
       // Update timing from underlying generator
       const TimeStats& vpctimer = gen.timer;
@@ -507,7 +584,6 @@ int main(int argc, char** argv) {
         timer.add_value(overall_stat, currtimevalue);
       }
 
-      vpcs.insert(vpcs_by_round[round_ind]);
       timer.end_timer(OverallTimeStats::VPC_GEN_TIME);
       const double vpc_end_time = timer.get_total_time(OverallTimeStats::VPC_GEN_TIME);
       vpc_gen_time_by_round[round_ind] = vpc_end_time - vpc_start_time;
@@ -515,6 +591,18 @@ int main(int argc, char** argv) {
     else { // else update cutInfo with blanks
       setCutInfo(cutInfoVec[round_ind], 0, NULL);
     }
+
+    //====================================================================================================//
+    // Check cuts against IP solution
+    if (params.get(TEMP) == static_cast<int>(TempOptions::CHECK_CUTS_AGAINST_BB_OPT) && !ip_solution.empty()) {
+      const int num_violated = checkCutsAgainstFeasibleSolution(vpcs_by_round[round_ind], ip_solution);
+      printf("\n## Number of cuts violating the IP solution: %d ##\n", num_violated);
+    }
+
+    // Insert cuts generated in this round into set of all cuts
+    vpcs.insert(vpcs_by_round[round_ind]);
+
+    timer.end_timer(OverallTimeStats::CUT_TOTAL_TIME);
     
     //====================================================================================================//
     // Apply cuts
@@ -544,7 +632,8 @@ int main(int argc, char** argv) {
         // Apply to "allCutsSolver", which has all cuts
         // When GOMORY = 1, allCutsSolver and solver are identical
         applyCutsCustom(allCutsSolver, vpcs_by_round[round_ind], params.logfile);
-      } else {
+      } // check if GMICs generated (params.get(GOMORY) != 0)
+      else {
         // Else, no GMICs generated; only solver needed
         const double vpc_apply_start_time = timer.get_total_time(OverallTimeStats::VPC_APPLY_TIME);
         timer.start_timer(OverallTimeStats::VPC_APPLY_TIME);
