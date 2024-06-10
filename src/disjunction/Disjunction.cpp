@@ -451,7 +451,10 @@ void DisjunctionSet::updateObjValue(const double objVal) {
 
 void DisjunctionSet::initialize(const DisjunctionSet* const source) {
   if (source != NULL) {
-    this->disjunctions = source->disjunctions;
+    this->disjunctions.resize(source->disjunctions.size());
+    for (int i = 0; i < (int) source->disjunctions.size(); i++) {
+      this->disjunctions[i] = source->disjunctions[i]->clone();
+    }
   } else {
     this->disjunctions.resize(0);
   }
