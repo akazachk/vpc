@@ -177,6 +177,11 @@ public:
 
   /// @brief Universal way to check whether we reached the limit for the number of cuts for each split
   static int getCutLimit(const int CUTLIMIT, const int numFracVar);
+
+  /// @brief Check if cut limit has been attained with specified \p num_cuts and \p cut_limit
+  inline static bool reachedCutLimit(const int num_cuts, const int cut_limit) {
+    return num_cuts >= cut_limit;
+  } /* reachedCutLimit */
   ///@} // static vars/funcs
 
   ///@{
@@ -395,10 +400,11 @@ protected:
       const PRLPData& currPRLPData,
       const OsiCuts* const structSICs);
 
-  /// @brief Return #num_cuts >= getCutLimit()
-  inline bool reachedCutLimit() const {
-    return (num_cuts >= getCutLimit()); 
-  } /* reachedCutLimit */
+  /// @brief Check if cut limit has been attained for disjunction \p disj_id
+  bool reachedCutLimitForDisjunction(const int disj_id) const;
+
+  /// @brief Check if cut limit has been obtained
+  bool reachedCutLimit(const int disj_id = -1) const;
 
   /// @brief Call reachedTimeLimit(const std::string&,const double) const
   inline bool reachedTimeLimit(const VPCTimeStats& timeName, const double max_time) const {
@@ -411,14 +417,6 @@ protected:
     return timer.reachedTimeLimit(timeName, max_time);
   } /* reachedTimeLimit */
 
-//  inline bool reachedTimelimit(const std::chrono::time_point<std::chrono::high_resolution_clock>& start_chrono) const {
-//    std::chrono::duration<double> elapsed_seconds = std::chrono::high_resolution_clock::now() - start_chrono;
-//    const bool reached_limit = (elapsed_seconds.count() > this->param.get(TIMELIMIT));
-////    if (reached_limit)
-////      exitReason = ExitReason::TIME_LIMIT_EXIT;
-//    return reached_limit;
-//  }
-
   /// @brief Check whether too many unsuccessful objective attempts have been made
   bool reachedFailureLimit(const int num_cuts, const int num_fails,
       const double few_cuts_fail_threshold = 0.95,
@@ -428,6 +426,9 @@ protected:
 
   /// @brief Set #exitReason to \p exitReason, end all running clocks in #timer
   void finish(CglVPC::ExitReason exitReason = CglVPC::ExitReason::UNKNOWN);
+
+private:
+  int curr_disj_id; ///< current disjunction ID, used for checking whether cut limit has been reached
 }; /* Class CglVPC */
 
 /** @brief Match status from generating disjunction to status of CglVPC exit */

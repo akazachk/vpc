@@ -468,7 +468,8 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   SolverInterface* vpcsolver = dynamic_cast<SolverInterface*>(si.clone());
   
   // Get the V-polyhedral relaxation of the root node and prepare probData
-  Disjunction* curr_disj = (mode == VPCMode::DISJ_SET_PBB) ? this->disjunctionSet->disjunctions[0] : this->disjunction;
+  this->curr_disj_id = 0;
+  Disjunction* curr_disj = (mode == VPCMode::DISJ_SET_PBB) ? this->disjunctionSet->disjunctions[curr_disj_id] : this->disjunction;
 
   status = initializeSolverWithRootChanges(curr_disj, 0, vpcsolver, cuts);
   if (status != CglVPC::ExitReason::SUCCESS_EXIT) {
@@ -481,6 +482,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   const int num_disj = (mode == VPCMode::DISJ_SET_PBB) ? this->disjunctionSet->size() : 1;
   prlpDataVec.resize(num_disj);
   for (int disj_id = 0; disj_id < num_disj; disj_id++) {
+    this->curr_disj_id = disj_id;
     if (reachedTimeLimit(VPCTimeStats::TOTAL_TIME, params.get(TIMELIMIT))) {
       status = CglVPC::ExitReason::TIME_LIMIT_EXIT;
       break;
@@ -1254,7 +1256,7 @@ CglVPC::ExitReason CglVPC::setupConstraints(
 } /* setupConstraints */
 
 /**
- * IN NON-BASIC SPACE
+ * @details IN NON-BASIC SPACE
  * Get Point and Rays from corner polyhedron defined by current optimum at solver
  * Assumed to be optimal already
  */
@@ -1535,6 +1537,36 @@ CglVPC::ExitReason CglVPC::tryObjectives(
 
   return status;
 } /* tryObjectives */
+
+/**
+ * @details Count number of cuts with #disjID == \p disj_id.
+ */
+bool CglVPC::reachedCutLimitForDisjunction(const int disj_id) const {
+  int curr_num_cuts = 0;
+  for (int cut_ind = 0; cut_ind < this->num_cuts; cut_ind++) {
+    const int curr_disj_id = this->disjID[cut_ind];
+    curr_num_cuts += (curr_disj_id == disj_id);
+  }
+  return reachedCutLimit(curr_num_cuts, getCutLimit());
+} /* reachedCutLimitForDisjunction */
+
+/**
+ * @details
+ * If \p disj_id < 0, check #num_cuts >= getCutLimit().
+ * If \p disj_id >= 0, check against the number of cuts for the disjunction \p disj_id.
+ */
+bool CglVPC::reachedCutLimit(const int disj_id) const {
+  // Get number of cuts for this disj_id
+  if (disj_id >= 0) {
+    return reachedCutLimitForDisjunction(disj_id);
+  }
+  else if (mode == VPCMode::DISJ_SET_PBB) {
+    return reachedCutLimitForDisjunction(this->curr_disj_id);
+  }
+  else {
+    return reachedCutLimit(this->num_cuts, getCutLimit());
+  }
+} /* reachedCutLimit */
 
 /**
  * @details There are four types of checks. The first three have non-decreasing success requirements.
