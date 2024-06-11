@@ -185,7 +185,7 @@ int main(int argc, char** argv) {
 
   //====================================================================================================//
   // Set up solver and get initial solution
-  initializeSolver(solver, params.get(stringParam::FILENAME));
+  initializeSolver(solver, params.get(stringParam::FILENAME), params.get(VPCParametersNamespace::intParam::VERBOSITY), params.get(VPCParametersNamespace::doubleParam::TIMELIMIT), params.logfile);
   timer.start_timer(OverallTimeStats::INIT_SOLVE_TIME);
   solver->initialSolve();
   if (!checkSolverOptimality(solver, false)) {
