@@ -548,12 +548,12 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     // Generate cuts from the PRLP
     status = tryObjectives(cuts, curr_vpcsolver, curr_disj, disj_id, curr_prlp_data, NULL);
 
-    // If ORIG_CUTLIMIT < 0, then we are using a cut limit per disjunction
-    // and we need to update the cut limit for the next disjunction
-    // (if this is not the last one)
-    if (ORIG_CUTLIMIT < 0 && disj_id < num_disj - 1) {
-      params.set(CUTLIMIT, this->num_cuts + NEW_CUTLIMIT);
-    }
+    // // If ORIG_CUTLIMIT < 0, then we are using a cut limit per disjunction
+    // // and we need to update the cut limit for the next disjunction
+    // // (if this is not the last one)
+    // if (ORIG_CUTLIMIT < 0 && disj_id < num_disj - 1) {
+    //   params.set(CUTLIMIT, this->num_cuts + NEW_CUTLIMIT);
+    // }
 
     // If more than 2 disjunctions, then delete curr_vpcsolver
     if (num_disj > 1 && curr_vpcsolver) { delete curr_vpcsolver; }
@@ -1601,6 +1601,12 @@ bool CglVPC::reachedCutLimit(const int disj_id) const {
     return reachedCutLimitForDisjunction(disj_id);
   }
   else if (mode == VPCMode::DISJ_SET_PBB) {
+    return reachedCutLimitForDisjunction(this->curr_disj_id);
+  }
+  else if (mode == VPCMode::SPLITS) {
+    return reachedCutLimitForDisjunction(this->curr_disj_id);
+  }
+  else if (mode == VPCMode::CROSSES) {
     return reachedCutLimitForDisjunction(this->curr_disj_id);
   }
   else {
