@@ -17,10 +17,6 @@ namespace VPCParametersNamespace {
 #include "CglVPC.hpp" // ExitReason
 
 /// Set disjunctions; if integer-optimal solution is found, delete all but one disjunction, which will have that solution
-CglVPC::ExitReason setDisjunctions(std::vector<Disjunction*>& disjVec,
+CglVPC::ExitReason setDisjunctions(DisjunctionSet* const disjSet,
     const OsiSolverInterface* const si, const VPCParametersNamespace::VPCParameters& params,
     const VPCParametersNamespace::VPCMode& mode);
-
-/// @brief Generate SplitDisjunction for all variables that are fractional, using hot starts
-int generateSplitDisjunctions(std::vector<Disjunction*>& disjVec,
-    const OsiSolverInterface* const si, const VPCParametersNamespace::VPCParameters& params);

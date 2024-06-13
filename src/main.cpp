@@ -1164,19 +1164,21 @@ int wrapUp(int retCode, int argc, char** argv) {
 } /* wrapUp */
 
 void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_disj) {
-  std::vector<Disjunction*> disjVec;
   printf("\n## Setting up disjunction(s) ##\n");
+
   gen.timer.start_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
-  CglVPC::ExitReason setDisjExitReason = setDisjunctions(disjVec, solver, params, VPCParametersNamespace::VPCMode::SPLITS);
+  DisjunctionSet* disjSet = new DisjunctionSet();
+  CglVPC::ExitReason setDisjExitReason = setDisjunctions(disjSet, solver, params, VPCParametersNamespace::VPCMode::SPLITS);
   gen.timer.end_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
-  const int numDisj = disjVec.size();
+  
+  const int numDisj = disjSet->size();
 
   // If integer-optimal solution was found, all disjunctions but one will have been deleted
   if (setDisjExitReason == CglVPC::ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT) {
     warning_msg(warnstr,
         "An integer (optimal) solution was found prior while getting disjunction. "
         "We will generate between n and 2n cuts, restricting the value of each variable.\n");
-    const double* solution = disjVec[0]->integer_sol.data();
+    const double* solution = disjSet->integer_sol.data();
     if (!solution) {
       error_msg(errorstring,
           "Though status is that optimal integer solution found, unable to find this solution.\n");
@@ -1212,7 +1214,7 @@ void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_dis
         gen.getCutLimit(params.get(CUTLIMIT),
             solver->getFractionalIndices().size()) / numDisj); // distribute cut limit over the disjunctions
     gen.setupRepeatedUse(true);
-    for (Disjunction* disj : disjVec) {
+    for (Disjunction* disj : disjSet->disjunctions) {
       if (!disj)
         continue;
 #ifdef TRACE
@@ -1243,12 +1245,8 @@ void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_dis
     exit(1);
   }
 
-  // Delete disjunctions
-  for (Disjunction* disj : disjVec) {
-    if (disj) {
-      delete disj;
-      disj = NULL;
-    }
+  if (disjSet) {
+    delete disjSet;
   }
 } /* doCustomRoundOfCuts */
 

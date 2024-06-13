@@ -418,6 +418,10 @@ DisjunctionSet *DisjunctionSet::clone() const
 
 void DisjunctionSet::setupAsNew() {
   this->disjunctions.resize(0);
+  this->best_obj = std::numeric_limits<double>::max();
+  this->worst_obj = std::numeric_limits<double>::lowest();
+  this->integer_obj = std::numeric_limits<double>::max();
+  this->integer_sol.resize(0);
 } /* setupAsNew */
 
 #ifdef USE_COIN
@@ -455,7 +459,11 @@ void DisjunctionSet::initialize(const DisjunctionSet* const source) {
     for (int i = 0; i < (int) source->disjunctions.size(); i++) {
       this->disjunctions[i] = source->disjunctions[i]->clone();
     }
+    this->best_obj = source->best_obj;
+    this->worst_obj = source->worst_obj;
+    this->integer_obj = source->integer_obj;
+    this->integer_sol = source->integer_sol;
   } else {
-    this->disjunctions.resize(0);
+    this->setupAsNew();
   }
 } /* initialize */

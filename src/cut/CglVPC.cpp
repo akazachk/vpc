@@ -337,9 +337,25 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
       }
     } // DISJ_SET_PBB
     else if (mode == VPCMode::SPLITS) {
-      printf("\n## Starting VPC generation from one split. ##\n");
-      disjunction = new SplitDisjunction(this->params);
-      dynamic_cast<SplitDisjunction*>(disjunction)->timer = &timer;
+      printf("\n## Starting VPC generation from splits. ##\n");
+      this->disjunctionSet = new DisjunctionSet;
+      generateSplitDisjunctions(this->disjunctionSet, &si, this->params);
+      // Add timer for each disjunction
+      for (auto& disj : this->disjunctionSet->disjunctions) {
+        dynamic_cast<SplitDisjunction*>(disj)->timer = &timer;
+      }
+      // for (const int var = 0; var < si.getNumCols(); var++) {
+      //   // Check if integer + fractional
+      //   if ()
+
+      //   Disjunction* disj = new SplitDisjunction(this->params);
+      //   dynamic_cast<SplitDisjunction*>(disj)->setVar(var);
+      //   dynamic_cast<SplitDisjunction*>(disj)->timer = &timer;
+      //   this->disjunctionSet->addDisjunction(disj);
+      //   if (disj) { delete disj; }
+      // }
+      // disjunction = new SplitDisjunction(this->params);
+      // dynamic_cast<SplitDisjunction*>(disjunction)->timer = &timer;
     } // SPLITS
     else if (mode == VPCMode::CROSSES) {
       // printf("\n## Starting VPC generation from one cross. ##\n");
@@ -401,13 +417,24 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     // then we assume that the disjunction is already prepared)
     DisjExitReason disjstatus = DisjExitReason::UNKNOWN;
     double integer_obj = solver->getInfinity();
-    if (mode == VPCMode::DISJ_SET_PBB) {
+    if (mode == VPCMode::PARTIAL_BB) {
+      disjstatus = this->disjunction->prepareDisjunction(solver);
+      integer_obj = this->disjunction->integer_obj;
+    }
+    else if (mode == VPCMode::SPLITS) {
+      disjstatus = this->disjunctionSet->prepareDisjunction(solver);
+      integer_obj = this->disjunctionSet->integer_obj;
+    }
+    else if (mode == VPCMode::DISJ_SET_PBB) {
       disjstatus = this->disjunctionSet->prepareDisjunction(solver);
       integer_obj = this->disjunctionSet->integer_obj;
     }
     else {
-      disjstatus = this->disjunction->prepareDisjunction(solver);
-      integer_obj = this->disjunction->integer_obj;
+      error_msg(errorstring,
+          "Mode %s has not yet been implemented for VPC generation.\n",
+          VPCModeName[static_cast<int>(mode)].c_str());
+      writeErrorToLog(errorstring, params.logfile);
+      exit(1);
     }
 
     status = matchStatus(disjstatus);
@@ -469,7 +496,20 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   
   // Get the V-polyhedral relaxation of the root node and prepare probData
   this->curr_disj_id = 0;
-  Disjunction* curr_disj = (mode == VPCMode::DISJ_SET_PBB) ? this->disjunctionSet->disjunctions[curr_disj_id] : this->disjunction;
+  Disjunction* curr_disj = NULL;
+  if (mode == VPCMode::PARTIAL_BB) {
+    curr_disj = this->disjunction;
+  } else if (mode == VPCMode::DISJ_SET_PBB) {
+    curr_disj = this->disjunctionSet->disjunctions[curr_disj_id];
+  } else if (mode == VPCMode::SPLITS) {
+    curr_disj = this->disjunctionSet->disjunctions[curr_disj_id];
+  } else {
+    error_msg(errorstring,
+        "Mode %s has not yet been implemented for VPC generation.\n",
+        VPCModeName[static_cast<int>(mode)].c_str());
+    writeErrorToLog(errorstring, params.logfile);
+    exit(1);
+  }
 
   status = initializeSolverWithRootChanges(curr_disj, 0, vpcsolver, cuts);
   if (status != CglVPC::ExitReason::SUCCESS_EXIT) {
@@ -479,7 +519,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
   }
 
   // Generate cuts from PRLP from each disjunction
-  const int num_disj = (mode == VPCMode::DISJ_SET_PBB) ? this->disjunctionSet->size() : 1;
+  const int num_disj = (mode == VPCMode::DISJ_SET_PBB || mode == VPCMode::SPLITS || mode == VPCMode::CROSSES) ? this->disjunctionSet->size() : 1;
   prlpDataVec.resize(num_disj);
   for (int disj_id = 0; disj_id < num_disj; disj_id++) {
     this->curr_disj_id = disj_id;
@@ -492,7 +532,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
       break;
     }
 
-    curr_disj = (mode == VPCMode::DISJ_SET_PBB) ? this->disjunctionSet->disjunctions[disj_id] : this->disjunction;
+    curr_disj = (mode == VPCMode::DISJ_SET_PBB || mode == VPCMode::SPLITS || mode == VPCMode::CROSSES) ? this->disjunctionSet->disjunctions[disj_id] : this->disjunction;
     PRLPData& curr_prlp_data = prlpDataVec[disj_id];
 
     // If more than 2 disjunctions, then copy vpcsolver

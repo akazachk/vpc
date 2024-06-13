@@ -51,3 +51,9 @@ protected:
       const int branching_way, const double branching_value,
       const OsiSolverInterface* const solver);
 }; /* SplitDisjunction */
+
+/// @brief Generate SplitDisjunction for all variables that are fractional, using hot starts
+int generateSplitDisjunctions(
+    DisjunctionSet* const disjSet,
+    const OsiSolverInterface* const si,
+    const VPCParametersNamespace::VPCParameters& params);
