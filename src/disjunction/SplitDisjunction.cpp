@@ -352,8 +352,9 @@ int generateSplitDisjunctions(
 
   std::vector<double> sortCriterion;
   sortCriterion.reserve(fracCore.size());
+  std::vector<double> fracCoreVal(solver->getColSolution(), solver->getColSolution() + solver->getNumCols());
   for (int var : fracCore) {
-    const double val = solver->getColSolution()[var];
+    const double val = fracCoreVal[var];
     const double floorxk = std::floor(val);
     const double ceilxk = std::ceil(val);
 
