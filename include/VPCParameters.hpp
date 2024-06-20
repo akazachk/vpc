@@ -99,6 +99,7 @@ enum intParam {
 }; /* intParam */
 /// Double-valued parameters
 enum doubleParam {
+  AWAY, ///< min fractionality before a variable is considered not integer-valued
   BB_TIMELIMIT, ///< time limit for doing branch-and-bound
   MAX_SUPPORT_REL, ///< max relative (to number of variables) number of nonzero coefficients in any cut we generate
   EPS, ///< global epsilon (may be further refined based on instance-specific data)
@@ -148,7 +149,7 @@ enum class intConst {
 }; /* intConst */
 /// Double parameters that we do not let the user change
 enum class doubleConst {
-  AWAY, ///< min fractionality before a variable is considered not integer-valued
+  //AWAY, ///< min fractionality before a variable is considered not integer-valued
   DIFFEPS, ///< to check whether something is different enough to throw an error
   RAYEPS, ///< value for which a ray coefficient will be treated as zero
   // Time limits
@@ -599,6 +600,9 @@ struct VPCParameters {
     {doubleParam::BB_TIMELIMIT,
         DoubleParameter(doubleParam::BB_TIMELIMIT, "BB_TIMELIMIT",
             3600., 0., std::numeric_limits<double>::max())},
+    {doubleParam::AWAY, 
+        DoubleParameter("AWAY", 
+            1e-3, 0., 1e-3)},
   }; /* doubleParamValues */
 
   /// @brief string parameter values
@@ -637,7 +641,7 @@ struct VPCParameters {
     {doubleConst::MIN_PRLP_TIMELIMIT, DoubleParameter("MIN_PRLP_TIMELIMIT", 5., 5., 5.)},
     {doubleConst::RAYEPS, DoubleParameter("RAYEPS", 1e-7, 1e-7, 1e-7)},
     {doubleConst::DIFFEPS, DoubleParameter("DIFFEPS", 1e-3, 1e-3, 1e-3)}, // to check whether something is different enough to throw an error
-    {doubleConst::AWAY, DoubleParameter("AWAY", 1e-3, 1e-3, 1e-3)},
+    //{doubleConst::AWAY, DoubleParameter("AWAY", 1e-3, 1e-3, 1e-3)},
   }; /* doubleConstValues */
 
   ///@{

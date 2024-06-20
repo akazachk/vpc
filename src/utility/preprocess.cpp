@@ -315,9 +315,9 @@ bool cleanProblem(
     if (solver->isInteger(col)) {
       // Is the variable fractional in the solution?
       if (!isVal(origColSolution[col], std::floor(origColSolution[col]),
-          params.get(doubleConst::AWAY))
+          params.get(doubleParam::AWAY))
           && !isVal(origColSolution[col], std::ceil(origColSolution[col]),
-              params.get(doubleConst::AWAY))) {
+              params.get(doubleParam::AWAY))) {
         const double origLB = solver->getColLower()[col];
         const double origUB = solver->getColUpper()[col];
         bool downBranchFeasible = true, upBranchFeasible = true;

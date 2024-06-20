@@ -196,6 +196,45 @@ int main(int argc, char** argv) {
   timer.end_timer(OverallTimeStats::INIT_SOLVE_TIME);
   boundInfo.lp_obj = solver->getObjValue();
 
+  //====================================================================================================//
+  { // Check whether the initial solution is integer-feasible
+    const double intTol = params.get(doubleParam::AWAY);
+    fprintf(stdout, "\n## Checking integrality of initial solution using tolerance %g. ##\n", intTol);
+
+    // Now check using solver's getFractionalIndices
+    std::vector<int> fracCore = solver->getFractionalIndices(intTol);
+    if (static_cast<int>(fracCore.size()) == 0) {
+      boundInfo.ip_obj = boundInfo.lp_obj;
+      params.set(doubleParam::IP_OBJ, boundInfo.ip_obj);
+      warning_msg(warnstring, "solver->getFractionalIndices(%g): Initial solution with value %.6f is integer-feasible.\n", intTol, boundInfo.lp_obj);
+    } else {
+      // fprintf(stdout, "solver->getFractionalIndices(%g): Initial solution is not integer-feasible. %d fractional variables.\n", intTol, (int) fracCore.size());
+    }
+
+    // // Double check manually
+    // std::vector<int> fracCore2;
+    // for (int i = 0; i < solver->getNumCols(); i++) {
+    //   if (solver->isInteger(i)) {
+    //     if (!isZero(sol[i] - std::round(sol[i]), intTol)) {
+    //       fracCore2.push_back(i);
+    //     }
+    //   }
+    // }
+    // if (static_cast<int>(fracCore2.size()) == 0) {
+    //   boundInfo.ip_obj = boundInfo.lp_obj;
+    //   params.set(doubleParam::IP_OBJ, boundInfo.ip_obj);
+    //   warning_msg(warnstring, "Manual check: Initial solution is integer-feasible.\n");
+    // } else {
+    //   // fprintf(stdout, "Manual check: Initial solution is not integer-feasible. %d fractional variables.\n", (int) fracCore2.size());
+    // }
+
+    // If no integer variables are fractional, exit early
+    if (static_cast<int>(fracCore.size()) == 0) {
+      exitReason = CglVPC::ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT;
+      return wrapUp(0, argc, argv);
+    }
+  } // Check whether the initial solution is integer-feasible
+
   /** DEBUG TESTING BARRIER METHOD {
     OsiClpSolverInterface* interiorSolver = dynamic_cast<OsiClpSolverInterface*>(solver->clone());
     interiorSolver->getModelPtr()->barrier(false);
@@ -851,6 +890,7 @@ int main(int argc, char** argv) {
  */
 int startUp(int argc, char** argv) {
   int status = 0;
+  exitReason = CglVPC::ExitReason::UNKNOWN;
 
   // Input handling
   printf("## V-Polyhedral Disjunctive Cuts ##\n");
@@ -1263,6 +1303,7 @@ int processArgs(int argc, char** argv) {
   const char* const short_opts = "b:B:c:d:D:f:g:hi:l:m:o:r:R:s:S:t:T:v:";
   const struct option long_opts[] =
   {
+      {"away",                  required_argument, 0, 'a'*'2'},
       {"bb_runs",               required_argument, 0, 'b'},
       {"bb_mode",               required_argument, 0, 'b'*'1'},
       {"bb_strategy",           required_argument, 0, 'B'},
@@ -1314,6 +1355,16 @@ int processArgs(int argc, char** argv) {
   int status = 0;
   while ((inp = getopt_long(argc, argv, short_opts, long_opts, nullptr)) != -1) {
     switch (inp) {
+      case 'a'*'2': {
+                      double val;
+                      doubleParam param = doubleParam::AWAY;
+                      if (!parseDouble(optarg, val)) {
+                        error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                        exit(1);
+                      }
+                      params.set(param, val);
+                      break;
+                    }
       case 'b': {
                   int val;
                   intParam param = intParam::BB_RUNS;

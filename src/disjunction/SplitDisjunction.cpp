@@ -125,7 +125,7 @@ DisjExitReason SplitDisjunction::prepareDisjunction(const OsiSolverInterface* co
       const double floorxk = std::floor(val);
       const double ceilxk = std::ceil(val);
       const double frac = CoinMin(val - floorxk, ceilxk - val);
-      if (!isVal(frac, 0., params.get(VPCParametersNamespace::doubleConst::AWAY))) {
+      if (!isVal(frac, 0., params.get(VPCParametersNamespace::doubleParam::AWAY))) {
         fracCore.push_back(col);
         fractionality.push_back(frac);
       }
@@ -198,8 +198,8 @@ bool SplitDisjunction::checkVar(OsiSolverInterface* si, int col) {
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }
-  if (isVal(val, floorxk, params.get(VPCParametersNamespace::doubleConst::AWAY))
-        || isVal(val, ceilxk, params.get(VPCParametersNamespace::doubleConst::AWAY))) {
+  if (isVal(val, floorxk, params.get(VPCParametersNamespace::doubleParam::AWAY))
+        || isVal(val, ceilxk, params.get(VPCParametersNamespace::doubleParam::AWAY))) {
     error_msg(errorstring, "Chosen variable %d is not fractional (value: %1.6e).\n", col, val);
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
@@ -317,7 +317,7 @@ int generateSplitDisjunctions(
     DisjunctionSet* const disjSet,
     const OsiSolverInterface* const si,
     const VPCParametersNamespace::VPCParameters& params) {
-  std::vector<int> fracCore = si->getFractionalIndices(params.get(VPCParametersNamespace::doubleConst::AWAY));
+  std::vector<int> fracCore = si->getFractionalIndices(params.get(VPCParametersNamespace::doubleParam::AWAY));
   if (fracCore.size() == 0)
     return 0;
 
@@ -363,8 +363,8 @@ int generateSplitDisjunctions(
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
     }
-    if (isVal(val, floorxk, params.get(VPCParametersNamespace::doubleConst::AWAY))
-          || isVal(val, ceilxk, params.get(VPCParametersNamespace::doubleConst::AWAY))) {
+    if (isVal(val, floorxk, params.get(VPCParametersNamespace::doubleParam::AWAY))
+          || isVal(val, ceilxk, params.get(VPCParametersNamespace::doubleParam::AWAY))) {
       error_msg(errorstring, "Chosen variable %d is not fractional (value: %1.6e).\n", var, val);
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
