@@ -187,7 +187,10 @@ void SplitDisjunction::initialize(const SplitDisjunction* const source,
  *
  * It is assumed that the solver is already set up for hot start
  */
-bool SplitDisjunction::checkVar(OsiSolverInterface* si, int col) {
+bool SplitDisjunction::checkVar(OsiSolverInterface* si, int col) {  // Get parameters
+  const double AWAY = params.get(VPCParametersNamespace::doubleParam::AWAY);
+  const double MAX_NUM_HOT_START_VIOL = params.get(VPCParametersNamespace::intParam::MAX_NUM_HOT_START_VIOL);
+
   SolverInterface* solver = dynamic_cast<SolverInterface*>(si);
   const double val = solver->getColSolution()[col];
   const double floorxk = std::floor(val);
@@ -198,8 +201,7 @@ bool SplitDisjunction::checkVar(OsiSolverInterface* si, int col) {
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
   }
-  if (isVal(val, floorxk, params.get(VPCParametersNamespace::doubleParam::AWAY))
-        || isVal(val, ceilxk, params.get(VPCParametersNamespace::doubleParam::AWAY))) {
+  if (isVal(val, floorxk, AWAY) || isVal(val, ceilxk, AWAY)) {
     error_msg(errorstring, "Chosen variable %d is not fractional (value: %1.6e).\n", col, val);
     writeErrorToLog(errorstring, params.logfile);
     exit(1);
@@ -211,7 +213,7 @@ bool SplitDisjunction::checkVar(OsiSolverInterface* si, int col) {
 
   // Check down branch
   solver->setColUpper(col, floorxk);
-  solveFromHotStart(solver, col, true, origUB, floorxk);
+  solveFromHotStart(solver, col, true, origUB, floorxk, MAX_NUM_HOT_START_VIOL);
   if (solver->isProvenOptimal()) {
     addTerm(col, 1, floorxk, solver);
   } else if (solver->isProvenPrimalInfeasible()) {
@@ -227,11 +229,11 @@ bool SplitDisjunction::checkVar(OsiSolverInterface* si, int col) {
   solver->setColUpper(col, origUB);
 
   // Return to previous state
-  solver->solveFromHotStart();
+  solveFromHotStart(solver, col, true, origUB, origUB, MAX_NUM_HOT_START_VIOL);
 
   // Check up branch
   solver->setColLower(col, ceilxk);
-  solveFromHotStart(solver, col, false, origLB, ceilxk);
+  solveFromHotStart(solver, col, false, origLB, ceilxk, MAX_NUM_HOT_START_VIOL);
   if (solver->isProvenOptimal()) {
     addTerm(col, 0, ceilxk, solver);
   } else if (solver->isProvenPrimalInfeasible()) {
@@ -247,7 +249,7 @@ bool SplitDisjunction::checkVar(OsiSolverInterface* si, int col) {
   solver->setColLower(col, origLB);
 
   // Return to original state
-  solver->solveFromHotStart();
+  solveFromHotStart(solver, col, false, origLB, origLB, MAX_NUM_HOT_START_VIOL);
 
   // Check if some side of the split is infeasible
   if (!downBranchFeasible || !upBranchFeasible) {
@@ -317,9 +319,14 @@ int generateSplitDisjunctions(
     DisjunctionSet* const disjSet,
     const OsiSolverInterface* const si,
     const VPCParametersNamespace::VPCParameters& params) {
-  std::vector<int> fracCore = si->getFractionalIndices(params.get(VPCParametersNamespace::doubleParam::AWAY));
-  if (fracCore.size() == 0)
+  // Get parameters
+  const double AWAY = params.get(VPCParametersNamespace::doubleParam::AWAY);
+  const double MAX_NUM_HOT_START_VIOL = params.get(VPCParametersNamespace::intParam::MAX_NUM_HOT_START_VIOL);
+
+  std::vector<int> fracCore = si->getFractionalIndices(AWAY);
+  if (fracCore.size() == 0) {
     return 0;
+  }
 
   int num_splits = 0;
   std::vector<int> fracCoreSelected;
@@ -347,12 +354,15 @@ int generateSplitDisjunctions(
     // It's okay, we can continue
   }
 #endif
-  solver->enableFactorization();
-  solver->markHotStart();
 
   std::vector<double> sortCriterion;
   sortCriterion.reserve(fracCore.size());
   std::vector<double> fracCoreVal(solver->getColSolution(), solver->getColSolution() + solver->getNumCols());
+
+  // START OF MAIN HOT START CODE
+  solver->enableFactorization();
+  solver->markHotStart();
+
   for (int var : fracCore) {
     const double val = fracCoreVal[var];
     const double floorxk = std::floor(val);
@@ -363,8 +373,8 @@ int generateSplitDisjunctions(
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
     }
-    if (isVal(val, floorxk, params.get(VPCParametersNamespace::doubleParam::AWAY))
-          || isVal(val, ceilxk, params.get(VPCParametersNamespace::doubleParam::AWAY))) {
+
+    if (isVal(val, floorxk, AWAY) || isVal(val, ceilxk, AWAY)) {
       error_msg(errorstring, "Chosen variable %d is not fractional (value: %1.6e).\n", var, val);
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
@@ -378,7 +388,7 @@ int generateSplitDisjunctions(
 
     // Check down branch
     solver->setColUpper(var, floorxk);
-    solveFromHotStart(solver, var, true, origUB, floorxk);
+    solveFromHotStart(solver, var, true, origUB, floorxk, MAX_NUM_HOT_START_VIOL);
     if (solver->isProvenOptimal()) {
       downBound = solver->getObjValue();
     } else if (solver->isProvenPrimalInfeasible()) {
@@ -394,11 +404,11 @@ int generateSplitDisjunctions(
     solver->setColUpper(var, origUB);
 
     // Return to previous state
-    solver->solveFromHotStart();
+    solveFromHotStart(solver, var, true, origUB, origUB, MAX_NUM_HOT_START_VIOL);
 
     // Check up branch
     solver->setColLower(var, ceilxk);
-    solveFromHotStart(solver, var, false, origLB, ceilxk);
+    solveFromHotStart(solver, var, false, origLB, ceilxk, MAX_NUM_HOT_START_VIOL);
     if (solver->isProvenOptimal()) {
       upBound = solver->getObjValue();
     } else if (solver->isProvenPrimalInfeasible()) {
@@ -414,7 +424,7 @@ int generateSplitDisjunctions(
     solver->setColLower(var, origLB);
 
     // Return to original state
-    solver->solveFromHotStart();
+    solveFromHotStart(solver, var, false, origLB, origLB, MAX_NUM_HOT_START_VIOL);
 
     // Check if some side of the split is infeasible
     if (!downBranchFeasible || !upBranchFeasible) {

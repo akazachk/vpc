@@ -1327,6 +1327,7 @@ int processArgs(int argc, char** argv) {
       {"ip_obj",                required_argument, 0, 'i'},
       {"logfile",               required_argument, 0, 'l'},
       {"max_support_rel",       required_argument, 0, 'm'*'1'},
+      {"max_num_hot_start_viol",required_argument, 0, 'm'*'2'},
       {"mode",                  required_argument, 0, 'm'},
       {"optfile",               required_argument, 0, 'o'},
       {"partial_bb_strategy",   required_argument, 0, 's'},
@@ -1664,6 +1665,16 @@ int processArgs(int argc, char** argv) {
                   params.set(stringParam::LOGFILE, optarg);
                   break;
                 }
+      case 'm': {
+                 int val;
+                 intParam param = intParam::MODE;
+                 if (!parseInt(optarg, val)) {
+                   error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
+                   exit(1);
+                 }
+                 params.set(param, val);
+                 break;
+               }
       case 'm'*'1': {
                       double val;
                       doubleParam param = doubleParam::MAX_SUPPORT_REL;
@@ -1674,9 +1685,9 @@ int processArgs(int argc, char** argv) {
                       params.set(param, val);
                       break;
                     }
-      case 'm': {
+      case 'm'*'2': {
                  int val;
-                 intParam param = intParam::MODE;
+                 intParam param = intParam::MAX_NUM_HOT_START_VIOL;
                  if (!parseInt(optarg, val)) {
                    error_msg(errorstring, "Error reading %s. Given value: %s.\n", params.name(param).c_str(), optarg);
                    exit(1);
@@ -1982,6 +1993,8 @@ int processArgs(int argc, char** argv) {
                 helpstring += "--bb_strong_branching=0/1\n";
                 helpstring += "--bb_mode={0,1,10,11,100,...,111}\n\tWhich branch-and-bound experiments to run (ones = no cuts, tens = vpcs, hundreds = gmics).\n";
                 helpstring += "--bb_timelimit=num seconds\n\tNumber of seconds allotted to the solver to run branch-and-bound tests.\n";
+                helpstring += "\n# Other options #\n";
+                helpstring += "--max_num_hot_start_viol=num viols\n\tMaximum number of violations to allow before hot start is disabled and use solver resolve instead.\n";
                 helpstring += "## END OF HELP ##\n";
                 std::cout << helpstring << std::endl;
                 status = 1;
