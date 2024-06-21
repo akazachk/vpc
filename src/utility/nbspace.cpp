@@ -144,17 +144,37 @@ void setCompNBCoorPoint(CoinPackedVector& vec, double& objViolation,
         packedElem.data(), false);
   }
 
-  if (!isVal(nonTinyObj, objViolation, params.get(EPS))) {
-    if (!isVal(nonTinyObj, objViolation, params.get(doubleConst::DIFFEPS))) {
+  const double violation = nonTinyObj - objViolation;
+  const double epsilon = params.get(EPS);
+  if (!isVal(violation, 0.0, epsilon)) {
+    // Check absolute and relative violation
+    double ratio = 1.;
+    if (isZero(nonTinyObj, epsilon) && isZero(objViolation, epsilon)) {
+      // nothing to do, keep ratio = 1.
+      ratio = 1.;
+    }
+    else if (isZero(nonTinyObj, epsilon) || isZero(objViolation, epsilon)) {
+      // ratio is 1 + abs(diff between values, since one of these values is zero)
+      ratio = 1. + std::abs(nonTinyObj - objViolation);
+    }
+    else {
+      ratio = nonTinyObj / objViolation;
+      if (ratio < 1.) {
+        ratio = objViolation / nonTinyObj;
+      }
+    }
+
+    // Absolute violation > DIFFEPS and more than 3% difference in ratio leads to an error
+    if (!isVal(violation, 0.0, params.get(doubleConst::DIFFEPS)) && greaterThanVal(ratio, 1.03)) {
       error_msg(errorstring,
-          "Point: Calculated dot product with obj differs from solver's. Obj viol from solver: %.8f. Calculated: %.8f.\n",
-          objViolation, nonTinyObj);
+          "Point: Calculated dot product with obj differs from solver's. Obj viol from solver: %.8f. Calculated: %.8f. Difference: %e. Ratio: %e.\n",
+          objViolation, nonTinyObj, std::abs(violation), ratio);
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
     } else {
       warning_msg(warnstring,
-          "Point: Calculated dot product with obj differs from solver's. Obj viol from solver: %.8f. Calculated: %.8f.\n",
-          objViolation, nonTinyObj);
+          "Point: Calculated dot product with obj differs from solver's. Obj viol from solver: %.8f. Calculated: %.8f. Difference: %e. Ratio: %e.\n",
+          objViolation, nonTinyObj, std::abs(violation), ratio);
     }
   }
 } /* setCompNBCoorPoint */
