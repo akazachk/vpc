@@ -178,9 +178,19 @@ std::string upperCaseString(const std::string& tmpData);
 /// @brief Converts string to upper case and remove underscores (for processing parameters)
 std::string upperCaseStringNoUnderscore(const std::string& tmpData);
 
+/// @brief Check whether \p val1 is at least \p eps less than \p val2
+inline bool lessThanVal(const double val1, const double val2, const double eps = 1e-7) {
+  return (val1 <= (val2 - eps));
+} /* lessThanVal */
+
+/// @brief Check whether \p val1 is at least \p eps greater than \p val2
+inline bool greaterThanVal(const double val1, const double val2, const double eps = 1e-7) {
+  return (val1 >= (val2 + eps));
+} /* greaterThanVal */
+
 /// @brief Check equality within tolerance \p eps
 inline bool isVal(const double val1, const double val2, const double eps = 1e-7) {
-  return (std::abs((val1) - (val2)) <= eps);
+  return (std::abs((val1) - (val2)) < eps);
 } /* isVal */
 
 /// @brief Check equality to zero within tolerance \p eps; calls #isVal
@@ -188,30 +198,22 @@ inline bool isZero(const double val, const double eps = 1e-7) {
   return isVal(val, 0.0, eps);
 } /* isZero */
 
-/// @brief Check whether \p val1 is at least \p eps less than \p val2
-inline bool lessThanVal(const double val1, const double val2, const double eps = 1e-7) {
-  return (val1 < (val2 - eps));
-} /* lessThanVal */
-
-/// @brief Check whether \p val1 is at least \p eps greater than \p val2
-inline bool greaterThanVal(const double val1, const double val2, const double eps = 1e-7) {
-  return (val1 > (val2 + eps));
-} /* greaterThanVal */
-
 /// @brief Global infinity
 inline double getInfinity() {
   return std::numeric_limits<double>::max();
 }
 
-/// @brief Check whether value is at infinity using #lessThanVal
+/// @brief Check whether value \p val is at \p infinity using #lessThanVal
+/// @details Due to precision, \p val might be declared as infinity, even if it is technically less than \p infinity
 inline bool isInfinity(const double val, const double infinity = __DBL_MAX__, const double eps = 1e-7) {
-  return !lessThanVal(val, infinity, eps);
+  return (val >= infinity) || !lessThanVal(val, infinity, eps);
 } /* isInfinity */
 
-/// @brief Check whether value is at negative infinity using #greaterThanVal
+/// @brief Check whether value \p val is at negative infinity \p neg_infinity using #greaterThanVal
+/// @details Due to precision, \p val might be declared as negative infinity, even if it is technically greater than \p neg_infinity
 inline bool isNegInfinity(const double val, const double neg_infinity = __DBL_MIN__, const double eps = 1e-7) {
-  return !greaterThanVal(val, neg_infinity, eps);
-} /* isInfinity */
+  return (val <= neg_infinity) || !greaterThanVal(val, neg_infinity, eps);
+} /* isNegInfinity */
 
 ///// @brief Covert an integer into a string, accounting for possible infinite values
 //inline const std::string stringValue(const int value,

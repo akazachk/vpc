@@ -357,9 +357,21 @@ public:
     virtual const T get_max() const { return this->max_val; }
     /// Check presence of \p test_val in #allowed_vals (if that is set), or compare it to #min_val and #max_val
     virtual bool val_is_allowed(const T test_val) const {
+      const T infinity = std::numeric_limits<T>::max();
+      const T neginfinity = std::numeric_limits<T>::lowest();
       if (!this->allowed_vals.empty()) {
         return !(std::find(allowed_vals.begin(), allowed_vals.end(), test_val) == allowed_vals.end());
-      } else {
+      }
+      else if ((isInfinity(this->min_val, infinity) || greaterThanVal(this->val, this->min_val)) && isInfinity(this->max_val, infinity)) {
+        return true;
+      }
+      else if ((isNegInfinity(this->max_val, neginfinity) || lessThanVal(this->val, this->max_val)) && isNegInfinity(this->min_val, neginfinity)) {
+        return true;
+      }
+      else if (isVal(this->min_val, this->max_val)) {
+        return isVal(this->val, this->min_val);
+      }
+      else {
         return !(lessThanVal(this->val, this->min_val) || greaterThanVal(this->val, this->max_val));
       }
     }
@@ -593,7 +605,7 @@ struct VPCParameters {
         DoubleParameter(doubleParam::IP_OBJ, "IP_OBJ",
             std::numeric_limits<double>::max(), std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max())},
     {doubleParam::INF,
-        DoubleParameter(doubleParam::EPS, "INF",
+        DoubleParameter(doubleParam::INF, "INF",
             std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max())},
     {doubleParam::EPS,
         DoubleParameter(doubleParam::EPS, "EPS",

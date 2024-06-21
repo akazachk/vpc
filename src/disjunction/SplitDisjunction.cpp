@@ -473,7 +473,7 @@ int generateSplitDisjunctions(
       break;
 
     const int var = fracCoreSelected[i];
-    SplitDisjunction* disj = new SplitDisjunction;
+    SplitDisjunction* disj = new SplitDisjunction(params);
     disj->var = var;
     disj->prepareDisjunction(si);
     disjSet->addDisjunction(disj);
