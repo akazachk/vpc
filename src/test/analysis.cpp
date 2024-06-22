@@ -747,8 +747,13 @@ void printCutInfo(const SummaryCutInfo& cutInfoGMICs,
     int count = 0;
     fprintf(logfile, "%s%c", stringValue(cutInfo.num_rounds).c_str(), SEP); count++;
     fprintf(logfile, "%s%c", stringValue(cutInfo.num_cuts).c_str(), SEP); count++;
-    fprintf(logfile, "%s%c", stringValue(cutInfo.numCutsOfType[static_cast<int>(CglVPC::CutType::ONE_SIDED_CUT)]).c_str(), SEP); count++;
-    fprintf(logfile, "%s%c", stringValue(cutInfo.numCutsOfType[static_cast<int>(CglVPC::CutType::OPTIMALITY_CUT)]).c_str(), SEP); count++;
+    if (cutInfo.num_cuts > 0) {
+      fprintf(logfile, "%s%c", stringValue(cutInfo.numCutsOfType[static_cast<int>(CglVPC::CutType::ONE_SIDED_CUT)]).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", stringValue(cutInfo.numCutsOfType[static_cast<int>(CglVPC::CutType::OPTIMALITY_CUT)]).c_str(), SEP); count++;
+    } else {
+      fprintf(logfile, "%s%c", stringValue(0).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c", stringValue(0).c_str(), SEP); count++;
+    }
     if (cutInfo.num_cuts > 0) {
       fprintf(logfile, "%s%c", stringValue(cutInfo.min_support).c_str(), SEP); count++;
       fprintf(logfile, "%s%c", stringValue(cutInfo.max_support).c_str(), SEP); count++;
@@ -773,10 +778,26 @@ void printCutInfo(const SummaryCutInfo& cutInfoGMICs,
     int count = 0;
     fprintf(logfile, "%s%c", stringValue(cutInfo.num_obj_tried).c_str(), SEP); count++;
     for (int obj_ind = 0; obj_ind < static_cast<int>(CglVPC::ObjectiveType::NUM_OBJECTIVE_TYPES); obj_ind++) {
-      fprintf(logfile, "%s%c", stringValue(cutInfo.numObjFromHeur[obj_ind]).c_str(), SEP); count++;
-      fprintf(logfile, "%s%c", stringValue(cutInfo.numCutsFromHeur[obj_ind]).c_str(), SEP); count++;
-      fprintf(logfile, "%s%c", stringValue(cutInfo.numFailsFromHeur[obj_ind]).c_str(), SEP); count++;
-      fprintf(logfile, "%s%c", stringValue(cutInfo.numActiveFromHeur[obj_ind]).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c",
+        (cutInfo.num_obj_tried > 0)
+          ? stringValue(cutInfo.numObjFromHeur[obj_ind]).c_str()
+          : stringValue(0).c_str(),
+        SEP); count++;
+      fprintf(logfile, "%s%c",
+        (cutInfo.num_obj_tried > 0)
+          ? stringValue(cutInfo.numCutsFromHeur[obj_ind]).c_str()
+          : stringValue(0).c_str(),
+        SEP); count++;
+      fprintf(logfile, "%s%c",
+        (cutInfo.num_obj_tried > 0)
+          ? stringValue(cutInfo.numFailsFromHeur[obj_ind]).c_str()
+          : stringValue(0).c_str(),
+        SEP); count++;
+      fprintf(logfile, "%s%c",
+        (cutInfo.num_obj_tried > 0)
+          ? stringValue(cutInfo.numActiveFromHeur[obj_ind]).c_str()
+          : stringValue(0).c_str(),
+        SEP); count++;
     }
     assert(count == countObjInfoEntries);
   } // OBJ INFO
@@ -784,7 +805,11 @@ void printCutInfo(const SummaryCutInfo& cutInfoGMICs,
     int count = 0;
     fprintf(logfile, "%s%c", stringValue(cutInfo.num_failures).c_str(), SEP); count++;
     for (int fail_ind = 0; fail_ind < static_cast<int>(CglVPC::FailureType::NUM_FAILURE_TYPES); fail_ind++) {
-      fprintf(logfile, "%s%c", stringValue(cutInfo.numFails[fail_ind]).c_str(), SEP); count++;
+      fprintf(logfile, "%s%c",
+        (cutInfo.num_failures > 0)
+          ? stringValue(cutInfo.numFails[fail_ind]).c_str()
+          : stringValue(0).c_str(),
+        SEP); count++;
     }
     assert(count == countFailInfoEntries);
   } // FAIL INFO

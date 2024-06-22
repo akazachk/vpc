@@ -184,6 +184,33 @@ int main(int argc, char** argv) {
   if (status) { return status; }
 
   //====================================================================================================//
+  // Information from each round of cuts will be saved and optionally printed
+  int num_rounds = params.get(ROUNDS); // not const in case we do not exhaust the limit
+#ifndef CALC_COND_NUM
+  const bool COMPUTE_COND_NUM = false;
+#else
+  const bool COMPUTE_COND_NUM = false;
+#endif
+  std::vector<OsiCuts> vpcs_by_round(num_rounds);
+  cutInfoVec.resize(num_rounds);
+  cutInfoGMICVec.resize(num_rounds);
+  boundInfoVec.resize(num_rounds);
+
+  std::vector<double> gmic_gen_time_by_round(num_rounds);
+  std::vector<double> gmic_apply_time_by_round(num_rounds);
+  //std::vector<double> gmic_cond_num1_by_round(num_rounds);
+  std::vector<double> gmic_cond_num2_by_round;
+  std::vector<double> vpc_gen_time_by_round(num_rounds);
+  std::vector<double> vpc_apply_time_by_round(num_rounds);
+
+  //std::vector<double> vpc_cond_num1_by_round(num_rounds);
+  std::vector<double> vpc_cond_num2_by_round;
+  if (COMPUTE_COND_NUM) {
+    gmic_cond_num2_by_round.resize(num_rounds);
+    vpc_cond_num2_by_round.resize(num_rounds);
+  }
+
+  //====================================================================================================//
   // Set up solver and get initial solution
   initializeSolver(solver, params.get(stringParam::FILENAME), params.get(VPCParametersNamespace::intParam::VERBOSITY), params.get(VPCParametersNamespace::doubleParam::TIMELIMIT), params.logfile);
   timer.start_timer(OverallTimeStats::INIT_SOLVE_TIME);
@@ -195,6 +222,27 @@ int main(int argc, char** argv) {
   }
   timer.end_timer(OverallTimeStats::INIT_SOLVE_TIME);
   boundInfo.lp_obj = solver->getObjValue();
+
+  //====================================================================================================//
+  // Save original solver in case we wish to come back to it later
+  origSolver = solver->clone();
+  if (!origSolver->isProvenOptimal()) {
+    origSolver->initialSolve();
+    checkSolverOptimality(origSolver, false);
+  }
+
+  // Also save copies for calculating other objective values
+  // We only need these if cuts other than VPCs are generated
+  // The "solver" is the one used for generating cuts for each round
+  // solver        ::  stores the cuts we actually want to "count"
+  // GMICSolver    ::  only GMICs
+  // VPCSolver     ::  if GMICs count, this is only VPCs; otherwise, it is both GMICs and VPCs
+  // allCutsSolver ::  all generated cuts
+  if (params.get(GOMORY) != 0) {
+    GMICSolver = solver->clone();
+    VPCSolver = solver->clone();
+    allCutsSolver = solver->clone();
+  }
 
   //====================================================================================================//
   { // Check whether the initial solution is integer-feasible
@@ -301,26 +349,6 @@ int main(int argc, char** argv) {
   timer.start_timer(OverallTimeStats::TOTAL_TIME);
 
   //====================================================================================================//
-  // Save original solver in case we wish to come back to it later
-  origSolver = solver->clone();
-  if (!origSolver->isProvenOptimal()) {
-    origSolver->initialSolve();
-    checkSolverOptimality(origSolver, false);
-  }
-
-  // Also save copies for calculating other objective values
-  // We only need these if cuts other than VPCs are generated
-  // The "solver" is the one used for generating cuts for each round
-  // solver        ::  stores the cuts we actually want to "count"
-  // GMICSolver    ::  only GMICs
-  // VPCSolver     ::  if GMICs count, this is only VPCs; otherwise, it is both GMICs and VPCs
-  // allCutsSolver ::  all generated cuts
-  if (params.get(GOMORY) != 0) {
-    GMICSolver = solver->clone();
-    VPCSolver = solver->clone();
-    allCutsSolver = solver->clone();
-  }
-
   // Possibly preprocess instead of doing cuts
   if (params.get(PREPROCESS) != 0) {
     // Cleaning involves running presolve and branching
@@ -332,6 +360,7 @@ int main(int argc, char** argv) {
     return wrapUp(0, argc, argv);
   }
 
+  //====================================================================================================//
   // Process disjunction options, if different by round
   // Parse string DISJ_OPTIONS into vector of ints, splitting by default delimiter
   std::vector<int> disjOptions;
@@ -339,32 +368,7 @@ int main(int argc, char** argv) {
     return wrapUp(1, argc, argv);
   }
 
-  // Information from each round of cuts will be saved and optionally printed
-  int num_rounds = params.get(ROUNDS); // not const in case we do not exhaust the limit
-#ifndef CALC_COND_NUM
-  const bool COMPUTE_COND_NUM = false;
-#else
-  const bool COMPUTE_COND_NUM = false;
-#endif
-  std::vector<OsiCuts> vpcs_by_round(num_rounds);
-  cutInfoVec.resize(num_rounds);
-  cutInfoGMICVec.resize(num_rounds);
-  boundInfoVec.resize(num_rounds);
-
-  std::vector<double> gmic_gen_time_by_round(num_rounds);
-  std::vector<double> gmic_apply_time_by_round(num_rounds);
-  //std::vector<double> gmic_cond_num1_by_round(num_rounds);
-  std::vector<double> gmic_cond_num2_by_round;
-  std::vector<double> vpc_gen_time_by_round(num_rounds);
-  std::vector<double> vpc_apply_time_by_round(num_rounds);
-
-  //std::vector<double> vpc_cond_num1_by_round(num_rounds);
-  std::vector<double> vpc_cond_num2_by_round;
-  if (COMPUTE_COND_NUM) {
-    gmic_cond_num2_by_round.resize(num_rounds);
-    vpc_cond_num2_by_round.resize(num_rounds);
-  }
-
+  //====================================================================================================//
   // If requested, open cutrounds_logfile file then print header and round "0" information
   FILE* cutrounds_logfile = NULL;
   const int NUM_CUTROUND_INFO = 1 + 3 + 2*6 + 2*COMPUTE_COND_NUM; // round + 3 x bound + 2 x (num cuts, 3xdensity, gen time, apply time) + 2 x cond_num2 when computed
