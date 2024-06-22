@@ -267,13 +267,13 @@ inline const std::string stringValue(
     /// how many digits after the decimal to print (-1 default implies do not limit)
     const int NUM_DIGITS_AFTER_DEC = -1) {
   char temp[500];
-  if (!lessThanVal(value, INF)) {
+  if (isInfinity(value, INF)) {
     if (NUM_DIGITS_BEFORE_DEC == -1) {
       snprintf(temp, sizeof(temp) / sizeof(char), "%s", "\'inf\'");
     } else {
       snprintf(temp, sizeof(temp) / sizeof(char), "%-*s", NUM_DIGITS_BEFORE_DEC, "\'inf\'");
     }
-  } else if (!greaterThanVal(value, -INF)) {
+  } else if (isNegInfinity(value, -INF)) {
     if (NUM_DIGITS_BEFORE_DEC == -1) {
       snprintf(temp, sizeof(temp) / sizeof(char), "%s", "\'-inf\'");
     } else {
