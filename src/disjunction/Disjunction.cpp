@@ -364,6 +364,7 @@ void Disjunction::updateObjValue(const double objVal) {
 } /* updateObjValue */
 
 /****************** PROTECTED **********************/
+
 void Disjunction::initialize(const Disjunction* const source) {
   if (source != NULL) {
     this->name = source->name;
@@ -386,6 +387,8 @@ void Disjunction::initialize(const Disjunction* const source) {
     setupAsNew();
   }
 } /* initialize */
+
+/****************** DisjuntionSet **********************/
 
 DisjunctionSet::DisjunctionSet() {
   initialize(NULL);
@@ -419,8 +422,11 @@ DisjunctionSet *DisjunctionSet::clone() const
 void DisjunctionSet::setupAsNew() {
   this->disjunctions.resize(0);
   this->best_obj = std::numeric_limits<double>::max();
+  this->best_obj_disj = -1;
   this->worst_obj = std::numeric_limits<double>::lowest();
+  this->worst_obj_disj = -1;
   this->integer_obj = std::numeric_limits<double>::max();
+  this->integer_obj_disj = -1;
   this->integer_sol.resize(0);
 } /* setupAsNew */
 
@@ -444,12 +450,21 @@ DisjExitReason DisjunctionSet::prepareDisjunction() {
 } /* prepareDisjunction */
 #endif // USE_COIN
 
-void DisjunctionSet::updateObjValue(const double objVal) {
-  if (objVal < this->best_obj) {
-    this->best_obj = objVal;
+void DisjunctionSet::updateObjValue(const Disjunction* const disj, const int disj_ind) {
+  if (disj->best_obj < this->best_obj) {
+    this->best_obj = disj->best_obj;
+    this->best_obj_disj = disj_ind;
   }
-  if (objVal > this->worst_obj) {
-    this->worst_obj = objVal;
+  if (disj->worst_obj > this->worst_obj) {
+    this->worst_obj = disj->worst_obj;
+    this->worst_obj_disj = disj_ind;
+  }
+  if (disj->integer_obj < this->integer_obj) {
+    this->integer_obj = disj->integer_obj;
+    this->integer_obj_disj = disj_ind;
+    if (disj->integer_sol.size() > 0) {
+      this->integer_sol = disj->integer_sol;
+    }
   }
 } /* updateObjValue */
 
@@ -460,8 +475,11 @@ void DisjunctionSet::initialize(const DisjunctionSet* const source) {
       this->disjunctions[i] = source->disjunctions[i]->clone();
     }
     this->best_obj = source->best_obj;
+    this->best_obj_disj = source->best_obj_disj;
     this->worst_obj = source->worst_obj;
+    this->worst_obj_disj = source->worst_obj_disj;
     this->integer_obj = source->integer_obj;
+    this->integer_obj_disj = source->integer_obj_disj;
     this->integer_sol = source->integer_sol;
   } else {
     this->setupAsNew();

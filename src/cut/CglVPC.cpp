@@ -482,8 +482,9 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
       double offset = 0.;
       solver->getDblParam(OsiDblParam::OsiObjOffset, offset);
       objCut.setLb(integer_obj + offset);
+      this->curr_disj_id = (this->disjunctionSet != NULL) ? this->disjunctionSet->integer_obj_disj : 0;
       addCut(objCut, cuts, CutType::OPTIMALITY_CUT,
-          ObjectiveType::OBJ_CUT, -1); // amk: the -1 here may cause issues
+          ObjectiveType::OBJ_CUT, curr_disj_id); // amk: if disj_id is -1 here, it may cause issues
     } // exit out early if integer-optimal solution found
     if (status != CglVPC::ExitReason::SUCCESS_EXIT) {
       finish(status);
@@ -511,6 +512,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     exit(1);
   }
 
+  // Initialize solver, including any common changes at the root node (should be same for all disjunctions)
   status = initializeSolverWithRootChanges(curr_disj, 0, vpcsolver, cuts);
   if (status != CglVPC::ExitReason::SUCCESS_EXIT) {
     if (vpcsolver) { delete vpcsolver; }
