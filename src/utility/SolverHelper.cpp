@@ -281,18 +281,18 @@ bool solveFromHotStart(
     const double newBound,
     /// [in,out] If in a prior call, hot start seemed to not work, we might disable it, in which case we need to use normal resolving
     int& numHotStartViolations,
-    /// [in] Maximum number of \p numHotStartViolations before switching to resolve; -1 = only use solveFromHotStart, 0 = immediately switch to resolve
-    const int MAX_NUM_HOT_START_VIOLS) {
-  if (MAX_NUM_HOT_START_VIOLS < 0) {
+    /// [in] Maximum number of \p numHotStartViolation before switching to resolve; -1 = only use solveFromHotStart, 0 = immediately switch to resolve
+    const int MAX_NUM_HOT_START_VIOL) {
+  if (MAX_NUM_HOT_START_VIOL < 0) {
     solver->solveFromHotStart();
     return solver->isProvenOptimal();
   }
 
-  if (numHotStartViolations < MAX_NUM_HOT_START_VIOLS) {
+  if (numHotStartViolations < MAX_NUM_HOT_START_VIOL) {
     solver->solveFromHotStart();
     if (solver->isIterationLimitReached()) {
       numHotStartViolations++;
-      // This sometimes happens, e.g., with arki001
+      // This sometimes happens, e.g., with arki001 and neos-5078479-escaut_presolved within SplitDisjunctions
       solver->unmarkHotStart();
       solver->resolve();
       if (isChangedUB) {
@@ -314,7 +314,7 @@ bool solveFromHotStart(
     }
   } // check if hot start is not disabled
 
-  if (numHotStartViolations >= MAX_NUM_HOT_START_VIOLS) {
+  if (numHotStartViolations >= MAX_NUM_HOT_START_VIOL) {
     // Else, hot start is disabled, revert to resolve
     solver->resolve();
   }

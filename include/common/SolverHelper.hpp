@@ -91,14 +91,14 @@ void setSolverSolution(OsiSolverInterface* const solver, const double* const sol
 /// @brief Overload solve from hot start because of issues
 bool solveFromHotStart(OsiSolverInterface* const solver, const int col,
     const bool isChangedUB, const double origBound, const double newBound,
-    int& numhotStartViolations, const int MAX_NUM_HOT_START_VIOLS = 2);
+    int& numhotStartViolations, const int MAX_NUM_HOT_START_VIOL = 2);
 
 /// @brief Overload #solveFromHotStart for when hot start is not disabled
 inline bool solveFromHotStart(OsiSolverInterface* const solver, const int col,
     const bool isChangedUB, const double origBound, const double newBound,
-    const int MAX_NUM_HOT_START_VIOLS = 2) {
+    const int MAX_NUM_HOT_START_VIOL = 2) {
   int numHotStartViolations = 0;
-  return solveFromHotStart(solver, col, isChangedUB, origBound, newBound, numHotStartViolations, MAX_NUM_HOT_START_VIOLS);
+  return solveFromHotStart(solver, col, isChangedUB, origBound, newBound, numHotStartViolations, MAX_NUM_HOT_START_VIOL);
 } // solveFromHotStart
 
 /// @brief Checks whether a solver is optimal
