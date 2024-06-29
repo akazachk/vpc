@@ -144,23 +144,30 @@ void setCompNBCoorPoint(CoinPackedVector& vec, double& objViolation,
         packedElem.data(), false);
   }
 
-  const double violation = nonTinyObj - objViolation;
-  const double epsilon = params.get(EPS);
-  if (!isVal(violation, 0.0, epsilon)) {
+  const double val1 = nonTinyObj;
+  const double val2 = objViolation;
+  const double violation = val1 - val2;
+  const double EPSILON = params.get(EPS);
+  if (!isVal(violation, 0.0, EPSILON)) {
     // Check absolute and relative violation
     double ratio = 1.;
-    if (isZero(nonTinyObj, epsilon) && isZero(objViolation, epsilon)) {
+    if ( (lessThanVal(val1, 0.0, EPSILON) && greaterThanVal(val2, 0.0, EPSILON))
+        || (lessThanVal(val2, 0.0, EPSILON) && greaterThanVal(val1, 0.0, EPSILON)) ) {
+      // If one is negative and the other is positive, then can set ratio to infinity
+      ratio = 1e100;
+    }
+    else if (isZero(val1, EPSILON) && isZero(val2, EPSILON)) {
       // nothing to do, keep ratio = 1.
       ratio = 1.;
     }
-    else if (isZero(nonTinyObj, epsilon) || isZero(objViolation, epsilon)) {
+    else if (isZero(val1, EPSILON) || isZero(val2, EPSILON)) {
       // ratio is 1 + abs(diff between values, since one of these values is zero)
-      ratio = 1. + std::abs(nonTinyObj - objViolation);
+      ratio = 1. + std::abs(violation);
     }
     else {
-      ratio = nonTinyObj / objViolation;
+      ratio = val1 / val2;
       if (ratio < 1.) {
-        ratio = objViolation / nonTinyObj;
+        ratio = val2 / val1;
       }
     }
 
@@ -172,9 +179,11 @@ void setCompNBCoorPoint(CoinPackedVector& vec, double& objViolation,
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
     } else {
-      warning_msg(warnstring,
-          "Point: Calculated dot product with obj differs from solver's. Obj viol from solver: %.8f. Calculated: %.8f. Difference: %e. Ratio: %e.\n",
-          objViolation, nonTinyObj, std::abs(violation), ratio);
+      // if (params.get(intParam::VERBOSITY) >= 1) {
+        warning_msg(warnstring,
+            "Point: Calculated dot product with obj differs from solver's. Obj viol from solver: %.8f. Calculated: %.8f. Difference: %e. Ratio: %e.\n",
+            objViolation, nonTinyObj, std::abs(violation), ratio);
+      // }
     }
   }
 } /* setCompNBCoorPoint */
@@ -375,9 +384,11 @@ void setCompNBCoorRay(CoinPackedVector& vec, const double* ray, double& objViola
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
     } else {
-      warning_msg(warnstring,
-          "Ray %d: dot product with obj < 0. Obj viol from solver: %.8f. Calculated: %.8f.\n",
-          tmpNBVar, objViolation, nonTinyObj);
+      // if (params.get(intParam::VERBOSITY) >= 1) {
+        warning_msg(warnstring,
+            "Ray %d: dot product with obj < 0. Obj viol from solver: %.8f. Calculated: %.8f.\n",
+            tmpNBVar, objViolation, nonTinyObj);
+      // }
     }
   }
 
@@ -389,9 +400,11 @@ void setCompNBCoorRay(CoinPackedVector& vec, const double* ray, double& objViola
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
     } else {
-      warning_msg(warnstring,
-          "Ray %d: Calculated dot product with obj differs from solver's. Obj viol from solver: %.8f. Calculated: %.8f.\n",
-          tmpNBVar, objViolation, nonTinyObj);
+      // if (params.get(intParam::VERBOSITY) >= 1) {
+        warning_msg(warnstring,
+            "Ray %d: Calculated dot product with obj differs from solver's. Obj viol from solver: %.8f. Calculated: %.8f.\n",
+            tmpNBVar, objViolation, nonTinyObj);
+      // }
     }
   }
 } /* setCompNBCoor (Ray) */
