@@ -435,11 +435,14 @@ DisjExitReason DisjunctionSet::prepareDisjunction(const OsiSolverInterface* cons
   // Prepare each disjunction in the list
   DisjExitReason exitReason = DisjExitReason::UNKNOWN;
 
+  int disj_ind = 0;
   for (auto disj : disjunctions) {
     exitReason = disj->prepareDisjunction(si);
+    updateObjValue(disj, disj_ind);
     if (exitReason == DisjExitReason::OPTIMAL_SOLUTION_FOUND_EXIT) {
       break;
     }
+    disj_ind++;
   }
 
   return exitReason;

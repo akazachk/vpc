@@ -441,8 +441,8 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     if (status == CglVPC::ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT) {
       // TODO (ak): Currently we need to do this because the tree is thrown away in these cases; we should avoid this in the future
       warning_msg(warnstr,
-          "An integer (optimal) solution with value %.6g was found prior while getting disjunction.\n",
-          integer_obj);
+          "An integer (optimal) solution with value %s was found prior while getting disjunction.\n",
+          stringValue(integer_obj, "%.6g").c_str());
           //" We will generate between n and 2n cuts, restricting the value of each variable.\n");
       /*const double* solution = disjunction->integer_sol.data();
       if (solution) {
