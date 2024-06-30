@@ -27,9 +27,26 @@ struct SummaryCutInfo; // analysis.hpp
 /// @brief Container for types of statistics we want to keep
 enum class Stat { total = 0, avg, stddev, min, max, num_stats };
 
+/// Short name for vector of statistics
+using StatVector = std::vector<double>;
+
 /// @brief Compute statistics in #Stat about given templated vector
 template <typename T>
-std::vector<double> computeStats(const std::vector<T>& v);
+StatVector computeStats(const std::vector<T>& v);
+
+/// @brief Initialize a vector of size #Stat::num_stats
+void initializeStats(StatVector& stats);
+
+/// @brief Update and finalize (i.e., stddev + avg are correct) a #Stat vector \p stats with new values \p vals
+template <typename T>
+void updateAndFinalizeStats(StatVector& stats, const std::vector<T>& vals, const int prev_size = 0);
+
+/// @brief Update a #Stat vector \p stats with new value \p val but do not finalize (stddev holds sum of squares)
+template <typename T>
+void updateStatsBeforeFinalize(StatVector& stats, const T& val, const int size = -1);
+
+/// @brief Finalize a #Stat vector \p stats (i.e., compute standard deviation, and also average if \p size > 0)
+void finalizeStats(StatVector& stats, const int size = -1);
 
 /// @brief Information about objective value at various points in the solution process
 /// @details Gives objective for the LP and IP, and after adding GMICs, L&PCs, VPCs, and combinations of these cuts

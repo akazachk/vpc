@@ -23,26 +23,115 @@ using namespace VPCParametersNamespace;
 #include "utility.hpp" // isInfinity, stringValue
 
 template <typename T>
-std::vector<double> computeStats(const std::vector<T>& vec) {
-  std::vector<double> stats(static_cast<int>(Stat::num_stats), 0.);
-  if (vec.empty()) {
+StatVector computeStats(const std::vector<T>& vals) {
+  StatVector stats(static_cast<int>(Stat::num_stats), 0.);
+  if (vals.empty()) {
     return stats;
   }
-  stats[static_cast<int>(Stat::total)] = 0.;
-  stats[static_cast<int>(Stat::min)] = std::numeric_limits<double>::max();
-  stats[static_cast<int>(Stat::max)] = std::numeric_limits<double>::lowest();
-  for (const auto& val : vec) {
-    stats[static_cast<int>(Stat::total)] += val;
-    stats[static_cast<int>(Stat::min)] = std::min(stats[static_cast<int>(Stat::min)], static_cast<double>(val));
-    stats[static_cast<int>(Stat::max)] = std::max(stats[static_cast<int>(Stat::max)], static_cast<double>(val));
-  }
-  stats[static_cast<int>(Stat::avg)] = stats[static_cast<int>(Stat::total)] / static_cast<double>(vec.size());
-  for (const auto& val : vec) {
-    stats[static_cast<int>(Stat::stddev)] += (val - stats[static_cast<int>(Stat::avg)]) * (val - stats[static_cast<int>(Stat::avg)]);
-  }
-  stats[static_cast<int>(Stat::stddev)] = sqrt(stats[static_cast<int>(Stat::stddev)] / static_cast<double>(vec.size()));
+  initializeStats(stats);
+  updateAndFinalizeStats(stats, vals, 0);
   return stats;
 } /* computeStats */
+
+void initializeStats(StatVector& stats) {
+  stats.assign(static_cast<int>(Stat::num_stats), 0);
+  stats[static_cast<int>(Stat::min)] = std::numeric_limits<double>::max();
+  stats[static_cast<int>(Stat::max)] = std::numeric_limits<double>::lowest();
+} /* initializeStats */
+
+/// @details If \p prev_size is positive, then need to adjust previous average/stddev. New total size is \p prev_size + \p vals size.
+template <typename T>
+void updateAndFinalizeStats(StatVector& stats, const std::vector<T>& vals, const int prev_size) {
+  if (vals.empty()) { return; }
+  assert ( prev_size >= 0 );
+  const int new_size = prev_size + static_cast<int>(vals.size());
+
+  if (prev_size > 0) {
+    // Need to adjust stddev for previous values
+    // We have currently stats[stddev] = sqrt( E[X_{old}^2] - E[X_{old}]^2 )
+    // Can square to get OLD_VARIANCE = E[X_{old}^2] - E[X_{old}]^2
+    // OLD_AVG = E[X_{old}] = old_total / old_size (should equal previous value in stats[avg])
+    // E[X_{old}^2] = OLD_VARIANCE + E[X_{old}]^2 = OLD_VARIANCE + OLD_AVG^2
+    // OLD_TOTAL_SOS = OLD_VARIANCE + OLD_AVG^2
+    // Then we add new square values to OLD_TOTAL_SOS and subtract new average squared to get new variance
+
+    // Save previous total, avg, stddev
+    const double OLD_TOTAL = stats[static_cast<int>(Stat::total)];
+    const double OLD_AVG = stats[static_cast<int>(Stat::avg)];    
+    assert ( isVal( OLD_TOTAL / prev_size, OLD_AVG, 1e-3) );
+
+    const double OLD_STDDEV = stats[static_cast<int>(Stat::stddev)]; // sqrt(E[X_{old}^2] - E[X_{old}]^2)
+    const double OLD_VARIANCE = OLD_STDDEV * OLD_STDDEV; // E[X_{old}^2] - E[X_{old}]^2
+    const double OLD_TOTAL_SOS = (OLD_VARIANCE + OLD_AVG * OLD_AVG) * prev_size; // total sum X_{old}^2
+    
+    stats[static_cast<int>(Stat::stddev)] = OLD_TOTAL_SOS;
+    for (const auto& val : vals) {
+      stats[static_cast<int>(Stat::total)] += val;
+      stats[static_cast<int>(Stat::min)] = std::min(stats[static_cast<int>(Stat::min)], static_cast<double>(val));
+      stats[static_cast<int>(Stat::max)] = std::max(stats[static_cast<int>(Stat::max)], static_cast<double>(val));
+      stats[static_cast<int>(Stat::stddev)] += val * val;
+    }
+
+    // Compute new average
+    stats[static_cast<int>(Stat::avg)] = stats[static_cast<int>(Stat::total)] / new_size;
+
+    // Compute new standard deviation as sqrt(E[X^2] - E[X]^2)
+    const double NEW_AVG = stats[static_cast<int>(Stat::avg)];
+    stats[static_cast<int>(Stat::stddev)] = (stats[static_cast<int>(Stat::stddev)]) / new_size - NEW_AVG * NEW_AVG;
+    stats[static_cast<int>(Stat::stddev)] = (stats[static_cast<int>(Stat::stddev)] > 0) ? std::sqrt(stats[static_cast<int>(Stat::stddev)]) : 0.;
+  } // if prev_size > 0
+  else {
+    // Since prev_size == 0, we can just add the new values
+    // Set new total, min, max
+    for (const auto& val : vals) {
+      stats[static_cast<int>(Stat::total)] += val;
+      stats[static_cast<int>(Stat::min)] = std::min(stats[static_cast<int>(Stat::min)], static_cast<double>(val));
+      stats[static_cast<int>(Stat::max)] = std::max(stats[static_cast<int>(Stat::max)], static_cast<double>(val));
+    }
+
+    // Compute new average
+    stats[static_cast<int>(Stat::avg)] = stats[static_cast<int>(Stat::total)] / new_size;
+  
+    // Compute new standard deviation as sqrt(E[(X-E[X])^2])
+    for (const auto& val : vals) {
+      stats[static_cast<int>(Stat::stddev)] += (val - stats[static_cast<int>(Stat::avg)]) * (val - stats[static_cast<int>(Stat::avg)]);
+    }
+    stats[static_cast<int>(Stat::stddev)] = stats[static_cast<int>(Stat::stddev)] / new_size;
+    stats[static_cast<int>(Stat::stddev)] = (stats[static_cast<int>(Stat::stddev)] > 0) ? std::sqrt(stats[static_cast<int>(Stat::stddev)]) : 0.;
+  } // else (prev_size == 0)
+} /* updateAndFinalizeStats */
+
+/// @details Parameter \p size is optional and only applied when > 0; when == 0, then we return immediately, and when < 0, we assume that size will be set later.
+template <typename T>
+void updateStatsBeforeFinalize(StatVector& stats, const T& val, const int size) {
+  if (size == 0) { return; }
+  const double divisor = (size > 0) ? static_cast<double>(size) : 1.;
+  stats[static_cast<int>(Stat::total)] += val;
+  stats[static_cast<int>(Stat::avg)] = stats[static_cast<int>(Stat::total)] / divisor;
+  stats[static_cast<int>(Stat::min)] = std::min(stats[static_cast<int>(Stat::min)], static_cast<double>(val));
+  stats[static_cast<int>(Stat::max)] = std::max(stats[static_cast<int>(Stat::max)], static_cast<double>(val));
+  
+  // For standard deviation, this is not the final value
+  // We are computing Var[X] = E[X^2] - E[X]^2
+  // Below, we are only computing E[X^2]; we will subtract E[X]^2 later in finalizeStats
+  // And afterwards we will take the square root to get the standard deviation
+  stats[static_cast<int>(Stat::stddev)] += (double) val * val / divisor;
+} /* updateStatsBeforeFinalize */
+
+/// @details If \p size is positive, then assume that Stat::avg = Stat::total so we need to divide by size.
+/// Similarly, for stddev if \p size > 0, we need to divide by size (assume Stat::stddev holds sum of squares, not E[X^2] as in case of \p size <= 0).
+/// To finish stddev calculation = sqrt(E[X^2] - E[X]^2), need to subtract average squared then take square root.
+/// If \p size == 0, then we return immediately.
+void finalizeStats(StatVector& stats, const int size) {
+  if (size == 0) { return; }
+  const int avg_ind = static_cast<int>(Stat::avg);
+  const int stddev_ind = static_cast<int>(Stat::stddev);
+  const double divisor = (size > 0) ? static_cast<double>(size) : 1.;
+
+  stats[avg_ind] /= divisor;
+  stats[stddev_ind] = (stats[stddev_ind]) / divisor - stats[avg_ind] * stats[avg_ind];
+  stats[stddev_ind] = (stats[stddev_ind] > 0) ? std::sqrt(stats[stddev_ind]) : 0.;
+} /* finalizeStats */
 
 // Below values are used to doublecheck that the columns in the header are correctly counted
 const int countBoundInfoEntries = 14;
