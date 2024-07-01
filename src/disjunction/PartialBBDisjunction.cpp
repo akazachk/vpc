@@ -91,12 +91,12 @@ void PartialBBDisjunction::setupAsNew() {
 
 /**
  * @details This will throw away all the information from the old disjunction, except it will not reset the timer
- * setupAsNew() is called, then a new Cbc object is created using a clone of \pi si
+ * [EDIT 2024-07-01: NO LONGER TRUE that setupAsNew() is called, then a new Cbc object is created using a clone of \pi si]
  * @returns a DisjExitReason for whether we were suceessful at generating the disjunction
  */
 DisjExitReason PartialBBDisjunction::prepareDisjunction(const OsiSolverInterface* const si) {
   // Reset things in case we are reusing the class for some reason
-  setupAsNew();
+  // setupAsNew();
 //  if (!timer) {
 //    error_msg(errorstring, "Timer is not set.\n");
 //    writeErrorToLog(errorstring, params.logfile);

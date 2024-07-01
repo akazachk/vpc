@@ -69,13 +69,11 @@ void SplitDisjunction::setupAsNew() {
 } /* setupAsNew */
 
 /**
- * @brief Prepare a new disjunction
- *
- * This will throw away all the information from the old disjunction, except it will not reset the timer
+ * @details [EDIT 2024-07-01: NO LONGER TRUE that setupAsNew() is called]
  */
 DisjExitReason SplitDisjunction::prepareDisjunction(const OsiSolverInterface* const si) {
   // Reset things in case we are reusing the class for some reason
-  setupAsNew();
+  // setupAsNew();
 //  if (!timer) {
 //    error_msg(errorstring, "Timer is not set.\n");
 //    writeErrorToLog(errorstring, params.logfile);

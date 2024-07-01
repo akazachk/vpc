@@ -36,7 +36,7 @@ public:
   /// @brief For clearing things and setting up the disjunction as new
   virtual void setupAsNew();
 
-  /// @brief Get disjunction
+  /// @brief Prepare a new disjunction
   virtual DisjExitReason prepareDisjunction(const OsiSolverInterface* const si);
 
 protected:

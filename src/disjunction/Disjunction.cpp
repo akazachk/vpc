@@ -197,7 +197,7 @@ void Disjunction::getSolverForTerm(
 
   // Resolve and check the objective matches
 #ifdef TRACE
-  printf("Solving for term %d/%d.\n", term_ind+1, this->num_terms);
+  printf("Disjunction %d: Solving for term %d/%d.\n", this->id, term_ind+1, this->num_terms);
 #endif
   termSolver->resolve();
   const bool calcAndFeasTerm = checkSolverOptimality(termSolver, true);
