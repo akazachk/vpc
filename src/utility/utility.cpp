@@ -6,7 +6,7 @@
 #include "utility.hpp"
 #include "SolverHelper.hpp"
 
-#include <algorithm> // tolower
+#include <algorithm> // tolower, min, max
 #include <fstream>
 #include <sstream>
 #include <sys/stat.h> // for fexists
@@ -15,6 +15,144 @@
 #include <CoinPackedVectorBase.hpp>
 #include <CoinPackedVector.hpp>
 #include <CoinPackedMatrix.hpp>
+
+std::vector<std::string> getStatNames() {
+  const int num_stats = static_cast<int>(Stat::num_stats);
+  std::vector<std::string> stat_names(num_stats);
+  stat_names[static_cast<int>(Stat::total)] = "total";
+  stat_names[static_cast<int>(Stat::avg)] = "avg";
+  stat_names[static_cast<int>(Stat::min)] = "min";
+  stat_names[static_cast<int>(Stat::max)] = "max";
+  stat_names[static_cast<int>(Stat::stddev)] = "stddev";
+  stat_names[static_cast<int>(Stat::num)] = "num";
+  stat_names[static_cast<int>(Stat::num_nonzero)] = "num_nonzero";
+  return stat_names;
+} /* getStatNames */
+
+void printStats(const StatVector& stats, const bool printNames, const char SEP, FILE* logfile) {
+  const int num_stats = static_cast<int>(Stat::num_stats);
+  const std::vector<std::string> stat_names = getStatNames();
+  if (logfile == NULL) { logfile = stdout; }
+  for (int i = 0; i < num_stats; i++) {
+    if (printNames) {
+      fprintf(logfile, "\t%s: ", stat_names[i].c_str());
+    }
+    fprintf(logfile, "%s%c", stringValue(stats[i], "%.10g").c_str(), SEP);
+  }
+  fprintf(logfile, "\n");
+} /* printStats */
+
+template StatVector computeStats<int>(const std::vector<int>& vals);
+template StatVector computeStats<double>(const std::vector<double>& vals);
+
+template <typename T>
+StatVector computeStats(const std::vector<T>& vals) {
+  StatVector stats(static_cast<int>(Stat::num_stats), 0.);
+  if (vals.empty()) {
+    return stats;
+  }
+  initializeStats(stats);
+  updateAndFinalizeStats(stats, vals, 0);
+  return stats;
+} /* computeStats */
+
+/// @details Initialize most values to 0, except min to MAX_POSSIBLE_VAL, max to MIN_POSSIBLE_VAL.
+void initializeStats(StatVector& stats, const double MIN_POSSIBLE_VAL, const double MAX_POSSIBLE_VAL) {
+  stats.assign(static_cast<int>(Stat::num_stats), 0);
+  stats[static_cast<int>(Stat::min)] = MAX_POSSIBLE_VAL;
+  stats[static_cast<int>(Stat::max)] = MIN_POSSIBLE_VAL;
+} /* initializeStats */
+
+template void updateAndFinalizeStats<int>(StatVector& stats, const std::vector<int>& vals, const int prev_size);
+template void updateAndFinalizeStats<double>(StatVector& stats, const std::vector<double>& vals, const int prev_size);
+
+/// @details If \p prev_size is positive, then need to adjust previous average/stddev. New total size is \p prev_size + \p vals size.
+/// If \p prev_size is negative, use #Stat::num as divisor.
+template <typename T>
+void updateAndFinalizeStats(StatVector& stats, const std::vector<T>& vals, const int prev_size) {
+  if (vals.empty()) { return; }
+  const int new_size = prev_size + static_cast<int>(vals.size());
+
+  if (prev_size != 0) {
+    // Return previous average to total and stddev to sum of squares
+    const int OLD_SIZE = (prev_size > 0) ? prev_size : stats[static_cast<int>(Stat::num)];
+    unfinalizeStats(stats, OLD_SIZE);
+  }
+
+  for (const auto& val : vals) {
+    updateStatsBeforeFinalize(stats, val);
+  }
+  finalizeStats(stats, new_size);
+} /* updateAndFinalizeStats */
+
+template void updateStatsBeforeFinalize<int>(StatVector& stats, const int& val, const int size);
+template void updateStatsBeforeFinalize<double>(StatVector& stats, const double& val, const int size);
+
+/// @details Parameter \p size is optional and only applied when > 0; when == 0, then we return immediately, and when < 0, we assume that size will be set later.
+template <typename T>
+void updateStatsBeforeFinalize(StatVector& stats, const T& val, const int size) {
+  const double divisor = (size >= 0) ? static_cast<double>(size) : 1.;
+  stats[static_cast<int>(Stat::total)] += val;
+  stats[static_cast<int>(Stat::avg)] = stats[static_cast<int>(Stat::total)] / divisor;
+  stats[static_cast<int>(Stat::min)] = std::min(stats[static_cast<int>(Stat::min)], static_cast<double>(val));
+  stats[static_cast<int>(Stat::max)] = std::max(stats[static_cast<int>(Stat::max)], static_cast<double>(val));
+
+  // For standard deviation, this is not the final value
+  // We are computing Var[X] = E[X^2] - E[X]^2
+  // Below, we are only computing E[X^2]; we will subtract E[X]^2 later in finalizeStats
+  // And afterwards we will take the square root to get the standard deviation
+  stats[static_cast<int>(Stat::stddev)] += (double) val * val / divisor;
+
+  stats[static_cast<int>(Stat::num)] += 1;
+  if (!isZero(val)) {
+    stats[static_cast<int>(Stat::num_nonzero)] += 1;
+  }
+} /* updateStatsBeforeFinalize */
+
+/// @details If \p size is positive, then assume that Stat::avg = Stat::total so we need to divide by size.
+/// Similarly, for stddev if \p size > 0, we need to divide by size (assume Stat::stddev holds sum of squares, not E[X^2] as in case of \p size <= 0).
+/// To finish stddev calculation = sqrt(E[X^2] - E[X]^2), need to subtract average squared then take square root.
+/// If \p size == 0, then we assume that num has already been applied for divisor everywhere.
+/// If \p size < 0, then we use size based on #Stat::num.
+void finalizeStats(StatVector& stats, const int size) {
+  const int avg_ind = static_cast<int>(Stat::avg);
+  const int stddev_ind = static_cast<int>(Stat::stddev);
+  const double divisor = (size > 0) ? static_cast<double>(size) : (size == 0 ? 1. : stats[static_cast<int>(Stat::num)]);
+
+  stats[avg_ind] = stats[static_cast<int>(Stat::total)] / divisor;
+  stats[stddev_ind] = (stats[stddev_ind]) / divisor - stats[avg_ind] * stats[avg_ind];
+  stats[stddev_ind] = (stats[stddev_ind] > 0) ? std::sqrt(stats[stddev_ind]) : 0.;
+} /* finalizeStats */
+
+/// @details Need to adjust stddev for previous values.
+/// We have currently stats[stddev] = sqrt( E[X_{old}^2] - E[X_{old}]^2 ).
+/// Can square to get OLD_VARIANCE = E[X_{old}^2] - E[X_{old}]^2.
+/// OLD_AVG = E[X_{old}] = old_total / old_size (should equal previous value in stats[avg]).
+/// E[X_{old}^2] = OLD_VARIANCE + E[X_{old}]^2 = OLD_VARIANCE + OLD_AVG^2.
+/// OLD_TOTAL_SOS = OLD_VARIANCE + OLD_AVG^2.
+/// Then we add new square values to OLD_TOTAL_SOS and subtract new average squared to get new variance
+void unfinalizeStats(StatVector& stats, const int prev_size) {
+  const int OLD_SIZE = (prev_size > 0) ? prev_size : stats[static_cast<int>(Stat::num)];
+  if (OLD_SIZE == 0) {
+    return;
+  }
+
+  const int avg_ind = static_cast<int>(Stat::avg);
+  const int stddev_ind = static_cast<int>(Stat::stddev);
+
+  // Save previous total, avg, stddev
+  const double OLD_TOTAL = stats[static_cast<int>(Stat::total)];
+  const double OLD_AVG = stats[avg_ind];
+  const double OLD_STDDEV = stats[stddev_ind]; // sqrt(E[X_{old}^2] - E[X_{old}]^2)
+
+  assert ( isVal( OLD_TOTAL / OLD_SIZE, OLD_AVG, 1e-3) );
+
+  const double OLD_VARIANCE = OLD_STDDEV * OLD_STDDEV; // E[X_{old}^2] - E[X_{old}]^2
+  const double OLD_TOTAL_SOS = (OLD_VARIANCE + OLD_AVG * OLD_AVG) * OLD_SIZE; // total sum X_{old}^2
+
+  stats[avg_ind] *= OLD_SIZE;
+  stats[stddev_ind] = OLD_TOTAL_SOS;
+} /* finalizeStats */
 
 /**
  * @details Creates temporary file (in /tmp) so that it can be accessed later.

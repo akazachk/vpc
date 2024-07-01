@@ -145,6 +145,43 @@ inline void writeErrorToLog(std::string text, FILE *myfile) {
   fclose(myfile);
 }
 
+/// @brief Container for types of statistics we want to keep
+enum class Stat { total = 0, avg, stddev, min, max, num, num_nonzero, num_stats };
+
+/// Short name for vector of statistics
+using StatVector = std::vector<double>;
+
+/// @brief Get names of statistics in #Stat
+std::vector<std::string> getStatNames();
+
+/// @brief Print statistics in #Stat about given vector
+void printStats(const StatVector& stats, const bool printNames = true, const char SEP = '\n', FILE* logfile = NULL);
+
+/// @brief Compute statistics in #Stat about given templated vector
+template <typename T>
+StatVector computeStats(const std::vector<T>& v);
+
+/// @brief Initialize a vector of size #Stat::num_stats
+void initializeStats(
+  StatVector& stats,
+  const double MIN_POSSIBLE_VAL = 0., //std::numeric_limits<double>::lowest(),
+  const double MAX_POSSIBLE_VAL = std::numeric_limits<double>::max()
+);
+
+/// @brief Update and finalize (i.e., stddev + avg are correct) a #Stat vector \p stats with new values \p vals
+template <typename T>
+void updateAndFinalizeStats(StatVector& stats, const std::vector<T>& vals, const int prev_size = 0);
+
+/// @brief Update a #Stat vector \p stats with new value \p val but do not finalize (stddev holds sum of squares)
+template <typename T>
+void updateStatsBeforeFinalize(StatVector& stats, const T& val, const int size = -1);
+
+/// @brief Finalize a #Stat vector \p stats (i.e., compute standard deviation, and also average if \p size > 0)
+void finalizeStats(StatVector& stats, const int size = -1);
+
+/// @brief Return avg to total and stddev to sum of squares
+void unfinalizeStats(StatVector& stats, const int prev_size);
+
 /** @brief Create temporary filename */
 void createTmpFilename(std::string& f_name, const std::string add_ext = "");
 
