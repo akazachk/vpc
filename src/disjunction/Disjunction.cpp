@@ -114,6 +114,7 @@ Disjunction& Disjunction::operator=(const Disjunction& source) {
 
 /** Set up the disjunction class as new */
 void Disjunction::setupAsNew() {
+  this->id = -1;
   this->name = "";
   this->best_obj = std::numeric_limits<double>::max();
   this->worst_obj = std::numeric_limits<double>::lowest();
@@ -189,20 +190,20 @@ void Disjunction::getSolverForTerm(
   // Set the warm start
   if (term->basis && !(termSolver->setWarmStart(term->basis))) {
     error_msg(errorstring,
-        "Warm start information not accepted for term %d/%d.\n", term_ind+1, this->num_terms);
+        "Disjunction %d: Warm start information not accepted for term %d/%d.\n", this->id, term_ind+1, this->num_terms);
     writeErrorToLog(errorstring, logfile);
     exit(1);
   }
 
   // Resolve and check the objective matches
 #ifdef TRACE
-  printf("\n## Solving for term %d/%d. ##\n", term_ind+1, this->num_terms);
+  printf("Solving for term %d/%d.\n", term_ind+1, this->num_terms);
 #endif
   termSolver->resolve();
   const bool calcAndFeasTerm = checkSolverOptimality(termSolver, true);
 
   if (!calcAndFeasTerm) {
-    printf("\n## Term %d/%d is not proven optimal. Exiting from this term. ##\n", term_ind+1, this->num_terms);
+    printf("Disjunction %d: Term %d/%d is not proven optimal. Exiting from this term.\n", this->id, term_ind+1, this->num_terms);
     delete termSolver;
     termSolver = nullptr;
     return;
@@ -222,15 +223,15 @@ void Disjunction::getSolverForTerm(
       // Allow it to be up to 3% off without causing an error
       if (greaterThanVal(ratio, 1.03)) {
         error_msg(errorstring,
-            "Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
-            term_ind+1, this->num_terms, stringValue(term->obj, "%1.3f").c_str(),
+            "Disjunction %d: Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
+            this->id, term_ind+1, this->num_terms, stringValue(term->obj, "%1.3f").c_str(),
             stringValue(termSolver->getObjValue(), "%1.3f").c_str());
         writeErrorToLog(errorstring, logfile);
         exit(1);
       } else {
         warning_msg(warnstring,
-            "Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
-            term_ind+1, this->num_terms, stringValue(term->obj, "%1.3f").c_str(),
+            "Disjunction %d: Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
+            this->id, term_ind+1, this->num_terms, stringValue(term->obj, "%1.3f").c_str(),
             stringValue(termSolver->getObjValue(), "%1.3f").c_str());
       }
   }
@@ -251,7 +252,7 @@ void Disjunction::getSolverForTerm(
     }
     Disjunction::setCgsName(commonName, curr_num_changed_bounds, termIndices,
         termCoeff, termRHS, false);
-    printf("Bounds changed: %s.\n", commonName.c_str());
+    printf("Disjunction %d: Bounds changed: %s.\n", this->id, commonName.c_str());
 #endif
   } // check that objective value matches
 } /* getSolverForTerm */
@@ -367,6 +368,7 @@ void Disjunction::updateObjValue(const double objVal) {
 
 void Disjunction::initialize(const Disjunction* const source) {
   if (source != NULL) {
+    this->id = source->id;
     this->name = source->name;
     this->best_obj = source->best_obj;
     this->worst_obj = source->worst_obj;
@@ -437,6 +439,7 @@ DisjExitReason DisjunctionSet::prepareDisjunction(const OsiSolverInterface* cons
 
   int disj_ind = 0;
   for (auto disj : disjunctions) {
+    assert ( disj->id < 0 || disj->id == disj_ind );
     exitReason = disj->prepareDisjunction(si);
     updateObjValue(disj, disj_ind);
     if (exitReason == DisjExitReason::OPTIMAL_SOLUTION_FOUND_EXIT) {
@@ -454,17 +457,19 @@ DisjExitReason DisjunctionSet::prepareDisjunction() {
 #endif // USE_COIN
 
 void DisjunctionSet::updateObjValue(const Disjunction* const disj, const int disj_ind) {
+  assert ( disj->id < 0 || disj_ind < 0 || disj->id == disj_ind );
+  const int DISJ_ID_TO_USE = (disj_ind >= 0) ? disj_ind : disj->id;
   if (disj->best_obj < this->best_obj) {
     this->best_obj = disj->best_obj;
-    this->best_obj_disj = disj_ind;
+    this->best_obj_disj = DISJ_ID_TO_USE;
   }
   if (disj->worst_obj > this->worst_obj) {
     this->worst_obj = disj->worst_obj;
-    this->worst_obj_disj = disj_ind;
+    this->worst_obj_disj = DISJ_ID_TO_USE;
   }
   if (disj->integer_obj < this->integer_obj) {
     this->integer_obj = disj->integer_obj;
-    this->integer_obj_disj = disj_ind;
+    this->integer_obj_disj = DISJ_ID_TO_USE;
     if (disj->integer_sol.size() > 0) {
       this->integer_sol = disj->integer_sol;
     }

@@ -307,6 +307,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
           "\n## Starting VPC generation from partial branch-and-bound tree with up to %d disjunctive terms. ##\n",
           params.get(intParam::DISJ_TERMS));
       this->disjunction = new PartialBBDisjunction(this->params);
+      this->disjunction->id = 0;
       dynamic_cast<PartialBBDisjunction*>(this->disjunction)->num_rounds = this->num_rounds;
       dynamic_cast<PartialBBDisjunction*>(this->disjunction)->timer = &timer;
     } // PARTIAL_BB

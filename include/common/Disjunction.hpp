@@ -78,6 +78,7 @@ public:
 
   /// @name Optional members
   ///@{
+  int id; ///< unique identifier for disjunction; useful if there are many disjunctions
   std::string name; ///< name (for printing)
   double best_obj; ///< value of term with best objective
   double worst_obj; ///< value of term with worst objective
@@ -196,7 +197,8 @@ class DisjunctionSet {
   /// @brief Add disjunction to the set
   inline void addDisjunction(const Disjunction* const disj) {
     this->disjunctions.push_back(disj->clone());
-    this->updateObjValue(disj, this->size()-1);
+    this->disjunctions.back()->id = this->size()-1;
+    this->updateObjValue(this->disjunctions.back());
   }
 
   /// @brief Number of disjunctions
@@ -204,9 +206,19 @@ class DisjunctionSet {
     return this->disjunctions.size();
   }
 
-  /// @brief Return disjunction with index \p ind
+  /// @brief Return disjunction at index \p ind in #disjunctions
   inline const Disjunction* const getDisjunction(const int ind) const {
     return (ind < this->size()) ? this->disjunctions[ind] : NULL;
+  }
+
+  /// @brief Return disjunction with id \p id in #disjunctions
+  inline const Disjunction* const getDisjunctionById(const int id) const {
+    for (int i = 0; i < this->size(); i++) {
+      if (this->disjunctions[i]->id == id) {
+        return this->disjunctions[i];
+      }
+    }
+    return NULL;
   }
 
   /// @brief Prepare set of disjunctions
@@ -217,7 +229,7 @@ class DisjunctionSet {
 #endif
 
   /// @brief Update best/worst obj
-  void updateObjValue(const Disjunction* const disj, const int disj_ind);
+  void updateObjValue(const Disjunction* const disj, const int disj_ind = -1);
 
   protected:
   /// @brief Initialize class members (copy from \p source if provided)

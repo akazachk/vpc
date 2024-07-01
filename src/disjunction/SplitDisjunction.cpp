@@ -480,13 +480,11 @@ int generateSplitDisjunctions(
     if (disj) { delete disj; }
     num_splits++;
   }
-  #ifdef TRACE
-  { // DEBUG
+  if (params.get(VPCParametersNamespace::intParam::VERBOSITY) >= 2) { // DEBUG
     for (int i = 0; i < num_splits; ++i) {
-      printf("Var: %d", dynamic_cast<SplitDisjunction*>(disjSet->disjunctions[i])->var);
+      printf("Var: %d", dynamic_cast<const SplitDisjunction* const>(disjSet->getDisjunction(i))->var);
       printf("\tSort criterion: %f\n", sortCriterion[sortIndex[i]]);
     }
   }
-  #endif
   return num_splits;
 } /* generateSplitDisjunctions */
