@@ -33,7 +33,7 @@ CglVPC::ExitReason setDisjunctions(
     return matchStatus(status);
   } // PARTIAL_BB
   else if (mode == VPCParametersNamespace::VPCMode::SPLITS) {
-    if (generateSplitDisjunctions(disjSet, si, params)) {
+    if (generateSplitDisjunctions(disjSet, si, params, true)) {
       return CglVPC::ExitReason::SUCCESS_EXIT;
     } else {
       return CglVPC::ExitReason::NO_DISJUNCTION_EXIT;

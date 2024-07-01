@@ -56,4 +56,5 @@ protected:
 int generateSplitDisjunctions(
     DisjunctionSet* const disjSet,
     const OsiSolverInterface* const si,
-    const VPCParametersNamespace::VPCParameters& params);
+    const VPCParametersNamespace::VPCParameters& params,
+    const bool shouldPrepareDisjunctions = false);

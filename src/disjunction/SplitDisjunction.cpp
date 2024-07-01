@@ -316,7 +316,8 @@ void SplitDisjunction::addTerm(const int branching_variable,
 int generateSplitDisjunctions(
     DisjunctionSet* const disjSet,
     const OsiSolverInterface* const si,
-    const VPCParametersNamespace::VPCParameters& params) {
+    const VPCParametersNamespace::VPCParameters& params,
+    const bool shouldPrepareDisjunctions) {
   // Get parameters
   const double AWAY = params.get(VPCParametersNamespace::doubleParam::AWAY);
   const double MAX_NUM_HOT_START_VIOL = params.get(VPCParametersNamespace::intParam::MAX_NUM_HOT_START_VIOL);
@@ -473,7 +474,7 @@ int generateSplitDisjunctions(
     const int var = fracCoreSelected[i];
     SplitDisjunction* disj = new SplitDisjunction(params);
     disj->var = var;
-    disj->prepareDisjunction(si);
+    if (shouldPrepareDisjunctions) { disj->prepareDisjunction(si); }
     disjSet->addDisjunction(disj);
     if (disj) { delete disj; }
     num_splits++;

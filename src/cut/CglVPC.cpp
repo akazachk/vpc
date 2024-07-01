@@ -288,6 +288,7 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     return;
   }
 
+  // Set mode and choose the type of disjunction that will be used
   if (!disjunction && !disjunctionSet) {
     if (mode == VPCMode::CUSTOM) {
       error_msg(errorstring,
@@ -340,23 +341,11 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     else if (mode == VPCMode::SPLITS) {
       printf("\n## Starting VPC generation from splits. ##\n");
       this->disjunctionSet = new DisjunctionSet;
-      generateSplitDisjunctions(this->disjunctionSet, &si, this->params);
+      generateSplitDisjunctions(this->disjunctionSet, &si, this->params, false);
       // Add timer for each disjunction
       for (auto& disj : this->disjunctionSet->disjunctions) {
         dynamic_cast<SplitDisjunction*>(disj)->timer = &timer;
       }
-      // for (const int var = 0; var < si.getNumCols(); var++) {
-      //   // Check if integer + fractional
-      //   if ()
-
-      //   Disjunction* disj = new SplitDisjunction(this->params);
-      //   dynamic_cast<SplitDisjunction*>(disj)->setVar(var);
-      //   dynamic_cast<SplitDisjunction*>(disj)->timer = &timer;
-      //   this->disjunctionSet->addDisjunction(disj);
-      //   if (disj) { delete disj; }
-      // }
-      // disjunction = new SplitDisjunction(this->params);
-      // dynamic_cast<SplitDisjunction*>(disjunction)->timer = &timer;
     } // SPLITS
     else if (mode == VPCMode::CROSSES) {
       // printf("\n## Starting VPC generation from one cross. ##\n");
