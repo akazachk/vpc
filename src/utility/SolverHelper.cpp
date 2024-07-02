@@ -281,7 +281,7 @@ bool solveFromHotStart(
     const double newBound,
     /// [in,out] If in a prior call, hot start seemed to not work, we might disable it, in which case we need to use normal resolving
     int& numHotStartViolations,
-    /// [in] Maximum number of \p numHotStartViolation before switching to resolve; -1 = only use solveFromHotStart, 0 = immediately switch to resolve
+    /// [in] Maximum number of \p numHotStartViolation before switching to resolve; -1 = only use solveFromHotStart, 0 = use initialSolve then reset hot start
     const int MAX_NUM_HOT_START_VIOL) {
   if (MAX_NUM_HOT_START_VIOL < 0) {
     solver->solveFromHotStart();
@@ -315,8 +315,14 @@ bool solveFromHotStart(
   } // check if hot start is not disabled
 
   if (numHotStartViolations >= MAX_NUM_HOT_START_VIOL) {
-    // Else, hot start is disabled, revert to resolve
-    solver->resolve();
+    if (MAX_NUM_HOT_START_VIOL == 0) {
+      solver->unmarkHotStart();
+      solver->initialSolve();
+      solver->markHotStart();
+    }
+    else { // Else, hot start is disabled, revert to resolve
+      solver->resolve();
+    }
   }
   return (solver->isProvenOptimal());
 } /* solveFromHotStart overload */
