@@ -11,6 +11,11 @@ void initializeSolver(
     const int VERBOSITY,
     const double TIMELIMIT,
     FILE* logfile) {
+  if (!fexists(FILENAME.c_str()) && !fexists((FILENAME+".gz").c_str()) && !fexists((FILENAME+".bz2").c_str())) {
+    error_msg(errorstring, "Filename %s cannot be found.\n", FILENAME.c_str());
+    exit(1);
+  }
+
   solver = new SolverInterface;
   setLPSolverParameters(solver, VERBOSITY, TIMELIMIT);
 

@@ -184,33 +184,6 @@ int main(int argc, char** argv) {
   if (status) { return status; }
 
   //====================================================================================================//
-  // Information from each round of cuts will be saved and optionally printed
-  int num_rounds = params.get(ROUNDS); // not const in case we do not exhaust the limit
-#ifndef CALC_COND_NUM
-  const bool COMPUTE_COND_NUM = false;
-#else
-  const bool COMPUTE_COND_NUM = false;
-#endif
-  std::vector<OsiCuts> vpcs_by_round(num_rounds);
-  cutInfoVec.resize(num_rounds);
-  cutInfoGMICVec.resize(num_rounds);
-  boundInfoVec.resize(num_rounds);
-
-  std::vector<double> gmic_gen_time_by_round(num_rounds);
-  std::vector<double> gmic_apply_time_by_round(num_rounds);
-  //std::vector<double> gmic_cond_num1_by_round(num_rounds);
-  std::vector<double> gmic_cond_num2_by_round;
-  std::vector<double> vpc_gen_time_by_round(num_rounds);
-  std::vector<double> vpc_apply_time_by_round(num_rounds);
-
-  //std::vector<double> vpc_cond_num1_by_round(num_rounds);
-  std::vector<double> vpc_cond_num2_by_round;
-  if (COMPUTE_COND_NUM) {
-    gmic_cond_num2_by_round.resize(num_rounds);
-    vpc_cond_num2_by_round.resize(num_rounds);
-  }
-
-  //====================================================================================================//
   // Set up solver and get initial solution
   initializeSolver(solver, params.get(stringParam::FILENAME), params.get(VPCParametersNamespace::intParam::VERBOSITY), params.get(VPCParametersNamespace::doubleParam::TIMELIMIT), params.logfile);
   timer.start_timer(OverallTimeStats::INIT_SOLVE_TIME);
@@ -242,6 +215,33 @@ int main(int argc, char** argv) {
     GMICSolver = solver->clone();
     VPCSolver = solver->clone();
     allCutsSolver = solver->clone();
+  }
+
+  //====================================================================================================//
+  // Information from each round of cuts will be saved and optionally printed
+  int num_rounds = params.get(ROUNDS); // not const in case we do not exhaust the limit
+#ifndef CALC_COND_NUM
+  const bool COMPUTE_COND_NUM = false;
+#else
+  const bool COMPUTE_COND_NUM = false;
+#endif
+  std::vector<OsiCuts> vpcs_by_round(num_rounds);
+  cutInfoVec.resize(num_rounds);
+  cutInfoGMICVec.resize(num_rounds);
+  boundInfoVec.resize(num_rounds);
+
+  std::vector<double> gmic_gen_time_by_round(num_rounds);
+  std::vector<double> gmic_apply_time_by_round(num_rounds);
+  //std::vector<double> gmic_cond_num1_by_round(num_rounds);
+  std::vector<double> gmic_cond_num2_by_round;
+  std::vector<double> vpc_gen_time_by_round(num_rounds);
+  std::vector<double> vpc_apply_time_by_round(num_rounds);
+
+  //std::vector<double> vpc_cond_num1_by_round(num_rounds);
+  std::vector<double> vpc_cond_num2_by_round;
+  if (COMPUTE_COND_NUM) {
+    gmic_cond_num2_by_round.resize(num_rounds);
+    vpc_cond_num2_by_round.resize(num_rounds);
   }
 
   //====================================================================================================//
