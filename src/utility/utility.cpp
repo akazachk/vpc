@@ -39,7 +39,7 @@ void printStats(const StatVector& stats, const bool printNames, const char SEP, 
     }
     fprintf(logfile, "%s%c", stringValue(stats[i], "%.10g").c_str(), SEP);
   }
-  fprintf(logfile, "\n");
+  //fprintf(logfile, "\n");
 } /* printStats */
 
 template StatVector computeStats<int>(const std::vector<int>& vals);
