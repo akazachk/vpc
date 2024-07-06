@@ -89,9 +89,9 @@ then
     ./coinbrew fetch Cbc@${CBC_VERSION}
   fi
   # -b: specify build directory
-  # -p: install in same directory as build
-  #./coinbrew build install Cbc -b build -p --no-prompt --test --with-cplex=false ADD_CXXFLAGS="-DSAVE_NODE_INFO"
-  #./coinbrew build install Cbc -b buildg -p --no-prompt --test --with-cplex=false --enable-debug ADD_CXXFLAGS="-DSAVE_NODE_INFO"
+  # -p: specify install directory (default is "dist", independent of build directory)
+  #./coinbrew build install Cbc -b build -p build --no-prompt --test --with-cplex=false ADD_CXXFLAGS="-DSAVE_NODE_INFO"
+  #./coinbrew build install Cbc -b buildg -p buildg --no-prompt --test --with-cplex=false --enable-debug ADD_CXXFLAGS="-DSAVE_NODE_INFO"
   if [ ! -z ${2} ]; then
     PARALLEL_FLAG="-j 8"
   else
@@ -101,13 +101,13 @@ then
   if [ -z ${3} ] || [ "${3}" == "all" ] || [ "${3}" == "release" ]; then
     echo ""
     echo "### Building *release* version of Cbc ###"
-    ./coinbrew build Cbc -b build -p ADD_CXXFLAGS="-DSAVE_NODE_INFO" --tests none ${PARALLEL_FLAG}
+    ./coinbrew build Cbc -b build -p build ADD_CXXFLAGS="-DSAVE_NODE_INFO" --tests none ${PARALLEL_FLAG}
   fi
 
   if [ -z ${3} ] || [ "${3}" == "all" ] || [ "${3}" == "debug" ]; then
     echo ""
     echo "### Building *debug* version of Cbc ###"
-    ./coinbrew build Cbc -b buildg -p --enable-debug ADD_CXXFLAGS="-DSAVE_NODE_INFO" --tests none ${PARALLEL_FLAG}
+    ./coinbrew build Cbc -b buildg -p buildg --enable-debug ADD_CXXFLAGS="-DSAVE_NODE_INFO" --tests none ${PARALLEL_FLAG}
   fi
 else
   ## Ignore below unless you wish to use OsiCpxSolverInterface
