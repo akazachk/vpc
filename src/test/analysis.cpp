@@ -21,6 +21,8 @@
 #include "VPCParameters.hpp"
 using namespace VPCParametersNamespace;
 
+#include <algorithm> // max_element
+
 // Below values are used to doublecheck that the columns in the header are correctly counted
 const int countBoundInfoEntries = 14;
 const int countGapInfoEntries = 5; // unstr gmic, gmic, lpc, vpc, gmic+vpc
@@ -910,9 +912,23 @@ void analyzeStrength(
   }
 
   // Print results from adding cuts
-  int NAME_WIDTH = 25;
-  int NUM_DIGITS_BEFORE_DEC = 7;
-  int NUM_DIGITS_AFTER_DEC = 7;
+  std::vector<double> boundVector =
+      {
+        isInfinity(boundInfo.lp_obj) ? 0. : std::abs(boundInfo.lp_obj),
+        isInfinity(boundInfo.root_obj) ? 0. : std::abs(boundInfo.root_obj),
+        isInfinity(boundInfo.unstr_gmic_obj) ? 0. : std::abs(boundInfo.unstr_gmic_obj),
+        isInfinity(boundInfo.gmic_obj) ? 0. : std::abs(boundInfo.gmic_obj), 
+        isInfinity(boundInfo.vpc_obj) ? 0. : std::abs(boundInfo.vpc_obj), 
+        isInfinity(boundInfo.best_disj_obj) ? 0. : std::abs(boundInfo.best_disj_obj), 
+        isInfinity(boundInfo.worst_disj_obj) ? 0. : std::abs(boundInfo.worst_disj_obj), 
+        isInfinity(boundInfo.ip_obj) ? 0. : std::abs(boundInfo.ip_obj)
+      };
+  const double max_number = *std::max_element(boundVector.begin(), boundVector.end());
+  const int max_digits = (max_number > 0.) ? static_cast<int>(std::log10(std::abs(max_number))) + 1 : 7;
+
+  const int NAME_WIDTH = 16; // length of "disjunctive lb: "
+  const int NUM_DIGITS_BEFORE_DEC = max_digits; // this is actually the width
+  const int NUM_DIGITS_AFTER_DEC = NUM_DIGITS_BEFORE_DEC + 8; // For g and G specifiers: This is the maximum number of significant digits to be printed.
   const double INF = std::numeric_limits<double>::max();
   char tmpstring[300];
 
