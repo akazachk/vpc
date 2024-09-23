@@ -30,3 +30,4 @@ doxygen/
 slurm*.out
 ./test/
 .vscode
+*job_list*
