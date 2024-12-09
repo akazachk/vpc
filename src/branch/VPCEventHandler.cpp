@@ -22,6 +22,10 @@
 #include <OsiChooseVariable.hpp>
 #endif // USE_CBC
 
+#ifdef USE_CLP
+#include <OsiClpSolverInterface.hpp>
+#endif
+
 #include "CglVPC.hpp"
 
 using namespace VPCParametersNamespace;
@@ -1351,13 +1355,32 @@ int VPCEventHandler::saveInformation() {
 #ifdef TRACE
     printf("\n## Solving for parent node %d/%d. ##\n", tmp_ind + 1, numNodesOnTree_);
 #endif
-    tmpSolverBase->resolve();
+    tmpSolverBase->initialSolve();
     if (!checkSolverOptimality(tmpSolverBase, false)) {
-      error_msg(errorstring, "Solver not proven optimal for node %d.\n",
+      error_msg(errorstring, "Solver tmpSolverBase not proven optimal for node %d.\n",
           node_id);
       writeErrorToLog(errorstring, owner->params.logfile);
       exit(1);
     }
+#ifdef USE_CLP
+    { // Try to check if secondary solver status is != 0
+      try {
+        OsiClpSolverInterface* clpsolver = dynamic_cast<OsiClpSolverInterface*>(tmpSolverBase);
+        const int secondaryStatus = clpsolver->getModelPtr()->secondaryStatus();
+        if (secondaryStatus != 0) {
+          tmpSolverBase->initialSolve();
+          if (!checkSolverOptimality(tmpSolverBase, false)) {
+            error_msg(errorstring, "After initialSolve, solver tmpSolverBase not proven optimal for node %d.\n",
+                node_id);
+            writeErrorToLog(errorstring, owner->params.logfile);
+            exit(1);
+          }
+        }
+      } catch (std::exception& e) {
+       // Disregard
+      }
+    }
+#endif
     // Sometimes we run into a few issues getting the "right" value
     double ratio = tmpSolverBase->getObjValue() / stats_[node_id].obj;
     if (ratio < 1.) {
@@ -1386,6 +1409,7 @@ int VPCEventHandler::saveInformation() {
       printf("Bounds changed: %s.\n", commonName.c_str());
 #endif
       // Allow it to be up to 3% off without causing an error
+#ifdef EXIT_ON_OBJECTIVE_MISMATCH
       if (greaterThanVal(ratio, 1.03)) {
         error_msg(errorstring,
             "Objective at parent node %d/%d (node id %d) is incorrect. During BB, it was %s, now it is %s.\n",
@@ -1394,12 +1418,14 @@ int VPCEventHandler::saveInformation() {
             stringValue(tmpSolverBase->getObjValue(), "%1.3f").c_str());
         writeErrorToLog(errorstring, owner->params.logfile);
         exit(1);
-      } else {
-        warning_msg(warnstring,
+      } else
+#endif // EXIT_ON_OBJECTIVE_MISMATCH
+      {
+        if (owner->params.get(intParam::VERBOSITY) > 0) { warning_msg(warnstring,
             "Objective at parent node %d/%d (node id %d) is somewhat incorrect. During BB, it was %s, now it is %s.\n",
             tmp_ind + 1, this->numNodesOnTree_, node_id,
             stringValue(stats_[node_id].obj, "%1.3f").c_str(),
-            stringValue(tmpSolverBase->getObjValue(), "%1.3f").c_str());
+            stringValue(tmpSolverBase->getObjValue(), "%1.3f").c_str()); }
       }
     } // check that the parent node objective matches
 
