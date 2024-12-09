@@ -430,9 +430,9 @@ void CglVPC::generateCuts(const OsiSolverInterface& si, OsiCuts& cuts, const Cgl
     status = matchStatus(disjstatus);
     if (status == CglVPC::ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT) {
       // TODO (ak): Currently we need to do this because the tree is thrown away in these cases; we should avoid this in the future
-      warning_msg(warnstr,
+      if (params.get(intParam::VERBOSITY) > 0) { warning_msg(warnstr,
           "An integer (optimal) solution with value %s was found prior while getting disjunction.\n",
-          stringValue(integer_obj, "%.6g").c_str());
+          stringValue(integer_obj, "%.6g").c_str()); }
           //" We will generate between n and 2n cuts, restricting the value of each variable.\n");
       /*const double* solution = disjunction->integer_sol.data();
       if (solution) {
@@ -844,10 +844,10 @@ void CglVPC::getProblemData(
         writeErrorToLog(errorstring, params.logfile);
         exit(1);
       } else {
-        warning_msg(warnstring,
+        if (params.get(intParam::VERBOSITY) > 0) { warning_msg(warnstring,
             "Nonbasic reduced cost should be >= 0 in the complemented nonbasic space. "
             "However, for nb var %d (real var %d), it is %e. Small enough error that we only send warning.\n",
-            j, NBVar, probData.NBReducedCost[j]);
+            j, NBVar, probData.NBReducedCost[j]); }
         this->numFails[static_cast<int>(FailureType::NUMERICAL_ISSUES_WARNING)]++;
       }
     }
@@ -962,9 +962,9 @@ CglVPC::ExitReason CglVPC::initializeSolverWithRootChanges(
           writeErrorToLog(errorstring, params.logfile);
           exit(1);
         } else {
-          warning_msg(warnstring,
+          if (params.get(intParam::VERBOSITY) > 0) { warning_msg(warnstring,
               "CglVPC::initializeSolverWithRootChanges: Root objective calculated after bound changes (%f) does not match stored value in disjunction (%f), with a difference of %e.\n",
-            vpcsolver->getObjValue(), disj->root_obj, std::abs(disj->root_obj - vpcsolver->getObjValue()));
+            vpcsolver->getObjValue(), disj->root_obj, std::abs(disj->root_obj - vpcsolver->getObjValue())); }
         }
       } // check root objective value matches
     } // check if any inequalities have been added to the root node through the disjunction
@@ -1171,10 +1171,10 @@ CglVPC::ExitReason CglVPC::setupConstraints(
           writeErrorToLog(errorstring, params.logfile);
           exit(1);
         } else {
-          warning_msg(warnstring,
+          if (params.get(intParam::VERBOSITY) > 0) { warning_msg(warnstring,
               "CglVPC::setupConstraints: Objective at disjunctive term %d/%d is incorrect. Before, it was %s, now it is %s.\n",
               tmp_ind, num_normal_terms, stringValue(term->obj, "%1.3f").c_str(),
-              stringValue(termSolver->getObjValue(), "%1.3f").c_str());
+              stringValue(termSolver->getObjValue(), "%1.3f").c_str()); }
         }
 #ifdef TRACE
         std::string commonName;
@@ -1338,9 +1338,9 @@ void CglVPC::genDepth1PRCollection(const OsiSolverInterface* const vpcsolver,
         writeErrorToLog(errorstring, params.logfile);
         exit(1);
       } else {
-        warning_msg(warnstring,
+        if (params.get(intParam::VERBOSITY) > 0) { warning_msg(warnstring,
             "Term %d (point) does not satisfy the objective cut. Activity: %.8f. RHS: %.8f. Small enough violation that we only send a warning.\n",
-            term_ind, activity, beta);
+            term_ind, activity, beta); }
       }
     }
   }
@@ -1426,9 +1426,9 @@ void CglVPC::genDepth1PRCollection(const OsiSolverInterface* const vpcsolver,
         writeErrorToLog(errorstring, params.logfile);
         exit(1);
       } else {
-        warning_msg(warnstring,
+        if (params.get(intParam::VERBOSITY) > 0) { warning_msg(warnstring,
             "Term %d ray %d does not satisfy the objective cut. Activity: %.8f. RHS: %.8f. Small enough violation that we only send a warning.\n",
-            term_ind, ray_ind, calcRedCost, 0.);
+            term_ind, ray_ind, calcRedCost, 0.); }
       }
     }
     prlpData.addConstraint(currRayNB, 0.0, term_ind, curr_nb_obj_val);

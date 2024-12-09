@@ -180,9 +180,9 @@ void setCompNBCoorPoint(CoinPackedVector& vec, double& objViolation,
       exit(1);
     } else {
       // if (params.get(intParam::VERBOSITY) >= 1) {
-        warning_msg(warnstring,
+        if (params.get(intParam::VERBOSITY) > 0) { warning_msg(warnstring,
             "Point: Calculated dot product with obj differs from solver's. Obj viol from solver: %.8f. Calculated: %.8f. Difference: %e. Ratio: %e.\n",
-            objViolation, nonTinyObj, std::abs(violation), ratio);
+            objViolation, nonTinyObj, std::abs(violation), ratio); }
       // }
     }
   }
@@ -385,9 +385,9 @@ void setCompNBCoorRay(CoinPackedVector& vec, const double* ray, double& objViola
       exit(1);
     } else {
       // if (params.get(intParam::VERBOSITY) >= 1) {
-        warning_msg(warnstring,
+        if (params.get(intParam::VERBOSITY) > 0) { warning_msg(warnstring,
             "Ray %d: dot product with obj < 0. Obj viol from solver: %.8f. Calculated: %.8f.\n",
-            tmpNBVar, objViolation, nonTinyObj);
+            tmpNBVar, objViolation, nonTinyObj); }
       // }
     }
   }
@@ -401,9 +401,9 @@ void setCompNBCoorRay(CoinPackedVector& vec, const double* ray, double& objViola
       exit(1);
     } else {
       // if (params.get(intParam::VERBOSITY) >= 1) {
-        warning_msg(warnstring,
+        if (params.get(intParam::VERBOSITY) > 0) { warning_msg(warnstring,
             "Ray %d: Calculated dot product with obj differs from solver's. Obj viol from solver: %.8f. Calculated: %.8f.\n",
-            tmpNBVar, objViolation, nonTinyObj);
+            tmpNBVar, objViolation, nonTinyObj); }
       // }
     }
   }
@@ -581,9 +581,9 @@ void setCompNBCoor(
       writeErrorToLog(errorstring, params.logfile);
       exit(1);
     } else {
-      warning_msg(warnstring,
+      if (params.get(intParam::VERBOSITY) > 0) { warning_msg(warnstring,
           "Calculated dot product with obj differs from solver's. Obj viol from solver: %.8f. Calculated: %.8f.\n",
-          objViolation, nonTinyObj);
+          objViolation, nonTinyObj); }
     }
   }
 } /* setCompNBCoor (generic) */

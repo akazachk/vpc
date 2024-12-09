@@ -154,8 +154,16 @@ const std::string CPLEX_VERSION_STRING = std::to_string(CPX_VERSION_VERSION) + "
  */
 #include <csignal>
 void signal_handler_with_error_msg(int signal_number) {
-  error_msg(errorstring, "Abort or seg fault message received. Signal number: %d.\n", signal_number);
-  writeErrorToLog(errorstring, params.logfile);
+  std::string time_name = OverallTimeStatsName[OverallTimeStats::TOTAL_TIME];
+  const int time_id = timer.get_id(time_name);
+  if (time_id >= 0) {
+    const double elapsed_time = timer.get_total_time(time_id);
+    error_msg(errorstring, "Abort or seg fault message received. Signal number: %d. Elapsed time: %1.2f.\n", signal_number, elapsed_time);
+    writeErrorToLog(errorstring, params.logfile);
+  } else {
+    error_msg(errorstring, "Abort or seg fault message received. Signal number: %d.\n", signal_number);
+    writeErrorToLog(errorstring, params.logfile);
+  }
   exit(1);
 } /* signal_handler_with_error_msg */
 

@@ -1806,11 +1806,11 @@ int PRLP::iterateDeepestCutPostGomory(OsiCuts & cuts,
               PRLPPrimalRay = this->getPrimalRays(1);
             }
             if (!this->isProvenDualInfeasible() || !PRLPPrimalRay[0]) {
-              warning_msg(warnstring,
+              if (owner->params.get(intParam::VERBOSITY) > 0) { warning_msg(warnstring,
                   "Cut %d, iter %d: "
                   "Issues obtaining ray when PRLP is unbounded when trying to find deepest post-Gomory cut. "
                   "Abandoning this function.\n",
-                  j, i);
+                  j, i); }
               // Free memory
               if (PRLPPrimalRay.size() > 0 && PRLPPrimalRay[0]) {
                 delete[] PRLPPrimalRay[0];
@@ -1876,10 +1876,10 @@ int PRLP::iterateDeepestCutPostGomory(OsiCuts & cuts,
           checkSolverOptimality(PostGomorySolver, false, timeLimit);
 
           if (!PostGomorySolver->isProvenDualInfeasible()) {
-            warning_msg(warnstring,
+            if (owner->params.get(intParam::VERBOSITY) > 0) { warning_msg(warnstring,
                 "Cut %d, iter %d: Scaling issues when trying to find deepest post-Gomory cut. "
                 "Abandoning this function.\n",
-                j, i);
+                j, i); }
             return exitFromIterateDeepestCutPostGomory(num_cuts_gen, PostGomorySolver);
           }
         }
@@ -1912,11 +1912,11 @@ int PRLP::iterateDeepestCutPostGomory(OsiCuts & cuts,
             }
             if (!PostGomorySolver->isProvenDualInfeasible()
                 || !PostGomorySolverPrimalRay[0]) {
-              warning_msg(warnstring,
+              if (owner->params.get(intParam::VERBOSITY) > 0) { warning_msg(warnstring,
                   "Cut %d, iter %d: "
                   "Issues obtaining ray when PostGomorySolver is unbounded while getting deepest post-Gomory cut. "
                   "Abandoning this function.\n",
-                  j, i);
+                  j, i); }
               // Free memory
               if (PostGomorySolverPrimalRay.size() > 0 && PostGomorySolverPrimalRay[0]) {
                 delete[] PostGomorySolverPrimalRay[0];
@@ -1955,10 +1955,10 @@ int PRLP::iterateDeepestCutPostGomory(OsiCuts & cuts,
       // Resolve PRLP without generating a cut
       setObjectiveFromStructuralPoint(prevSolution.data(), NULL, origSolver, inNBSpace);
       if (resolvePRLP() < 0) {
-        warning_msg(warnstring,
+        if (owner->params.get(intParam::VERBOSITY) > 0) { warning_msg(warnstring,
             "Cut %d, iter %d: Issues resolving PRLP when finding deepest post-Gomory cut. "
             "Abandoning this function.\n",
-            j, i);
+            j, i); }
         return exitFromIterateDeepestCutPostGomory(num_cuts_gen,
             PostGomorySolver);
       }
