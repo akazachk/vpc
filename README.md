@@ -1,6 +1,8 @@
 # V-Polyhedral Disjunctive Cuts
 #### [Aleksandr M. Kazachkov](https://akazachk.github.io)
-#### Based on joint work with Egon Balas
+#### Based on joint work with Egon Bala
+
+[![DOI](https://zenodo.org/badge/167045317.svg)](https://doi.org/10.5281/zenodo.14340371)
 
 This project contains the code for one implementation of the *V-polyhedral disjunctive cut paradigm*. Some more details can be found in Chapter 4 of my [dissertation](https://akazachk.github.io/pubs/dissertation.pdf), [talk slides from the INFORMS Annual Meeting in 2018](https://akazachk.github.io/pubs/INFORMS2018.pdf), [poster at NemFest 2017](https://akazachk.github.io/pubs/Nemfest2017.pdf), or video at a [2021 GERAD seminar](https://youtu.be/TyWemNwPGq0?t=4).
 
