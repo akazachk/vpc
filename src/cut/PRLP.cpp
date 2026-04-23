@@ -347,9 +347,13 @@ CglVPC::ExitReason PRLP::setup(const double scale) {
   if (numPoints < 0 || numRays < 0) {
     return CglVPC::ExitReason::SUCCESS_EXIT;
   }
-  this->density =
-    (double) this->getMatrixByCol()->getNumElements()
-    / (this->getNumRows() * this->getNumCols());
+  if (this->getNumRows() == 0 || this->getNumCols() == 0) {
+    this->density = 0.0;
+  } else {
+    this->density =
+      (double) this->getMatrixByCol()->getNumElements()
+      / (this->getNumRows() * this->getNumCols());
+  }
 
   const double max_time = CoinMin(owner->params.get(doubleParam::TIMELIMIT), CoinMax(60., 10 * owner->params.get(doubleParam::PRLP_TIMELIMIT)));
   setLPSolverParameters(this, owner->params.get(intParam::VERBOSITY), max_time);

@@ -119,6 +119,12 @@ void finalizeStats(StatVector& stats, const int size) {
   const int stddev_ind = static_cast<int>(Stat::stddev);
   const double divisor = (size > 0) ? static_cast<double>(size) : (size == 0 ? 1. : stats[static_cast<int>(Stat::num)]);
 
+  if (isZero(divisor)) {
+    stats[avg_ind] = 0.;
+    stats[stddev_ind] = 0.;
+    return;
+  }
+
   stats[avg_ind] = stats[static_cast<int>(Stat::total)] / divisor;
   stats[stddev_ind] = (stats[stddev_ind]) / divisor - stats[avg_ind] * stats[avg_ind];
   stats[stddev_ind] = (stats[stddev_ind] > 0) ? std::sqrt(stats[stddev_ind]) : 0.;
