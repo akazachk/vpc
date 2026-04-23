@@ -127,7 +127,7 @@ ifeq ($(USER),akazachk)
     CPLEX_DIR = ${CPLEX_HOME}
   endif
   ifeq ($(UNAME),Darwin)
-    GUROBI_LINK = gurobi91
+    GUROBI_LINK = gurobi130
     GUROBI_DIR = ${GUROBI_HOME}
     CPLEX_DIR = ${CPLEX_HOME}
   endif

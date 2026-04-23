@@ -1,6 +1,6 @@
 # V-Polyhedral Disjunctive Cuts
 #### [Aleksandr M. Kazachkov](https://akazachk.github.io)
-#### Based on joint work with Egon Bala
+#### Based on joint work with Egon Balas
 
 [![DOI](https://zenodo.org/badge/167045317.svg)](https://doi.org/10.5281/zenodo.14340371)
 
@@ -118,6 +118,40 @@ There are many things left to be implemented in the future:
 3. Dynamic disjunctions, in which cutting and branching are alternated.
 4. Strengthening cuts -- see the related [MIP 2021 talk](https://www.youtube.com/watch?v=axqaOED4CXQ).
 5. Reduced dependence on Cbc; e.g., introduce compatibility with [HiGHS](https://highs.dev) and/or [SCIP](https://scipopt.org).
+
+### How to cite
+
+To cite the contents of this repository, please cite both the paper and this repo, using their respective DOIs.
+
+Below is a BibTex entry for citing the paper.
+
+```
+@article{BalKaz26_vpc-mpa,
+    author    = {Balas, Egon and Kazachkov, Aleksandr M.},
+    title     = {{$\mathcal{V}$}-Polyhedral Disjunctive Cuts},
+    journal   = {Math. Program.},
+    fjournal  = {Mathematical Programming},
+    volume    = {215},
+    number    = {1-2},
+    pages     = {507--537},
+    month     = 1,
+    year      = {2026},
+    doi       = {10.1007/s10107-025-02227-y},
+    url       = {https://doi.org/10.1007/s10107-025-02227-y},
+}
+```
+
+Below is a BibTex entry for citing the latest release of the code.
+
+```
+@misc{BalKaz26_vpc-github,
+  author    = {Balas, Egon and Kazachkov, Aleksandr M.},
+  title     = {Code for ``{$\mathcal{V}$}-Polyhedral Disjunctive Cuts''},
+  year      = {2024},
+  doi       = {10.5281/zenodo.14340371},
+  url       = {https://github.com/akazachk/vpc},
+}
+```
 
 ## Contact Information
 [Aleksandr M. Kazachkov](https://akazachk.github.io),
