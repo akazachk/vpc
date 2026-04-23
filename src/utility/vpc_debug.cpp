@@ -194,11 +194,15 @@ std::string generateTreePlotString(
   if (saveToFile) {
     std::string filename = params.get(stringParam::FILENAME) + "-Tree.aleks";
     FILE* myfile = fopen(filename.c_str(), "a");
-    fprintf(myfile, "%s%s%s\n", prepend.c_str(), str.c_str(), append.c_str());
-    printNodeStatistics(stats, false, myfile);
-    printNodeStatistics(pruned_stats, false, myfile);
-    fprintf(myfile, "\n");
-    fclose(myfile);
+    if (myfile == NULL) {
+      error_msg(errorstring, "Could not open file \"%s\" for appending.\n", filename.c_str());
+    } else {
+      fprintf(myfile, "%s%s%s\n", prepend.c_str(), str.c_str(), append.c_str());
+      printNodeStatistics(stats, false, myfile);
+      printNodeStatistics(pruned_stats, false, myfile);
+      fprintf(myfile, "\n");
+      fclose(myfile);
+    }
   }
 
   return prepend + str + append;
