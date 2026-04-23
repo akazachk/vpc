@@ -45,7 +45,7 @@ std::vector<DenseCut> convertCutsToDenseCuts(const OsiCuts* const cuts, const in
     cuts_out[cut_ind].coeff.resize(n, 0.0);
     for (int i = 0; i < num_elem; i++) {
       const int curr_ind = ind[i];
-      const int curr_val = coeff[i];
+      const double curr_val = coeff[i];
       cuts_out[cut_ind].coeff[curr_ind] = curr_val;
     }
     cuts_out[cut_ind].rhs = cut->rhs();
@@ -109,9 +109,13 @@ void VPCSolverInterface::flipObj(const int sense) {
 } /* setObjSense */
 
 void VPCSolverInterface::setDisjunction(const Disjunction *const disj) {
-  if (disj)
-    delete disj;
-  this->disj = disj->clone();
+  if (this->disj) {
+    delete this->disj;
+    this->disj = NULL;
+  }
+  if (disj) {
+    this->disj = disj->clone();
+  }
 } /* setDisjunction */
 
 void VPCSolverInterface::load(std::string filename) {
@@ -315,7 +319,7 @@ void VPCSolverInterface::initialize(const VPCSolverInterface *const source,
 #else
     fprintf(stderr, "No solver defined.\n");
 #endif
-    disj = source->disj->clone();
+    disj = (source->disj) ? source->disj->clone() : NULL;
     setParams(source->params);
   } else {
 #ifdef USE_COIN
