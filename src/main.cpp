@@ -33,6 +33,7 @@
 #include "DisjunctionHelper.hpp" // for custom disjunctions
 #include "main_input.hpp"
 #include "main_reporting.hpp"
+#include "main_startup.hpp"
 #include "preprocess.hpp" // performCleaning
 #include "SolverHelper.hpp" // initializeSolver
 #include "SolverInterface.hpp"
@@ -903,155 +904,24 @@ int main(int argc, char** argv) {
  * Call this early to print welcome message, etc.
  */
 int startUp(int argc, char** argv) {
-  int status = 0;
-  exitReason = CglVPC::ExitReason::UNKNOWN;
-
-  // Input handling
-  printf("## V-Polyhedral Disjunctive Cuts ##\n");
-  printf("# Aleksandr M. Kazachkov\n");
-  printf("# Based on joint work with Egon Balas\n");
-  for (int i = 0; i < argc; i++) {
-    std::cout << argv[i] << " ";
-  }
-  std::cout << std::endl;
-
-  time(&start_time_t);
-  struct tm* start_timeinfo = localtime(&start_time_t);
-  snprintf(start_time_string, sizeof(start_time_string) / sizeof(char), "%s", asctime(start_timeinfo));
-  printf("Start time: %s\n", start_time_string);
-
-  // Get host name
-  {
-    const int status = gethostname(hostname, HOST_NAME_MAX);
-    if (status)
-    {
-      perror("gethostname");
-      return EXIT_FAILURE;
-    }
-  }
-
-  // Get CPU model
-  {
-#ifdef __linux__
-    // File stream to read /proc/cpuinfo
-    std::ifstream cpuInfoFile("/proc/cpuinfo");
-
-    if (!cpuInfoFile.is_open()) {
-      std::cerr << "Error opening /proc/cpuinfo" << std::endl;
-    }
-
-    // Iterate through each line in /proc/cpuinfo
-    std::string line;
-    while (std::getline(cpuInfoFile, line)) {
-      // Search for the "model name" field
-      size_t pos = line.find("model name");
-      if (pos != std::string::npos) {
-        // Extract the CPU model information
-        cpu_model = line.substr(pos + 13); // 13 is the length of "model name    : "
-        break;
-      }
-    }
-
-    // Close the file
-    cpuInfoFile.close();
-#else
-    cpu_model = "";
-#endif
-  }
-
-  // Get CPU id
-  {
-#ifdef __linux__
-    cpu_id = sched_getcpu();
-#else
-    cpu_id = -1;
-#endif
-  }
-  
-
-  /*
-  printf("\n## Version Information ##\n");
-#ifdef VPC_VERSION
-  printf("# VPC Version %s\n", VPC_VERSION_STRING.substr(0,8).c_str());
-#endif
-#ifdef VPC_CBC_VERSION
-  printf("# Cbc Version %s\n", CBC_VERSION_STRING.substr(0,8).c_str());
-#endif
-#ifdef VPC_CLP_VERSION
-  printf("# Clp Version %s\n", CLP_VERSION_STRING.substr(0,8).c_str());
-#endif
-#ifdef USE_GUROBI
-  printf("# Gurobi Version %s\n", GUROBI_VERSION_STRING.c_str());
-#endif
-#ifdef USE_CPLEX
-  printf("# CPLEX Version %s\n", CPLEX_VERSION_STRING.c_str());
-#endif
-  printf("\n");
-  */
-
-  status = processArgs(argc, argv);
-  if (status) { return status; }
-
-  // Get instance file
-  if (params.get(stringParam::FILENAME).empty()) {
-    error_msg(errorstring,
-        "No instance file provided. Use -f /path/to/instance.mps to specify the instance.\n");
-    exit(1);
-  }
-  printf("Instance file: %s\n", params.get(stringParam::FILENAME).c_str());
-  
-  if (parseFilename(dir, instname, in_file_ext, params.get(stringParam::FILENAME), params.logfile) != 0) {
-    error_msg(errorstring,
-        "Unable to parse filename: %s. Found: dir=\"%s\", instname=\"%s\",ext=\"%s\".\n",
-        params.get(stringParam::FILENAME).c_str(), dir.c_str(),
-        instname.c_str(), in_file_ext.c_str());
-    exit(1);
-  }
-  filename_stub = dir + "/" + instname;
-
-  // Prepare logfile
-  const std::string logname = params.get(stringParam::LOGFILE);
-  bool logexists = false; 
-  if (!logname.empty()) {
-    logexists = fexists(logname.c_str());
-    params.logfile = fopen(logname.c_str(), "a");
-  }
-
-  // Read opt value (if not yet inputted)
-  if (!isInfinity(params.get(doubleParam::IP_OBJ))) {
-    boundInfo.ip_obj = params.get(doubleParam::IP_OBJ);
-  }
-  if (isInfinity(boundInfo.ip_obj) && !params.get(stringParam::OPTFILE).empty()) {
-    std::string optfile = params.get(stringParam::OPTFILE);
-    std::string csvext = ".csv";
-    if (optfile.size() > csvext.size() && optfile.compare(optfile.size()-csvext.size(), csvext.size(), csvext) == 0) {
-  #ifdef TRACE
-      fprintf(stdout, "Reading objective information from \"%s\".\n", optfile.c_str());
-  #endif
-      boundInfo.ip_obj = getObjValueFromFile(optfile, params.get(stringParam::FILENAME), params.logfile);
-      params.set(doubleParam::IP_OBJ, boundInfo.ip_obj);
-      fprintf(stdout, "Best known IP objective value is %s.\n", stringValue(boundInfo.ip_obj, "%f").c_str());
-      if (isInfinity(boundInfo.ip_obj)) {
-        warning_msg(warnstring, "Did not find objective value.\n");
-      }
-    }
-  }
-  if (params.logfile != NULL) {
-    if (!logexists) {
-      if (params.get(PREPROCESS) == 0) {
-        printHeader(params, OverallTimeStatsName);
-      } else {
-        printPreprocessingHeader(params);
-      }
-    }
-    fprintf(params.logfile, "%s,", instname.c_str());
-    if (params.get(PREPROCESS) == 0) {
-      printParams(params, params.logfile, 8); // only values
-    }
-    fflush(params.logfile);
-  }
-
-  return status;
+  return main_startup::startUp(
+      argc,
+      argv,
+      params,
+      exitReason,
+      boundInfo,
+      start_time_t,
+      start_time_string,
+      sizeof(start_time_string),
+      hostname,
+      HOST_NAME_MAX,
+      cpu_model,
+      cpu_id,
+      dir,
+      filename_stub,
+      instname,
+      in_file_ext,
+      OverallTimeStatsName);
 } /* startUp */
 
 /**
