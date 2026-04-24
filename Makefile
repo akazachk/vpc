@@ -163,6 +163,7 @@ SOURCES = \
     utility/preprocess.cpp \
     utility/SolverHelper.cpp \
 		utility/main_input.cpp \
+		utility/main_round_actions.cpp \
 		utility/main_reporting.cpp \
 		utility/main_startup.cpp \
 		utility/utility.cpp \

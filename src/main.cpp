@@ -32,6 +32,7 @@
 #include "Disjunction.hpp" // needed to access disjunction properties
 #include "DisjunctionHelper.hpp" // for custom disjunctions
 #include "main_input.hpp"
+#include "main_round_actions.hpp"
 #include "main_reporting.hpp"
 #include "main_startup.hpp"
 #include "preprocess.hpp" // performCleaning
@@ -1018,90 +1019,55 @@ int wrapUp(int retCode, int argc, char** argv) {
 } /* wrapUp */
 
 void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_disj) {
-  printf("\n## Setting up disjunction(s) ##\n");
+  const std::string vpc_version_string;
+  const std::string cbc_version_string;
+  const std::string clp_version_string;
+  const std::string gurobi_version_string;
+  const std::string cplex_version_string;
 
-  gen.timer.start_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
-  DisjunctionSet* disjSet = new DisjunctionSet();
-  CglVPC::ExitReason setDisjExitReason = setDisjunctions(disjSet, solver, params, VPCParametersNamespace::VPCMode::SPLITS);
-  gen.timer.end_timer(CglVPC::VPCTimeStatsName[static_cast<int>(CglVPC::VPCTimeStats::DISJ_GEN_TIME)]);
-  
-  const int numDisj = disjSet->size();
+  MainAppState state {
+      params,
+      timer,
+      OverallTimeStatsName,
+      exitReason,
+      boundInfo,
+      info_nocuts,
+      info_mycuts,
+      cutInfoGMICs,
+      cutInfo,
+      disjInfo,
+      start_time_t,
+      start_time_string,
+      sizeof(start_time_string),
+      hostname,
+      HOST_NAME_MAX,
+      cpu_model,
+      cpu_id,
+      dir,
+      filename_stub,
+      instname,
+      in_file_ext,
+      cut_output,
+      bb_output,
+      solver,
+      origSolver,
+      GMICSolver,
+      VPCSolver,
+      allCutsSolver,
+      vpc_version_string,
+      cbc_version_string,
+      clp_version_string,
+      gurobi_version_string,
+      cplex_version_string
+  };
 
-  // If integer-optimal solution was found, all disjunctions but one will have been deleted
-  if (setDisjExitReason == CglVPC::ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT) {
-    warning_msg(warnstr,
-        "An integer (optimal) solution was found prior while getting disjunction. "
-        "We will generate between n and 2n cuts, restricting the value of each variable.\n");
-    const double* solution = disjSet->integer_sol.data();
-    if (!solution) {
-      error_msg(errorstring,
-          "Though status is that optimal integer solution found, unable to find this solution.\n");
-      writeErrorToLog(errorstring, params.logfile);
-      exit(1);
-    }
-    for (int col = 0; col < solver->getNumCols(); col++) {
-      const double val = solution[col];
-
-      // Check which of the bounds needs to be fixed
-      for (int b = 0; b < 2; b++) {
-        if ((b == 0 && greaterThanVal(val, solver->getColLower()[col]))
-            || (b == 1 && lessThanVal(val, solver->getColUpper()[col]))) {
-          const double mult = (b == 0) ? 1. : -1.;
-          const double el = mult * 1.;
-
-          OsiRowCut currCut;
-          currCut.setLb(mult * val);
-          currCut.setRow(1, &col, &el, false);
-          gen.addCut(currCut, vpcs,
-              CglVPC::CutType::OPTIMALITY_CUT,
-              CglVPC::ObjectiveType::ONE_SIDED,
-              0);
-        }
-      }
-    } // iterate over columns and add optimality cut if needed
-    exitReason = CglVPC::ExitReason::OPTIMAL_SOLUTION_FOUND_EXIT;
-    boundInfo.num_vpc += gen.num_cuts;
-    updateCutInfo(cutInfoVec[round_ind], gen, &vpcs, params.get(EPS) / 2.);
-  } // check if integer-optimal solution
-  else if (setDisjExitReason == CglVPC::ExitReason::SUCCESS_EXIT && numDisj > 0) {
-    const int cutLimit = std::ceil(
-        gen.getCutLimit(params.get(CUTLIMIT),
-            solver->getFractionalIndices().size()) / numDisj); // distribute cut limit over the disjunctions
-    gen.setupRepeatedUse(true);
-    for (Disjunction* disj : disjSet->disjunctions) {
-      if (!disj)
-        continue;
-#ifdef TRACE
-      printf("\n## Generating cuts from disj %s ##\n", disj->name.c_str());
-#endif
-      num_disj++;
-      gen.params.set(CUTLIMIT, cutLimit);
-      gen.setDisjunction(disj, false);
-      gen.generateCuts(*solver, vpcs); // solution may change slightly due to enable factorization called in getProblemData...
-      exitReason = gen.exitReason;
-      boundInfo.num_vpc += gen.num_cuts;
-      if (boundInfo.best_disj_obj < gen.disj()->best_obj)
-        boundInfo.best_disj_obj = gen.disj()->best_obj;
-      if (boundInfo.worst_disj_obj < gen.disj()->worst_obj)
-        boundInfo.worst_disj_obj = gen.disj()->worst_obj;
-      updateDisjInfo(disjInfo, num_disj, gen);
-      updateCutInfo(cutInfoVec[round_ind], gen, &vpcs, params.get(EPS) / 2.);
-    }
-    gen.setupRepeatedUse(false);
-  }  // if successful generation of disjunction, generate cuts
-  else if (setDisjExitReason == CglVPC::ExitReason::NO_DISJUNCTION_EXIT) {
-    // Do nothing
-    exitReason = CglVPC::ExitReason::NO_DISJUNCTION_EXIT;
-  }
-  else {
-    error_msg(errorstring, "Unknown exit reason (%s) from setDisjunctions.\n", CglVPC::ExitReasonName[static_cast<int>(setDisjExitReason)].c_str());
-    writeErrorToLog(errorstring, params.logfile);
-    exit(1);
-  }
-
-  if (disjSet) {
-    delete disjSet;
-  }
+  main_round_actions::doCustomRoundOfCuts(
+      round_ind,
+      vpcs,
+      gen,
+      num_disj,
+      state,
+      cutInfoVec);
 } /* doCustomRoundOfCuts */
 
 /**
