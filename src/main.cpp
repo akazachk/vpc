@@ -904,12 +904,23 @@ int main(int argc, char** argv) {
  * Call this early to print welcome message, etc.
  */
 int startUp(int argc, char** argv) {
-  return main_startup::startUp(
-      argc,
-      argv,
+  const std::string vpc_version_string;
+  const std::string cbc_version_string;
+  const std::string clp_version_string;
+  const std::string gurobi_version_string;
+  const std::string cplex_version_string;
+
+  MainAppState state {
       params,
+      timer,
+      OverallTimeStatsName,
       exitReason,
       boundInfo,
+      info_nocuts,
+      info_mycuts,
+      cutInfoGMICs,
+      cutInfo,
+      disjInfo,
       start_time_t,
       start_time_string,
       sizeof(start_time_string),
@@ -921,7 +932,24 @@ int startUp(int argc, char** argv) {
       filename_stub,
       instname,
       in_file_ext,
-      OverallTimeStatsName);
+      cut_output,
+      bb_output,
+      solver,
+      origSolver,
+      GMICSolver,
+      VPCSolver,
+      allCutsSolver,
+      vpc_version_string,
+      cbc_version_string,
+      clp_version_string,
+      gurobi_version_string,
+      cplex_version_string
+  };
+
+  return main_startup::startUp(
+      argc,
+      argv,
+      state);
 } /* startUp */
 
 /**
@@ -949,17 +977,44 @@ int wrapUp(int retCode, int argc, char** argv) {
   cplex_version_string = CPLEX_VERSION_STRING;
 #endif
 
+  MainAppState state {
+      params,
+      timer,
+      OverallTimeStatsName,
+      exitReason,
+      boundInfo,
+      info_nocuts,
+      info_mycuts,
+      cutInfoGMICs,
+      cutInfo,
+      disjInfo,
+      start_time_t,
+      start_time_string,
+      sizeof(start_time_string),
+      hostname,
+      HOST_NAME_MAX,
+      cpu_model,
+      cpu_id,
+      dir,
+      filename_stub,
+      instname,
+      in_file_ext,
+      cut_output,
+      bb_output,
+      solver,
+      origSolver,
+      GMICSolver,
+      VPCSolver,
+      allCutsSolver,
+      vpc_version_string,
+      cbc_version_string,
+      clp_version_string,
+      gurobi_version_string,
+      cplex_version_string
+  };
+
   return main_reporting::wrapUp(
-      retCode, argc, argv,
-      params, timer, OverallTimeStatsName, exitReason,
-      start_time_t, start_time_string,
-      hostname, cpu_model, cpu_id,
-      instname, cut_output, bb_output,
-      boundInfo, info_nocuts, info_mycuts,
-      cutInfoGMICs, cutInfo, disjInfo,
-      solver, origSolver, GMICSolver, VPCSolver, allCutsSolver,
-      vpc_version_string, cbc_version_string, clp_version_string,
-      gurobi_version_string, cplex_version_string);
+      retCode, argc, argv, state);
 } /* wrapUp */
 
 void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_disj) {
