@@ -4,6 +4,7 @@
 #include <cstdlib>
 
 #include "CutHelper.hpp"
+#include "Disjunction.hpp"
 #include "DisjunctionHelper.hpp"
 #include "utility.hpp"
 
