@@ -31,8 +31,6 @@
 #include "CutHelper.hpp"
 #include "Disjunction.hpp" // needed to access disjunction properties
 #include "DisjunctionHelper.hpp" // for custom disjunctions
-#include "main_input.hpp"
-#include "main_round_actions.hpp"
 #include "main_round_orchestrator.hpp"
 #include "main_reporting.hpp"
 #include "main_startup.hpp"
@@ -173,9 +171,60 @@ void signal_handler_with_error_msg(int signal_number) {
 } /* signal_handler_with_error_msg */
 
 int startUp(int argc, char** argv);
-int processArgs(int argc, char** argv);
-void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_disj);
 int wrapUp(int retCode, int argc, char** argv);
+
+MainAppState makeMainAppState(
+    const std::string& vpc_version_string,
+    const std::string& cbc_version_string,
+    const std::string& clp_version_string,
+    const std::string& gurobi_version_string,
+    const std::string& cplex_version_string) {
+  return MainAppState {
+      params,
+      timer,
+      OverallTimeStatsName,
+      exitReason,
+      boundInfo,
+      info_nocuts,
+      info_mycuts,
+      cutInfoGMICs,
+      cutInfo,
+      disjInfo,
+      start_time_t,
+      start_time_string,
+      sizeof(start_time_string),
+      hostname,
+      HOST_NAME_MAX,
+      cpu_model,
+      cpu_id,
+      dir,
+      filename_stub,
+      instname,
+      in_file_ext,
+      cut_output,
+      bb_output,
+      solver,
+      origSolver,
+      GMICSolver,
+      VPCSolver,
+      allCutsSolver,
+      vpc_version_string,
+      cbc_version_string,
+      clp_version_string,
+      gurobi_version_string,
+      cplex_version_string
+  };
+}
+
+MainAppState makeMainAppState() {
+  static const std::string empty_string;
+  return makeMainAppState(
+      empty_string,
+      empty_string,
+      empty_string,
+      empty_string,
+      empty_string);
+}
 
 /****************** MAIN FUNCTION **********************/
 int main(int argc, char** argv) {
@@ -464,47 +513,7 @@ int main(int argc, char** argv) {
 
   //====================================================================================================//
   // Now do rounds of cuts, until a limit is reached (e.g., time, number failures, number cuts, or all rounds are exhausted)
-  std::string vpc_version_string_loop;
-  std::string cbc_version_string_loop;
-  std::string clp_version_string_loop;
-  std::string gurobi_version_string_loop;
-  std::string cplex_version_string_loop;
-
-  MainAppState loopState {
-      params,
-      timer,
-      OverallTimeStatsName,
-      exitReason,
-      boundInfo,
-      info_nocuts,
-      info_mycuts,
-      cutInfoGMICs,
-      cutInfo,
-      disjInfo,
-      start_time_t,
-      start_time_string,
-      sizeof(start_time_string),
-      hostname,
-      HOST_NAME_MAX,
-      cpu_model,
-      cpu_id,
-      dir,
-      filename_stub,
-      instname,
-      in_file_ext,
-      cut_output,
-      bb_output,
-      solver,
-      origSolver,
-      GMICSolver,
-      VPCSolver,
-      allCutsSolver,
-      vpc_version_string_loop,
-      cbc_version_string_loop,
-      clp_version_string_loop,
-      gurobi_version_string_loop,
-      cplex_version_string_loop
-  };
+  MainAppState loopState = makeMainAppState();
 
   num_rounds = main_round_orchestrator::runCutRounds(
       num_rounds,
@@ -590,47 +599,7 @@ int main(int argc, char** argv) {
  * Call this early to print welcome message, etc.
  */
 int startUp(int argc, char** argv) {
-  const std::string vpc_version_string;
-  const std::string cbc_version_string;
-  const std::string clp_version_string;
-  const std::string gurobi_version_string;
-  const std::string cplex_version_string;
-
-  MainAppState state {
-      params,
-      timer,
-      OverallTimeStatsName,
-      exitReason,
-      boundInfo,
-      info_nocuts,
-      info_mycuts,
-      cutInfoGMICs,
-      cutInfo,
-      disjInfo,
-      start_time_t,
-      start_time_string,
-      sizeof(start_time_string),
-      hostname,
-      HOST_NAME_MAX,
-      cpu_model,
-      cpu_id,
-      dir,
-      filename_stub,
-      instname,
-      in_file_ext,
-      cut_output,
-      bb_output,
-      solver,
-      origSolver,
-      GMICSolver,
-      VPCSolver,
-      allCutsSolver,
-      vpc_version_string,
-      cbc_version_string,
-      clp_version_string,
-      gurobi_version_string,
-      cplex_version_string
-  };
+  MainAppState state = makeMainAppState();
 
   return main_startup::startUp(
       argc,
@@ -663,101 +632,14 @@ int wrapUp(int retCode, int argc, char** argv) {
   cplex_version_string = CPLEX_VERSION_STRING;
 #endif
 
-  MainAppState state {
-      params,
-      timer,
-      OverallTimeStatsName,
-      exitReason,
-      boundInfo,
-      info_nocuts,
-      info_mycuts,
-      cutInfoGMICs,
-      cutInfo,
-      disjInfo,
-      start_time_t,
-      start_time_string,
-      sizeof(start_time_string),
-      hostname,
-      HOST_NAME_MAX,
-      cpu_model,
-      cpu_id,
-      dir,
-      filename_stub,
-      instname,
-      in_file_ext,
-      cut_output,
-      bb_output,
-      solver,
-      origSolver,
-      GMICSolver,
-      VPCSolver,
-      allCutsSolver,
+    MainAppState state = makeMainAppState(
       vpc_version_string,
       cbc_version_string,
       clp_version_string,
       gurobi_version_string,
-      cplex_version_string
-  };
+      cplex_version_string);
 
   return main_reporting::wrapUp(
       retCode, argc, argv, state);
 } /* wrapUp */
 
-void doCustomRoundOfCuts(int round_ind, OsiCuts& vpcs, CglVPC& gen, int& num_disj) {
-  const std::string vpc_version_string;
-  const std::string cbc_version_string;
-  const std::string clp_version_string;
-  const std::string gurobi_version_string;
-  const std::string cplex_version_string;
-
-  MainAppState state {
-      params,
-      timer,
-      OverallTimeStatsName,
-      exitReason,
-      boundInfo,
-      info_nocuts,
-      info_mycuts,
-      cutInfoGMICs,
-      cutInfo,
-      disjInfo,
-      start_time_t,
-      start_time_string,
-      sizeof(start_time_string),
-      hostname,
-      HOST_NAME_MAX,
-      cpu_model,
-      cpu_id,
-      dir,
-      filename_stub,
-      instname,
-      in_file_ext,
-      cut_output,
-      bb_output,
-      solver,
-      origSolver,
-      GMICSolver,
-      VPCSolver,
-      allCutsSolver,
-      vpc_version_string,
-      cbc_version_string,
-      clp_version_string,
-      gurobi_version_string,
-      cplex_version_string
-  };
-
-  main_round_actions::doCustomRoundOfCuts(
-      round_ind,
-      vpcs,
-      gen,
-      num_disj,
-      state,
-      cutInfoVec);
-} /* doCustomRoundOfCuts */
-
-/**
- * See params.hpp for descriptions of the parameters
- */
-int processArgs(int argc, char** argv) {
-  return main_input::processArgs(argc, argv, params);
-} /* processArgs */
