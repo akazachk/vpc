@@ -162,6 +162,8 @@ SOURCES = \
     utility/OsiProblemData.cpp \
     utility/preprocess.cpp \
     utility/SolverHelper.cpp \
+		utility/main_input.cpp \
+		utility/main_reporting.cpp \
 		utility/utility.cpp \
 		utility/VPCSolverInterface.cpp \
 		branch/VPCEventHandler.cpp \
